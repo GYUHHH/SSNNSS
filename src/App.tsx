@@ -41,7 +41,7 @@ function Interface() {
 
   const artOpen = (!!selectedItem && !!artworkKindOf(selectedItem.type)) || bookshelfOpen || !!openBookId
   return <main className={artOpen ? 'app art-open' : 'app'}>
-    <div className="scene"><Room /></div>
+    <div className="scene" onContextMenu={(event) => event.preventDefault()}><Room /></div>
     <aside className="room-ui">
       {mode === 'edit' ? <span className="edit-mode-label">꾸미기</span> : <><button className="all-room-button" type="button" onClick={clearSelection}>방 전체 보기</button><button className="all-room-button" type="button" onClick={() => { setInventoryOpen(true); toggleEditMode() }}>가구함</button></>}
       {item && <section className="object-card"><strong>{item.title}</strong><span>{selectedObject === 'clock' ? time : item.subtitle}</span>

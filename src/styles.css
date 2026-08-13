@@ -1,9 +1,14 @@
 :root { font-family: "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; color: #3d3530; background: #f4efe6; }
 * { box-sizing: border-box; }
+html, body, #root { width: 100%; height: 100%; }
 body { margin: 0; min-width: 720px; overflow: hidden; }
 button { font: inherit; }
-.app, .scene { width: 100vw; height: 100vh; }
-.scene canvas { display: block; }
+.app, .scene { width: 100vw; height: 100vh; height: 100dvh; }
+.scene, .scene canvas, .room-ui, .time-controls, .zoom-controls, .edit-toolbar, .inventory-panel, .storage-drop-zone { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.scene canvas { display: block; touch-action: none; }
+img { -webkit-user-drag: none; }
+button { touch-action: manipulation; }
+input, textarea, select, .entry-item p, .guest-note p { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 .room-ui { position: fixed; z-index: 2; top: 24px; right: 26px; display: grid; justify-items: end; gap: 10px; }
 .zoom-controls { position: fixed; z-index: 3; right: 26px; bottom: 24px; display: flex; border: 1px solid #9b8c7b; border-radius: 5px; overflow: hidden; background: #f9f5ec; }.zoom-controls button { width: 34px; height: 34px; border: 0; color: #433932; background: transparent; cursor: pointer; font-size: 21px; line-height: 1; }.zoom-controls button + button { border-left: 1px solid #9b8c7b; }
 .all-room-button, .object-card button { border: 1px solid #9b8c7b; border-radius: 5px; color: #433932; background: #f9f5ec; cursor: pointer; }
@@ -99,3 +104,41 @@ div.art-view { aspect-ratio: 3 / 4; }
 .guest-note time { color: #8a7a6a; font-size: 11px; }
 .guest-note header button { margin-left: auto; border: 0; background: none; color: #a49381; cursor: pointer; font-size: 13px; }
 .guest-note p { margin: 0; font-size: 13px; line-height: 1.6; text-align: left; white-space: pre-wrap; }
+
+@media (max-width: 719px), (max-height: 520px) and (pointer: coarse) {
+  body { min-width: 0; overscroll-behavior: none; }
+  .room-ui { top: calc(12px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right)); gap: 7px; }
+  .all-room-button { min-height: 40px; padding: 8px 10px; }
+  .object-card, .style-panel { min-width: 0; width: min(170px, calc(100vw - 24px)); padding: 10px; }
+  .time-controls { top: calc(12px + env(safe-area-inset-top)); left: calc(12px + env(safe-area-inset-left)); }
+  .time-controls button { min-width: 40px; min-height: 40px; padding: 6px 8px; }
+  .zoom-controls { right: calc(12px + env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .zoom-controls button { width: 44px; height: 44px; }
+
+  .art-open .scene { transform: none; }
+  .art-open .room-ui, .art-open .zoom-controls { right: calc(12px + env(safe-area-inset-right)); }
+  .art-panel { width: 100vw; padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left)); border-left: 0; overscroll-behavior: contain; touch-action: pan-y; }
+  .art-panel > header { position: sticky; z-index: 2; top: calc(-16px - env(safe-area-inset-top)); padding: 16px 0 10px; background: #fbf6ec; }
+  .art-view { max-height: calc(100dvh - 150px); object-fit: contain; }
+  .draw-dialog.inline canvas { max-height: calc(100dvh - 280px); }
+  .diary-head { flex-wrap: wrap; gap: 12px; padding: 0 4px 12px; }
+  .diary-head-actions { width: 100%; justify-content: space-between; }
+  .diary-head-actions button, .diary-head select { min-height: 40px; }
+  .diary-pages { grid-template-columns: 1fr; }
+  .diary-pages section { padding: 16px 4px; }
+  .left-page { border-right: 0; border-bottom: 1px solid #ddd1c1; }
+  .entry-form { padding: 18px 4px 0; }
+  .entry-form input, .entry-form select, .entry-form textarea, .guest-form input, .guest-form textarea { font-size: 16px; }
+
+  .edit-toolbar { left: 0; right: 0; bottom: 0; width: 100%; max-width: none; min-height: calc(58px + env(safe-area-inset-bottom)); padding: 7px 10px calc(7px + env(safe-area-inset-bottom)); overflow-x: auto; flex-wrap: nowrap; justify-content: flex-start; border-right: 0; border-bottom: 0; border-left: 0; border-radius: 0; transform: none; touch-action: pan-x; }
+  .edit-toolbar span, .edit-toolbar button { flex: 0 0 auto; }
+  .edit-toolbar button { min-height: 40px; }
+  .inventory-panel { right: 0; bottom: calc(58px + env(safe-area-inset-bottom)); width: 100%; height: min(55dvh, 500px); padding: 14px calc(14px + env(safe-area-inset-right)) 14px calc(14px + env(safe-area-inset-left)); border-right: 0; border-bottom: 0; border-left: 0; border-radius: 0; touch-action: pan-y; }
+  .inventory-panel header button, .inventory-panel footer button { min-height: 40px; }
+  .inventory-items button { min-height: 56px; }
+  .storage-drop-zone { bottom: calc(68px + env(safe-area-inset-bottom)); width: min(260px, calc(100vw - 32px)); height: 64px; }
+  .drag-thumbnail { transform: translate(-50%, calc(-100% - 18px)); }
+
+  .photo-editor { width: calc(100vw - 24px); max-height: calc(100dvh - 24px); overflow-y: auto; padding: 42px 14px 14px; }
+  .overlay { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+}
