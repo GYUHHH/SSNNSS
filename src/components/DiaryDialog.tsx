@@ -2,6 +2,7 @@ import { type ChangeEvent, type FormEvent, useRef, useState } from 'react'
 import { type Book, type Entry, type Visibility, useRoomStore } from '../store'
 
 const today = () => new Date().toISOString().slice(0, 10)
+const assetUrl = (source: string) => source.startsWith('/') ? `${import.meta.env.BASE_URL}${source.slice(1)}` : source
 
 export default function DiaryDialog() {
   const { books, openBookId, closeBook, addEntry, updateBookVisibility } = useRoomStore()
@@ -24,7 +25,7 @@ function EntryList({ entries }: { entries: Entry[] }) {
       {[...entries].reverse().map((entry) => <article key={entry.id} className="entry-item">
         <time>{entry.date}</time>
         <h3>{entry.title}</h3>
-        {entry.images[0] && <img src={entry.images[0]} alt="기록 사진" />}
+        {entry.images[0] && <img src={assetUrl(entry.images[0])} alt="기록 사진" />}
         {entry.content && <p>{entry.content}</p>}
         <small>{entry.visibility === 'public' ? '공개 기록' : '비공개 기록'}</small>
       </article>)}

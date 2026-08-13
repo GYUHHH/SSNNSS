@@ -7,7 +7,7 @@ const patterns: Record<string, Pattern> = {
   bright: { notes: [392, 440, 523.25, 587.33, 659.25, 587.33, 523.25, 440], tempo: 360, type: 'triangle', volume: 0.1 },
 }
 const files: Record<string, string> = {
-  lany: '/music/a-star-we-never-named.wav',
+  lany: `${import.meta.env.BASE_URL}music/a-star-we-never-named.wav`,
 }
 export const trackList = [
   { id: 'lany', label: 'A Star We Never Named' },
