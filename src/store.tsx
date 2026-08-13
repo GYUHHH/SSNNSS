@@ -353,7 +353,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   // one-time pull of the converted Instagram export (public/instagram/import.json) into the bookshelf
   useEffect(() => {
     try { if (localStorage.getItem('my-room-insta-imported-v1')) return } catch { return }
-    fetch(`${import.meta.env.BASE_URL}instagram/import.json`).then((response) => response.ok ? response.json() : null).then((book: Book | null) => {
+    const publicBase = location.hostname.endsWith('.github.io') ? `${import.meta.env.BASE_URL}public/` : import.meta.env.BASE_URL
+    fetch(`${publicBase}instagram/import.json`).then((response) => response.ok ? response.json() : null).then((book: Book | null) => {
       if (!book) return
       setBooks((prev) => prev.some((value) => value.id === book.id) ? prev : [...prev, book])
       localStorage.setItem('my-room-insta-imported-v1', '1')

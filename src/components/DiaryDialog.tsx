@@ -2,7 +2,7 @@ import { type ChangeEvent, type FormEvent, useRef, useState } from 'react'
 import { type Book, type Entry, type Visibility, useRoomStore } from '../store'
 
 const today = () => new Date().toISOString().slice(0, 10)
-const assetUrl = (source: string) => source.startsWith('/') ? `${import.meta.env.BASE_URL}${source.slice(1)}` : source
+const assetUrl = (source: string) => source.startsWith('/') ? `${location.hostname.endsWith('.github.io') ? `${import.meta.env.BASE_URL}public/` : import.meta.env.BASE_URL}${source.slice(1)}` : source
 
 export default function DiaryDialog() {
   const { books, openBookId, closeBook, addEntry, updateBookVisibility } = useRoomStore()
