@@ -8,7 +8,7 @@ const patterns: Record<string, Pattern> = {
 }
 const publicBase = location.hostname.endsWith('.github.io') ? `${import.meta.env.BASE_URL}public/` : import.meta.env.BASE_URL
 const files: Record<string, string> = {
-  lany: `${publicBase}music/a-star-we-never-named.wav`,
+  lany: `${publicBase}music/a-star-we-never-named.mp3`,
 }
 export const trackList = [
   { id: 'lany', label: 'A Star We Never Named' },
