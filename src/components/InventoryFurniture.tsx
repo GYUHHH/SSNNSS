@@ -579,7 +579,7 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
   </mesh>
   {link && <group position={[0, 0, .095]}>
     <mesh><circleGeometry args={[.16, 20]} /><meshBasicMaterial color="#000000" transparent opacity={.55} /></mesh>
-    <mesh position={[.02, 0, .002]} rotation={[0, 0, -Math.PI / 2]}><circleGeometry args={[.075, 3]} /><meshBasicMaterial color="#ffffff" /></mesh>
+    <mesh position={[.02, 0, .002]}><circleGeometry args={[.075, 3]} /><meshBasicMaterial color="#ffffff" /></mesh>
   </group>}
   </>
 }
