@@ -1,7 +1,7 @@
 import { Html, RoundedBox } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
-import { useMemo } from 'react'
-import { CanvasTexture, SRGBColorSpace, type PointLight } from 'three'
+import { useEffect, useMemo } from 'react'
+import { CanvasTexture, SRGBColorSpace, VideoTexture, type PointLight } from 'three'
 import { BannerTextInput, useArtTexture } from './ArtEditor'
 import { type ReactNode, useRef, useState } from 'react'
 import type { Group, MeshStandardMaterial } from 'three'
@@ -10,6 +10,7 @@ import { type FurnitureItem, useOptionalRoomStore, useRoomStore } from '../store
 import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
 import { trackList } from '../services/music'
+import { getVideo } from '../services/mediaStore'
 import MirrorGlass from './MirrorGlass'
 import { Swing } from './motion'
 
@@ -140,6 +141,14 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     <mesh castShadow position={[0, .13, 0]}><sphereGeometry args={[.09, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshStandardMaterial color={material.color ?? '#6b6478'} emissive={lit ? '#8f86ad' : '#000000'} emissiveIntensity={lit ? .5 : 0} transparent={material.transparent} opacity={material.opacity} /></mesh>
     {lit && <StarField />}
   </>
+  if (item.type.startsWith('video-frame')) {
+    const wide = item.type === 'video-frame-4'
+    const [w, h] = wide ? [1.9, 2.4] : [1.5, 2.0]
+    return <>
+      <RoundedBox castShadow args={[w, h, .08]} radius={.03} smoothness={2} position={[0, 0, .04]}>{mat('#3a332c')}</RoundedBox>
+      {preview ? <mesh position={[0, 0, .085]}><planeGeometry args={[w - .16, h - .16]} />{mat('#20262b')}</mesh> : <VideoScreen id={item.id} width={w - .16} height={h - .16} />}
+    </>
+  }
   if (item.type === 'cd-player') return <>
     <RoundedBox castShadow args={[1.34, 1.34, .12]} radius={.05} smoothness={2} position={[0, .04, .06]}>{mat('#f3ead9')}</RoundedBox>
     <mesh position={[0, .1, .121]}><circleGeometry args={[.5, 28]} /><meshStandardMaterial color="#2b2621" roughness={.6} transparent={material.transparent} opacity={material.opacity} /></mesh>
@@ -506,4 +515,40 @@ function MusicControls({ id, y }: { id: string; y: number }) {
       <label className="volume-control">볼륨<input type="range" min={0} max={1} step={0.05} value={musicVolume} onChange={(event) => setMusicVolume(Number(event.target.value))} /></label>
     </div>
   </Html>
+}
+
+// the clip lives in IndexedDB; it is decoded into a hidden <video> and streamed onto the frame as a texture
+function VideoScreen({ id, width, height }: { id: string; width: number; height: number }) {
+  const version = useOptionalRoomStore()?.videoFrames[id] ?? 0
+  const [texture, setTexture] = useState<VideoTexture | null>(null)
+  useEffect(() => {
+    let live = true
+    let url: string | null = null
+    let element: HTMLVideoElement | null = null
+    setTexture(null)
+    if (version) getVideo(id).then((blob) => {
+      if (!live || !blob) return
+      url = URL.createObjectURL(blob)
+      element = document.createElement('video')
+      element.src = url
+      element.loop = true
+      element.muted = true
+      element.playsInline = true
+      element.play().catch(() => { /* autoplay may wait for a gesture */ })
+      const video = new VideoTexture(element)
+      video.colorSpace = SRGBColorSpace
+      setTexture(video)
+    })
+    return () => {
+      live = false
+      element?.pause()
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [id, version])
+  return <mesh position={[0, 0, .085]}>
+    <planeGeometry args={[width, height]} />
+    {texture
+      ? <meshBasicMaterial key="clip" map={texture} />
+      : <meshStandardMaterial key="empty" color="#20262b" emissive="#2b3236" emissiveIntensity={.25} />}
+  </mesh>
 }
