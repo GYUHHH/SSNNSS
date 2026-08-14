@@ -193,6 +193,7 @@ export type GuestComment = { id: string; name: string; text: string; createdAt: 
 const toPlacement = ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, allowedSurfaces, styleId, removed, updatedAt }: FurnitureItem): FurniturePlacement => ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, resolution: resolutionFor({ allowedSurfaces }), styleId, removed, updatedAt })
 // every catalogue piece exists exactly once for now; a future account would supply real per-user counts
 const OWNED_PER_TYPE = 1
+export const MAX_ROOMS = 3
 
 const RoomContext = createContext<RoomStore | null>(null)
 
@@ -429,6 +430,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }
   // a new room starts bare: your furniture is still standing wherever you left it
   const createRoom = () => {
+    if (rooms.length >= MAX_ROOMS) return
     const empty = initialFurniture.map((item) => toPlacement({ ...item, removed: true }))
     const slot = createSlot(`방 ${rooms.length + 1}`, empty)
     setRooms((list) => [...list, { id: slot.id, name: slot.name }])
