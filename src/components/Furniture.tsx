@@ -22,7 +22,7 @@ export function FittedMesh({ item, children }: { item: FurnitureItem; children: 
     const surface = resolveSurface(furniture, item.surfaceId); if (!surface) return
     group.current.scale.set(1, 1, 1); group.current.updateWorldMatrix(true, true)
     const bounds = new Box3(); const inverse = group.current.matrixWorld.clone().invert()
-    group.current.traverse((child) => { const mesh = child as Mesh; if (!mesh.isMesh) return; mesh.geometry.computeBoundingBox(); if (mesh.geometry.boundingBox) bounds.union(mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld).applyMatrix4(inverse)) })
+    group.current.traverse((child) => { const mesh = child as Mesh; if (!mesh.isMesh || mesh.userData.excludeFromFit) return; mesh.geometry.computeBoundingBox(); if (mesh.geometry.boundingBox) bounds.union(mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld).applyMatrix4(inverse)) })
     // size against the item's OWN grid resolution: a subgrid2 item's cell is 0.35 on every surface (incl. floor),
     // so its rendered size never changes when moved between floor and tabletop
     const size = bounds.getSize(new Vector3()); const [width, height] = fitMeshToFootprint(withResolution(surface, resolutionFor(item)), item.footprint)

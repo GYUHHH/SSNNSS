@@ -145,8 +145,8 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     <mesh position={[0, .1, .142]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[.045, .045, .03, 12]} />{mat('#d9d3ca')}</mesh>
     <mesh position={[0, -.52, .125]}><boxGeometry args={[.44, .07, .02]} /><meshStandardMaterial color="#2b3236" emissive="#4a6a5e" emissiveIntensity={.35} transparent={material.transparent} opacity={material.opacity} /></mesh>
     <mesh position={[.42, -.52, .13]}><cylinderGeometry args={[.05, .05, .02, 12]} />{mat('#c9a06c')}</mesh>
-    <mesh position={[-.34, -.94, .06]}><boxGeometry args={[.012, .5, .012]} />{mat('#b3a89a')}</mesh>
-    <mesh castShadow position={[-.34, -1.22, .06]}><cylinderGeometry args={[.035, .045, .1, 8]} />{mat('#c9a06c')}</mesh>
+    <mesh userData={{ excludeFromFit: true }} position={[-.34, -.94, .06]}><boxGeometry args={[.012, .5, .012]} />{mat('#b3a89a')}</mesh>
+    <mesh userData={{ excludeFromFit: true }} castShadow position={[-.34, -1.22, .06]}><cylinderGeometry args={[.035, .045, .1, 8]} />{mat('#c9a06c')}</mesh>
     {!preview && <MusicControls id={item.id} y={1.05} />}
   </>
   if (item.type === 'banner') return <><RoundedBox castShadow args={[2.04, .6, .07]} radius={.03} smoothness={2} position={[0, 0, .035]}>{mat('#3a332c')}</RoundedBox>{preview ? <mesh position={[0, 0, .075]}><planeGeometry args={[1.88, .44]} />{mat('#5a4a35')}</mesh> : <BannerArt id={item.id} />}</>
