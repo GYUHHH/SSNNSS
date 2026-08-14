@@ -27,7 +27,8 @@ export function FittedMesh({ item, children }: { item: FurnitureItem; children: 
     // so its rendered size never changes when moved between floor and tabletop
     const size = bounds.getSize(new Vector3()); const [width, height] = fitMeshToFootprint(withResolution(surface, resolutionFor(item)), item.footprint)
     // surfaces lying flat (floor/tabletop/shelf) fit width+depth in the XZ plane; a wall fits width+height in its own XY plane
-    setScale(surface.type !== 'wall' ? item.type === 'mirror' ? [width / size.x, 1, width / size.x] : [width / size.x, 1, height / size.z] : item.type === 'wall-shelf' ? [width / size.x, 1, 1] : [width / size.x, height / size.y, 1])
+    const uniformScale = Math.min(width / size.x, height / size.z)
+    setScale(surface.type !== 'wall' ? ['mirror', 'mug', 'cup'].includes(item.type) ? [uniformScale, 1, uniformScale] : [width / size.x, 1, height / size.z] : item.type === 'wall-shelf' ? [width / size.x, 1, 1] : [width / size.x, height / size.y, 1])
     setWallOffset(item.category === 'wallItem' ? .012 - bounds.min.z : 0)
   }, [item.surfaceId, item.footprint.width, item.footprint.depth, item.rotation[1]])
   return <group ref={group} position={[0, 0, wallOffset]} scale={scale}>{children}</group>
