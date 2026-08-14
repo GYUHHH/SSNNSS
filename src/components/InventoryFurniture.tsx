@@ -160,6 +160,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
       <RoundedBox castShadow args={[w, h, .08]} radius={.03} smoothness={2} position={[0, 0, .04]}>{mat('#3a332c')}</RoundedBox>
       <group rotation={[0, 0, -item.rotation[1]]}>
         {preview ? <mesh position={[0, 0, .085]}><planeGeometry args={[screenWidth, screenHeight]} />{mat('#20262b')}</mesh> : <VideoScreen id={item.id} width={screenWidth} height={screenHeight} />}
+        {!preview && <YouTubeWallScreen id={item.id} width={screenWidth} height={screenHeight} />}
       </group>
     </>
   }
@@ -624,4 +625,24 @@ function ProfileBoardFace() {
     {portrait && <mesh position={[0, .5, .076]}><circleGeometry args={[.44, 30]} /><meshBasicMaterial map={portrait} /></mesh>}
     <mesh position={[0, -.45, .076]}><planeGeometry args={[1.2, .48]} /><meshBasicMaterial map={texture} transparent /></mesh>
   </>
+}
+
+// first click plays INSIDE the frame: an Html-transformed iframe pinned over the screen plane. The DOM overlay
+// swallows its own pointer events, so dragging on the video can never rotate the room or hit the wall behind.
+function YouTubeWallScreen({ id, width, height }: { id: string; width: number; height: number }) {
+  const store = useOptionalRoomStore()
+  if (!store) return null
+  const videoId = store.videoLinks[id]
+  const playing = store.playingFrame === id && store.selectedObject !== id && store.mode === 'normal'
+  if (!videoId || !playing) return null
+  const pxWidth = 480
+  return <Html transform position={[0, 0, .09]} scale={width / pxWidth} zIndexRange={[4, 0]}>
+    <div className="wall-video" style={{ width: pxWidth, height: Math.round(pxWidth * height / width) }} onPointerDown={(event) => event.stopPropagation()}>
+      <iframe title="유튜브 재생" src={`https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1`} allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+      <div className="wall-video-actions">
+        <button type="button" aria-label="크게 보기" onClick={() => store.openVideoPanel(id)}>⤢</button>
+        <button type="button" aria-label="재생 멈추기" onClick={() => store.setPlayingFrame(null)}>×</button>
+      </div>
+    </div>
+  </Html>
 }

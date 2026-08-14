@@ -6,19 +6,14 @@ import { useRoomStore } from '../store'
 // ponytail: off-screen, not display:none — a hidden iframe gets its playback suspended. Swap to the YouTube
 // IFrame API only if autoplay-with-sound has to survive a page load with no click behind it.
 export default function YouTubePlayer() {
-  const { playingFrame, setPlayingFrame, selectObject, videoLinks, selectedObject, furniture } = useRoomStore()
+  const { playingFrame, videoLinks, selectedObject, furniture } = useRoomStore()
   if (!playingFrame) return null
   const videoId = videoLinks[playingFrame]
   if (!videoId) return null
   const selected = furniture.find((item) => item.id === selectedObject)
   const docked = selectedObject === playingFrame && !!selected?.type.startsWith('video-frame')
-  return <>
-    <section className={docked ? 'yt-player docked' : 'yt-player offscreen'} aria-label="유튜브 재생">
-      <iframe title="유튜브 재생" src={`https://www.youtube.com/embed/${videoId}?autoplay=1`} allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
-    </section>
-    {!docked && <div className="yt-playing">
-      <button type="button" onClick={() => selectObject(playingFrame)}>재생 중</button>
-      <button className="stop-playing" type="button" aria-label="재생 멈추기" onClick={() => setPlayingFrame(null)}>×</button>
-    </div>}
-  </>
+  if (!docked) return null
+  return <section className="yt-player docked" aria-label="유튜브 재생">
+    <iframe title="유튜브 재생" src={`https://www.youtube.com/embed/${videoId}?autoplay=1`} allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+  </section>
 }
