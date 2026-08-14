@@ -81,7 +81,19 @@ function DockSpace() {
     window.addEventListener('resize', apply)
     const panel = element.closest('.art-panel')
     panel?.addEventListener('scroll', apply)
-    return () => { observer.disconnect(); window.removeEventListener('resize', apply); panel?.removeEventListener('scroll', apply) }
+    panel?.addEventListener('transitionend', apply)
+    const until = performance.now() + 700
+    let frame = requestAnimationFrame(function follow() {
+      apply()
+      if (performance.now() < until) frame = requestAnimationFrame(follow)
+    })
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+      window.removeEventListener('resize', apply)
+      panel?.removeEventListener('scroll', apply)
+      panel?.removeEventListener('transitionend', apply)
+    }
   }, [])
   return <div ref={space} className="yt-dock-space" aria-hidden />
 }
