@@ -10,6 +10,8 @@ import { type FurnitureItem, useOptionalRoomStore, useRoomStore } from '../store
 import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
 import { trackList } from '../services/music'
+import { characterPosition } from '../services/characterTracker'
+import { Swing } from './motion'
 
 export function InventoryFurniture() {
   const { furniture } = useRoomStore()
@@ -19,7 +21,7 @@ export function InventoryFurniture() {
 export function ItemVisual({ item, preview = false }: { item: FurnitureItem; preview?: boolean }) {
   const store = useOptionalRoomStore()
   const musicTrack = store?.musicTrack ?? null
-  const lit = !preview && (store?.litLamps.has(item.id) ?? false)
+  const lit = !preview && (store?.toggledOn.has(item.id) ?? false)
   const styleColor = item.styleId ? colorPresets.find((preset) => preset.id === item.styleId)?.color : undefined
   const material = { color: styleColor, transparent: preview, opacity: preview ? 0.5 : 1 }
   const mat = (fallback: string) => <meshStandardMaterial color={material.color ?? fallback} transparent={material.transparent} opacity={material.opacity} />
@@ -168,13 +170,28 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     {lit && <pointLight color="#a8c8e8" intensity={1.4} distance={1.8} position={[0, .72, .4]} />}
   </>
   if (item.type === 'wardrobe') return <>
-    <RoundedBox castShadow args={[1.3, 1.9, .55]} radius={.03} smoothness={2} position={[0, .95, 0]}>{mat('#a97a58')}</RoundedBox>
-    {[-.32, .32].map((x) => <RoundedBox key={x} args={[.58, 1.68, .03]} radius={.02} smoothness={2} position={[x, .95, .28]}>{mat('#c9a37b')}</RoundedBox>)}
-    {[-.07, .07].map((x) => <mesh key={x} position={[x, .95, .31]}><cylinderGeometry args={[.015, .015, .16, 6]} /><meshStandardMaterial color="#4c4036" transparent={material.transparent} opacity={material.opacity} /></mesh>)}
+    <RoundedBox castShadow args={[1.3, .06, .55]} radius={.02} smoothness={2} position={[0, 1.87, 0]}>{mat('#a97a58')}</RoundedBox>
+    <RoundedBox castShadow args={[1.3, .06, .55]} radius={.02} smoothness={2} position={[0, .03, 0]}>{mat('#a97a58')}</RoundedBox>
+    {[-.62, .62].map((x) => <RoundedBox castShadow key={x} args={[.06, 1.9, .55]} radius={.02} smoothness={2} position={[x, .95, 0]}>{mat('#a97a58')}</RoundedBox>)}
+    <mesh position={[0, .95, -.25]}><boxGeometry args={[1.24, 1.84, .05]} />{mat('#8a6048')}</mesh>
+    <mesh position={[0, 1.62, 0]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[.02, .02, 1.2, 8]} />{mat('#c9c1b6')}</mesh>
+    {[[-.36, '#8a9c82', .62], [-.04, '#b06952', .7], [.3, '#607b93', .58]].map(([x, color, drop]) => <group key={String(x)} position={[x as number, 1.62, 0]}>
+      <mesh position={[0, -.05, 0]}><boxGeometry args={[.02, .1, .02]} />{mat('#4c4036')}</mesh>
+      <RoundedBox castShadow args={[.3, drop as number, .12]} radius={.04} smoothness={2} position={[0, -.12 - (drop as number) / 2, 0]}><meshStandardMaterial color={material.color ?? String(color)} roughness={.9} transparent={material.transparent} opacity={material.opacity} /></RoundedBox>
+    </group>)}
+    <Swing open={lit} angle={-1.15} pivot={[-.6, .95, .28]}>
+      <RoundedBox castShadow args={[.6, 1.74, .04]} radius={.02} smoothness={2} position={[-.3, .95, .28]}>{mat('#c9a37b')}</RoundedBox>
+      <mesh position={[-.06, .95, .31]}><cylinderGeometry args={[.014, .014, .16, 6]} />{mat('#4c4036')}</mesh>
+    </Swing>
+    <Swing open={lit} angle={1.15} pivot={[.6, .95, .28]}>
+      <RoundedBox castShadow args={[.6, 1.74, .04]} radius={.02} smoothness={2} position={[.3, .95, .28]}>{mat('#c9a37b')}</RoundedBox>
+      <mesh position={[.06, .95, .31]}><cylinderGeometry args={[.014, .014, .16, 6]} />{mat('#4c4036')}</mesh>
+    </Swing>
   </>
   if (item.type === 'mirror') return <group rotation={[-.09, 0, 0]}>
     <RoundedBox castShadow args={[.52, 1.52, .06]} radius={.03} smoothness={2} position={[0, .78, 0]}>{mat('#8a6048')}</RoundedBox>
     <mesh position={[0, .78, .033]}><planeGeometry args={[.42, 1.4]} /><meshStandardMaterial color="#cfdce2" metalness={.7} roughness={.15} transparent={material.transparent} opacity={material.opacity} /></mesh>
+    {!preview && <MirrorReflection item={item} />}
   </group>
   if (item.type === 'fish-tank') return <>
     <mesh position={[0, .06, 0]}><boxGeometry args={[.64, .06, .3]} /><meshStandardMaterial color="#d9c9ae" transparent={material.transparent} opacity={material.opacity} /></mesh>
@@ -482,4 +499,31 @@ function MusicControls({ id, y }: { id: string; y: number }) {
       <label className="volume-control">볼륨<input type="range" min={0} max={1} step={0.05} value={musicVolume} onChange={(event) => setMusicVolume(Number(event.target.value))} /></label>
     </div>
   </Html>
+}
+
+// a stand-in reflection: a simplified figure on the glass that appears when the character is close, sliding
+// sideways with them. Real reflections need a second render pass, which this room does not justify.
+function MirrorReflection({ item }: { item: FurnitureItem }) {
+  const group = useRef<Group>(null)
+  useFrame(() => {
+    if (!group.current) return
+    const dx = characterPosition[0] - item.position[0]
+    const dz = characterPosition[2] - item.position[2]
+    const yaw = item.rotation[1]
+    // distance in front of the glass, and how far along the mirror's own width the character stands
+    const facing = dx * Math.sin(yaw) + dz * Math.cos(yaw)
+    const lateral = dx * Math.cos(yaw) - dz * Math.sin(yaw)
+    const near = facing > 0 && facing < 1.5 && Math.abs(lateral) < .8
+    group.current.visible = near
+    group.current.position.x = Math.max(-.1, Math.min(.1, -lateral * .35))
+    const size = near ? Math.max(.55, 1 - facing * .3) : .55
+    group.current.scale.setScalar(size)
+  })
+  return <group ref={group} position={[0, .62, .04]}>
+    <mesh position={[0, .52, 0]}><sphereGeometry args={[.1, 10, 8]} /><meshStandardMaterial color="#e3aa86" transparent opacity={.72} /></mesh>
+    <mesh position={[0, .56, -.02]} scale={[1.06, 1.04, .96]}><sphereGeometry args={[.104, 10, 8]} /><meshStandardMaterial color="#5a4035" transparent opacity={.72} /></mesh>
+    <RoundedBox args={[.2, .3, .1]} radius={.03} smoothness={2} position={[0, .28, 0]}><meshStandardMaterial color="#627b73" transparent opacity={.72} /></RoundedBox>
+    {[-.13, .13].map((x) => <RoundedBox key={x} args={[.06, .24, .07]} radius={.025} smoothness={2} position={[x, .29, 0]}><meshStandardMaterial color="#627b73" transparent opacity={.72} /></RoundedBox>)}
+    {[-.05, .05].map((x) => <RoundedBox key={x} args={[.07, .26, .08]} radius={.025} smoothness={2} position={[x, .0, 0]}><meshStandardMaterial color="#80675b" transparent opacity={.72} /></RoundedBox>)}
+  </group>
 }
