@@ -11,7 +11,7 @@ import { embedSrc, trackIframe } from '../services/ytResume'
 // mounted through mode changes and simply copies the frame's live world matrix each frame, so playback survives
 // editing and even follows the frame while it is being dragged.
 export default function WallVideoLayer() {
-  const { playingFrame, videoLinks, selectedObject, furniture, setPlayingFrame, openVideoPanel } = useRoomStore()
+  const { playingFrame, videoLinks, selectedObject, furniture, setPlayingFrame, openVideoPanel, mode } = useRoomStore()
   if (!playingFrame) return null
   const item = furniture.find((entry) => entry.id === playingFrame)
   const videoId = videoLinks[playingFrame]
@@ -21,13 +21,13 @@ export default function WallVideoLayer() {
   const screenWidth = (turned ? h : w) - .16
   return <FollowFit fitName={`fit:${item.id}`}>
     <group rotation={[0, 0, -item.rotation[1]]}>
-      <Html transform distanceFactor={400} position={[0, 0, .09]} scale={screenWidth / 1280} zIndexRange={[4, 0]}>
-        <div className="wall-video" style={{ width: 1280, height: Math.round(1280 * ((h - .16) / (w - .16))) }} onPointerDown={(event) => event.stopPropagation()}>
+      <Html transform distanceFactor={400} position={[0, 0, .09]} scale={screenWidth / 1280} zIndexRange={[4, 0]} style={{ pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
+        <div className="wall-video" style={{ width: 1280, height: Math.round(1280 * ((h - .16) / (w - .16))), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} onPointerDown={(event) => event.stopPropagation()}>
           <ResumingIframe videoId={videoId} frameId={playingFrame} extra="autoplay=1&playsinline=1" />
-          <div className="wall-video-actions">
+          {mode !== 'edit' && <div className="wall-video-actions">
             <button type="button" aria-label="크게 보기" onClick={() => openVideoPanel(playingFrame)}>⤢</button>
             <button type="button" aria-label="재생 멈추기" onClick={() => setPlayingFrame(null)}>×</button>
-          </div>
+          </div>}
         </div>
       </Html>
     </group>
