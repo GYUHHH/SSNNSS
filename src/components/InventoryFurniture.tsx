@@ -1,4 +1,4 @@
-import { Html, MeshReflectorMaterial, RoundedBox } from '@react-three/drei'
+import { Html, RoundedBox } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useMemo } from 'react'
 import { CanvasTexture, SRGBColorSpace, type PointLight } from 'three'
@@ -10,6 +10,7 @@ import { type FurnitureItem, useOptionalRoomStore, useRoomStore } from '../store
 import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
 import { trackList } from '../services/music'
+import MirrorGlass from './MirrorGlass'
 import { Swing } from './motion'
 
 export function InventoryFurniture() {
@@ -190,10 +191,9 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'mirror') return <group rotation={[-.09, 0, 0]}>
     <RoundedBox castShadow args={[.52, 1.52, .06]} radius={.03} smoothness={2} position={[0, .78, 0]}>{mat('#8a6048')}</RoundedBox>
     <mesh position={[0, .78, .033]}><planeGeometry args={[.42, 1.4]} />
-      {store && !preview
-        ? <MeshReflectorMaterial resolution={512} mixBlur={0.12} mixStrength={1.1} blur={[24, 12]} mirror={1} depthScale={0} minDepthThreshold={0.9} maxDepthThreshold={1} metalness={0.2} roughness={0.2} color="#e8eef2" />
-        : <meshStandardMaterial color={material.color ?? '#cfdce2'} metalness={.7} roughness={.15} transparent={material.transparent} opacity={material.opacity} />}
+      <meshStandardMaterial color={material.color ?? '#cfdce2'} metalness={.7} roughness={.15} transparent={material.transparent} opacity={material.opacity} />
     </mesh>
+    {store && !preview && <group position={[0, .78, .034]}><MirrorGlass width={.42} height={1.4} /></group>}
   </group>
   if (item.type === 'fish-tank') return <>
     <mesh position={[0, .06, 0]}><boxGeometry args={[.64, .06, .3]} /><meshStandardMaterial color="#d9c9ae" transparent={material.transparent} opacity={material.opacity} /></mesh>
