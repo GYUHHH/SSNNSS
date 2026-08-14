@@ -18,13 +18,11 @@ export default function MirrorGlass({ width, height }: { width: number; height: 
     lookAt: new Vector3(), target: new Vector3(), up: new Vector3(), rotation: new Matrix4(), plane: new Plane(),
   }), [])
   const material = useMemo(() => new ShaderMaterial({
+    toneMapped: false,
     uniforms: { map: { value: fbo.texture }, textureMatrix: { value: new Matrix4() } },
     vertexShader: `uniform mat4 textureMatrix; varying vec4 vProjected;
       void main() { vProjected = textureMatrix * modelMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-    fragmentShader: `
-      #include <tonemapping_pars_fragment>
-      #include <colorspace_pars_fragment>
-      uniform sampler2D map; varying vec4 vProjected;
+    fragmentShader: `uniform sampler2D map; varying vec4 vProjected;
       void main() {
         gl_FragColor = texture2DProj(map, vProjected);
         #include <tonemapping_fragment>

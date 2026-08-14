@@ -6,7 +6,6 @@ import InventoryPanel from './components/InventoryPanel'
 import Room from './components/Room'
 import StylePanel from './components/StylePanel'
 import { RoomProvider, useRoomStore } from './store'
-import { BannerTextInput } from './components/ArtEditor'
 import { thumbnailFor } from './services/thumbnails'
 
 function Interface() {
@@ -36,7 +35,7 @@ function Interface() {
   const movingItem = furniture.find((entry) => entry.id === movingFurnitureId)
   useEffect(() => { let live = true; if (!movingItem) { setDragThumbnail(null); return }; thumbnailFor(movingItem).then((src) => { if (live) setDragThumbnail(src) }); return () => { live = false } }, [movingItem?.type, movingItem?.styleId])
   const selectedItem = furniture.find((entry) => entry.id === selectedObject)
-  const cardControls = selectedItem?.type === 'banner' || selectedObject === 'clock'
+  const cardControls = selectedObject === 'clock'
   const time = new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit' }).format(new Date())
   const zoom = (amount: number) => window.dispatchEvent(new CustomEvent('room-zoom', { detail: amount }))
 
@@ -45,8 +44,7 @@ function Interface() {
     <div className="scene" onContextMenu={(event) => event.preventDefault()}><Room /></div>
     <aside className="room-ui">
       {mode === 'edit' && <span className="edit-mode-label">꾸미기</span>}
-      {cardControls && <section className="object-card">{selectedObject === 'clock' && <span>{time}</span>}
-        {selectedItem?.type === 'banner' && <BannerTextInput id={selectedItem.id} />}</section>}
+      {cardControls && <section className="object-card"><span>{time}</span></section>}
       <StylePanel />
     </aside>
     {mode === 'normal' && <><div className="room-controls"><nav className="zoom-controls" aria-label="화면 확대축소"><button type="button" onClick={() => zoom(-4)} aria-label="축소">−</button><button type="button" onClick={() => zoom(4)} aria-label="확대">+</button></nav><button className="inventory-button" type="button" onClick={() => { setInventoryOpen(true); toggleEditMode() }}>가구함</button></div><nav className="time-controls" aria-label="시간대">{([['day', '낮'], ['evening', '저녁'], ['night', '밤']] as const).map(([key, label]) => <button key={key} type="button" className={timeOfDay === key ? 'active' : ''} onClick={() => setTimeOfDay(key)}>{label}</button>)}</nav></>}

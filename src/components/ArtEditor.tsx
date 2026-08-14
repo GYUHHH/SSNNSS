@@ -83,11 +83,11 @@ export function PhotoPickButton({ id, width, height }: { id: string; width: numb
   </>
 }
 
-export function BannerTextInput({ id }: { id: string }) {
-  const { artworks, setArtwork } = useRoomStore()
-  const [text, setText] = useState(artworks[id] || 'WELCOME ♥')
+export function BannerTextInput({ id, artwork, saveArtwork }: { id: string; artwork?: string; saveArtwork?: (id: string, text: string | null) => void }) {
+  const store = useOptionalRoomStore()
+  const [text, setText] = useState(artwork ?? store?.artworks[id] ?? 'WELCOME ♥')
   return <div className="banner-input">
     <input type="text" maxLength={40} value={text} onChange={(event) => setText(event.target.value)} placeholder="배너 문구" />
-    <button type="button" onClick={() => setArtwork(id, text.trim() || null)}>적용</button>
+    <button type="button" onClick={() => (saveArtwork ?? store?.setArtwork)?.(id, text.trim() || null)}>적용</button>
   </div>
 }
