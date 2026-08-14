@@ -635,8 +635,8 @@ function YouTubeWallScreen({ id, width, height }: { id: string; width: number; h
   const videoId = store.videoLinks[id]
   const playing = store.playingFrame === id && store.selectedObject !== id && store.mode === 'normal'
   if (!videoId || !playing) return null
-  const pxWidth = 480
-  return <Html transform position={[0, 0, .09]} scale={width / pxWidth} zIndexRange={[4, 0]}>
+  const pxWidth = 1280
+  return <Html transform distanceFactor={400} position={[0, 0, .09]} scale={width / pxWidth} zIndexRange={[4, 0]}>
     <div className="wall-video" style={{ width: pxWidth, height: Math.round(pxWidth * height / width) }} onPointerDown={(event) => event.stopPropagation()}>
       <iframe title="유튜브 재생" src={`https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1`} allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
       <div className="wall-video-actions">
