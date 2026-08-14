@@ -155,3 +155,188 @@ div.art-view { aspect-ratio: 3 / 4; }
 .room-slots .active { border-color: #54443a; background: #e8dbc9; }
 .room-slots .add-room { padding: 6px 9px; font-weight: 700; }
 .inventory-empty { grid-column: 1 / -1; margin: 6px 2px; color: #8a7a6a; font-size: 12px; line-height: 1.6; }
+
+/* Instagram-inspired interface chrome. The room canvas itself stays untouched. */
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple SD Gothic Neo", sans-serif;
+  color: #000;
+  background: #fafafa;
+  --ui-bg: #fff;
+  --ui-soft: #fafafa;
+  --ui-hover: #f2f2f2;
+  --ui-line: #dbdbdb;
+  --ui-text: #000;
+  --ui-muted: #737373;
+  --ui-blue: #0095f6;
+  --ui-red: #ed4956;
+}
+
+button, input, textarea, select { font-family: inherit; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #0095f6; outline-offset: 1px; }
+
+.room-slots,
+.time-controls,
+.room-controls,
+.room-ui,
+.edit-toolbar,
+.inventory-panel,
+.storage-drop-zone,
+.object-card,
+.style-panel,
+.speech-bubble,
+.reset-confirm,
+.bookshelf-panel,
+.diary,
+.photo-editor,
+.draw-dialog,
+.artwork,
+.track-list.floating,
+.art-panel { color: var(--ui-text); }
+
+.room-slots { top: 20px; left: 20px; max-width: min(520px, 52vw); gap: 0; overflow: hidden; border: 1px solid var(--ui-line); border-radius: 5px; background: var(--ui-bg); }
+.room-slots button { min-height: 38px; padding: 7px 14px; border: 0; border-right: 1px solid var(--ui-line); border-radius: 0; color: var(--ui-muted); background: var(--ui-bg); font-size: 13px; font-weight: 500; }
+.room-slots button:hover { background: var(--ui-hover); }
+.room-slots .active { color: var(--ui-text); background: var(--ui-bg); font-weight: 700; }
+.room-slots .add-room { border-right: 0; color: var(--ui-text); font-size: 17px; font-weight: 400; }
+
+.time-controls { left: 20px; bottom: 20px; gap: 0; overflow: hidden; border: 1px solid var(--ui-line); border-radius: 5px; background: var(--ui-bg); }
+.time-controls button { min-height: 38px; padding: 7px 14px; border: 0; border-right: 1px solid var(--ui-line); border-radius: 0; color: var(--ui-muted); background: var(--ui-bg); font-size: 13px; }
+.time-controls button:last-child { border-right: 0; }
+.time-controls button:hover { background: var(--ui-hover); }
+.time-controls .active { color: var(--ui-text); background: var(--ui-hover); font-weight: 700; }
+
+.room-controls { right: 20px; bottom: 20px; gap: 8px; }
+.inventory-button,
+.object-card button,
+.edit-toolbar button,
+.reset-confirm button,
+.inventory-panel header button,
+.inventory-panel footer button,
+.draw-tools button,
+.draw-dialog footer button,
+.art-actions button,
+.new-book button,
+.diary-actions button,
+.diary-head-actions button,
+.book-delete,
+.delete-confirm button,
+.entry-comment-form button,
+.guest-form button,
+.banner-input button,
+.photo-editor > button:last-child {
+  border: 1px solid var(--ui-line);
+  border-radius: 4px;
+  color: var(--ui-text);
+  background: var(--ui-bg);
+  font-weight: 600;
+}
+.inventory-button { min-height: 38px; padding: 8px 15px; border-color: var(--ui-blue); color: #fff; background: var(--ui-blue); font-size: 13px; }
+.inventory-button:hover { opacity: .82; }
+
+.room-ui { top: 20px; right: 20px; gap: 8px; }
+.edit-mode-label { padding: 7px 10px; border: 1px solid var(--ui-line); border-radius: 4px; color: var(--ui-text); background: var(--ui-bg); font-size: 12px; }
+.object-card, .style-panel { min-width: 176px; padding: 12px; border: 1px solid var(--ui-line); border-radius: 5px; background: var(--ui-bg); }
+.object-card { gap: 6px; }
+.object-card strong { font-size: 16px; }
+.object-card span, .style-panel span { color: var(--ui-muted); }
+.style-panel strong { font-size: 13px; }
+.style-swatches { gap: 8px; margin-top: 10px; }
+.style-swatches button { width: 24px; height: 24px; border: 2px solid var(--ui-bg); outline: 1px solid var(--ui-line); box-shadow: none; }
+.style-swatches button.active { outline: 2px solid var(--ui-text); box-shadow: none; }
+
+.edit-toolbar { bottom: 20px; gap: 4px; padding: 6px; border: 1px solid var(--ui-line); border-radius: 5px; background: var(--ui-bg); }
+.edit-toolbar span { color: var(--ui-muted); }
+.edit-toolbar button { min-height: 34px; padding: 7px 10px; font-size: 12px; }
+.edit-toolbar button:hover:not(:disabled), .reset-confirm button:hover, .inventory-panel header button:hover, .draw-tools button:hover, .draw-dialog footer button:hover, .art-actions button:hover, .book-delete:hover, .delete-confirm button:hover { background: var(--ui-hover); }
+.edit-toolbar button:last-child, .reset-confirm button:last-child, .inventory-panel footer button, .draw-dialog footer .primary, .new-book button, .save-entry, .diary-head-actions button, .entry-comment-form button, .guest-form button, .banner-input button, .photo-editor > button:last-child { border-color: var(--ui-blue) !important; color: #fff !important; background: var(--ui-blue) !important; }
+.reset-confirm button:last-child { border-color: var(--ui-red) !important; background: var(--ui-red) !important; }
+.edit-toolbar span.invalid-placement, .inventory-panel footer .invalid { color: var(--ui-red); }
+
+.storage-drop-zone { border-color: var(--ui-muted); border-radius: 4px; color: var(--ui-text); background: var(--ui-bg); }
+.storage-drop-zone.active { border-color: var(--ui-blue); color: var(--ui-blue); background: #f5fbff; }
+
+.inventory-panel { right: 20px; bottom: 20px; width: 320px; height: min(500px, calc(100vh - 40px)); padding: 16px; border: 1px solid var(--ui-line); border-radius: 5px; background: var(--ui-bg); }
+.inventory-panel header { min-height: 32px; }
+.inventory-panel header strong { font-size: 18px; }
+.inventory-panel header button { padding: 6px 8px; color: var(--ui-muted); }
+.inventory-panel nav { gap: 18px; margin: 12px 0 6px; border-bottom-color: var(--ui-line); }
+.inventory-panel nav button { padding: 7px 0 8px; color: var(--ui-muted); font-size: 12px; font-weight: 600; }
+.inventory-panel nav .active { border-bottom-color: var(--ui-text); color: var(--ui-text); }
+.inventory-items button { min-height: 58px; padding: 8px 3px; border-bottom-color: var(--ui-line); color: var(--ui-text); }
+.inventory-items button:hover { background: var(--ui-hover); }
+.inventory-items small, .inventory-empty { color: var(--ui-muted); }
+.inventory-panel footer { padding-top: 10px; border-top: 1px solid var(--ui-line); }
+.inventory-panel footer .valid { color: var(--ui-blue); }
+
+.track-list.floating { border: 1px solid var(--ui-line); border-radius: 5px; background: var(--ui-bg); box-shadow: none; }
+.track-list button.active { border-color: var(--ui-text); color: #fff; background: var(--ui-text); }
+.volume-control { color: var(--ui-muted); }
+.volume-control input, .photo-editor input { accent-color: var(--ui-blue); }
+
+.speech-bubble { border-color: var(--ui-line); border-radius: 5px; color: var(--ui-text); background: var(--ui-bg); }
+.speech-bubble::after { border-color: var(--ui-line); background: var(--ui-bg); }
+.overlay, .photo-editor-overlay { background: rgb(0 0 0 / 52%); }
+
+.reset-confirm, .bookshelf-panel, .diary, .photo-editor, .draw-dialog, .artwork { border-color: var(--ui-line); border-radius: 5px; background: var(--ui-bg); }
+.reset-confirm { padding: 22px; }
+.close-ui { color: var(--ui-text); font-size: 25px; font-weight: 300; }
+.close-ui:hover { color: var(--ui-muted); }
+.bookshelf-panel h2, .diary-head h2, .right-page h3, .entry-item h3 { letter-spacing: -.025em; }
+.book-list { gap: 0; border-top: 1px solid var(--ui-line); }
+.book-row-wrap { gap: 0; border-bottom: 1px solid var(--ui-line); }
+.book-row { padding: 10px 6px; border: 0; border-radius: 0; color: var(--ui-text); background: var(--ui-bg); }
+.book-row:hover { background: var(--ui-hover); }
+.book-row small, .diary-head span, .diary-head label, .diary small, .entry-item time, .entry-item small, .entry-empty { color: var(--ui-muted); }
+.book-delete { margin: 7px 0; border: 0; color: var(--ui-red); }
+.delete-confirm { border-color: var(--ui-line); border-radius: 3px; background: var(--ui-soft); }
+.delete-confirm button:last-child { border-color: var(--ui-red); color: var(--ui-red); background: var(--ui-bg); }
+
+.new-book input, .new-book select, .entry-form input, .entry-form select, .entry-form textarea, .diary-head select, .entry-comment-form input, .entry-comment-form textarea, .guest-form input, .guest-form textarea, .banner-input input {
+  border: 1px solid var(--ui-line);
+  border-radius: 4px;
+  color: var(--ui-text);
+  background: var(--ui-soft);
+}
+.new-book input::placeholder, .entry-form textarea::placeholder, .entry-comment-form input::placeholder, .entry-comment-form textarea::placeholder, .guest-form input::placeholder, .guest-form textarea::placeholder, .banner-input input::placeholder { color: var(--ui-muted); }
+
+.diary-head { border-bottom-color: var(--ui-line); }
+.diary-head-actions button { padding: 8px 11px; }
+.diary-pages section { padding: 24px; }
+.left-page { border-right-color: var(--ui-line); }
+.left-page img, .empty-photo, .draft-images img, .entry-item img { border-color: var(--ui-line); background: var(--ui-soft); }
+.diary-actions { border-top-color: var(--ui-line); }
+.diary-actions button:last-child { color: var(--ui-red); background: var(--ui-bg); border-color: var(--ui-line); }
+.entry-form > label, .entry-form legend { color: var(--ui-muted); }
+
+.photo-editor { padding: 43px 20px 20px; }
+.crop-area { background: #efefef; }
+.draw-dialog canvas { border-color: var(--ui-line); border-radius: 3px; background: #fff; }
+.draw-tools .active { outline-color: var(--ui-text); }
+.draw-dialog.inline { border-top-color: var(--ui-line); }
+
+.art-panel { width: min(480px, 92vw); padding: 22px 24px 28px; border-left: 1px solid var(--ui-line); background: var(--ui-bg); transition-timing-function: cubic-bezier(.22, 1, .36, 1); }
+.art-panel header strong { font-size: 18px; }
+.art-panel p { color: var(--ui-text); }
+.art-panel .art-actions button { color: var(--ui-blue); border-color: transparent; background: transparent; }
+.art-panel .art-actions button:hover { background: var(--ui-hover); }
+.art-panel .left-page, .entry-item, .entry-comments, .entry-comment, .guest-form, .guest-note { border-color: var(--ui-line); }
+.entry-item { padding: 18px 2px; }
+.entry-item-head button { color: var(--ui-red); font-weight: 600; }
+.entry-comment-form button, .guest-form button { padding-inline: 12px; }
+.entry-comment header strong, .guest-note header strong { color: var(--ui-text); }
+.entry-comment time, .guest-note time { color: var(--ui-muted); }
+.guest-note header button, .entry-comment header button { color: var(--ui-muted); }
+.art-view { border-width: 8px; }
+
+@media (max-width: 719px), (max-height: 520px) and (pointer: coarse) {
+  .room-slots { top: calc(10px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); max-width: calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right)); overflow-x: auto; flex-wrap: nowrap; }
+  .room-slots button { flex: 0 0 auto; min-height: 36px; padding: 6px 12px; }
+  .room-ui { top: calc(56px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); }
+  .time-controls { bottom: calc(10px + env(safe-area-inset-bottom)); left: calc(10px + env(safe-area-inset-left)); }
+  .time-controls button { min-width: 0; min-height: 38px; padding: 6px 10px; }
+  .room-controls { right: calc(10px + env(safe-area-inset-right)); bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .art-panel { padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left)); background: var(--ui-bg); }
+  .art-panel > header { background: var(--ui-bg); }
+  .edit-toolbar { border-color: var(--ui-line); background: var(--ui-bg); }
+  .inventory-panel { border-color: var(--ui-line); background: var(--ui-bg); }
+}
