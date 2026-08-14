@@ -24,7 +24,6 @@ export default function MirrorGlass({ width, height }: { width: number; height: 
     fragmentShader: `uniform sampler2D map; varying vec4 vProjected;
       void main() {
         gl_FragColor = texture2DProj(map, vProjected);
-        #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
   }), [fbo.texture])
