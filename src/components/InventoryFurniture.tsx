@@ -1,4 +1,4 @@
-import { Html, RoundedBox } from '@react-three/drei'
+import { Html, MeshReflectorMaterial, RoundedBox } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useMemo } from 'react'
 import { CanvasTexture, SRGBColorSpace, type PointLight } from 'three'
@@ -10,7 +10,6 @@ import { type FurnitureItem, useOptionalRoomStore, useRoomStore } from '../store
 import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
 import { trackList } from '../services/music'
-import { characterPosition } from '../services/characterTracker'
 import { Swing } from './motion'
 
 export function InventoryFurniture() {
@@ -190,8 +189,11 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   </>
   if (item.type === 'mirror') return <group rotation={[-.09, 0, 0]}>
     <RoundedBox castShadow args={[.52, 1.52, .06]} radius={.03} smoothness={2} position={[0, .78, 0]}>{mat('#8a6048')}</RoundedBox>
-    <mesh position={[0, .78, .033]}><planeGeometry args={[.42, 1.4]} /><meshStandardMaterial color="#cfdce2" metalness={.7} roughness={.15} transparent={material.transparent} opacity={material.opacity} /></mesh>
-    {!preview && <MirrorReflection item={item} />}
+    <mesh position={[0, .78, .033]}><planeGeometry args={[.42, 1.4]} />
+      {store && !preview
+        ? <MeshReflectorMaterial resolution={512} mixBlur={0.12} mixStrength={1.1} blur={[24, 12]} mirror={1} depthScale={0} minDepthThreshold={0.9} maxDepthThreshold={1} metalness={0.2} roughness={0.2} color="#e8eef2" />
+        : <meshStandardMaterial color={material.color ?? '#cfdce2'} metalness={.7} roughness={.15} transparent={material.transparent} opacity={material.opacity} />}
+    </mesh>
   </group>
   if (item.type === 'fish-tank') return <>
     <mesh position={[0, .06, 0]}><boxGeometry args={[.64, .06, .3]} /><meshStandardMaterial color="#d9c9ae" transparent={material.transparent} opacity={material.opacity} /></mesh>
@@ -501,29 +503,3 @@ function MusicControls({ id, y }: { id: string; y: number }) {
   </Html>
 }
 
-// a stand-in reflection: a simplified figure on the glass that appears when the character is close, sliding
-// sideways with them. Real reflections need a second render pass, which this room does not justify.
-function MirrorReflection({ item }: { item: FurnitureItem }) {
-  const group = useRef<Group>(null)
-  useFrame(() => {
-    if (!group.current) return
-    const dx = characterPosition[0] - item.position[0]
-    const dz = characterPosition[2] - item.position[2]
-    const yaw = item.rotation[1]
-    // distance in front of the glass, and how far along the mirror's own width the character stands
-    const facing = dx * Math.sin(yaw) + dz * Math.cos(yaw)
-    const lateral = dx * Math.cos(yaw) - dz * Math.sin(yaw)
-    const near = facing > 0 && facing < 1.5 && Math.abs(lateral) < .8
-    group.current.visible = near
-    group.current.position.x = Math.max(-.1, Math.min(.1, -lateral * .35))
-    const size = near ? Math.max(.55, 1 - facing * .3) : .55
-    group.current.scale.setScalar(size)
-  })
-  return <group ref={group} position={[0, .62, .04]}>
-    <mesh position={[0, .52, 0]}><sphereGeometry args={[.1, 10, 8]} /><meshStandardMaterial color="#e3aa86" transparent opacity={.72} /></mesh>
-    <mesh position={[0, .56, -.02]} scale={[1.06, 1.04, .96]}><sphereGeometry args={[.104, 10, 8]} /><meshStandardMaterial color="#5a4035" transparent opacity={.72} /></mesh>
-    <RoundedBox args={[.2, .3, .1]} radius={.03} smoothness={2} position={[0, .28, 0]}><meshStandardMaterial color="#627b73" transparent opacity={.72} /></RoundedBox>
-    {[-.13, .13].map((x) => <RoundedBox key={x} args={[.06, .24, .07]} radius={.025} smoothness={2} position={[x, .29, 0]}><meshStandardMaterial color="#627b73" transparent opacity={.72} /></RoundedBox>)}
-    {[-.05, .05].map((x) => <RoundedBox key={x} args={[.07, .26, .08]} radius={.025} smoothness={2} position={[x, .0, 0]}><meshStandardMaterial color="#80675b" transparent opacity={.72} /></RoundedBox>)}
-  </group>
-}
