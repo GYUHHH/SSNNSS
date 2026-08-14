@@ -151,8 +151,12 @@ div.art-view { aspect-ratio: 3 / 4; }
 }
 .track-list.floating { width: 210px; padding: 10px; border: 1px solid #aa9b8b; border-radius: 8px; background: #fbf6ecf2; box-shadow: 0 6px 18px rgb(60 46 34 / 18%); }
 .room-slots { position: fixed; z-index: 4; left: 24px; top: 22px; display: flex; flex-wrap: wrap; gap: 4px; max-width: 44vw; }
-.room-slots button { border: 1px solid #b8aa9a; border-radius: 4px; padding: 6px 10px; font-size: 12px; color: #4c4036; background: #fffaf0; cursor: pointer; }
-.room-slots .active { border-color: #54443a; background: #e8dbc9; }
+.room-slots .room-chip { display: inline-flex; align-items: stretch; border: 1px solid #b8aa9a; border-radius: 4px; background: #fffaf0; overflow: hidden; }
+.room-slots button { border: 0; padding: 6px 10px; font-size: 12px; color: #4c4036; background: transparent; cursor: pointer; }
+.room-slots .room-chip.active { border-color: #54443a; background: #e8dbc9; }
+.room-slots .remove-room { padding: 6px 7px; border-left: 1px solid #ded2c4; color: #a08d7c; font-size: 13px; line-height: 1; }
+.room-slots .remove-room:hover { color: #b3563f; }
+.room-slots .add-room { border: 1px solid #b8aa9a; border-radius: 4px; background: #fffaf0; }
 .room-slots .add-room { padding: 6px 9px; font-weight: 700; }
 .inventory-empty { grid-column: 1 / -1; margin: 6px 2px; color: #8a7a6a; font-size: 12px; line-height: 1.6; }
 
