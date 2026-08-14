@@ -214,6 +214,12 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const setMusicTrack = (id: string | null) => { setMusicTrackState(id); if (id) playTrack(id); else stopMusic() }
   const [musicVolume, setMusicVolumeState] = useState(0.7)
   const setMusicVolume = (value: number) => { setMusicVolumeState(value); applyMusicVolume(value) }
+  useEffect(() => {
+    if (!moveNotice) return
+    const dismiss = () => { if (noticeTimer.current) window.clearTimeout(noticeTimer.current); noticeTimer.current = 0; setMoveNotice(false) }
+    window.addEventListener('pointerdown', dismiss, true)
+    return () => window.removeEventListener('pointerdown', dismiss, true)
+  }, [moveNotice])
   // diary content persists like the layout does — saved after every change (add book/entry, visibility toggle)
   useEffect(() => { saveBooks(books) }, [books])
   // items resolved onto a furniture-hosted surface (a mug on the desk) don't carry their own live world position —
@@ -231,7 +237,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const commit = (next: FurnitureItem[], previous = furniture) => { if (!same(next, previous)) setHistory((items) => [...items.slice(-19), previous]); setFurniture(next); persist(next) }
   const clearSelection = () => { setSelectedObject(null); setStyleTarget(null); setFloorTarget(null); setCupHeld(false); setBookshelfOpen(false); setOpenBookId(null); setSelectedFurnitureId(null) }
   const selectObject = (object: Exclude<SelectedObject, null>) => { const target = furniture.find((value) => value.id === object); const type = target?.type ?? object; if (mode === 'edit') { if (object !== 'character' && object !== 'book') setSelectedFurnitureId(object); return } if (type === 'character') { setCharacterState((state) => ({ idle: 'sittingFloor', sittingFloor: 'wave', wave: 'idle' } as Partial<Record<CharacterState, CharacterState>>)[state] ?? 'idle'); return } if (type === 'bed' && selectedObject === object) return clearSelection(); setStyleTarget(null); setFloorTarget(null); setSelectedObject(object); setOpenBookId(null); if (type === 'bookshelf') setBookshelfOpen(true); const sidePanelOnly = type === 'bookshelf' || type === 'guestbook' || type === 'photo' || type === 'poster' || type.startsWith('photo-frame') || type.startsWith('wall-art'); if (sidePanelOnly) return; if (type === 'computer') setComputerOn((on) => !on); if (['lamp', 'floor-lamp', 'fireplace', 'candle', 'tv', 'string-lights', 'christmas-tree', 'star-projector', 'mini-fridge', 'led-lamp', 'wardrobe', 'cabinet', 'bin'].includes(type)) setToggledOn((prev) => { const next = new Set(prev); if (next.has(object)) next.delete(object); else next.add(object); return next }); if (type === 'cup') setCupHeld(true); if (POSED_TYPES.has(type)) setCharacterState('walking') }
-  const showMoveNotice = () => { if (noticeTimer.current) window.clearTimeout(noticeTimer.current); setMoveNotice(true); noticeTimer.current = window.setTimeout(() => setMoveNotice(false), 1600) }
+  const showMoveNotice = () => { if (noticeTimer.current) window.clearTimeout(noticeTimer.current); setMoveNotice(true); noticeTimer.current = window.setTimeout(() => { noticeTimer.current = 0; setMoveNotice(false) }, 1600) }
   // clicking an empty floor cell in NORMAL mode: walk (with the normal walking motion) to that cell's center,
   // ending any free action / interaction. Occupied or out-of-bounds cells show a brief notice instead.
   const moveCharacterTo = (position: [number, number, number]) => {
