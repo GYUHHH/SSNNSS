@@ -5,7 +5,7 @@ import DiaryDialog from './components/DiaryDialog'
 import InventoryPanel from './components/InventoryPanel'
 import Room from './components/Room'
 import StylePanel from './components/StylePanel'
-import { objectInfo, RoomProvider, useRoomStore } from './store'
+import { RoomProvider, useRoomStore } from './store'
 import { customizableTypes } from './services/styles'
 import { trackList } from './services/music'
 import { BannerTextInput } from './components/ArtEditor'
@@ -38,7 +38,7 @@ function Interface() {
   const movingItem = furniture.find((entry) => entry.id === movingFurnitureId)
   useEffect(() => { let live = true; if (!movingItem) { setDragThumbnail(null); return }; thumbnailFor(movingItem).then((src) => { if (live) setDragThumbnail(src) }); return () => { live = false } }, [movingItem?.type, movingItem?.styleId])
   const selectedItem = furniture.find((entry) => entry.id === selectedObject)
-  const item = selectedObject && selectedObject !== 'book' ? objectInfo[selectedObject] ?? (selectedItem ? { title: selectedItem.name, subtitle: selectedItem.type === 'music-player' ? '음악 재생' : '새로 배치한 가구' } : null) : null
+  const cardControls = selectedItem?.type === 'music-player' || selectedItem?.type === 'record-player' || selectedItem?.type === 'banner' || (!!selectedItem && customizableTypes.has(selectedItem.type)) || selectedObject === 'clock'
   const time = new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit' }).format(new Date())
   const zoom = (amount: number) => window.dispatchEvent(new CustomEvent('room-zoom', { detail: amount }))
 
@@ -47,7 +47,7 @@ function Interface() {
     <div className="scene" onContextMenu={(event) => event.preventDefault()}><Room /></div>
     <aside className="room-ui">
       {mode === 'edit' && <span className="edit-mode-label">꾸미기</span>}
-      {item && <section className="object-card"><strong>{item.title}</strong><span>{selectedObject === 'clock' ? time : item.subtitle}</span>
+      {cardControls && <section className="object-card">{selectedObject === 'clock' && <span>{time}</span>}
         {(selectedItem?.type === 'music-player' || selectedItem?.type === 'record-player') && <div className="track-list">{trackList.map((track) => <button key={track.id} type="button" className={musicTrack === track.id ? 'active' : ''} onClick={() => setMusicTrack(track.id)}>{musicTrack === track.id ? `♪ ${track.label}` : track.label}</button>)}<button type="button" disabled={!musicTrack} onClick={() => setMusicTrack(null)}>정지</button><label className="volume-control">볼륨<input type="range" min={0} max={1} step={0.05} value={musicVolume} onChange={(event) => setMusicVolume(Number(event.target.value))} /></label></div>}
         {selectedItem?.type === 'banner' && <BannerTextInput id={selectedItem.id} />}
         {selectedItem && customizableTypes.has(selectedItem.type) && <button type="button" onClick={() => openStyleTarget({ kind: 'furniture', id: selectedItem.id })}>색상 변경</button>}</section>}
