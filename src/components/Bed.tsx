@@ -15,9 +15,9 @@ export default function Bed() {
 
     <RoundedBox castShadow args={[1.32, 0.26, 2]} radius={0.07} smoothness={2} position={[0, 0.45, 0]}><meshStandardMaterial color={palette.linen} roughness={0.9} /></RoundedBox>
 
-    <RoundedBox castShadow args={[1.28, 0.14, 1.3]} radius={0.06} smoothness={2} position={[0, 0.65, 0.28]}><meshStandardMaterial color={accent} roughness={0.9} /></RoundedBox>
+    <RoundedBox castShadow args={[1.28, 0.1, 1.3]} radius={0.05} smoothness={2} position={[0, 0.63, 0.28]}><meshStandardMaterial color={accent} roughness={0.9} /></RoundedBox>
 
-    <RoundedBox castShadow args={[0.5, 0.16, 0.5]} radius={0.07} smoothness={2} rotation={[0, 0.08, 0]} position={[-0.3, 0.66, -0.62]}><meshStandardMaterial color={palette.linen} roughness={0.85} /></RoundedBox>
-    <RoundedBox castShadow args={[0.5, 0.16, 0.5]} radius={0.07} smoothness={2} rotation={[0, -0.06, 0]} position={[0.3, 0.66, -0.6]}><meshStandardMaterial color={palette.linen} roughness={0.85} /></RoundedBox>
+    <RoundedBox castShadow args={[0.5, 0.1, 0.5]} radius={0.05} smoothness={2} rotation={[0, 0.08, 0]} position={[-0.3, 0.63, -0.62]}><meshStandardMaterial color={palette.linen} roughness={0.85} /></RoundedBox>
+    <RoundedBox castShadow args={[0.5, 0.1, 0.5]} radius={0.05} smoothness={2} rotation={[0, -0.06, 0]} position={[0.3, 0.63, -0.6]}><meshStandardMaterial color={palette.linen} roughness={0.85} /></RoundedBox>
   </Furniture>
 }

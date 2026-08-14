@@ -36,7 +36,7 @@ type OwnedSurfaceConfig = { suffix: string; kind: SurfaceKind; heightOffset: num
 const OWNED_SURFACES: Record<string, OwnedSurfaceConfig[]> = {
   desk: [{ suffix: 'top', kind: 'tabletop', heightOffset: 1.08 }],
   cabinet: [{ suffix: 'top', kind: 'tabletop', heightOffset: 1.11 }],
-  bed: [{ suffix: 'top', kind: 'tabletop', heightOffset: 0.8 }],
+  bed: [{ suffix: 'top', kind: 'tabletop', heightOffset: 0.68 }],
   sofa: [{ suffix: 'top', kind: 'tabletop', heightOffset: 0.5 }],
   chair: [{ suffix: 'seat', kind: 'seat', heightOffset: 0.54 }],
   'side-table': [{ suffix: 'top', kind: 'tabletop', heightOffset: 0.54 }],

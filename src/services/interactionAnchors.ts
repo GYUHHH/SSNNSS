@@ -28,7 +28,7 @@ export function interactionAnchorsFor(item: FurnitureItem, typeOverride?: Intera
   if (item.type === 'bed') return {
     type: 'lie',
     approach: { position: [.95, 0, .45], rotation: -Math.PI / 2 },
-    action: { position: [0, topHeight(item) + .15, .9], rotation: 0 },
+    action: { position: [0, topHeight(item) + .13, .78], rotation: 0 },
   }
   // center of the seat — an off-center slot presses the body into the armrest, and a bit of +z keeps the
   // torso clear of the backrest
