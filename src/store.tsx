@@ -25,6 +25,7 @@ const placementGrid = (item: Pick<FurnitureItem, 'gridX' | 'gridY'>): GridPositi
 // grid math only applies to items that actually sit in a surface's cell grid — fixed set-dressing (movable: false,
 // footprint 0) skips it entirely, same as before this generalized to more than floor/wall
 const isGridPlaced = (item: Pick<FurnitureItem, 'movable' | 'footprint'>) => item.movable && item.footprint.width > 0
+const isFloorCovering = (item: Pick<FurnitureItem, 'type' | 'surfaceId'>) => item.surfaceId === 'floor' && ['rug', 'carpet', 'mat', 'floor-mat'].includes(item.type)
 // the character's pathfinding runs on the BASE 10x10 grid, but subgrid2 floor items store subcell coords — collapse
 // them (subcell/2) so a floor-standing plant still blocks the base cell(s) it covers
 export const baseFloorCells = (item: Pick<FurnitureItem, 'gridX' | 'gridY' | 'footprint' | 'rotation' | 'allowedSurfaces'>) => {
@@ -286,12 +287,12 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     const footprint = candidate.footprint
     // cells are normalized to subgrid2 units so a base-resolution item (a desk) and a subgrid2 one (a cup) sharing
     // the same surfaceId (the floor) still collide-check correctly against each other
-    const occupied = new Set(context.filter((other) => other.id !== candidate.id && !other.removed && other.surfaceId === candidate.surfaceId).flatMap((other) => {
+    const occupied = new Set((isFloorCovering(candidate) ? [] : context.filter((other) => other.id !== candidate.id && !other.removed && other.surfaceId === candidate.surfaceId && !isFloorCovering(other))).flatMap((other) => {
       const otherResolution = resolutionFor(other)
       return normalizedCells(cellsFor(placementGrid(other), other.footprint, other.rotation[1]), otherResolution)
     }).map((cell) => `${cell.x}:${cell.y}`))
     // the character's current cell counts as occupied too — furniture can't be dropped on top of them
-    if (surface.type === 'floor') {
+    if (surface.type === 'floor' && !isFloorCovering(candidate)) {
       const cell = worldToGrid(floorSurface, [characterPosition[0], 0, characterPosition[2]], { width: 1, depth: 1 })
       for (const sub of normalizedCells([{ x: cell.gridX, y: cell.gridY }], 'base')) occupied.add(`${sub.x}:${sub.y}`)
     }

@@ -4,15 +4,16 @@ html, body, #root { width: 100%; height: 100%; }
 body { margin: 0; min-width: 720px; overflow: hidden; }
 button { font: inherit; }
 .app, .scene { width: 100vw; height: 100vh; height: 100dvh; }
-.scene, .scene canvas, .room-ui, .time-controls, .zoom-controls, .edit-toolbar, .inventory-panel, .storage-drop-zone { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.scene, .scene canvas, .room-ui, .room-controls, .time-controls, .zoom-controls, .edit-toolbar, .inventory-panel, .storage-drop-zone { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .scene canvas { display: block; touch-action: none; }
 img { -webkit-user-drag: none; }
 button { touch-action: manipulation; }
 input, textarea, select, .entry-item p, .guest-note p { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 .room-ui { position: fixed; z-index: 2; top: 24px; right: 26px; display: grid; justify-items: end; gap: 10px; }
-.zoom-controls { position: fixed; z-index: 3; right: 26px; bottom: 24px; display: flex; border: 1px solid #9b8c7b; border-radius: 5px; overflow: hidden; background: #f9f5ec; }.zoom-controls button { width: 34px; height: 34px; border: 0; color: #433932; background: transparent; cursor: pointer; font-size: 21px; line-height: 1; }.zoom-controls button + button { border-left: 1px solid #9b8c7b; }
-.all-room-button, .object-card button { border: 1px solid #9b8c7b; border-radius: 5px; color: #433932; background: #f9f5ec; cursor: pointer; }
-.all-room-button { padding: 9px 12px; font-size: 13px; }
+.room-controls { position: fixed; z-index: 3; right: 26px; bottom: 24px; display: grid; justify-items: stretch; gap: 6px; }
+.zoom-controls { display: flex; justify-self: end; border: 1px solid #9b8c7b; border-radius: 5px; overflow: hidden; background: #f9f5ec; }.zoom-controls button { width: 34px; height: 34px; border: 0; color: #433932; background: transparent; cursor: pointer; font-size: 21px; line-height: 1; }.zoom-controls button + button { border-left: 1px solid #9b8c7b; }
+.inventory-button, .object-card button { border: 1px solid #9b8c7b; border-radius: 5px; color: #433932; background: #f9f5ec; cursor: pointer; }
+.inventory-button { min-height: 36px; padding: 7px 12px; font-size: 13px; }
 .edit-mode-label { padding: 7px 2px; color: #594c42; font-size: 13px; font-weight: 700; }
 .object-card { display: grid; min-width: 170px; gap: 5px; padding: 13px; border: 1px solid #aa9a89; border-radius: 6px; background: #f8f4eb; }
 .object-card strong { font-size: 17px; }.object-card span { color: #766a5e; font-size: 12px; }.object-card button { justify-self: start; margin-top: 7px; padding: 7px 9px; font-size: 12px; }
@@ -39,8 +40,8 @@ input, textarea, select, .entry-item p, .guest-note p { -webkit-user-select: tex
 .entry-form { display: grid; gap: 12px; padding: 22px 12px 0; }.entry-form > label { display: grid; gap: 5px; color: #6f6358; font-size: 12px; }.entry-form textarea { min-height: 130px; resize: vertical; }.entry-form fieldset { display: flex; gap: 14px; padding: 8px 0; border: 0; color: #5b4e44; font-size: 13px; }.entry-form legend { padding: 0; color: #6f6358; font-size: 12px; }.draft-images { display: flex; flex-wrap: wrap; gap: 7px; }.draft-images button { width: 86px; height: 66px; padding: 0; overflow: hidden; cursor: pointer; }.draft-images img { width: 100%; height: 100%; object-fit: contain; background: #e8ddd0; }.save-entry { justify-self: end; }
 .photo-editor-overlay { position: fixed; z-index: 7; inset: 0; display: grid; place-items: center; background: rgb(33 29 26 / 45%); }.photo-editor { position: relative; display: grid; gap: 14px; width: min(460px, calc(100vw - 32px)); padding: 43px 20px 20px; border: 1px solid #a99b8c; border-radius: 7px; background: #fbf6ec; }.crop-area { position: relative; overflow: hidden; aspect-ratio: 4 / 3; background: #ded4c8; cursor: grab; }.crop-area:active { cursor: grabbing; }.crop-area img { position: absolute; top: 50%; left: 50%; min-width: 100%; min-height: 100%; max-width: none; user-select: none; pointer-events: none; }.photo-editor label { display: flex; align-items: center; gap: 10px; color: #65594e; font-size: 13px; }.photo-editor input { flex: 1; accent-color: #7d5e4c; }.photo-editor > button:last-child { justify-self: end; border: 1px solid #54443a; border-radius: 4px; padding: 8px 12px; color: #fff8ed; background: #54443a; cursor: pointer; }
 .artwork { display: flex; flex-direction: column; width: min(860px, calc(100vw - 32px)); height: min(700px, calc(100vh - 40px)); padding: 42px 32px 26px; text-align: center; }.artwork p { margin: 13px 0 0; }.art-image { flex: 1; min-height: 0; border: 12px solid #8f684e; background: #efe6d8; }.sea { background: linear-gradient(#93c6c6 0 48%, #497d7a 48%); }.poster-art { display: grid; place-items: center; background: #e5b84d; }.poster-art::after { content: "SONDÉ"; color: #315c65; font-size: 42px; font-weight: 800; letter-spacing: -.12em; }
-@media (max-width: 820px) { .room-ui, .zoom-controls { right: 20px; } }
-@media (max-width: 719px) { body { min-width: 0; }.room-ui { top: 14px; right: 14px; }.zoom-controls { right: 14px; bottom: 14px; }.object-card { min-width: 145px; }.edit-toolbar { bottom: 12px; max-width: calc(100vw - 20px); flex-wrap: wrap; justify-content: center; }.diary { width: calc(100vw - 20px); min-height: 0; padding: 34px 12px 14px; }.diary-head { padding: 0 8px 12px; }.diary-pages { min-height: 0; }.diary-pages section { padding: 18px 12px; }.right-page h3 { font-size: 17px; }.new-book { grid-template-columns: 1fr 76px; }.new-book button { grid-column: 1 / -1; }.art-image { height: 210px; } }
+@media (max-width: 820px) { .room-ui, .room-controls { right: 20px; } }
+@media (max-width: 719px) { body { min-width: 0; }.room-ui { top: 14px; right: 14px; }.room-controls { right: 14px; bottom: 14px; }.object-card { min-width: 145px; }.edit-toolbar { bottom: 12px; max-width: calc(100vw - 20px); flex-wrap: wrap; justify-content: center; }.diary { width: calc(100vw - 20px); min-height: 0; padding: 34px 12px 14px; }.diary-head { padding: 0 8px 12px; }.diary-pages { min-height: 0; }.diary-pages section { padding: 18px 12px; }.right-page h3 { font-size: 17px; }.new-book { grid-template-columns: 1fr 76px; }.new-book button { grid-column: 1 / -1; }.art-image { height: 210px; } }
 .draw-dialog { display: flex; flex-direction: column; gap: 10px; width: min(430px, 92vw); padding: 14px; border: 1px solid #aa9b8b; border-radius: 8px; background: #fbf6ec; }
 .draw-dialog header { display: flex; align-items: center; justify-content: space-between; }
 .draw-dialog canvas { width: 100%; max-height: 56vh; object-fit: contain; border: 1px solid #ded2c4; border-radius: 4px; background: #f6efe2; touch-action: none; cursor: crosshair; }
@@ -54,7 +55,7 @@ input, textarea, select, .entry-item p, .guest-note p { -webkit-user-select: tex
 img.art-image { object-fit: contain; width: 100%; }
 .art-actions { display: flex; gap: 6px; justify-content: center; margin-top: 8px; }
 .art-actions button { border: 1px solid #b8aa9a; border-radius: 4px; padding: 6px 10px; font-size: 12px; color: #4c4036; background: #fffaf0; cursor: pointer; }
-.time-controls { position: fixed; z-index: 4; left: 24px; top: 22px; display: flex; gap: 4px; }
+.time-controls { position: fixed; z-index: 4; left: 24px; bottom: 24px; display: flex; gap: 4px; }
 .time-controls button { border: 1px solid #b8aa9a; border-radius: 4px; padding: 6px 10px; font-size: 12px; color: #4c4036; background: #fffaf0; cursor: pointer; }
 .time-controls .active { border-color: #54443a; background: #e8dbc9; }
 .banner-input { display: flex; gap: 5px; margin: 8px 0 2px; }
@@ -74,7 +75,7 @@ div.art-view { aspect-ratio: 3 / 4; }
 .art-open .scene { transform: translate3d(-240px, 0, 0); }
 .scene { transform: translate3d(0, 0, 0); transition: transform .52s cubic-bezier(.4, 0, .2, 1); will-change: transform; }
 .art-open .room-ui { right: calc(min(480px, 92vw) + 24px); }
-.art-open .zoom-controls { right: calc(min(480px, 92vw) + 24px); }
+.art-open .room-controls { right: calc(min(480px, 92vw) + 24px); }
 .draw-dialog.inline { width: 100%; margin-top: 12px; padding: 12px 0 0; border: 0; border-top: 1px solid #ddd1c1; border-radius: 0; background: transparent; }
 .draw-dialog.inline canvas { align-self: center; width: auto; max-width: 100%; max-height: calc(100vh - 240px); }
 .draw-dialog.inline header .close-ui { position: static; }
@@ -92,7 +93,7 @@ div.art-view { aspect-ratio: 3 / 4; }
 .entry-item small { color: #8a7a6a; font-size: 11px; }
 .entry-empty { padding: 24px 4px; color: #7b6e60; }
 .diary-actions.top { padding: 10px 0 4px; border-top: 0; }
-.room-ui, .zoom-controls { transition: right .42s cubic-bezier(.4, 0, .2, 1); }
+.room-ui, .room-controls { transition: right .42s cubic-bezier(.4, 0, .2, 1); }
 @media (max-width: 521px) { .art-open .scene { transform: translate3d(-46vw, 0, 0); } }
 .guest-form { display: grid; gap: 6px; padding-bottom: 14px; border-bottom: 1px solid #ddd1c1; }
 .guest-form input, .guest-form textarea { border: 1px solid #b8aa9a; border-radius: 4px; padding: 7px 9px; font-size: 13px; color: #4c4036; background: #fffaf0; font-family: inherit; }
@@ -109,15 +110,15 @@ div.art-view { aspect-ratio: 3 / 4; }
 @media (max-width: 719px), (max-height: 520px) and (pointer: coarse) {
   body { min-width: 0; overscroll-behavior: none; }
   .room-ui { top: calc(12px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right)); gap: 7px; }
-  .all-room-button { min-height: 40px; padding: 8px 10px; }
+  .inventory-button { min-height: 40px; padding: 8px 10px; }
   .object-card, .style-panel { min-width: 0; width: min(170px, calc(100vw - 24px)); padding: 10px; }
-  .time-controls { top: calc(12px + env(safe-area-inset-top)); left: calc(12px + env(safe-area-inset-left)); }
+  .time-controls { bottom: calc(12px + env(safe-area-inset-bottom)); left: calc(12px + env(safe-area-inset-left)); }
   .time-controls button { min-width: 40px; min-height: 40px; padding: 6px 8px; }
-  .zoom-controls { right: calc(12px + env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .room-controls { right: calc(12px + env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom)); }
   .zoom-controls button { width: 44px; height: 44px; }
 
   .art-open .scene { transform: none; }
-  .art-open .room-ui, .art-open .zoom-controls { right: calc(12px + env(safe-area-inset-right)); }
+  .art-open .room-ui, .art-open .room-controls { right: calc(12px + env(safe-area-inset-right)); }
   .art-panel { width: 100vw; padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left)); border-left: 0; overscroll-behavior: contain; touch-action: pan-y; }
   .art-panel > header { position: sticky; z-index: 2; top: calc(-16px - env(safe-area-inset-top)); padding: 16px 0 10px; background: #fbf6ec; }
   .art-view { max-height: calc(100dvh - 150px); object-fit: contain; }
