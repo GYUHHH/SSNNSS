@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
 import type { Group } from 'three'
 import { useRoomStore } from '../store'
+import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
 import { embedSrc, trackIframe } from '../services/ytResume'
 
 // The playing iframe lives here, OUTSIDE the furniture tree: entering edit mode swaps every piece into a
@@ -15,8 +16,7 @@ export default function WallVideoLayer() {
   const item = furniture.find((entry) => entry.id === playingFrame)
   const videoId = videoLinks[playingFrame]
   if (!item || item.removed || !videoId || selectedObject === playingFrame) return null
-  const large = item.type === 'video-frame-4'
-  const [w, h] = large ? [2.3, 1.84] : [1.9, 1.425]
+  const [w, h] = VIDEO_FRAME_SIZES[item.type] ?? VIDEO_FRAME_SIZES['video-frame-3']
   const turned = Math.abs(Math.round(item.rotation[1] / (Math.PI / 2))) % 2 === 1
   const screenWidth = (turned ? h : w) - .16
   return <FollowFit fitName={`fit:${item.id}`}>

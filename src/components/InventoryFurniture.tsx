@@ -151,8 +151,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     {!preview && <ProfileBoardFace />}
   </>
   if (item.type.startsWith('video-frame')) {
-    const large = item.type === 'video-frame-4'
-    const [w, h] = large ? [2.3, 1.84] : [1.9, 1.425]
+    const [w, h] = VIDEO_FRAME_SIZES[item.type] ?? VIDEO_FRAME_SIZES['video-frame-3']
     const turned = Math.abs(Math.round(item.rotation[1] / (Math.PI / 2))) % 2 === 1
     const screenWidth = (turned ? h : w) - .16
     const screenHeight = screenWidth * (h - .16) / (w - .16)
@@ -626,3 +625,9 @@ function ProfileBoardFace() {
   </>
 }
 
+// mesh sizes per frame type; aspect matches the footprint so the fit stays even on both axes
+export const VIDEO_FRAME_SIZES: Record<string, [number, number]> = {
+  'video-frame-3': [1.9, 1.425],
+  'video-frame-4': [2.3, 1.84],
+  'video-frame-5': [2.76, 2.3],
+}

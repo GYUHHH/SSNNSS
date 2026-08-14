@@ -91,6 +91,7 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
   { type: 'guestbook', name: '방명록', category: 'wallItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'profile-board', name: '내 프로필', category: 'wallItem', movable: true, interactable: true, footprint: { width: 2, depth: 3 }, size: [2, 3], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'video-frame-3', name: '영상 액자 4×3', category: 'wallItem', movable: true, interactable: true, footprint: { width: 4, depth: 3 }, size: [4, 3], scale: 1, allowedSurfaces: ['wall'] },
+  { type: 'video-frame-5', name: '영상 액자 6×5', category: 'wallItem', movable: true, interactable: true, footprint: { width: 6, depth: 5 }, size: [6, 5], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'video-frame-4', name: '영상 액자 5×4', category: 'wallItem', movable: true, interactable: true, footprint: { width: 5, depth: 4 }, size: [5, 4], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'glass-shelf', name: '투명 선반', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'cd-player', name: 'CD 플레이어', category: 'wallItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['wall'] },
