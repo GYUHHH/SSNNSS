@@ -1,5 +1,5 @@
 import { Vector3 } from 'three'
-import { baseFloorCells, type CharacterState, type FurnitureItem } from '../store'
+import { baseFloorCells, POSED_TYPES, type CharacterState, type FurnitureItem } from '../store'
 import { cellsFor, floorSurface, GRID_COUNT, GRID_SIZE, gridToWorld, isOwnedSurfaceId, ownerIdOf, surfacesForOwner, worldToGrid, type GridPosition } from './roomGrid'
 
 export type InteractionType = 'sit' | 'lie' | 'work' | 'read' | 'interact'
@@ -81,7 +81,7 @@ const freeApproach = (world: LocalInteractionAnchor, target: FurnitureItem, furn
 
 export function resolveInteraction(selectedObject: string | null, furniture: FurnitureItem[], origin?: [number, number, number]): ResolvedInteraction | null {
   const requested = furniture.find((item) => item.id === (selectedObject === 'book' ? 'bookshelf' : selectedObject))
-  if (!requested || requested.removed) return null
+  if (!requested || requested.removed || !POSED_TYPES.has(requested.type)) return null
   let selected = requested
   if (isOwnedSurfaceId(selected.surfaceId)) selected = furniture.find((item) => item.id === ownerIdOf(selected.surfaceId)) ?? selected
   const working = requested.type === 'desk'
