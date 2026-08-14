@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useRoomStore } from '../store'
-import { DrawingEditor, PhotoPickButton, VideoPickButton } from './ArtEditor'
+import { DrawingEditor, PhotoPickButton, VideoLinkInput, VideoPickButton } from './ArtEditor'
 
 // which artwork panel a furniture type opens (null → none)
 export const artworkKindOf = (type: string) => type === 'photo' || type.startsWith('photo-frame') ? 'frame' : type === 'poster' || type.startsWith('wall-art') ? 'poster' : type.startsWith('video-frame') ? 'video' : type === 'guestbook' ? 'guestbook' : type === 'whiteboard' ? 'poster' : null
 
 // side panel on the right — the room slides left while it is open; tall artwork scrolls instead of cropping
 export default function ArtworkOverlay() {
-  const { selectedObject, clearSelection, artworks, furniture, videoFrames } = useRoomStore()
+  const { selectedObject, clearSelection, artworks, furniture, videoFrames, videoLinks } = useRoomStore()
   const [drawing, setDrawing] = useState(false)
   useEffect(() => setDrawing(false), [selectedObject])
   if (!selectedObject) return null
@@ -17,7 +17,8 @@ export default function ArtworkOverlay() {
   if (kind === 'guestbook') return <Guestbook id={selectedObject} onClose={clearSelection} />
   if (kind === 'video') return <>
     <header><strong>{item?.name ?? '영상 액자'}</strong><button className="close-ui" type="button" aria-label="닫기" onClick={clearSelection}>×</button></header>
-    <p>{videoFrames[selectedObject] ? '영상이 재생되고 있어요.' : '아직 영상이 없어요. 파일을 넣어보세요.'}</p>
+    <p>{videoLinks[selectedObject] ? '유튜브 영상이 걸려 있어요.' : videoFrames[selectedObject] ? '영상이 재생되고 있어요.' : '유튜브 링크를 붙여넣거나 파일을 넣어보세요.'}</p>
+    <VideoLinkInput id={selectedObject} />
     <div className="art-actions"><VideoPickButton id={selectedObject} /></div>
   </>
   const frame = kind === 'frame'

@@ -1,7 +1,7 @@
 import { Html, RoundedBox } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo } from 'react'
-import { CanvasTexture, SRGBColorSpace, VideoTexture, type PointLight } from 'three'
+import { CanvasTexture, SRGBColorSpace, type Texture, TextureLoader, VideoTexture, type PointLight } from 'three'
 import { BannerTextInput, useArtTexture } from './ArtEditor'
 import { type ReactNode, useRef, useState } from 'react'
 import type { Group, MeshStandardMaterial } from 'three'
@@ -523,8 +523,10 @@ function MusicControls({ id, y }: { id: string; y: number }) {
 
 // the clip lives in IndexedDB; it is decoded into a hidden <video> and streamed onto the frame as a texture
 function VideoScreen({ id, width, height }: { id: string; width: number; height: number }) {
-  const version = useOptionalRoomStore()?.videoFrames[id] ?? 0
-  const [texture, setTexture] = useState<VideoTexture | null>(null)
+  const store = useOptionalRoomStore()
+  const version = store?.videoFrames[id] ?? 0
+  const link = store?.videoLinks[id]
+  const [texture, setTexture] = useState<Texture | null>(null)
   useEffect(() => {
     let live = true
     let url: string | null = null
@@ -542,7 +544,12 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
       video.colorSpace = SRGBColorSpace
       setTexture(video)
     }
-    if (version) getVideo(id).then((blob) => {
+    if (link) new TextureLoader().setCrossOrigin('anonymous').loadAsync(`https://img.youtube.com/vi/${link}/hqdefault.jpg`).then((poster) => {
+      if (!live) return
+      poster.colorSpace = SRGBColorSpace
+      setTexture(poster)
+    }).catch(() => { /* thumbnail unavailable */ })
+    else if (version) getVideo(id).then((blob) => {
       if (!live || !blob) return
       url = URL.createObjectURL(blob)
       start(url)
@@ -553,11 +560,16 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
       element?.pause()
       if (url) URL.revokeObjectURL(url)
     }
-  }, [id, version])
-  return <mesh position={[0, 0, .085]}>
+  }, [id, version, link])
+  return <><mesh position={[0, 0, .085]}>
     <planeGeometry args={[width, height]} />
     {texture
       ? <meshBasicMaterial key="clip" map={texture} />
       : <meshStandardMaterial key="empty" color="#20262b" emissive="#2b3236" emissiveIntensity={.25} />}
   </mesh>
+  {link && <group position={[0, 0, .095]}>
+    <mesh><circleGeometry args={[.16, 20]} /><meshBasicMaterial color="#000000" transparent opacity={.55} /></mesh>
+    <mesh position={[.02, 0, .002]} rotation={[0, 0, -Math.PI / 2]}><circleGeometry args={[.075, 3]} /><meshBasicMaterial color="#ffffff" /></mesh>
+  </group>}
+  </>
 }

@@ -25,3 +25,20 @@ export const putVideo = (id: string, blob: Blob) => run('readwrite', (store) => 
 export const getVideo = (id: string) => run<Blob>('readonly', (store) => store.get(id) as IDBRequest<Blob>)
 export const deleteVideo = (id: string) => run('readwrite', (store) => store.delete(id))
 export const listVideoIds = async () => (await run<IDBValidKey[]>('readonly', (store) => store.getAllKeys())) as string[] | null
+
+// youtube links are tiny, so they stay in localStorage next to the rest of the room
+const linkKey = 'my-room-video-links-v1'
+export function loadVideoLinks(): Record<string, string> {
+  try { const raw = localStorage.getItem(linkKey); return raw ? JSON.parse(raw) as Record<string, string> : {} } catch { return {} }
+}
+export function saveVideoLinks(links: Record<string, string>) {
+  try { localStorage.setItem(linkKey, JSON.stringify(links)) } catch { /* unavailable */ }
+}
+
+// accepts watch, youtu.be, shorts and embed forms, or a bare id
+export function youTubeId(input: string): string | null {
+  const text = input.trim()
+  if (/^[\w-]{11}$/.test(text)) return text
+  const match = text.match(/(?:youtu\.be\/|v=|\/embed\/|\/shorts\/)([\w-]{11})/)
+  return match ? match[1] : null
+}
