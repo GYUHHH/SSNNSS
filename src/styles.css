@@ -340,3 +340,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .edit-toolbar { border-color: var(--ui-line); background: var(--ui-bg); }
   .inventory-panel { border-color: var(--ui-line); background: var(--ui-bg); }
 }
+
+/* Keep every control's box metrics while removing visible UI outlines. */
+.app * { border-color: transparent !important; }
+.style-swatches button, .style-swatches button.active { outline: 0; box-shadow: none; }
+.style-swatches button.active { box-shadow: inset 0 0 0 3px rgb(255 255 255 / 85%); }
