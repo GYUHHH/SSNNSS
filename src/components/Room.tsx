@@ -28,14 +28,14 @@ const LIGHTING = {
 function Scene() {
   const { clearSelection, mode, toggleEditMode, timeOfDay } = useRoomStore()
   const light = LIGHTING[timeOfDay]
-  return <Canvas shadows="basic" dpr={[1, 1.5]} gl={{ antialias: true }} onPointerMissed={(event) => { if ((event.target as HTMLElement)?.tagName !== 'CANVAS') return; (mode === 'edit' ? toggleEditMode : clearSelection)() }} camera={{ position: [9.5, 8.5, 10] }}>
+  return <Canvas shadows="basic" dpr={[1, 2]} gl={{ antialias: true }} onPointerMissed={(event) => { if ((event.target as HTMLElement)?.tagName !== 'CANVAS') return; (mode === 'edit' ? toggleEditMode : clearSelection)() }} camera={{ position: [9.5, 8.5, 10] }}>
     <color attach="background" args={[light.bg]} />
     <OrthographicCamera makeDefault position={[9.5, 8.5, 10]} zoom={59} near={0.1} far={100} />
     <ambientLight intensity={light.ambient} color={light.ambientColor} />
-    <directionalLight castShadow position={[4, 8, 5]} intensity={light.dir} color={light.dirColor} shadow-mapSize-width={1024} shadow-mapSize-height={1024} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
+    <directionalLight castShadow position={[4, 8, 5]} intensity={light.dir} color={light.dirColor} shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
     <Suspense fallback={null}>
       <Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><InventoryPreview /><SurfaceDropZones /><Character /><CameraController /><DebugAnchors />
-      <ContactShadows position={[0, 0.018, 0]} opacity={0.38} scale={9} blur={2.4} far={2.2} resolution={512} />
+      <ContactShadows position={[0, 0.018, 0]} opacity={0.38} scale={9} blur={2.4} far={2.2} resolution={1024} />
     </Suspense>
   </Canvas>
 }
