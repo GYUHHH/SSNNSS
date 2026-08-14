@@ -21,9 +21,13 @@ export default function MirrorGlass({ width, height }: { width: number; height: 
     uniforms: { map: { value: fbo.texture }, textureMatrix: { value: new Matrix4() } },
     vertexShader: `uniform mat4 textureMatrix; varying vec4 vProjected;
       void main() { vProjected = textureMatrix * modelMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-    fragmentShader: `uniform sampler2D map; varying vec4 vProjected;
+    fragmentShader: `
+      #include <tonemapping_pars_fragment>
+      #include <colorspace_pars_fragment>
+      uniform sampler2D map; varying vec4 vProjected;
       void main() {
         gl_FragColor = texture2DProj(map, vProjected);
+        #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
   }), [fbo.texture])
