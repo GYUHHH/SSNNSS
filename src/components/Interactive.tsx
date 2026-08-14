@@ -29,7 +29,10 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
   const hoverGroup = item && isOwnedSurfaceId(item.surfaceId) ? ownerIdOf(item.surfaceId) : id
   useCursor(hovered)
   const cancelPress = () => { if (timer.current) clearTimeout(timer.current); timer.current = null; press.current = null }
-  useEffect(() => () => cancelPress(), [])
+  useEffect(() => () => {
+    cancelPress()
+    if (hoverShared.by === id) { hoverShared.group = null; hoverShared.by = null }
+  }, [])
 
   useFrame((_, delta) => {
     if (!group.current) return
