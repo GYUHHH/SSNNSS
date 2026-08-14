@@ -15,13 +15,6 @@ export type ResolvedInteraction = InteractionAnchors & {
   actionWorld: LocalInteractionAnchor
 }
 
-const CAMERA_POSITION = new Vector3(9.5, 8.5, 10)
-export const mirrorFacingOffset = (item: Pick<FurnitureItem, 'position' | 'rotation'>) => {
-  const cameraYaw = Math.atan2(CAMERA_POSITION.x - item.position[0], CAMERA_POSITION.z - item.position[2])
-  const difference = Math.atan2(Math.sin(cameraYaw - item.rotation[1]), Math.cos(cameraYaw - item.rotation[1]))
-  return Math.max(-.4, Math.min(.4, difference))
-}
-
 const topHeight = (item: FurnitureItem) => {
   const surface = surfacesForOwner(item)[0]
   return surface ? surface.position[1] - item.position[1] : 0
@@ -48,7 +41,7 @@ export function interactionAnchorsFor(item: FurnitureItem, typeOverride?: Intera
   // your reflection outside the frame. Solve for the offset that lands it in the glass from that fixed view.
   if (item.type === 'mirror') {
     const distance = item.footprint.depth * GRID_SIZE / 2 + .5
-    const yaw = item.rotation[1] + mirrorFacingOffset(item)
+    const yaw = item.rotation[1]
     const localX = VIEW_DIR.x * Math.cos(yaw) - VIEW_DIR.z * Math.sin(yaw)
     const localZ = VIEW_DIR.x * Math.sin(yaw) + VIEW_DIR.z * Math.cos(yaw)
     const offset = localZ < -.1 ? Math.max(-1.3, Math.min(1.3, -distance * (localX / localZ) * 1.35)) : 0
