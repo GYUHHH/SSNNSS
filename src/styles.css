@@ -4,11 +4,11 @@ html, body, #root { width: 100%; height: 100%; }
 body { margin: 0; min-width: 720px; overflow: hidden; }
 button { font: inherit; }
 .app, .scene { width: 100vw; height: 100vh; height: 100dvh; }
-.scene, .scene canvas, .room-ui, .room-controls, .time-controls, .edit-toolbar, .inventory-panel, .storage-drop-zone { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.app, .scene, .scene canvas, .room-ui, .room-controls, .time-controls, .edit-toolbar, .inventory-panel, .storage-drop-zone { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .scene canvas { display: block; touch-action: none; }
 img { -webkit-user-drag: none; }
 button { touch-action: manipulation; }
-input, textarea, select, .entry-item p, .guest-note p { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 .room-ui { position: fixed; z-index: 2; top: 24px; right: 26px; display: grid; justify-items: end; gap: 10px; }
 .room-controls { position: fixed; z-index: 3; right: 26px; bottom: 24px; display: grid; justify-items: stretch; gap: 6px; }
 .inventory-button, .object-card button { border: 1px solid #9b8c7b; border-radius: 5px; color: #433932; background: #f9f5ec; cursor: pointer; }
