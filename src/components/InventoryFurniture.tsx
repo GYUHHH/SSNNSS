@@ -145,11 +145,10 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     <mesh castShadow position={[0, .13, 0]}><sphereGeometry args={[.09, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshStandardMaterial color={material.color ?? '#6b6478'} emissive={lit ? '#8f86ad' : '#000000'} emissiveIntensity={lit ? .5 : 0} transparent={material.transparent} opacity={material.opacity} /></mesh>
     {lit && <StarField />}
   </>
-  if (item.type === 'friend-card') return <>
+  if (item.type === 'profile-board') return <>
     <RoundedBox castShadow args={[1.4, 2.1, .07]} radius={.06} smoothness={2} position={[0, 0, .035]}>{mat('#fbf6ec')}</RoundedBox>
-    <mesh position={[0, .48, .076]}><circleGeometry args={[.44, 30]} /><meshStandardMaterial key={art && !preview ? 'photo' : 'blank'} color={art && !preview ? '#ffffff' : '#e2d6c6'} map={!preview ? art ?? undefined : undefined} roughness={.9} transparent={material.transparent} opacity={material.opacity} /></mesh>
-    <mesh position={[0, .48, .073]}><circleGeometry args={[.47, 30]} />{mat('#d9c9ae')}</mesh>
-    {!preview && <FriendCardText id={item.id} />}
+    <mesh position={[0, .5, .073]}><circleGeometry args={[.47, 30]} />{mat('#e2d6c6')}</mesh>
+    {!preview && <ProfileBoardFace />}
   </>
   if (item.type.startsWith('video-frame')) {
     const wide = item.type === 'video-frame-4'
@@ -580,34 +579,44 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
   </>
 }
 
-// the name and counts on a friend card, drawn to a canvas so the board can carry text
-function drawFriendCard(canvas: HTMLCanvasElement, name: string) {
+// the wall copy of the profile popup: same photo and counts, drawn to a canvas so the board can carry text
+function drawProfileBoard(canvas: HTMLCanvasElement, total: number, today: number, friends: number) {
   const ctx = canvas.getContext('2d')!
-  const w = canvas.width, h = canvas.height
-  ctx.clearRect(0, 0, w, h)
-  ctx.fillStyle = '#3f3a33'
-  ctx.font = 'bold 34px "Segoe UI", sans-serif'
+  const w = canvas.width
+  ctx.clearRect(0, 0, w, canvas.height)
   ctx.textAlign = 'center'
-  ctx.fillText(name.slice(0, 12), w / 2, 48)
-  ctx.fillStyle = '#a08d7c'
-  ctx.font = '20px "Segoe UI", sans-serif'
-  ctx.fillText('친구', w / 2, 84)
+  ctx.fillStyle = '#3f3a33'
+  ctx.font = 'bold 30px "Segoe UI", sans-serif'
+  ctx.fillText(`Total ${total}`, w * .29, 42)
+  ctx.fillText(`Today ${today}`, w * .72, 42)
+  ctx.fillStyle = '#c3b6a6'
+  ctx.font = '26px "Segoe UI", sans-serif'
+  ctx.fillText('|', w / 2, 42)
   ctx.strokeStyle = '#e2d6c6'
   ctx.lineWidth = 2
-  ctx.beginPath(); ctx.moveTo(w * .18, 104); ctx.lineTo(w * .82, 104); ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(w * .14, 66); ctx.lineTo(w * .86, 66); ctx.stroke()
+  ctx.fillStyle = '#5b4e44'
+  ctx.font = 'bold 30px "Segoe UI", sans-serif'
+  ctx.fillText(`친구 ${friends}`, w / 2, 106)
 }
 
-function FriendCardText({ id }: { id: string }) {
-  const name = useOptionalRoomStore()?.artworks[`${id}:name`] || '이웃'
+function ProfileBoardFace() {
+  const profile = useOptionalRoomStore()?.profile
+  const total = profile?.total ?? 0, today = profile?.today ?? 0, friends = profile?.friends ?? 0
+  const photo = profile?.photo
   const texture = useMemo(() => {
-    const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 128
-    drawFriendCard(canvas, name)
+    const canvas = document.createElement('canvas'); canvas.width = 320; canvas.height = 128
+    drawProfileBoard(canvas, total, today, friends)
     const created = new CanvasTexture(canvas); created.colorSpace = SRGBColorSpace
     return created
   }, [])
   useEffect(() => {
-    drawFriendCard(texture.image as HTMLCanvasElement, name)
+    drawProfileBoard(texture.image as HTMLCanvasElement, total, today, friends)
     texture.needsUpdate = true
-  }, [name, texture])
-  return <mesh position={[0, -.42, .076]}><planeGeometry args={[1.1, .55]} /><meshBasicMaterial map={texture} transparent /></mesh>
+  }, [total, today, friends, texture])
+  const portrait = useMemo(() => { if (!photo) return null; const map = new TextureLoader().load(photo); map.colorSpace = SRGBColorSpace; return map }, [photo])
+  return <>
+    {portrait && <mesh position={[0, .5, .076]}><circleGeometry args={[.44, 30]} /><meshBasicMaterial map={portrait} /></mesh>}
+    <mesh position={[0, -.45, .076]}><planeGeometry args={[1.2, .48]} /><meshBasicMaterial map={texture} transparent /></mesh>
+  </>
 }

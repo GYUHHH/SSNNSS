@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { SRGBColorSpace, type Texture, TextureLoader } from 'three'
 import { useOptionalRoomStore, useRoomStore } from '../store'
+import { getVideo } from '../services/mediaStore'
 
 const PAPER = '#f6efe2'
 const COLORS = ['#3f3a33', '#b96b52', '#d9a441', '#8a9c82', '#607b93', '#a06a8c', '#e8b4a0', '#f3ead9']
@@ -119,11 +120,22 @@ export function VideoLinkInput({ id }: { id: string }) {
   </div>
 }
 
-export function FriendNameInput({ id }: { id: string }) {
-  const { artworks, setArtwork } = useRoomStore()
-  const [text, setText] = useState(artworks[`${id}:name`] || '')
-  return <div className="banner-input">
-    <input type="text" maxLength={12} value={text} onChange={(event) => setText(event.target.value)} placeholder="이웃 이름" onKeyDown={(event) => { if (event.key === 'Enter') setArtwork(`${id}:name`, text.trim() || null) }} />
-    <button type="button" onClick={() => setArtwork(`${id}:name`, text.trim() || null)}>적용</button>
-  </div>
+// the clip plays in the panel too, so it keeps running while you are looking at its settings
+export function ClipPreview({ id }: { id: string }) {
+  const { videoFrames } = useRoomStore()
+  const version = videoFrames[id]
+  const [url, setUrl] = useState<string | null>(null)
+  useEffect(() => {
+    let live = true
+    let created: string | null = null
+    setUrl(null)
+    if (version) getVideo(id).then((blob) => {
+      if (!live || !blob) return
+      created = URL.createObjectURL(blob)
+      setUrl(created)
+    })
+    return () => { live = false; if (created) URL.revokeObjectURL(created) }
+  }, [id, version])
+  if (!url) return null
+  return <video className="clip-preview" src={url} autoPlay muted loop playsInline controls />
 }

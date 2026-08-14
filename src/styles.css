@@ -364,3 +364,4 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .video-link-error { color: #b3563f; font-size: 12px; }
 .art-view.round { width: 190px; height: 190px; margin: 0 auto; border-radius: 50%; object-fit: cover; }
 .art-view.round.blank { background: #e2d6c6; }
+.clip-preview { width: 100%; margin-top: 10px; border-radius: 8px; background: #20262b; display: block; }
