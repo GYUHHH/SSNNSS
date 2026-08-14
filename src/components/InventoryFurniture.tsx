@@ -67,13 +67,14 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     {!preview && <MusicControls id={item.id} y={.95} />}
   </>
   if (item.type === 'whiteboard') return <>
-    {[-.46, .46].map((x) => <mesh castShadow key={x} position={[x, .64, .14]} rotation={[-.1, 0, x > 0 ? -.06 : .06]}><cylinderGeometry args={[.026, .034, 1.32, 6]} />{mat('#8a6048')}</mesh>)}
-    <mesh castShadow position={[0, .6, -.16]} rotation={[.3, 0, 0]}><cylinderGeometry args={[.024, .032, 1.26, 6]} />{mat('#8a6048')}</mesh>
-    <group position={[0, .86, .1]} rotation={[-.1, 0, 0]}>
-      <RoundedBox castShadow args={[1.16, 1, .05]} radius={.02} smoothness={2}>{mat('#8a6048')}</RoundedBox>
-      <mesh position={[0, 0, .032]}><planeGeometry args={[1.04, .9]} /><meshStandardMaterial key={art && !preview ? 'art' : 'plain'} color={art && !preview ? '#ffffff' : '#fbf6ec'} map={!preview ? art ?? undefined : undefined} transparent={material.transparent} opacity={material.opacity} /></mesh>
+    {/* legs splay out from behind the board, so nothing crosses the drawing */}
+    {[-1, 1].map((side) => <mesh castShadow key={side} position={[side * .51, .66, -.02]} rotation={[-.08, 0, side * -.106]}><cylinderGeometry args={[.026, .034, 1.32, 6]} />{mat('#8a6048')}</mesh>)}
+    <mesh castShadow position={[0, .62, -.18]} rotation={[.3, 0, 0]}><cylinderGeometry args={[.024, .032, 1.28, 6]} />{mat('#8a6048')}</mesh>
+    <group position={[0, .86, .1]} rotation={[-.08, 0, 0]}>
+      <RoundedBox castShadow args={[1.24, 1, .05]} radius={.02} smoothness={2}>{mat('#8a6048')}</RoundedBox>
+      <mesh position={[0, 0, .032]}><planeGeometry args={[1.116, .9]} /><meshStandardMaterial key={art && !preview ? 'art' : 'plain'} color={art && !preview ? '#ffffff' : '#fbf6ec'} map={!preview ? art ?? undefined : undefined} transparent={material.transparent} opacity={material.opacity} /></mesh>
     </group>
-    <mesh castShadow position={[0, .34, .2]}><boxGeometry args={[1.1, .05, .11]} />{mat('#6b4c39')}</mesh>
+    <mesh castShadow position={[0, .33, .19]}><boxGeometry args={[1.16, .05, .11]} />{mat('#6b4c39')}</mesh>
   </>
   if (item.type === 'rocking-chair') return <RockingGroup>
     {[-.19, .19].map((x) => <mesh castShadow key={x} position={[x, .06, .02]} rotation={[0, 0, Math.PI / 2]}><torusGeometry args={[.3, .022, 6, 14, Math.PI * .8]} />{mat('#6b4c39')}</mesh>)}
