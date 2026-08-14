@@ -169,7 +169,7 @@ export default function Character() {
         <RoundedBox args={[.17, .27, .18]} radius={.05} smoothness={2} position={[0, -.42, 0]}><meshStandardMaterial color="#d6a07e" roughness={.9} /></RoundedBox>
         <RoundedBox args={[.2, .13, .29]} radius={.055} smoothness={2} position={[0, -.6, .055]}><meshStandardMaterial color="#4c3b34" roughness={.88} /></RoundedBox>
       </group>
-      {cupHeld && <mesh position={[.4, .61, .1]}><cylinderGeometry args={[.09, .085, .18, 10]} /><meshStandardMaterial color="#f5e7cc" roughness={.85} /></mesh>}
+      {cupHeld && <mesh position={[.4, .61, .1]}><cylinderGeometry args={[.09, .09, .18, 16]} /><meshStandardMaterial color="#f5e7cc" roughness={.85} /></mesh>}
       {moveNotice && <Html position={[0, 2, 0]} center><div className="speech-bubble">여기로 이동할 수 없어요</div></Html>}
       {selectedObject === 'plant' && characterState === 'interacting' && <Html position={[0, 2, 0]} center><div className="speech-bubble">새 잎이 났네.</div></Html>}
       {debugAnchors && <mesh position={[0, .8, 0]}><boxGeometry args={[.62, 1.68, .48]} /><meshBasicMaterial color="#3b82f6" wireframe depthTest={false} /></mesh>}
