@@ -13,7 +13,6 @@ input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-
 .room-controls { position: fixed; z-index: 3; right: 26px; bottom: 24px; display: grid; justify-items: stretch; gap: 6px; }
 .inventory-button, .object-card button { border: 1px solid #9b8c7b; border-radius: 5px; color: #433932; background: #f9f5ec; cursor: pointer; }
 .inventory-button { min-height: 36px; padding: 7px 12px; font-size: 13px; }
-.edit-mode-label { padding: 7px 2px; color: #594c42; font-size: 13px; font-weight: 700; }
 .object-card { display: grid; min-width: 170px; gap: 5px; padding: 13px; border: 1px solid #aa9a89; border-radius: 6px; background: #f8f4eb; }
 .object-card strong { font-size: 17px; }.object-card span { color: #766a5e; font-size: 12px; }.object-card button { justify-self: start; margin-top: 7px; padding: 7px 9px; font-size: 12px; }
 .object-card.banner-popup { width: min(220px, calc(100vw - 24px)); padding: 10px; }
@@ -238,7 +237,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .inventory-button:hover { opacity: .82; }
 
 .room-ui { top: 20px; right: 20px; gap: 8px; }
-.edit-mode-label { padding: 7px 10px; border: 1px solid var(--ui-line); border-radius: 4px; color: var(--ui-text); background: var(--ui-bg); font-size: 12px; }
 .object-card, .style-panel { min-width: 176px; padding: 12px; border: 1px solid var(--ui-line); border-radius: 5px; background: var(--ui-bg); }
 .object-card { gap: 6px; }
 .object-card strong { font-size: 16px; }

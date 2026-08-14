@@ -42,7 +42,6 @@ function Interface() {
   return <main className={artOpen ? 'app art-open' : 'app'}>
     <div className="scene" onContextMenu={(event) => event.preventDefault()}><Room /></div>
     <aside className="room-ui">
-      {mode === 'edit' && <span className="edit-mode-label">꾸미기</span>}
       {cardControls && <section className="object-card"><span>{time}</span></section>}
       <StylePanel />
     </aside>
