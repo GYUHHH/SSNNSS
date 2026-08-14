@@ -1,5 +1,5 @@
 import { type ChangeEvent, type FormEvent, useRef, useState } from 'react'
-import { type Book, type Entry, type Visibility, useRoomStore } from '../store'
+import { type Book, type Entry, type EntryDraft, type Visibility, useRoomStore } from '../store'
 
 const today = () => new Date().toISOString().slice(0, 10)
 const assetUrl = (source: string) => source.startsWith('/') ? `${location.hostname.endsWith('.github.io') ? `${import.meta.env.BASE_URL}public/` : import.meta.env.BASE_URL}${source.slice(1)}` : source
@@ -13,27 +13,42 @@ export default function DiaryDialog() {
     <section className="diary" aria-label={book.title}>
       <button className="close-ui" type="button" aria-label="닫기" onClick={closeBook}>×</button>
       <header className="diary-head"><div><span>기록장</span><h2>{book.title}</h2></div><div className="diary-head-actions">{!writing && <button type="button" onClick={() => setWriting(true)}>새 기록 작성</button>}<label>책 공개 설정 <select value={book.visibility} onChange={(event) => updateBookVisibility(book.id, event.target.value as Visibility)}><option value="private">비공개</option><option value="public">공개</option></select></label></div></header>
-      {writing ? <EntryForm book={book} onSave={(draft) => { addEntry(book.id, draft); setWriting(false) }} /> : <EntryList entries={book.entries} />}
+      {writing ? <EntryForm book={book} onSave={(draft) => { addEntry(book.id, draft); setWriting(false) }} /> : <EntryList bookId={book.id} entries={book.entries} />}
     </section>
   </>
 }
 
-function EntryList({ entries }: { entries: Entry[] }) {
+function EntryList({ bookId, entries }: { bookId: string; entries: Entry[] }) {
+  const { deleteEntry } = useRoomStore()
+  const [deleting, setDeleting] = useState<string | null>(null)
   return <>
     <div className="entry-list">
       {entries.length === 0 && <p className="entry-empty">아직 기록이 없어요.</p>}
       {[...entries].reverse().map((entry) => <article key={entry.id} className="entry-item">
-        <time>{entry.date}</time>
+        <div className="entry-item-head"><time>{entry.date}</time><button type="button" onClick={() => setDeleting(entry.id)}>삭제</button></div>
+        {deleting === entry.id && <div className="delete-confirm entry-delete-confirm"><span>‘{entry.title}’ 삭제할까요?</span><button type="button" onClick={() => setDeleting(null)}>취소</button><button type="button" onClick={() => { deleteEntry(bookId, entry.id); setDeleting(null) }}>삭제</button></div>}
         <h3>{entry.title}</h3>
         {entry.images[0] && <img src={assetUrl(entry.images[0])} alt="기록 사진" />}
         {entry.content && <p>{entry.content}</p>}
         <small>{entry.visibility === 'public' ? '공개 기록' : '비공개 기록'}</small>
+        <EntryComments bookId={bookId} entry={entry} />
       </article>)}
     </div>
   </>
 }
 
-function EntryForm({ book, onSave }: { book: Book; onSave: (entry: Omit<Entry, 'id' | 'bookId' | 'createdAt' | 'updatedAt'>) => void }) {
+function EntryComments({ bookId, entry }: { bookId: string; entry: Entry }) {
+  const { addEntryComment, removeEntryComment } = useRoomStore()
+  const [name, setName] = useState('')
+  const [text, setText] = useState('')
+  const submit = (event: FormEvent) => { event.preventDefault(); if (!text.trim()) return; addEntryComment(bookId, entry.id, name, text.trim()); setText('') }
+  return <section className="entry-comments" aria-label={`${entry.title} 댓글`}>
+    <form className="entry-comment-form" onSubmit={submit}><input maxLength={12} value={name} onChange={(event) => setName(event.target.value)} placeholder="이름 (비우면 익명)" /><textarea maxLength={200} value={text} onChange={(event) => setText(event.target.value)} placeholder="댓글" /><button type="submit">댓글 쓰기</button></form>
+    <div className="entry-comment-list">{(entry.comments ?? []).map((comment) => <article key={comment.id} className="entry-comment"><header><strong>{comment.name}</strong><time>{comment.createdAt.slice(0, 10)}</time><button type="button" aria-label="댓글 삭제" onClick={() => removeEntryComment(bookId, entry.id, comment.id)}>×</button></header><p>{comment.text}</p></article>)}</div>
+  </section>
+}
+
+function EntryForm({ book, onSave }: { book: Book; onSave: (entry: EntryDraft) => void }) {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [date, setDate] = useState(today)
