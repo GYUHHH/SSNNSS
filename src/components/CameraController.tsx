@@ -33,7 +33,7 @@ export default function CameraController() {
   useEffect(() => {
     const element = gl.domElement
     const distance = () => { const [a, b] = [...touchPoints.current.values()]; return a && b ? Math.hypot(a[0] - b[0], a[1] - b[1]) : 0 }
-    const onWheel = (event: WheelEvent) => { event.preventDefault(); zoomTarget.current = MathUtils.clamp(zoomTarget.current * Math.exp(-event.deltaY * .0015), minZoom, MAX_ZOOM) }
+    const onWheel = (event: WheelEvent) => { event.preventDefault(); zoomTarget.current = MathUtils.clamp(zoomTarget.current * Math.exp(event.deltaY * .0015), minZoom, MAX_ZOOM) }
     const onPointerDown = (event: PointerEvent) => {
       if (event.pointerType !== 'touch') return
       const now = performance.now()
