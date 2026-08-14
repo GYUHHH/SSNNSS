@@ -2,7 +2,7 @@ import { type ReactNode, useLayoutEffect, useRef, useState } from 'react'
 import { Box3, type Group, type Mesh, Vector3 } from 'three'
 import Interactive from './Interactive'
 import { type FurnitureId, type FurnitureItem, resolutionFor, useRoomStore } from '../store'
-import { fitMeshToFootprint, fitsSurface, resolveSurface, surfacesForOwner, wallSurfaces, withResolution, worldToGrid } from '../services/roomGrid'
+import { fitMeshToFootprint, resolveSurface, wallSurfaces, withResolution } from '../services/roomGrid'
 
 export default function Furniture({ id, children }: { id: FurnitureId; children: ReactNode }) {
   const { furniture, mode } = useRoomStore()
@@ -44,24 +44,13 @@ export function FittedMesh({ item, children }: { item: FurnitureItem; children: 
 }
 
 function EditableFurniture({ id, children }: { id: FurnitureId; children: ReactNode }) {
-  const { furniture, selectedFurnitureId, movingFurnitureId, preview, selectFurniture, beginMove, moveFurniture, movePreview } = useRoomStore()
+  const { furniture, selectedFurnitureId, movingFurnitureId, selectFurniture, beginMove } = useRoomStore()
   const item = furniture.find((value) => value.id === id)!
   const selected = selectedFurnitureId === id
   const surface = resolveSurface(furniture, item.surfaceId)
   const [width, height] = surface ? fitMeshToFootprint(withResolution(surface, resolutionFor(item)), item.footprint) : [0, 0]
-  const moveOntoTop = (point: [number, number, number]) => {
-    const moving = preview ?? furniture.find((entry) => entry.id === movingFurnitureId); if (!moving) return false
-    const movingResolution = resolutionFor(moving)
-    const target = surfacesForOwner(item).find((entry) => {
-      if (!moving.allowedSurfaces.includes(entry.type)) return false
-      return fitsSurface(withResolution(entry, movingResolution), worldToGrid(withResolution(entry, movingResolution), point, moving.footprint, moving.rotation[1]), moving.footprint, moving.rotation[1])
-    }); if (!target) return false
-    if (preview) movePreview(point, target.id); else moveFurniture(moving.id, point, target.id)
-    return true
-  }
   return <group position={item.position} rotation={item.category === 'wallItem' ? [0, 0, 0] : item.rotation} scale={item.scale}
     onPointerDown={(event) => { event.stopPropagation(); selectFurniture(id); beginMove(id) }}
-    onPointerMove={(event) => { if (movingFurnitureId === id && moveOntoTop([event.point.x, event.point.y, event.point.z])) event.stopPropagation() }}
     onClick={(event) => event.stopPropagation()}>
     {children}
     {selected && movingFurnitureId !== id && item.category !== 'wallItem' && <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}><ringGeometry args={[Math.max(width, height) * .22, Math.max(width, height) * .3, 28]} /><meshBasicMaterial color="#fff2a5" transparent opacity={0.9} /></mesh>}

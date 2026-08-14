@@ -7,7 +7,7 @@ import { resolveSurface, surfacesForOwner, withResolution, type SurfaceId } from
 export function SurfaceDropZones() {
   const { furniture, mode } = useRoomStore()
   if (mode !== 'edit') return null
-  return <>{furniture.flatMap(surfacesForOwner).map((surface) => <SurfaceDropZone key={surface.id} surfaceId={surface.id} />)}</>
+  return <>{furniture.filter((item) => !item.removed).flatMap(surfacesForOwner).map((surface) => <SurfaceDropZone key={surface.id} surfaceId={surface.id} />)}</>
 }
 
 // the tabletop/shelf equivalent of Floor.tsx and Walls.tsx: a thin invisible hit-box sitting on a furniture-hosted

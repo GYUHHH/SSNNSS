@@ -47,7 +47,6 @@ const OWNED_SURFACES: Record<string, OwnedSurfaceConfig[]> = {
   wardrobe: [{ suffix: 'top', kind: 'tabletop', heightOffset: 1.9 }],
   'mini-fridge': [{ suffix: 'top', kind: 'tabletop', heightOffset: 0.86 }],
   'rocking-chair': [{ suffix: 'seat', kind: 'seat', heightOffset: 0.49 }],
-  beanbag: [{ suffix: 'seat', kind: 'seat', heightOffset: 0.3 }],
 }
 export type SurfaceHost = { id: string; type: string; position: [number, number, number]; rotation: [number, number, number]; footprint: Footprint; wallId?: WallId }
 
