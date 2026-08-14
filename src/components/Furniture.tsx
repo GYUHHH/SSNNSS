@@ -16,7 +16,7 @@ export default function Furniture({ id, children }: { id: FurnitureId; children:
 
 export function FittedMesh({ item, children }: { item: FurnitureItem; children: ReactNode }) {
   const { furniture } = useRoomStore()
-  const group = useRef<Group>(null); const [scale, setScale] = useState<[number, number, number]>([1, 1, 1]); const [wallOffset, setWallOffset] = useState(0)
+  const group = useRef<Group>(null)
   useLayoutEffect(() => {
     if (!group.current || !item.footprint.width) return
     const surface = resolveSurface(furniture, item.surfaceId); if (!surface) return
@@ -29,7 +29,7 @@ export function FittedMesh({ item, children }: { item: FurnitureItem; children: 
     // Portable props keep one scale on every axis. Scaling only X/Z made cups, plants, books, etc. look
     // squashed after placement even though their footprint was correct.
     const uniformScale = Math.min(width / size.x, height / size.z)
-    setScale(surface.type !== 'wall'
+    const fitted: [number, number, number] = (surface.type !== 'wall'
       ? resolutionFor(item) === 'subgrid2'
         ? [uniformScale, uniformScale, uniformScale]
         : item.type === 'mirror'
@@ -38,9 +38,10 @@ export function FittedMesh({ item, children }: { item: FurnitureItem; children: 
       : item.type === 'wall-shelf'
         ? [width / size.x, 1, 1]
         : [width / size.x, height / size.y, 1])
-    setWallOffset(item.category === 'wallItem' ? .012 - bounds.min.z : 0)
+    group.current.scale.set(...fitted)
+    group.current.position.z = item.category === 'wallItem' ? .012 - bounds.min.z : 0
   }, [item.surfaceId, item.footprint.width, item.footprint.depth, item.rotation[1]])
-  return <group ref={group} position={[0, 0, wallOffset]} scale={scale}>{children}</group>
+  return <group ref={group} name={`fit:${item.id}`}>{children}</group>
 }
 
 function EditableFurniture({ id, children }: { id: FurnitureId; children: ReactNode }) {
