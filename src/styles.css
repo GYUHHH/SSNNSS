@@ -368,6 +368,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .yt-player { position: fixed; z-index: 6; overflow: hidden; border-radius: 10px; background: #20262b; box-shadow: 0 12px 28px rgb(52 40 30 / 26%); }
 .yt-player iframe { display: block; width: 100%; height: 100%; border: 0; }
 .yt-player.docked { right: 22px; top: 96px; width: min(436px, calc(92vw - 24px)); aspect-ratio: 16 / 9; }
-.yt-player.mini { left: 24px; bottom: 92px; width: 232px; aspect-ratio: 16 / 9; }
+.yt-player.offscreen { left: -9999px; top: 0; width: 320px; aspect-ratio: 16 / 9; pointer-events: none; }
+.yt-playing { position: fixed; z-index: 6; left: 24px; bottom: 92px; display: flex; gap: 6px; align-items: center; border: 1px solid #b8aa9a; border-radius: 999px; padding: 6px 12px; color: #4c4036; background: #fffaf0; cursor: pointer; font-size: 12px; }
+.yt-playing span { color: #8a7a6a; }
 .yt-player button { position: absolute; right: 4px; top: 4px; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; color: #fff8ed; background: rgb(32 38 43 / 72%); cursor: pointer; line-height: 1; }
-@media (max-width: 719px) { .yt-player.docked { right: 12px; top: 74px; width: calc(100vw - 24px); } .yt-player.mini { left: 12px; bottom: 84px; width: 180px; } }
+@media (max-width: 719px) { .yt-player.docked { right: 12px; top: 74px; width: calc(100vw - 24px); } .yt-playing { left: 12px; bottom: 84px; } }
