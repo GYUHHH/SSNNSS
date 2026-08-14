@@ -11,6 +11,7 @@ import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
 import { trackList } from '../services/music'
 import { getVideo } from '../services/mediaStore'
+import { publicBase } from '../services/publicBase'
 import MirrorGlass from './MirrorGlass'
 import { Swing } from './motion'
 
@@ -526,19 +527,24 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
     let url: string | null = null
     let element: HTMLVideoElement | null = null
     setTexture(null)
-    if (version) getVideo(id).then((blob) => {
-      if (!live || !blob) return
-      url = URL.createObjectURL(blob)
+    const start = (source: string) => {
       element = document.createElement('video')
-      element.src = url
+      element.src = source
       element.loop = true
       element.muted = true
       element.playsInline = true
+      element.crossOrigin = 'anonymous'
       element.play().catch(() => { /* autoplay may wait for a gesture */ })
       const video = new VideoTexture(element)
       video.colorSpace = SRGBColorSpace
       setTexture(video)
+    }
+    if (version) getVideo(id).then((blob) => {
+      if (!live || !blob) return
+      url = URL.createObjectURL(blob)
+      start(url)
     })
+    else start(`${publicBase}video/sample.webm`)
     return () => {
       live = false
       element?.pause()

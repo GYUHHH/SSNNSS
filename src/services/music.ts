@@ -6,7 +6,7 @@ const patterns: Record<string, Pattern> = {
   lofi: { notes: [261.63, 311.13, 392, 349.23, 261.63, 233.08, 311.13, 196], tempo: 640, type: 'triangle', volume: 0.12 },
   bright: { notes: [392, 440, 523.25, 587.33, 659.25, 587.33, 523.25, 440], tempo: 360, type: 'triangle', volume: 0.1 },
 }
-const publicBase = location.hostname.endsWith('.github.io') ? `${import.meta.env.BASE_URL}public/` : import.meta.env.BASE_URL
+import { publicBase } from './publicBase'
 const files: Record<string, string> = {
   lany: `${publicBase}music/a-star-we-never-named.mp3`,
 }

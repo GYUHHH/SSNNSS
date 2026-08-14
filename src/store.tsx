@@ -2,6 +2,7 @@ import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, 
 import { createSlot, deleteSlot, loadArtworks, loadBooks, loadGuestbook, loadSlots, placedInOtherSlots, saveArtworks, saveBooks, saveGuestbook, saveSlotItems, saveSlotStyle, setActiveSlot, slotItems, slotStyle, type FurniturePlacement, type RoomStyle } from './services/roomLayoutStorage'
 import { canPlaceItem, cellsFor, clampGrid, floorSurface, GRID_COUNT, gridToWorld, isOwnedSurfaceId, nearestWallId, normalizedCells, ownerIdOf, resolveSurface, withResolution, type Footprint, type GridPosition, type PlacementItem, type PlacementResolution, type PlacementSurface, type SurfaceId, type SurfaceKind, type WallId, worldToGrid } from './services/roomGrid'
 import { characterPosition } from './services/characterTracker'
+import { publicBase } from './services/publicBase'
 import { deleteVideo, listVideoIds, putVideo } from './services/mediaStore'
 import { playTrack, setMusicVolume as applyMusicVolume, stopMusic } from './services/music'
 
@@ -406,7 +407,6 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   // one-time pull of the converted Instagram export (public/instagram/import.json) into the bookshelf
   useEffect(() => {
     try { if (localStorage.getItem('my-room-insta-imported-v1')) return } catch { return }
-    const publicBase = location.hostname.endsWith('.github.io') ? `${import.meta.env.BASE_URL}public/` : import.meta.env.BASE_URL
     fetch(`${publicBase}instagram/import.json`).then((response) => response.ok ? response.json() : null).then((book: Book | null) => {
       if (!book) return
       setBooks((prev) => prev.some((value) => value.id === book.id) ? prev : [...prev, book])
