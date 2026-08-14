@@ -4,14 +4,13 @@ html, body, #root { width: 100%; height: 100%; }
 body { margin: 0; min-width: 720px; overflow: hidden; }
 button { font: inherit; }
 .app, .scene { width: 100vw; height: 100vh; height: 100dvh; }
-.scene, .scene canvas, .room-ui, .room-controls, .time-controls, .zoom-controls, .edit-toolbar, .inventory-panel, .storage-drop-zone { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.scene, .scene canvas, .room-ui, .room-controls, .time-controls, .edit-toolbar, .inventory-panel, .storage-drop-zone { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .scene canvas { display: block; touch-action: none; }
 img { -webkit-user-drag: none; }
 button { touch-action: manipulation; }
 input, textarea, select, .entry-item p, .guest-note p { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 .room-ui { position: fixed; z-index: 2; top: 24px; right: 26px; display: grid; justify-items: end; gap: 10px; }
 .room-controls { position: fixed; z-index: 3; right: 26px; bottom: 24px; display: grid; justify-items: stretch; gap: 6px; }
-.zoom-controls { display: flex; justify-self: end; border: 1px solid #9b8c7b; border-radius: 5px; overflow: hidden; background: #f9f5ec; }.zoom-controls button { width: 34px; height: 34px; border: 0; color: #433932; background: transparent; cursor: pointer; font-size: 21px; line-height: 1; }.zoom-controls button + button { border-left: 1px solid #9b8c7b; }
 .inventory-button, .object-card button { border: 1px solid #9b8c7b; border-radius: 5px; color: #433932; background: #f9f5ec; cursor: pointer; }
 .inventory-button { min-height: 36px; padding: 7px 12px; font-size: 13px; }
 .edit-mode-label { padding: 7px 2px; color: #594c42; font-size: 13px; font-weight: 700; }
@@ -121,7 +120,6 @@ div.art-view { aspect-ratio: 3 / 4; }
   .time-controls { bottom: calc(12px + env(safe-area-inset-bottom)); left: calc(12px + env(safe-area-inset-left)); }
   .time-controls button { min-width: 40px; min-height: 40px; padding: 6px 8px; }
   .room-controls { right: calc(12px + env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom)); }
-  .zoom-controls button { width: 44px; height: 36px; }
 
   .art-open .scene { transform: none; }
   .art-open .room-ui, .art-open .room-controls { right: calc(12px + env(safe-area-inset-right)); }
