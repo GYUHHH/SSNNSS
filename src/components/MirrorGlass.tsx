@@ -1,7 +1,7 @@
 import { useFBO } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
-import { Color, Matrix4, type Mesh, OrthographicCamera, PerspectiveCamera, Plane, ShaderMaterial, Vector3 } from 'three'
+import { Matrix4, type Mesh, OrthographicCamera, PerspectiveCamera, Plane, ShaderMaterial, Vector3 } from 'three'
 
 // A planar mirror that works under this room's ORTHOGRAPHIC camera. drei's MeshReflectorMaterial cannot: it
 // always builds a PerspectiveCamera and then rewrites the projection matrix with the oblique near-plane trick,
@@ -10,7 +10,7 @@ import { Color, Matrix4, type Mesh, OrthographicCamera, PerspectiveCamera, Plane
 // plane instead, which is projection-agnostic.
 const BIAS = new Matrix4().set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 0.5, 0, 0, 0, 1)
 
-export default function MirrorGlass({ width, height, tint = '#e8eef2', strength = 0.9 }: { width: number; height: number; tint?: string; strength?: number }) {
+export default function MirrorGlass({ width, height }: { width: number; height: number }) {
   const mesh = useRef<Mesh>(null)
   const fbo = useFBO(768, 768, { samples: 2 })
   const scratch = useMemo(() => ({
@@ -18,12 +18,16 @@ export default function MirrorGlass({ width, height, tint = '#e8eef2', strength 
     lookAt: new Vector3(), target: new Vector3(), up: new Vector3(), rotation: new Matrix4(), plane: new Plane(),
   }), [])
   const material = useMemo(() => new ShaderMaterial({
-    uniforms: { map: { value: fbo.texture }, textureMatrix: { value: new Matrix4() }, tint: { value: new Color(tint) }, strength: { value: strength } },
+    uniforms: { map: { value: fbo.texture }, textureMatrix: { value: new Matrix4() } },
     vertexShader: `uniform mat4 textureMatrix; varying vec4 vProjected;
       void main() { vProjected = textureMatrix * modelMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-    fragmentShader: `uniform sampler2D map; uniform vec3 tint; uniform float strength; varying vec4 vProjected;
-      void main() { vec3 reflected = texture2DProj(map, vProjected).rgb; gl_FragColor = vec4(mix(tint, reflected, strength), 1.0); }`,
-  }), [fbo.texture, strength, tint])
+    fragmentShader: `uniform sampler2D map; varying vec4 vProjected;
+      void main() {
+        gl_FragColor = texture2DProj(map, vProjected);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+  }), [fbo.texture])
 
   useFrame(({ gl, scene, camera }) => {
     const glass = mesh.current
