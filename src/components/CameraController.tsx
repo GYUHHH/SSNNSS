@@ -52,7 +52,7 @@ export default function CameraController() {
       touchPoints.current.set(event.pointerId, [event.clientX, event.clientY])
       if (dragZoom.current?.pointerId === event.pointerId) {
         event.preventDefault(); event.stopImmediatePropagation()
-        zoomTarget.current = MathUtils.clamp(dragZoom.current.startZoom * Math.exp((dragZoom.current.startY - event.clientY) * .012), minZoom, MAX_ZOOM)
+        zoomTarget.current = MathUtils.clamp(dragZoom.current.startZoom * Math.exp((event.clientY - dragZoom.current.startY) * .012), minZoom, MAX_ZOOM)
         return
       }
       if (touchPoints.current.size !== 2) return
