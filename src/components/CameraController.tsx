@@ -37,7 +37,7 @@ export default function CameraController() {
     const onPointerDown = (event: PointerEvent) => {
       if (event.pointerType !== 'touch') return
       const now = performance.now()
-      const secondTap = compactScreen && touchPoints.current.size === 0 && now - lastTap.current.time < 320 && Math.hypot(event.clientX - lastTap.current.x, event.clientY - lastTap.current.y) < 36
+      const secondTap = mode === 'normal' && compactScreen && touchPoints.current.size === 0 && now - lastTap.current.time < 320 && Math.hypot(event.clientX - lastTap.current.x, event.clientY - lastTap.current.y) < 36
       touchPoints.current.set(event.pointerId, [event.clientX, event.clientY])
       touchStarts.current.set(event.pointerId, { x: event.clientX, y: event.clientY, time: now })
       if (secondTap) {
@@ -68,7 +68,7 @@ export default function CameraController() {
         if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId)
         dragZoom.current = null
         setDragZooming(false)
-      } else if (!cancelled && touchPoints.current.size === 1 && point && start && performance.now() - start.time < 350 && Math.hypot(point[0] - start.x, point[1] - start.y) < 12) {
+      } else if (mode === 'normal' && !cancelled && touchPoints.current.size === 1 && point && start && performance.now() - start.time < 350 && Math.hypot(point[0] - start.x, point[1] - start.y) < 12) {
         lastTap.current = { time: performance.now(), x: point[0], y: point[1] }
       } else if (touchPoints.current.size === 1) lastTap.current.time = 0
       touchPoints.current.delete(event.pointerId)
@@ -82,7 +82,7 @@ export default function CameraController() {
     element.addEventListener('pointerup', onPointerEnd, true)
     element.addEventListener('pointercancel', onPointerCancel, true)
     return () => { element.removeEventListener('wheel', onWheel); element.removeEventListener('pointerdown', onPointerDown, true); element.removeEventListener('pointermove', onPointerMove, true); element.removeEventListener('pointerup', onPointerEnd, true); element.removeEventListener('pointercancel', onPointerCancel, true) }
-  }, [compactScreen, gl, minZoom])
+  }, [compactScreen, gl, minZoom, mode])
 
   useFrame((_, delta) => {
     const camera2d = camera as OrthographicCamera
