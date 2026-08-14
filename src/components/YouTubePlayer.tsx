@@ -1,4 +1,5 @@
 import { useRoomStore } from '../store'
+import { ResumingIframe } from './WallVideoLayer'
 
 // One player that never moves in the DOM. Reparenting an iframe reloads it — and closing the panel would kill the
 // video — so the same element stays mounted and only its CSS position changes: docked beside the open panel,
@@ -14,6 +15,6 @@ export default function YouTubePlayer() {
   const docked = selectedObject === playingFrame && !!selected?.type.startsWith('video-frame')
   if (!docked) return null
   return <section className="yt-player docked" aria-label="유튜브 재생">
-    <iframe title="유튜브 재생" src={`https://www.youtube.com/embed/${videoId}?autoplay=1`} allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+    <ResumingIframe videoId={videoId} frameId={playingFrame} extra="autoplay=1" />
   </section>
 }

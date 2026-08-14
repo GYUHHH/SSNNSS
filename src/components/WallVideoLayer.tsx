@@ -1,8 +1,9 @@
 import { Html } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Group } from 'three'
 import { useRoomStore } from '../store'
+import { embedSrc, trackIframe } from '../services/ytResume'
 
 // The playing iframe lives here, OUTSIDE the furniture tree: entering edit mode swaps every piece into a
 // different wrapper, which would unmount an iframe rendered inside it and reload the video. This layer stays
@@ -22,7 +23,7 @@ export default function WallVideoLayer() {
     <group rotation={[0, 0, -item.rotation[1]]}>
       <Html transform distanceFactor={400} position={[0, 0, .09]} scale={screenWidth / 1280} zIndexRange={[4, 0]}>
         <div className="wall-video" style={{ width: 1280, height: Math.round(1280 * ((h - .16) / (w - .16))) }} onPointerDown={(event) => event.stopPropagation()}>
-          <iframe title="유튜브 재생" src={`https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1`} allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+          <ResumingIframe videoId={videoId} frameId={playingFrame} extra="autoplay=1&playsinline=1" />
           <div className="wall-video-actions">
             <button type="button" aria-label="크게 보기" onClick={() => openVideoPanel(playingFrame)}>⤢</button>
             <button type="button" aria-label="재생 멈추기" onClick={() => setPlayingFrame(null)}>×</button>
@@ -45,4 +46,12 @@ function FollowFit({ fitName, children }: { fitName: string; children: React.Rea
     target.matrixWorldNeedsUpdate = true
   })
   return <group ref={holder}>{children}</group>
+}
+
+// src is fixed at mount (recomputing it would reload the embed); the tracker keeps the resume point fresh
+export function ResumingIframe({ videoId, frameId, extra }: { videoId: string; frameId: string; extra: string }) {
+  const frame = useRef<HTMLIFrameElement>(null)
+  const [src] = useState(() => embedSrc(videoId, frameId, extra))
+  useEffect(() => { if (frame.current) return trackIframe(frame.current, frameId) }, [frameId])
+  return <iframe ref={frame} title="유튜브 재생" src={src} allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
 }
