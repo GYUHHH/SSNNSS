@@ -20,7 +20,7 @@ export default function ArtworkOverlay() {
   const [width, height] = frame
     ? item?.type === 'photo' ? [464, 336] : [400, 400]
     : item?.type === 'poster' ? [360, 555] : item?.type === 'whiteboard' ? [420, 300] : [360, Math.round(360 * (item?.footprint.depth ?? 3) / (item?.footprint.width ?? 2))]
-  return <aside className="art-panel">
+  return <>
     <header><strong>{item?.name ?? (frame ? '사진' : '포스터')}</strong><button className="close-ui" type="button" aria-label="닫기" onClick={clearSelection}>×</button></header>
     {drawing
       ? <DrawingEditor id={selectedObject} width={width} height={height} onClose={() => setDrawing(false)} />
@@ -28,7 +28,7 @@ export default function ArtworkOverlay() {
         {art ? <img className="art-view" src={art} alt={frame ? '사진' : '그림'} /> : <div className={frame ? 'art-view sea' : 'art-view poster-art'} />}
         <div className="art-meta"><p>{frame ? (art ? '나의 사진' : item?.type === 'photo' ? '여름의 바다' : '빈 액자') : art ? '나의 그림' : item?.type === 'poster' ? 'SONDÉ' : '빈 포스터'}</p><div className="art-actions">{frame ? <PhotoPickButton id={selectedObject} width={width} height={height} /> : <button type="button" onClick={() => setDrawing(true)}>그림 그리기</button>}</div></div>
       </>}
-  </aside>
+  </>
 }
 
 function Guestbook({ id, onClose }: { id: string; onClose: () => void }) {
@@ -37,7 +37,7 @@ function Guestbook({ id, onClose }: { id: string; onClose: () => void }) {
   const [text, setText] = useState('')
   const comments = guestbook[id] ?? []
   const submit = () => { if (!text.trim()) return; addGuestComment(id, name, text.trim()); setText('') }
-  return <aside className="art-panel">
+  return <>
     <header><strong>방명록</strong><button className="close-ui" type="button" aria-label="닫기" onClick={onClose}>×</button></header>
     <div className="guest-form">
       <input type="text" maxLength={12} value={name} onChange={(event) => setName(event.target.value)} placeholder="이름 (비우면 익명)" />
@@ -51,5 +51,5 @@ function Guestbook({ id, onClose }: { id: string; onClose: () => void }) {
         <p>{comment.text}</p>
       </article>)}
     </div>
-  </aside>
+  </>
 }

@@ -7,12 +7,11 @@ import Room from './components/Room'
 import StylePanel from './components/StylePanel'
 import { RoomProvider, useRoomStore } from './store'
 import { customizableTypes } from './services/styles'
-import { trackList } from './services/music'
 import { BannerTextInput } from './components/ArtEditor'
 import { thumbnailFor } from './services/thumbnails'
 
 function Interface() {
-  const { selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, openStyleTarget, toggleDebugAnchors, musicTrack, setMusicTrack, musicVolume, setMusicVolume, timeOfDay, setTimeOfDay } = useRoomStore()
+  const { selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, openStyleTarget, toggleDebugAnchors, timeOfDay, setTimeOfDay } = useRoomStore()
   const [confirmingReset, setConfirmingReset] = useState(false)
   const [inventoryOpen, setInventoryOpen] = useState(false)
   const [dragPointer, setDragPointer] = useState<{ x: number; y: number; overStorage: boolean } | null>(null)
@@ -38,7 +37,7 @@ function Interface() {
   const movingItem = furniture.find((entry) => entry.id === movingFurnitureId)
   useEffect(() => { let live = true; if (!movingItem) { setDragThumbnail(null); return }; thumbnailFor(movingItem).then((src) => { if (live) setDragThumbnail(src) }); return () => { live = false } }, [movingItem?.type, movingItem?.styleId])
   const selectedItem = furniture.find((entry) => entry.id === selectedObject)
-  const cardControls = selectedItem?.type === 'music-player' || selectedItem?.type === 'record-player' || selectedItem?.type === 'banner' || (!!selectedItem && customizableTypes.has(selectedItem.type)) || selectedObject === 'clock'
+  const cardControls = selectedItem?.type === 'banner' || (!!selectedItem && customizableTypes.has(selectedItem.type)) || selectedObject === 'clock'
   const time = new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit' }).format(new Date())
   const zoom = (amount: number) => window.dispatchEvent(new CustomEvent('room-zoom', { detail: amount }))
 
@@ -48,7 +47,6 @@ function Interface() {
     <aside className="room-ui">
       {mode === 'edit' && <span className="edit-mode-label">꾸미기</span>}
       {cardControls && <section className="object-card">{selectedObject === 'clock' && <span>{time}</span>}
-        {(selectedItem?.type === 'music-player' || selectedItem?.type === 'record-player') && <div className="track-list">{trackList.map((track) => <button key={track.id} type="button" className={musicTrack === track.id ? 'active' : ''} onClick={() => setMusicTrack(track.id)}>{musicTrack === track.id ? `♪ ${track.label}` : track.label}</button>)}<button type="button" disabled={!musicTrack} onClick={() => setMusicTrack(null)}>정지</button><label className="volume-control">볼륨<input type="range" min={0} max={1} step={0.05} value={musicVolume} onChange={(event) => setMusicVolume(Number(event.target.value))} /></label></div>}
         {selectedItem?.type === 'banner' && <BannerTextInput id={selectedItem.id} />}
         {selectedItem && customizableTypes.has(selectedItem.type) && <button type="button" onClick={() => openStyleTarget({ kind: 'furniture', id: selectedItem.id })}>색상 변경</button>}</section>}
       <StylePanel />
@@ -58,7 +56,7 @@ function Interface() {
     {movingFurnitureId && dragPointer?.overStorage && dragThumbnail && <img className="drag-thumbnail" src={dragThumbnail} alt="" style={{ left: dragPointer.x, top: dragPointer.y }} />}
     {mode === 'edit' && <><nav className="edit-toolbar" aria-label="꾸미기 도구"><span className={selectedPlacementValid ? '' : 'invalid-placement'}>{selectedFurnitureId ? (() => { const selected = furniture.find((item) => item.id === selectedFurnitureId); return selected ? `${selected.name} · ${selected.footprint.width ? `${selected.footprint.width}×${selected.footprint.depth}` : '벽'}${selectedPlacementValid ? '' : ' · 놓을 수 없는 위치'}` : '가구 선택' })() : '가구 선택'}</span><button type="button" onClick={() => setInventoryOpen((open) => !open)}>가구함</button><button type="button" disabled={!selectedFurnitureId} onClick={rotateFurniture}>회전</button><button type="button" onClick={undoLayout}>되돌리기</button><button type="button" onClick={() => setConfirmingReset(true)}>초기화</button><button type="button" onClick={() => { setInventoryOpen(false); toggleEditMode() }}>완료</button></nav>{inventoryOpen && <InventoryPanel />}</>}
     {confirmingReset && <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setConfirmingReset(false)}><section className="reset-confirm"><p>모든 가구를 처음 위치로 되돌릴까요?</p><div><button type="button" onClick={() => setConfirmingReset(false)}>취소</button><button type="button" onClick={() => { resetLayout(); setConfirmingReset(false) }}>초기화</button></div></section></div>}
-    <BookShelfPanel /><DiaryDialog /><ArtworkOverlay />
+    <aside className={artOpen ? 'art-panel open' : 'art-panel'} aria-hidden={!artOpen}><BookShelfPanel /><DiaryDialog /><ArtworkOverlay /></aside>
   </main>
 }
 

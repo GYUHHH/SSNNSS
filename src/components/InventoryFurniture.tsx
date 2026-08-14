@@ -9,6 +9,7 @@ import Furniture, { FittedMesh } from './Furniture'
 import { type FurnitureItem, useOptionalRoomStore, useRoomStore } from '../store'
 import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
+import { trackList } from '../services/music'
 
 export function InventoryFurniture() {
   const { furniture } = useRoomStore()
@@ -31,6 +32,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     <mesh position={[0, .38, .252]}><planeGeometry args={[.3, .12]} /><meshStandardMaterial color="#2b3236" emissive="#4a6a5e" emissiveIntensity={.4} transparent={material.transparent} opacity={material.opacity} /></mesh>
     <mesh position={[0, .24, .252]}><circleGeometry args={[.045, 12]} /><meshStandardMaterial color="#d9c9ae" transparent={material.transparent} opacity={material.opacity} /></mesh>
     {!preview && musicTrack && <Html position={[0, .75, 0]} center zIndexRange={[3, 0]} style={{ pointerEvents: 'none' }}><div className="music-notes"><span>♪</span><span>♫</span><span>♪</span></div></Html>}
+    {!preview && <MusicControls id={item.id} y={1.05} />}
   </>
   if (item.type === 'floor-lamp') return <><mesh castShadow position={[0, .06, 0]}><cylinderGeometry args={[.25, .28, .12, 12]} /><meshStandardMaterial color={material.color ?? '#83624f'} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh castShadow position={[0, .66, 0]}><cylinderGeometry args={[.04, .04, 1.08, 8]} /><meshStandardMaterial color={material.color ?? '#83624f'} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh castShadow position={[0, 1.34, 0]}><cylinderGeometry args={[.18, .3, .38, 12, 1, true]} /><meshStandardMaterial color={material.color ?? '#f3d79f'} emissive={lit ? '#ffd9a0' : '#000000'} emissiveIntensity={lit ? .6 : 0} side={2} transparent={material.transparent} opacity={material.opacity} /></mesh>{lit && <mesh position={[0, 1.26, 0]}><sphereGeometry args={[.07, 10, 8]} /><meshStandardMaterial color="#ffe6b8" emissive="#ffe6b8" emissiveIntensity={1.4} /></mesh>}{lit && <pointLight color="#ffc66d" intensity={6} distance={2.4} position={[0, 1.16, 0]} />}</>
   if (item.type === 'potted-plant') return <><mesh castShadow position={[0, .2, 0]}><cylinderGeometry args={[.22, .27, .4, 10]} /><meshStandardMaterial color={material.color ?? '#c37c59'} transparent={material.transparent} opacity={material.opacity} /></mesh>{[-.18, 0, .18].map((x) => <mesh castShadow key={x} position={[x, .65, 0]} rotation={[0.5, x * 2, 0]}><sphereGeometry args={[.22, 8, 8]} /><meshStandardMaterial color={material.color ?? '#668c64'} transparent={material.transparent} opacity={material.opacity} /></mesh>)}</>
@@ -51,6 +53,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     <RoundedBox castShadow args={[1.24, .3, .56]} radius={.03} smoothness={2} position={[0, .21, 0]}>{mat('#8a6048')}</RoundedBox>
     {[[-.5, -.2], [.5, -.2], [-.5, .2], [.5, .2]].map(([x, z]) => <mesh castShadow key={`${x}:${z}`} position={[x, .03, z]}><cylinderGeometry args={[.03, .04, .07, 8]} />{mat('#6b4c39')}</mesh>)}
     {!preview && <RecordDisc />}
+    {!preview && <MusicControls id={item.id} y={.95} />}
     <mesh position={[.44, .37, -.14]}><cylinderGeometry args={[.03, .03, .02, 8]} />{mat('#d9c9ae')}</mesh>
     <mesh position={[.34, .385, .02]} rotation={[0, .5, 0]}><boxGeometry args={[.04, .015, .3]} />{mat('#4c4036')}</mesh>
   </>
@@ -430,4 +433,18 @@ function CalendarArt() {
     return t
   }, [])
   return <mesh position={[0, 0, .045]}><planeGeometry args={[.52, .6]} /><meshStandardMaterial map={texture} roughness={.9} /></mesh>
+}
+
+// jukebox controls anchored over the player, shown while it is the selected object
+function MusicControls({ id, y }: { id: string; y: number }) {
+  const store = useOptionalRoomStore()
+  if (!store || store.mode !== 'normal' || store.selectedObject !== id) return null
+  const { musicTrack, setMusicTrack, musicVolume, setMusicVolume } = store
+  return <Html position={[0, y, 0]} center zIndexRange={[4, 0]}>
+    <div className="track-list floating" onPointerDown={(event) => event.stopPropagation()}>
+      {trackList.map((track) => <button key={track.id} type="button" className={musicTrack === track.id ? 'active' : ''} onClick={() => setMusicTrack(track.id)}>{musicTrack === track.id ? `♪ ${track.label}` : track.label}</button>)}
+      <button type="button" disabled={!musicTrack} onClick={() => setMusicTrack(null)}>정지</button>
+      <label className="volume-control">볼륨<input type="range" min={0} max={1} step={0.05} value={musicVolume} onChange={(event) => setMusicVolume(Number(event.target.value))} /></label>
+    </div>
+  </Html>
 }

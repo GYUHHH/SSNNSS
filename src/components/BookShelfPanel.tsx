@@ -12,7 +12,7 @@ export default function BookShelfPanel() {
     addBook(title.trim(), visibility)
     setTitle('')
   }
-  return <aside className="art-panel">
+  return <>
     <section className="bookshelf-panel" aria-label="책장">
       <button className="close-ui" type="button" aria-label="닫기" onClick={clearSelection}>×</button>
       <h2>책장</h2>
@@ -23,5 +23,5 @@ export default function BookShelfPanel() {
         <button type="submit">책 만들기</button>
       </form>
     </section>
-  </aside>
+  </>
 }
