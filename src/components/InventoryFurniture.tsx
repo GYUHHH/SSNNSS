@@ -162,6 +162,11 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     {lit && <FireArt />}
     {lit && <FlickerLight position={[0, .45, .38]} color="#ff9a3c" base={3.2} amp={.9} distance={2.6} />}
   </>
+  if (item.type === 'glass-shelf') return <>
+    {[[-.58, -.22], [.58, -.22], [-.58, .22], [.58, .22]].map(([x, z]) => <mesh castShadow key={`${x}:${z}`} position={[x, .32, z]}><cylinderGeometry args={[.02, .02, .64, 8]} /><meshStandardMaterial color={material.color ?? '#c3ced4'} metalness={.6} roughness={.25} transparent opacity={preview ? material.opacity : .75} /></mesh>)}
+    <mesh castShadow position={[0, .645, 0]}><boxGeometry args={[1.3, .03, .62]} /><meshStandardMaterial color={material.color ?? '#dfeaf0'} metalness={.15} roughness={.06} transparent opacity={preview ? material.opacity : .34} /></mesh>
+    <mesh position={[0, .3, 0]}><boxGeometry args={[1.24, .025, .56]} /><meshStandardMaterial color={material.color ?? '#dfeaf0'} metalness={.15} roughness={.06} transparent opacity={preview ? material.opacity : .22} /></mesh>
+  </>
   if (item.type === 'coffee-table') return <><RoundedBox castShadow args={[1.3, .08, .6]} radius={.03} smoothness={2} position={[0, .31, 0]}>{mat('#a97a58')}</RoundedBox>{[[-.55, -.22], [.55, -.22], [-.55, .22], [.55, .22]].map(([x, z]) => <mesh castShadow key={`${x}:${z}`} position={[x, .14, z]}><cylinderGeometry args={[.04, .05, .28, 8]} />{mat('#6b4c39')}</mesh>)}</>
   if (item.type === 'tv') return <>
     <RoundedBox castShadow args={[1.35, .32, .48]} radius={.03} smoothness={2} position={[0, .16, 0]}>{mat('#8a6048')}</RoundedBox>

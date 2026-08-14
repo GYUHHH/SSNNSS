@@ -44,6 +44,7 @@ const OWNED_SURFACES: Record<string, OwnedSurfaceConfig[]> = {
   bookshelf: [{ suffix: 'top', kind: 'tabletop', heightOffset: 2.94 }],
   fireplace: [{ suffix: 'top', kind: 'tabletop', heightOffset: 1.03 }],
   'coffee-table': [{ suffix: 'top', kind: 'tabletop', heightOffset: 0.35 }],
+  'glass-shelf': [{ suffix: 'top', kind: 'tabletop', heightOffset: 0.66 }],
   wardrobe: [{ suffix: 'top', kind: 'tabletop', heightOffset: 1.9 }],
   'mini-fridge': [{ suffix: 'top', kind: 'tabletop', heightOffset: 0.86 }],
   'rocking-chair': [{ suffix: 'seat', kind: 'seat', heightOffset: 0.49 }],
