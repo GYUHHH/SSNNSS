@@ -10,9 +10,9 @@ import { Color, Matrix4, type Mesh, OrthographicCamera, PerspectiveCamera, Plane
 // plane instead, which is projection-agnostic.
 const BIAS = new Matrix4().set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 0.5, 0, 0, 0, 1)
 
-export default function MirrorGlass({ width, height, tint = '#e8eef2', strength = 0.82 }: { width: number; height: number; tint?: string; strength?: number }) {
+export default function MirrorGlass({ width, height, tint = '#e8eef2', strength = 0.9 }: { width: number; height: number; tint?: string; strength?: number }) {
   const mesh = useRef<Mesh>(null)
-  const fbo = useFBO(512, 512)
+  const fbo = useFBO(768, 768, { samples: 2 })
   const scratch = useMemo(() => ({
     normal: new Vector3(), mirrorPos: new Vector3(), cameraPos: new Vector3(), view: new Vector3(),
     lookAt: new Vector3(), target: new Vector3(), up: new Vector3(), rotation: new Matrix4(), plane: new Plane(),

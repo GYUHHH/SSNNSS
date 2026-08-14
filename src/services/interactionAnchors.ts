@@ -15,6 +15,13 @@ export type ResolvedInteraction = InteractionAnchors & {
   actionWorld: LocalInteractionAnchor
 }
 
+const CAMERA_POSITION = new Vector3(9.5, 8.5, 10)
+export const mirrorFacingOffset = (item: Pick<FurnitureItem, 'position' | 'rotation'>) => {
+  const cameraYaw = Math.atan2(CAMERA_POSITION.x - item.position[0], CAMERA_POSITION.z - item.position[2])
+  const difference = Math.atan2(Math.sin(cameraYaw - item.rotation[1]), Math.cos(cameraYaw - item.rotation[1]))
+  return Math.max(-.4, Math.min(.4, difference))
+}
+
 const topHeight = (item: FurnitureItem) => {
   const surface = surfacesForOwner(item)[0]
   return surface ? surface.position[1] - item.position[1] : 0
@@ -41,10 +48,10 @@ export function interactionAnchorsFor(item: FurnitureItem, typeOverride?: Intera
   // your reflection outside the frame. Solve for the offset that lands it in the glass from that fixed view.
   if (item.type === 'mirror') {
     const distance = item.footprint.depth * GRID_SIZE / 2 + .5
-    const yaw = item.rotation[1]
+    const yaw = item.rotation[1] + mirrorFacingOffset(item)
     const localX = VIEW_DIR.x * Math.cos(yaw) - VIEW_DIR.z * Math.sin(yaw)
     const localZ = VIEW_DIR.x * Math.sin(yaw) + VIEW_DIR.z * Math.cos(yaw)
-    const offset = localZ < -.1 ? Math.max(-1.3, Math.min(1.3, -distance * (localX / localZ) * .65)) : 0
+    const offset = localZ < -.1 ? Math.max(-1.3, Math.min(1.3, -distance * (localX / localZ) * 1.35)) : 0
     const anchor: LocalInteractionAnchor = { position: [offset, 0, distance], rotation: 0 }
     return { type: 'interact', approach: anchor, action: anchor }
   }
@@ -86,7 +93,12 @@ const freeApproach = (world: LocalInteractionAnchor, target: FurnitureItem, furn
   const goal = cellsFor(target, target.footprint, target.rotation[1])
     .flatMap((cell) => [-1, 0, 1].flatMap((dx) => [-1, 0, 1].map((dy) => ({ gridX: cell.x + dx, gridY: cell.y + dy }))))
     .filter((cell, index, all) => inBounds(cell) && !occupied.has(`${cell.gridX}:${cell.gridY}`) && all.findIndex((other) => other.gridX === cell.gridX && other.gridY === cell.gridY) === index)
-    .sort((a, b) => Math.hypot(a.gridX - nearest.gridX, a.gridY - nearest.gridY) - Math.hypot(b.gridX - nearest.gridX, b.gridY - nearest.gridY))[0]
+    .sort((a, b) => {
+      const desiredDifference = Math.hypot(a.gridX - desired.gridX, a.gridY - desired.gridY)
+        - Math.hypot(b.gridX - desired.gridX, b.gridY - desired.gridY)
+      return desiredDifference || Math.hypot(a.gridX - nearest.gridX, a.gridY - nearest.gridY)
+        - Math.hypot(b.gridX - nearest.gridX, b.gridY - nearest.gridY)
+    })[0]
   if (!goal) return world
   const [x, , z] = gridToWorld(floorSurface, goal, CELL)
   return { position: [x, 0, z], rotation: world.rotation }
