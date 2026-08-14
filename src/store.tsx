@@ -1,5 +1,5 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { loadArtworks, loadBooks, loadGuestbook, loadRoomLayout, loadRoomStyle, saveArtworks, saveBooks, saveGuestbook, saveRoomLayout, saveRoomStyle, type FurniturePlacement, type RoomStyle } from './services/roomLayoutStorage'
+import { createSlot, deleteSlot, loadArtworks, loadBooks, loadGuestbook, loadSlots, placedInOtherSlots, saveArtworks, saveBooks, saveGuestbook, saveSlotItems, saveSlotStyle, setActiveSlot, slotItems, slotStyle, type FurniturePlacement, type RoomStyle } from './services/roomLayoutStorage'
 import { canPlaceItem, cellsFor, clampGrid, floorSurface, GRID_COUNT, gridToWorld, isOwnedSurfaceId, nearestWallId, normalizedCells, ownerIdOf, resolveSurface, withResolution, type Footprint, type GridPosition, type PlacementItem, type PlacementResolution, type PlacementSurface, type SurfaceId, type SurfaceKind, type WallId, worldToGrid } from './services/roomGrid'
 import { characterPosition } from './services/characterTracker'
 import { playTrack, setMusicVolume as applyMusicVolume, stopMusic } from './services/music'
@@ -138,8 +138,7 @@ const migratedGrid = (resolution: PlacementResolution, surface: PlacementSurface
   if (value.gridX !== undefined && savedY !== undefined) return { gridX: value.gridX, gridY: savedY }
   return worldToGrid(withResolution(surface, resolution), value.position ?? fallbackPosition, footprint, rotationY)
 }
-const hydrateFurniture = () => {
-  const saved = typeof window === 'undefined' ? null : loadRoomLayout()
+const hydrateFurniture = (saved: FurniturePlacement[] | null) => {
   if (!saved) return initialFurniture
   // restored items are pushed here as they're produced, so a later item (e.g. "computer") can resolve a surface
   // hosted by an earlier one (e.g. "desk:top") — initialFurniture is already ordered owner-before-occupant
@@ -177,7 +176,7 @@ const same = (a: FurnitureItem[], b: FurnitureItem[]) => JSON.stringify(a, (key,
 export type StyleTarget = { kind: 'wall'; wallId: WallId } | { kind: 'floor' } | { kind: 'furniture'; id: FurnitureId }
 
 type RoomStore = {
-  selectedObject: SelectedObject; characterState: CharacterState; computerOn: boolean; toggledOn: Set<string>; cupHeld: boolean; artworks: Record<string, string>; setArtwork: (id: string, dataURL: string | null) => void; guestbook: Record<string, GuestComment[]>; addGuestComment: (id: string, name: string, text: string) => void; removeGuestComment: (id: string, commentId: string) => void; timeOfDay: TimeOfDay; setTimeOfDay: (time: TimeOfDay) => void; books: Book[]; openBookId: string | null; bookshelfOpen: boolean
+  selectedObject: SelectedObject; characterState: CharacterState; computerOn: boolean; toggledOn: Set<string>; cupHeld: boolean; artworks: Record<string, string>; setArtwork: (id: string, dataURL: string | null) => void; rooms: Array<{ id: string; name: string }>; activeRoomId: string; openRoom: (id: string) => void; createRoom: () => void; removeRoom: (id: string) => void; availableCount: (type: string) => number; guestbook: Record<string, GuestComment[]>; addGuestComment: (id: string, name: string, text: string) => void; removeGuestComment: (id: string, commentId: string) => void; timeOfDay: TimeOfDay; setTimeOfDay: (time: TimeOfDay) => void; books: Book[]; openBookId: string | null; bookshelfOpen: boolean
   mode: RoomMode; furniture: FurnitureItem[]; selectedFurnitureId: FurnitureId | null; selectedPlacementValid: boolean; movingFurnitureId: FurnitureId | null; preview: FurnitureItem | null; previewValid: boolean; previewDragging: boolean
   wallStyle: RoomStyle; floorStyle: string | undefined; styleTarget: StyleTarget | null; debugAnchors: boolean; moveNotice: boolean; floorTarget: [number, number, number] | null; musicTrack: string | null; setMusicTrack: (id: string | null) => void; musicVolume: number; setMusicVolume: (value: number) => void
   selectObject: (object: Exclude<SelectedObject, null>) => void; clearSelection: () => void; finishCharacterAction: (state: Exclude<CharacterState, 'walking'>) => void; moveCharacterTo: (position: [number, number, number]) => void; settleFloorMove: (reached: boolean) => void; openBook: (id: string) => void; closeBook: () => void; addBook: (title: string, visibility: Visibility) => void; deleteBook: (id: string) => void; updateBookVisibility: (id: string, visibility: Visibility) => void; addEntry: (bookId: string, entry: EntryDraft) => void; deleteEntry: (bookId: string, entryId: string) => void; addEntryComment: (bookId: string, entryId: string, name: string, text: string) => void; removeEntryComment: (bookId: string, entryId: string, commentId: string) => void; toggleDebugAnchors: () => void
@@ -190,12 +189,20 @@ export type TimeOfDay = 'day' | 'evening' | 'night'
 // furniture is inert until it earns a pose here.
 export const POSED_TYPES = new Set(['bed', 'sofa', 'chair', 'desk', 'bookshelf', 'rocking-chair', 'beanbag', 'cup', 'plant', 'cabinet', 'side-table', 'coffee-table', 'wardrobe', 'hanger', 'mirror', 'rug', 'bin'])
 export type GuestComment = { id: string; name: string; text: string; createdAt: string }
+const toPlacement = ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, allowedSurfaces, styleId, removed, updatedAt }: FurnitureItem): FurniturePlacement => ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, resolution: resolutionFor({ allowedSurfaces }), styleId, removed, updatedAt })
+// every catalogue piece exists exactly once for now; a future account would supply real per-user counts
+const OWNED_PER_TYPE = 1
+
 const RoomContext = createContext<RoomStore | null>(null)
 
 export function RoomProvider({ children }: { children: ReactNode }) {
   const [selectedObject, setSelectedObject] = useState<SelectedObject>(null); const [characterState, setCharacterState] = useState<CharacterState>('idle'); const [computerOn, setComputerOn] = useState(false); const [toggledOn, setToggledOn] = useState<Set<string>>(new Set(['lamp'])); const [artworks, setArtworks] = useState<Record<string, string>>(() => (typeof window === 'undefined' ? {} : loadArtworks() ?? {})); const [guestbook, setGuestbook] = useState<Record<string, GuestComment[]>>(() => (typeof window === 'undefined' ? {} : loadGuestbook<Record<string, GuestComment[]>>() ?? {})); const [timeOfDay, setTimeOfDayState] = useState<TimeOfDay>(() => { try { const saved = localStorage.getItem('my-room-time-v1'); return saved === 'evening' || saved === 'night' ? saved : 'day' } catch { return 'day' } }); const [cupHeld, setCupHeld] = useState(false); const [books, setBooks] = useState<Book[]>(() => (typeof window === 'undefined' ? initialBooks : hydrateBooks())); const [openBookId, setOpenBookId] = useState<string | null>(null); const [bookshelfOpen, setBookshelfOpen] = useState(false)
-  const [mode, setMode] = useState<RoomMode>('normal'); const [furniture, setFurniture] = useState<FurnitureItem[]>(hydrateFurniture); const [selectedFurnitureId, setSelectedFurnitureId] = useState<FurnitureId | null>(null); const [history, setHistory] = useState<FurnitureItem[][]>([]); const [dragOrigin, setDragOrigin] = useState<FurnitureItem[] | null>(null); const [movingFurnitureId, setMovingFurnitureId] = useState<FurnitureId | null>(null); const [preview, setPreview] = useState<FurnitureItem | null>(null); const [previewValid, setPreviewValid] = useState(false); const [previewDragging, setPreviewDragging] = useState(false)
-  const [wallStyle, setWallStyleState] = useState<RoomStyle>(() => (typeof window === 'undefined' ? {} : loadRoomStyle() ?? {})); const [floorStyle, setFloorStyleState] = useState<string | undefined>(() => (typeof window === 'undefined' ? undefined : loadRoomStyle()?.floor)); const [styleTarget, setStyleTarget] = useState<StyleTarget | null>(null)
+  const rooms0 = useRef(typeof window === 'undefined' ? { active: 'room-1', slots: [{ id: 'room-1', name: '나의 방' }] } : loadSlots()).current
+  const [rooms, setRooms] = useState<Array<{ id: string; name: string }>>(() => rooms0.slots.map(({ id, name }) => ({ id, name })))
+  const [activeRoomId, setActiveRoomId] = useState(rooms0.active)
+  const [placedElsewhere, setPlacedElsewhere] = useState<Record<string, number>>(() => (typeof window === 'undefined' ? {} : placedInOtherSlots(rooms0.active)))
+  const [mode, setMode] = useState<RoomMode>('normal'); const [furniture, setFurniture] = useState<FurnitureItem[]>(() => hydrateFurniture(typeof window === 'undefined' ? null : slotItems(rooms0.active))); const [selectedFurnitureId, setSelectedFurnitureId] = useState<FurnitureId | null>(null); const [history, setHistory] = useState<FurnitureItem[][]>([]); const [dragOrigin, setDragOrigin] = useState<FurnitureItem[] | null>(null); const [movingFurnitureId, setMovingFurnitureId] = useState<FurnitureId | null>(null); const [preview, setPreview] = useState<FurnitureItem | null>(null); const [previewValid, setPreviewValid] = useState(false); const [previewDragging, setPreviewDragging] = useState(false)
+  const [wallStyle, setWallStyleState] = useState<RoomStyle>(() => (typeof window === 'undefined' ? {} : slotStyle(rooms0.active) ?? {})); const [floorStyle, setFloorStyleState] = useState<string | undefined>(() => (typeof window === 'undefined' ? undefined : slotStyle(rooms0.active)?.floor)); const [styleTarget, setStyleTarget] = useState<StyleTarget | null>(null)
   const [debugAnchors, setDebugAnchors] = useState(false)
   // the item's placement as of the LAST moveFurniture call — endMove fires on pointerUp right after
   // moveFurniture, before React has re-rendered, so reading `furniture` there would validate the
@@ -220,7 +227,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     const owner = furniture.find((value) => value.id === surface.ownerId)
     return { ...item, position, rotation: [0, item.rotation[1] + (owner?.rotation[1] ?? 0), 0] as [number, number, number] }
   }), [furniture])
-  const persist = (next: FurnitureItem[]) => saveRoomLayout(next.map(({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, allowedSurfaces, styleId, removed, updatedAt }) => ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, resolution: resolutionFor({ allowedSurfaces }), styleId, removed, updatedAt })))
+  const persist = (next: FurnitureItem[]) => saveSlotItems(activeRoomId, next.map(toPlacement))
   const commit = (next: FurnitureItem[], previous = furniture) => { if (!same(next, previous)) setHistory((items) => [...items.slice(-19), previous]); setFurniture(next); persist(next) }
   const clearSelection = () => { setSelectedObject(null); setStyleTarget(null); setFloorTarget(null); setCupHeld(false); setBookshelfOpen(false); setOpenBookId(null); setSelectedFurnitureId(null) }
   const selectObject = (object: Exclude<SelectedObject, null>) => { const target = furniture.find((value) => value.id === object); const type = target?.type ?? object; if (mode === 'edit') { if (object !== 'character' && object !== 'book') setSelectedFurnitureId(object); return } if (type === 'character') { setCharacterState((state) => ({ idle: 'sittingFloor', sittingFloor: 'wave', wave: 'idle' } as Partial<Record<CharacterState, CharacterState>>)[state] ?? 'idle'); return } if (type === 'bed' && selectedObject === object) return clearSelection(); setStyleTarget(null); setFloorTarget(null); setSelectedObject(object); setOpenBookId(null); if (type === 'bookshelf') setBookshelfOpen(true); const sidePanelOnly = type === 'bookshelf' || type === 'guestbook' || type === 'photo' || type === 'poster' || type.startsWith('photo-frame') || type.startsWith('wall-art'); if (sidePanelOnly) return; if (type === 'computer') setComputerOn((on) => !on); if (['lamp', 'floor-lamp', 'fireplace', 'candle', 'tv', 'string-lights', 'christmas-tree', 'star-projector', 'mini-fridge', 'led-lamp', 'wardrobe', 'cabinet', 'bin'].includes(type)) setToggledOn((prev) => { const next = new Set(prev); if (next.has(object)) next.delete(object); else next.add(object); return next }); if (type === 'cup') setCupHeld(true); if (POSED_TYPES.has(type)) setCharacterState('walking') }
@@ -311,8 +318,9 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }
   // a stored (removed) default item — bed, sofa, clock... — acts as its own template so it can be taken back out
   // of the 가구함; decor types keep using their catalog templates
-  const storedTemplateFor = (type: string) => furniture.find((item) => item.removed && item.movable && item.type === type && !item.id.startsWith('inventory-'))
+  const storedTemplateFor = (type: string) => furniture.find((item) => item.removed && item.movable && item.type === type)
   const startPreview = (type: string) => {
+    if (availableCount(type) <= 0) return
     const template = inventoryItems.find((entry) => entry.type === type) ?? storedTemplateFor(type); if (!template) return
     const surfaceIds: SurfaceId[] = template.allowedSurfaces.includes('wall') ? ['leftWall', 'rightWall'] : ['floor']
     let fallback: FurnitureItem | undefined
@@ -354,7 +362,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     if (!preview || !previewValid) return
     // taking a stored DEFAULT item back out restores the original (same id, so its interactions keep working)
     // instead of spawning a duplicate; catalog decor still adds a fresh copy
-    const restoreTarget = !inventoryItems.some((entry) => entry.type === preview.type) ? storedTemplateFor(preview.type) : undefined
+    const restoreTarget = storedTemplateFor(preview.type)
     if (restoreTarget) {
       const item: FurnitureItem = { ...preview, id: restoreTarget.id, removed: false, updatedAt: new Date().toISOString() }
       commit(furniture.map((value) => value.id === restoreTarget.id ? item : value)); setSelectedFurnitureId(item.id)
@@ -379,8 +387,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const removeEntryComment = (bookId: string, entryId: string, commentId: string) => setBooks((items) => items.map((book) => book.id === bookId ? { ...book, entries: book.entries.map((entry) => entry.id === entryId ? { ...entry, comments: (entry.comments ?? []).filter((comment) => comment.id !== commentId) } : entry) } : book))
   const openStyleTarget = (target: StyleTarget) => setStyleTarget(target)
   const closeStyleTarget = () => setStyleTarget(null)
-  const setWallStyle = (wallId: WallId, presetId: string) => setWallStyleState((current) => { const next = { ...current, [wallId]: presetId }; saveRoomStyle({ ...next, floor: floorStyle }); return next })
-  const setFloorStyle = (presetId: string) => { setFloorStyleState(presetId); saveRoomStyle({ ...wallStyle, floor: presetId }) }
+  const setWallStyle = (wallId: WallId, presetId: string) => setWallStyleState((current) => { const next = { ...current, [wallId]: presetId }; saveSlotStyle(activeRoomId, { ...next, floor: floorStyle }); return next })
+  const setFloorStyle = (presetId: string) => { setFloorStyleState(presetId); saveSlotStyle(activeRoomId, { ...wallStyle, floor: presetId }) }
   const setFurnitureStyle = (id: FurnitureId, presetId: string) => { const next = furniture.map((value) => value.id === id ? { ...value, styleId: presetId, updatedAt: new Date().toISOString() } : value); commit(next) }
   const toggleDebugAnchors = () => setDebugAnchors((value) => !value)
   // one-time pull of the converted Instagram export (public/instagram/import.json) into the bookshelf
@@ -397,9 +405,39 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   useEffect(() => { saveGuestbook(guestbook) }, [guestbook])
   const addGuestComment = (id: string, name: string, text: string) => setGuestbook((prev) => ({ ...prev, [id]: [{ id: `gc-${Date.now()}`, name: name.trim() || '익명', text, createdAt: new Date().toISOString() }, ...(prev[id] ?? [])] }))
   const removeGuestComment = (id: string, commentId: string) => setGuestbook((prev) => ({ ...prev, [id]: (prev[id] ?? []).filter((comment) => comment.id !== commentId) }))
+  // you own one of each, wherever it stands — a piece placed in another room is not available in this one
+  const availableCount = (type: string) => Math.max(0, OWNED_PER_TYPE - furniture.filter((item) => item.type === type && !item.removed).length - (placedElsewhere[type] ?? 0))
+  const openRoom = (id: string) => {
+    setActiveSlot(id)
+    setActiveRoomId(id)
+    setFurniture(hydrateFurniture(slotItems(id)))
+    setHistory([])
+    const style = slotStyle(id) ?? {}
+    setWallStyleState(style)
+    setFloorStyleState(style.floor)
+    setPlacedElsewhere(placedInOtherSlots(id))
+    setPreview(null); setMovingFurnitureId(null); setDragOrigin(null); pendingMove.current = null
+    setMode('normal'); setSelectedObject(null); setSelectedFurnitureId(null); setStyleTarget(null)
+    setBookshelfOpen(false); setOpenBookId(null); setFloorTarget(null); setCharacterState('idle')
+  }
+  // a new room starts bare: your furniture is still standing wherever you left it
+  const createRoom = () => {
+    const empty = initialFurniture.map((item) => toPlacement({ ...item, removed: true }))
+    const slot = createSlot(`방 ${rooms.length + 1}`, empty)
+    setRooms((list) => [...list, { id: slot.id, name: slot.name }])
+    openRoom(slot.id)
+  }
+  const removeRoom = (id: string) => {
+    if (rooms.length <= 1) return
+    deleteSlot(id)
+    const rest = rooms.filter((room) => room.id !== id)
+    setRooms(rest)
+    if (id === activeRoomId) openRoom(rest[0].id)
+    else setPlacedElsewhere(placedInOtherSlots(activeRoomId))
+  }
   const setTimeOfDay = (time: TimeOfDay) => { setTimeOfDayState(time); try { localStorage.setItem('my-room-time-v1', time) } catch { /* unavailable */ } }
   const setArtwork = (id: string, dataURL: string | null) => setArtworks((prev) => { const next = { ...prev }; if (dataURL) next[id] = dataURL; else delete next[id]; return next })
-  return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, guestbook, addGuestComment, removeGuestComment, timeOfDay, setTimeOfDay, books, openBookId, bookshelfOpen, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, selectObject, clearSelection, finishCharacterAction: setCharacterState, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject('bookshelf'); setBookshelfOpen(true) }, addBook, deleteBook, updateBookVisibility, addEntry, deleteEntry, addEntryComment, removeEntryComment, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, closeStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
+  return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, rooms, activeRoomId, openRoom, createRoom, removeRoom, availableCount, guestbook, addGuestComment, removeGuestComment, timeOfDay, setTimeOfDay, books, openBookId, bookshelfOpen, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, selectObject, clearSelection, finishCharacterAction: setCharacterState, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject('bookshelf'); setBookshelfOpen(true) }, addBook, deleteBook, updateBookVisibility, addEntry, deleteEntry, addEntryComment, removeEntryComment, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, closeStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
 }
 export function useRoomStore() { const store = useContext(RoomContext); if (!store) throw new Error('RoomProvider is required'); return store }
 // for trees rendered outside the provider (e.g. the offscreen thumbnail canvas)

@@ -11,14 +11,68 @@ const readBlob = (): { version: number; items: FurniturePlacement[]; style?: Roo
   } catch { return null }
 }
 
-export function loadRoomLayout(): FurniturePlacement[] | null { return readBlob()?.items ?? null }
-export function loadRoomStyle(): RoomStyle | null { return readBlob()?.style ?? null }
+// rooms are slots: each keeps its own layout and wall/floor styling, while furniture ownership stays global
+export type RoomSlot = { id: string; name: string; items: FurniturePlacement[]; style?: RoomStyle }
+type SlotsBlob = { version: number; active: string; slots: RoomSlot[] }
+const slotsKey = 'my-room-slots-v1'
 
-export function saveRoomLayout(layout: FurniturePlacement[]) {
-  try { localStorage.setItem(key, JSON.stringify({ version: 4, items: layout, style: readBlob()?.style })) } catch { /* localStorage may be unavailable */ }
+const readSlots = (): SlotsBlob | null => {
+  try { const raw = localStorage.getItem(slotsKey); return raw ? JSON.parse(raw) as SlotsBlob : null } catch { return null }
 }
-export function saveRoomStyle(style: RoomStyle) {
-  try { localStorage.setItem(key, JSON.stringify({ version: 4, items: readBlob()?.items ?? [], style })) } catch { /* localStorage may be unavailable */ }
+const writeSlots = (blob: SlotsBlob) => {
+  try { localStorage.setItem(slotsKey, JSON.stringify(blob)) } catch { /* localStorage may be unavailable */ }
+}
+
+// first run promotes the single saved room into slot one — the old key is left untouched as a fallback copy
+export function loadSlots(): SlotsBlob {
+  const saved = readSlots()
+  if (saved?.slots?.length) return saved
+  const legacy = readBlob()
+  const blob: SlotsBlob = { version: 1, active: 'room-1', slots: [{ id: 'room-1', name: '나의 방', items: legacy?.items ?? [], style: legacy?.style }] }
+  writeSlots(blob)
+  return blob
+}
+
+const withSlot = (id: string, change: (slot: RoomSlot) => void) => {
+  const blob = loadSlots()
+  const slot = blob.slots.find((entry) => entry.id === id)
+  if (!slot) return
+  change(slot)
+  writeSlots(blob)
+}
+
+export function slotItems(id: string): FurniturePlacement[] | null { return loadSlots().slots.find((slot) => slot.id === id)?.items ?? null }
+export function slotStyle(id: string): RoomStyle | null { return loadSlots().slots.find((slot) => slot.id === id)?.style ?? null }
+export function saveSlotItems(id: string, items: FurniturePlacement[]) { withSlot(id, (slot) => { slot.items = items }) }
+export function saveSlotStyle(id: string, style: RoomStyle) { withSlot(id, (slot) => { slot.style = style }) }
+export function renameSlot(id: string, name: string) { withSlot(id, (slot) => { slot.name = name }) }
+export function setActiveSlot(id: string) { const blob = loadSlots(); blob.active = id; writeSlots(blob) }
+
+export function createSlot(name: string, items: FurniturePlacement[]): RoomSlot {
+  const blob = loadSlots()
+  const slot: RoomSlot = { id: `room-${Date.now()}`, name, items }
+  blob.slots.push(slot)
+  blob.active = slot.id
+  writeSlots(blob)
+  return slot
+}
+
+export function deleteSlot(id: string) {
+  const blob = loadSlots()
+  if (blob.slots.length <= 1) return
+  blob.slots = blob.slots.filter((slot) => slot.id !== id)
+  if (blob.active === id) blob.active = blob.slots[0].id
+  writeSlots(blob)
+}
+
+// a piece of furniture lives in exactly one room, so what is standing in the OTHER rooms is unavailable here
+export function placedInOtherSlots(activeId: string): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const slot of loadSlots().slots) {
+    if (slot.id === activeId) continue
+    for (const item of slot.items) if (!item.removed) counts[item.type] = (counts[item.type] ?? 0) + 1
+  }
+  return counts
 }
 
 // user-made artwork (poster drawings, frame photos) keyed by furniture id, stored as data URLs
