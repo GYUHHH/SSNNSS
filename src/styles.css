@@ -367,10 +367,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .clip-preview { width: 100%; margin-top: 10px; border-radius: 8px; background: #20262b; display: block; }
 .yt-player { position: fixed; z-index: 6; overflow: hidden; border-radius: 8px; background: #20262b; }
 .yt-player iframe { display: block; width: 100%; height: 100%; border: 0; }
-.yt-player.docked { right: 22px; top: 96px; width: min(436px, calc(92vw - 24px)); aspect-ratio: 16 / 9; }
+.yt-player.docked { left: var(--yt-dock-left, auto); right: auto; top: var(--yt-dock-top, 96px); width: var(--yt-dock-width, min(436px, calc(92vw - 24px))); aspect-ratio: 16 / 9; }
 .yt-player.offscreen { left: -9999px; top: 0; width: 320px; aspect-ratio: 16 / 9; pointer-events: none; }
 .yt-playing { position: fixed; z-index: 6; left: 20px; bottom: 64px; display: inline-flex; align-items: center; border: 0; background: none; }
 .yt-playing button { border: 0; padding: 7px 14px; color: #4c4036; background: none; cursor: pointer; font-size: 13px; }
 .yt-playing .stop-playing { padding: 7px 8px; border: 0; color: #a08d7c; font-size: 13px; line-height: 1; }
 .yt-player button { position: absolute; right: 4px; top: 4px; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; color: #fff8ed; background: rgb(32 38 43 / 72%); cursor: pointer; line-height: 1; }
-@media (max-width: 719px) { .yt-player.docked { right: 12px; top: 74px; width: calc(100vw - 24px); } .yt-playing { left: 14px; bottom: 62px; } .yt-playing button { min-height: 40px; } }
+@media (max-width: 719px) { .yt-playing { left: 14px; bottom: 62px; } .yt-playing button { min-height: 40px; } }
+.yt-dock-space { width: 100%; aspect-ratio: 16 / 9; }

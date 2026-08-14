@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useRoomStore } from '../store'
 import { ClipPreview, DrawingEditor, PhotoPickButton, VideoLinkInput, VideoPickButton } from './ArtEditor'
 
@@ -17,6 +17,7 @@ export default function ArtworkOverlay() {
   if (kind === 'guestbook') return <Guestbook id={selectedObject} onClose={clearSelection} />
   if (kind === 'video') return <>
     <header><strong>{item?.name ?? '영상 액자'}</strong><button className="close-ui" type="button" aria-label="닫기" onClick={clearSelection}>×</button></header>
+    {videoLinks[selectedObject] && <DockSpace />}
     <ClipPreview id={selectedObject} />
     <VideoLinkInput id={selectedObject} />
     <div className="art-actions"><VideoPickButton id={selectedObject} /></div>
@@ -58,4 +59,29 @@ function Guestbook({ id, onClose }: { id: string; onClose: () => void }) {
       </article>)}
     </div>
   </>
+}
+
+// The player is fixed-position — moving it in the DOM would reload the video — so instead the panel measures the
+// gap it leaves and hands the coordinates over, keeping the two exactly aligned on any screen.
+function DockSpace() {
+  const space = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const element = space.current
+    if (!element) return
+    const apply = () => {
+      const box = element.getBoundingClientRect()
+      const style = document.documentElement.style
+      style.setProperty('--yt-dock-top', `${box.top}px`)
+      style.setProperty('--yt-dock-left', `${box.left}px`)
+      style.setProperty('--yt-dock-width', `${box.width}px`)
+    }
+    apply()
+    const observer = new ResizeObserver(apply)
+    observer.observe(element)
+    window.addEventListener('resize', apply)
+    const panel = element.closest('.art-panel')
+    panel?.addEventListener('scroll', apply)
+    return () => { observer.disconnect(); window.removeEventListener('resize', apply); panel?.removeEventListener('scroll', apply) }
+  }, [])
+  return <div ref={space} className="yt-dock-space" aria-hidden />
 }
