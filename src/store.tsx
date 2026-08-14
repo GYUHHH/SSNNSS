@@ -184,7 +184,7 @@ export type TimeOfDay = 'day' | 'evening' | 'night'
 // clicking these walks the character over and poses it (see interactionAnchorsFor); every other item — wall
 // decor, lights, toggles, plain props — must leave the character exactly as it is. Whitelist on purpose: new
 // furniture is inert until it earns a pose here.
-export const POSED_TYPES = new Set(['bed', 'sofa', 'chair', 'desk', 'bookshelf', 'rocking-chair', 'beanbag', 'cup', 'plant'])
+export const POSED_TYPES = new Set(['bed', 'sofa', 'chair', 'desk', 'bookshelf', 'rocking-chair', 'beanbag', 'cup', 'plant', 'cabinet', 'side-table', 'coffee-table', 'wardrobe', 'hanger', 'mirror', 'rug', 'bin'])
 export type GuestComment = { id: string; name: string; text: string; createdAt: string }
 const RoomContext = createContext<RoomStore | null>(null)
 
