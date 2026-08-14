@@ -50,12 +50,17 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     {lit && <pointLight color="#ffc66d" intensity={2.4} distance={2.2} position={[0, .8, 0]} />}
   </>
   if (item.type === 'record-player') return <>
-    <RoundedBox castShadow args={[1.24, .3, .56]} radius={.03} smoothness={2} position={[0, .21, 0]}>{mat('#8a6048')}</RoundedBox>
-    {[[-.5, -.2], [.5, -.2], [-.5, .2], [.5, .2]].map(([x, z]) => <mesh castShadow key={`${x}:${z}`} position={[x, .03, z]}><cylinderGeometry args={[.03, .04, .07, 8]} />{mat('#6b4c39')}</mesh>)}
-    {!preview && <RecordDisc />}
+    <RoundedBox castShadow args={[1.3, .17, .62]} radius={.03} smoothness={2} position={[0, .135, 0]}>{mat('#8a6048')}</RoundedBox>
+    {[[-.54, -.22], [.54, -.22], [-.54, .22], [.54, .22]].map(([x, z]) => <mesh castShadow key={`${x}:${z}`} position={[x, .025, z]}><cylinderGeometry args={[.03, .04, .05, 8]} />{mat('#6b4c39')}</mesh>)}
+    <mesh position={[-.14, .222, 0]}><cylinderGeometry args={[.34, .34, .02, 28]} />{mat('#b8b2aa')}</mesh>
+    {preview ? <mesh position={[-.14, .238, 0]}><cylinderGeometry args={[.32, .32, .015, 28]} />{mat('#221f1d')}</mesh> : <RecordDisc />}
+    <mesh castShadow position={[.44, .27, -.2]}><cylinderGeometry args={[.05, .06, .1, 10]} />{mat('#d9c9ae')}</mesh>
+    <group position={[.44, .3, -.2]} rotation={[0, -.72, 0]}>
+      <mesh castShadow position={[0, .015, .27]}><boxGeometry args={[.028, .028, .54]} />{mat('#cfc7bd')}</mesh>
+      <mesh castShadow position={[0, 0, .54]} rotation={[.24, 0, 0]}><boxGeometry args={[.05, .05, .1]} />{mat('#4c4036')}</mesh>
+    </group>
+    <mesh position={[-.56, .225, .22]}><cylinderGeometry args={[.045, .045, .025, 12]} />{mat('#d9c9ae')}</mesh>
     {!preview && <MusicControls id={item.id} y={.95} />}
-    <mesh position={[.44, .37, -.14]}><cylinderGeometry args={[.03, .03, .02, 8]} />{mat('#d9c9ae')}</mesh>
-    <mesh position={[.34, .385, .02]} rotation={[0, .5, 0]}><boxGeometry args={[.04, .015, .3]} />{mat('#4c4036')}</mesh>
   </>
   if (item.type === 'whiteboard') return <group rotation={[-.1, 0, 0]}>
     {[-.5, .5].map((x) => <mesh castShadow key={x} position={[x, .62, .1]} rotation={[.14, 0, x > 0 ? -.06 : .06]}><cylinderGeometry args={[.025, .035, 1.3, 6]} />{mat('#8a6048')}</mesh>)}
@@ -132,6 +137,17 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     <mesh castShadow position={[0, .05, 0]}><cylinderGeometry args={[.1, .12, .1, 10]} />{mat('#4c4653')}</mesh>
     <mesh castShadow position={[0, .13, 0]}><sphereGeometry args={[.09, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshStandardMaterial color={material.color ?? '#6b6478'} emissive={lit ? '#8f86ad' : '#000000'} emissiveIntensity={lit ? .5 : 0} transparent={material.transparent} opacity={material.opacity} /></mesh>
     {lit && <StarField />}
+  </>
+  if (item.type === 'cd-player') return <>
+    <RoundedBox castShadow args={[1.34, 1.34, .12]} radius={.05} smoothness={2} position={[0, .04, .06]}>{mat('#f3ead9')}</RoundedBox>
+    <mesh position={[0, .1, .121]}><circleGeometry args={[.5, 28]} /><meshStandardMaterial color="#2b2621" roughness={.6} transparent={material.transparent} opacity={material.opacity} /></mesh>
+    {preview ? <mesh position={[0, .1, .13]}><circleGeometry args={[.44, 28]} />{mat('#cfd6dc')}</mesh> : <CdDisc />}
+    <mesh position={[0, .1, .142]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[.045, .045, .03, 12]} />{mat('#d9d3ca')}</mesh>
+    <mesh position={[0, -.52, .125]}><boxGeometry args={[.44, .07, .02]} /><meshStandardMaterial color="#2b3236" emissive="#4a6a5e" emissiveIntensity={.35} transparent={material.transparent} opacity={material.opacity} /></mesh>
+    <mesh position={[.42, -.52, .13]}><cylinderGeometry args={[.05, .05, .02, 12]} />{mat('#c9a06c')}</mesh>
+    <mesh position={[-.34, -.94, .06]}><boxGeometry args={[.012, .5, .012]} />{mat('#b3a89a')}</mesh>
+    <mesh castShadow position={[-.34, -1.22, .06]}><cylinderGeometry args={[.035, .045, .1, 8]} />{mat('#c9a06c')}</mesh>
+    {!preview && <MusicControls id={item.id} y={1.05} />}
   </>
   if (item.type === 'banner') return <><RoundedBox castShadow args={[2.04, .6, .07]} radius={.03} smoothness={2} position={[0, 0, .035]}>{mat('#3a332c')}</RoundedBox>{preview ? <mesh position={[0, 0, .075]}><planeGeometry args={[1.88, .44]} />{mat('#5a4a35')}</mesh> : <BannerArt id={item.id} />}</>
   if (item.type === 'window') return <><mesh castShadow position={[0, 0, .03]}><boxGeometry args={[2.02, 1.38, .06]} />{mat('#8a6048')}</mesh>{preview ? <mesh position={[0, 0, .062]}><planeGeometry args={[1.86, 1.22]} />{mat('#bcd6e8')}</mesh> : <WindowView />}<mesh position={[0, 0, .07]}><boxGeometry args={[.05, 1.32, .02]} />{mat('#8a6048')}</mesh><mesh position={[0, 0, .07]}><boxGeometry args={[1.92, .05, .02]} />{mat('#8a6048')}</mesh></>
@@ -385,11 +401,30 @@ function TreeLights({ lit }: { lit: boolean }) {
 function RecordDisc() {
   const disc = useRef<Group>(null)
   const playing = !!useOptionalRoomStore()?.musicTrack
-  useFrame((_, delta) => { if (disc.current && playing) disc.current.rotation.y += delta * 2.4 })
-  return <group ref={disc} position={[-.12, .365, 0]}>
-    <mesh><cylinderGeometry args={[.24, .24, .015, 24]} /><meshStandardMaterial color="#221f1d" roughness={.5} /></mesh>
-    <mesh position={[0, .009, 0]}><cylinderGeometry args={[.08, .08, .006, 16]} /><meshStandardMaterial color="#b06952" /></mesh>
-    <mesh position={[.15, .01, 0]}><boxGeometry args={[.015, .004, .015]} /><meshStandardMaterial color="#3a3633" /></mesh>
+  useFrame((_, delta) => { if (disc.current && playing) disc.current.rotation.y += delta * 3.2 })
+  // a plain black disc looks motionless however fast it turns — the light label wedge and rim ticks are what
+  // actually sell the spin from the room's fixed camera
+  return <group ref={disc} position={[-.14, .238, 0]}>
+    <mesh><cylinderGeometry args={[.32, .32, .016, 32]} /><meshStandardMaterial color="#1e1c1a" roughness={.42} /></mesh>
+    {[.14, .2, .26].map((radius) => <mesh key={radius} position={[0, .009, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[radius, .003, 4, 28]} /><meshStandardMaterial color="#3d3833" /></mesh>)}
+    <mesh position={[0, .01, 0]}><cylinderGeometry args={[.11, .11, .006, 20]} /><meshStandardMaterial color="#c96a4e" /></mesh>
+    <mesh position={[.055, .014, 0]}><boxGeometry args={[.1, .004, .035]} /><meshStandardMaterial color="#f3ead9" /></mesh>
+    <mesh position={[0, .014, 0]}><cylinderGeometry args={[.015, .015, .008, 8]} /><meshStandardMaterial color="#f3ead9" /></mesh>
+    {[0, 1, 2].map((index) => <mesh key={index} position={[Math.cos(index * 2.094) * .29, .011, Math.sin(index * 2.094) * .29]}><boxGeometry args={[.05, .004, .018]} /><meshStandardMaterial color={['#f3ead9', '#8a9c82', '#e8c07a'][index]} /></mesh>)}
+  </group>
+}
+
+function CdDisc() {
+  const disc = useRef<Group>(null)
+  const playing = !!useOptionalRoomStore()?.musicTrack
+  // wall-mounted, so the CD turns about its facing axis (local z)
+  useFrame((_, delta) => { if (disc.current && playing) disc.current.rotation.z -= delta * 4 })
+  return <group ref={disc} position={[0, .1, .13]}>
+    <mesh><circleGeometry args={[.44, 32]} /><meshStandardMaterial color="#dfe4e8" metalness={.75} roughness={.22} side={2} /></mesh>
+    {[0, 1, 2, 3, 4, 5].map((index) => <mesh key={index} position={[Math.cos(index * 1.047) * .3, Math.sin(index * 1.047) * .3, .002]} rotation={[0, 0, index * 1.047]}><planeGeometry args={[.22, .07]} /><meshStandardMaterial color={['#9fd0e8', '#c9a8e0', '#f2c98e', '#a8d8b8', '#f0a8b0', '#bcd6e8'][index]} metalness={.5} roughness={.3} /></mesh>)}
+    <mesh position={[0, 0, .004]}><circleGeometry args={[.14, 20]} /><meshStandardMaterial color="#eef2f4" metalness={.4} roughness={.35} /></mesh>
+    <mesh position={[0, 0, .006]}><circleGeometry args={[.05, 16]} /><meshStandardMaterial color="#2b2621" /></mesh>
+    <mesh position={[.24, 0, .004]}><planeGeometry args={[.12, .03]} /><meshStandardMaterial color="#5a6b74" /></mesh>
   </group>
 }
 

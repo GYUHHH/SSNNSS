@@ -85,6 +85,7 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
   { type: 'led-lamp', name: 'LED 램프', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop'] },
   { type: 'star-projector', name: '별 프로젝터', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop'] },
   { type: 'guestbook', name: '방명록', category: 'wallItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['wall'] },
+  { type: 'cd-player', name: 'CD 플레이어', category: 'wallItem', movable: true, interactable: true, footprint: { width: 2, depth: 2 }, size: [2, 2], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'banner', name: '움직이는 배너', category: 'wallItem', movable: true, interactable: true, footprint: { width: 3, depth: 1 }, size: [3, 1], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'window', name: '창문', category: 'wallItem', movable: true, interactable: true, footprint: { width: 3, depth: 2 }, size: [3, 2], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'curtain', name: '커튼', category: 'wallItem', movable: true, interactable: true, footprint: { width: 2, depth: 4 }, size: [2, 4], scale: 1, allowedSurfaces: ['wall'] },
