@@ -490,7 +490,7 @@ function StarField() {
     const azimuth = index * 2.39996; const height = .3 + ((index * 37) % 23) / 23 * 1.4; const radius = 1.1 + ((index * 17) % 13) / 13 * .7
     return [Math.cos(azimuth) * radius, height, Math.sin(azimuth) * radius] as [number, number, number]
   })
-  return <group ref={field} position={[0, .1, 0]}>{dots.map((position, index) => <mesh key={index} position={position}><sphereGeometry args={[.022, 6, 5]} /><meshStandardMaterial color="#cfd8ff" emissive="#aab8ff" emissiveIntensity={1.6} /></mesh>)}</group>
+  return <group ref={field} position={[0, .1, 0]}>{dots.map((position, index) => <mesh key={index} position={position} userData={{ excludeFromFit: true }}><sphereGeometry args={[.022, 6, 5]} /><meshStandardMaterial color="#cfd8ff" emissive="#aab8ff" emissiveIntensity={1.6} /></mesh>)}</group>
 }
 
 function CalendarArt() {
