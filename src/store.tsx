@@ -173,7 +173,7 @@ export type StyleTarget = { kind: 'wall'; wallId: WallId } | { kind: 'floor' } |
 
 type RoomStore = {
   selectedObject: SelectedObject; characterState: CharacterState; computerOn: boolean; litLamps: Set<string>; cupHeld: boolean; artworks: Record<string, string>; setArtwork: (id: string, dataURL: string | null) => void; guestbook: Record<string, GuestComment[]>; addGuestComment: (id: string, name: string, text: string) => void; removeGuestComment: (id: string, commentId: string) => void; timeOfDay: TimeOfDay; setTimeOfDay: (time: TimeOfDay) => void; books: Book[]; openBookId: string | null; bookshelfOpen: boolean
-  mode: RoomMode; furniture: FurnitureItem[]; selectedFurnitureId: FurnitureId | null; movingFurnitureId: FurnitureId | null; preview: FurnitureItem | null; previewValid: boolean; previewDragging: boolean
+  mode: RoomMode; furniture: FurnitureItem[]; selectedFurnitureId: FurnitureId | null; selectedPlacementValid: boolean; movingFurnitureId: FurnitureId | null; preview: FurnitureItem | null; previewValid: boolean; previewDragging: boolean
   wallStyle: RoomStyle; floorStyle: string | undefined; styleTarget: StyleTarget | null; debugAnchors: boolean; moveNotice: boolean; floorTarget: [number, number, number] | null; musicTrack: string | null; setMusicTrack: (id: string | null) => void; musicVolume: number; setMusicVolume: (value: number) => void
   selectObject: (object: Exclude<SelectedObject, null>) => void; clearSelection: () => void; finishCharacterAction: (state: Exclude<CharacterState, 'walking'>) => void; moveCharacterTo: (position: [number, number, number]) => void; settleFloorMove: (reached: boolean) => void; openBook: (id: string) => void; closeBook: () => void; addBook: (title: string, visibility: Visibility) => void; updateBookVisibility: (id: string, visibility: Visibility) => void; addEntry: (bookId: string, entry: Omit<Entry, 'id' | 'bookId' | 'createdAt' | 'updatedAt'>) => void; toggleDebugAnchors: () => void
   toggleEditMode: () => void; enterEditFurniture: (id: FurnitureId) => void; selectFurniture: (id: FurnitureId) => void; beginMove: (id: FurnitureId) => void; moveFurniture: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; placeFurnitureAt: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; endMove: () => void; rotateFurniture: () => void; removeFurniture: (id?: FurnitureId) => void; undoLayout: () => void; resetLayout: () => void; startPreview: (type: string) => void; beginPreviewDrag: () => void; movePreview: (position: [number, number, number], surfaceId?: SurfaceId) => void; endPreviewDrag: () => void; placePreview: () => void; cancelPreview: () => void
@@ -264,9 +264,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     else { if (!same(latest, dragOrigin)) setHistory((items) => [...items.slice(-19), dragOrigin]); setFurniture(latest); persist(latest) }
     setDragOrigin(null); setMovingFurnitureId(null)
   }
-  // a rotated owner transposes its surface grid (4x2 -> 2x4), so items sitting on it must re-validate against the
-  // NEXT state too — otherwise they'd silently overhang the surface after the rotation
-  const rotateFurniture = () => { const id = selectedFurnitureId; if (!id) return; const previous = furniture; const next = furniture.map((value) => value.id === id ? placeOnSurface(furniture, value, value.surfaceId, placementGrid(value), [0, (value.rotation[1] + Math.PI / 2) % (Math.PI * 2), 0]) : value); const affected = next.filter((value) => value.id === id || (isOwnedSurfaceId(value.surfaceId) && ownerIdOf(value.surfaceId) === id && !value.removed)); if (affected.some((value) => !isAvailable(value, next))) return; commit(next, previous) }
+  // Rotation is always applied. If it overlaps or crosses a boundary the toolbar warns the user until they move it.
+  const rotateFurniture = () => { const id = selectedFurnitureId; if (!id) return; const previous = furniture; const next = furniture.map((value) => value.id === id ? placeOnSurface(furniture, value, value.surfaceId, placementGrid(value), [0, (value.rotation[1] + Math.PI / 2) % (Math.PI * 2), 0]) : value); commit(next, previous) }
   // deleting also cancels any move-in-progress — otherwise a later endMove would restore the pre-delete copy
   // held in pendingMove/dragOrigin and the item would pop back
   const removeFurniture = (targetId = selectedFurnitureId ?? undefined) => { if (!targetId) return; const group = (value: FurnitureItem) => value.id === targetId || (isOwnedSurfaceId(value.surfaceId) && ownerIdOf(value.surfaceId) === targetId); const next = furniture.map((value) => group(value) && !value.removed ? { ...value, removed: true, updatedAt: new Date().toISOString() } : value); pendingMove.current = null; setDragOrigin(null); setMovingFurnitureId(null); commit(next); setSelectedFurnitureId(null) }
@@ -294,6 +293,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     }
     return canPlaceItem(resolvedSurface, { ...candidate, footprint }, occupied, resolution)
   }
+  const selectedPlacementValid = !selectedFurnitureId || furniture.filter((value) => value.id === selectedFurnitureId || (isOwnedSurfaceId(value.surfaceId) && ownerIdOf(value.surfaceId) === selectedFurnitureId && !value.removed)).every((value) => isAvailable(value))
   const placeFurnitureAt = (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => {
     const moving = furniture.find((item) => item.id === id); if (!moving?.movable) return
     const placed = movedFurniture(moving, position, surfaceId); if (!placed) return
@@ -303,7 +303,27 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   // a stored (removed) default item — bed, sofa, clock... — acts as its own template so it can be taken back out
   // of the 가구함; decor types keep using their catalog templates
   const storedTemplateFor = (type: string) => furniture.find((item) => item.removed && item.movable && item.type === type && !item.id.startsWith('inventory-'))
-  const startPreview = (type: string) => { const template = inventoryItems.find((entry) => entry.type === type) ?? storedTemplateFor(type); if (!template) return; const surfaceId: SurfaceId = template.allowedSurfaces.includes('wall') ? 'leftWall' : 'floor'; const surface = resolveSurface(furniture, surfaceId)!; const previewResolution = resolutionFor(template); const resolvedSurface = withResolution(surface, previewResolution); const resolvedTemplateFootprint = template.footprint; const grid = { gridX: Math.floor((resolvedSurface.gridColumns - resolvedTemplateFootprint.width) / 2), gridY: Math.floor((resolvedSurface.gridRows - resolvedTemplateFootprint.depth) / 2) }; const next = placeOnSurface(furniture, { ...template, id: `preview-${Date.now()}`, surfaceId, gridX: grid.gridX, gridY: grid.gridY, gridZ: grid.gridY, wallId: surface.type === 'wall' ? surface.id as WallId : undefined, position: [0, 0, 0], rotation: [0, 0, 0], removed: false, updatedAt: new Date().toISOString() }, surfaceId, grid); setPreview(next); setPreviewValid(isAvailable(next)); setPreviewDragging(false); setSelectedFurnitureId(null) }
+  const startPreview = (type: string) => {
+    const template = inventoryItems.find((entry) => entry.type === type) ?? storedTemplateFor(type); if (!template) return
+    const surfaceIds: SurfaceId[] = template.allowedSurfaces.includes('wall') ? ['leftWall', 'rightWall'] : ['floor']
+    let fallback: FurnitureItem | undefined
+    let next: FurnitureItem | undefined
+    for (const surfaceId of surfaceIds) {
+      const surface = resolveSurface(furniture, surfaceId); if (!surface) continue
+      const resolvedSurface = withResolution(surface, resolutionFor(template)); const footprint = template.footprint
+      const center = { x: (resolvedSurface.gridColumns - footprint.width) / 2, y: (resolvedSurface.gridRows - footprint.depth) / 2 }
+      const grids = Array.from({ length: Math.max(0, resolvedSurface.gridColumns - footprint.width + 1) * Math.max(0, resolvedSurface.gridRows - footprint.depth + 1) }, (_, index) => ({ gridX: index % (resolvedSurface.gridColumns - footprint.width + 1), gridY: Math.floor(index / (resolvedSurface.gridColumns - footprint.width + 1)) })).sort((a, b) => Math.abs(a.gridX - center.x) + Math.abs(a.gridY - center.y) - Math.abs(b.gridX - center.x) - Math.abs(b.gridY - center.y))
+      for (const grid of grids) {
+        const candidate = placeOnSurface(furniture, { ...template, id: `preview-${Date.now()}`, surfaceId, gridX: grid.gridX, gridY: grid.gridY, gridZ: grid.gridY, wallId: surface.type === 'wall' ? surface.id as WallId : undefined, position: [0, 0, 0], rotation: [0, 0, 0], removed: false, updatedAt: new Date().toISOString() }, surfaceId, grid)
+        fallback ??= candidate
+        if (isAvailable(candidate)) { next = candidate; break }
+      }
+      if (next) break
+    }
+    if (!next) next = fallback
+    if (!next) return
+    setPreview(next); setPreviewValid(isAvailable(next)); setPreviewDragging(false); setSelectedFurnitureId(null)
+  }
   const beginPreviewDrag = () => setPreviewDragging(true)
   const endPreviewDrag = () => setPreviewDragging(false)
   const movePreview = (position: [number, number, number], targetSurfaceId?: SurfaceId) => {
@@ -366,7 +386,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const removeGuestComment = (id: string, commentId: string) => setGuestbook((prev) => ({ ...prev, [id]: (prev[id] ?? []).filter((comment) => comment.id !== commentId) }))
   const setTimeOfDay = (time: TimeOfDay) => { setTimeOfDayState(time); try { localStorage.setItem('my-room-time-v1', time) } catch { /* unavailable */ } }
   const setArtwork = (id: string, dataURL: string | null) => setArtworks((prev) => { const next = { ...prev }; if (dataURL) next[id] = dataURL; else delete next[id]; return next })
-  return <RoomContext value={{ selectedObject, characterState, computerOn, litLamps, cupHeld, artworks, setArtwork, guestbook, addGuestComment, removeGuestComment, timeOfDay, setTimeOfDay, books, openBookId, bookshelfOpen, mode, furniture: resolvedFurniture, selectedFurnitureId, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, selectObject, clearSelection, finishCharacterAction: setCharacterState, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject('bookshelf'); setBookshelfOpen(true) }, addBook, updateBookVisibility, addEntry, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, closeStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
+  return <RoomContext value={{ selectedObject, characterState, computerOn, litLamps, cupHeld, artworks, setArtwork, guestbook, addGuestComment, removeGuestComment, timeOfDay, setTimeOfDay, books, openBookId, bookshelfOpen, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, selectObject, clearSelection, finishCharacterAction: setCharacterState, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject('bookshelf'); setBookshelfOpen(true) }, addBook, updateBookVisibility, addEntry, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, closeStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
 }
 export function useRoomStore() { const store = useContext(RoomContext); if (!store) throw new Error('RoomProvider is required'); return store }
 // for trees rendered outside the provider (e.g. the offscreen thumbnail canvas)
