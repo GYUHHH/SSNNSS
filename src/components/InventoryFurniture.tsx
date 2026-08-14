@@ -152,12 +152,13 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   </>
   if (item.type.startsWith('video-frame')) {
     const [w, h] = VIDEO_FRAME_SIZES[item.type] ?? VIDEO_FRAME_SIZES['video-frame-3']
-    const turned = Math.abs(Math.round(item.rotation[1] / (Math.PI / 2))) % 2 === 1
+    const rotationY = item.rotation?.[1] ?? 0
+    const turned = Math.abs(Math.round(rotationY / (Math.PI / 2))) % 2 === 1
     const screenWidth = (turned ? h : w) - .16
     const screenHeight = screenWidth * (h - .16) / (w - .16)
     return <>
       <RoundedBox castShadow args={[w, h, .08]} radius={.03} smoothness={2} position={[0, 0, .04]}>{mat('#3a332c')}</RoundedBox>
-      <group rotation={[0, 0, -item.rotation[1]]}>
+      <group rotation={[0, 0, -rotationY]}>
         {preview ? <mesh position={[0, 0, .085]}><planeGeometry args={[screenWidth, screenHeight]} />{mat('#20262b')}</mesh> : <VideoScreen id={item.id} width={screenWidth} height={screenHeight} />}
       </group>
     </>

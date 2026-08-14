@@ -37,7 +37,7 @@ export function thumbnailFor(item: FurnitureItem): Promise<string> {
   const key = `${item.type}:${item.styleId ?? ''}`
   const hit = cache.get(key)
   if (hit) return Promise.resolve(hit)
-  const job = chain.then(() => new Promise<string>((resolve) => {
+  const job = chain.then(() => Promise.race([new Promise<string>((resolve) => {
     if (!root) {
       const canvas = document.createElement('canvas')
       canvas.width = 96
@@ -46,7 +46,7 @@ export function thumbnailFor(item: FurnitureItem): Promise<string> {
       root.configure({ frameloop: 'never', gl: { alpha: true, antialias: true, preserveDrawingBuffer: true }, size: { width: 96, height: 96, top: 0, left: 0 }, dpr: 1, camera: { fov: 30, near: 0.01, far: 100 } })
     }
     root.render(<Shot item={item} done={(url) => { cache.set(key, url); resolve(url) }} />)
-  }))
+  }), new Promise<string>((resolve) => setTimeout(() => resolve(''), 4000))]))
   chain = job.catch(() => undefined)
   return job
 }
