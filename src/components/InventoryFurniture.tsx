@@ -151,11 +151,16 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     {!preview && <ProfileBoardFace />}
   </>
   if (item.type.startsWith('video-frame')) {
-    const wide = item.type === 'video-frame-4'
-    const [w, h] = wide ? [1.9, 2.4] : [1.5, 2.0]
+    const large = item.type === 'video-frame-4'
+    const [w, h] = large ? [2.3, 1.84] : [1.9, 1.425]
+    const turned = Math.abs(Math.round(item.rotation[1] / (Math.PI / 2))) % 2 === 1
+    const screenWidth = (turned ? h : w) - .16
+    const screenHeight = screenWidth * (h - .16) / (w - .16)
     return <>
       <RoundedBox castShadow args={[w, h, .08]} radius={.03} smoothness={2} position={[0, 0, .04]}>{mat('#3a332c')}</RoundedBox>
-      {preview ? <mesh position={[0, 0, .085]}><planeGeometry args={[w - .16, h - .16]} />{mat('#20262b')}</mesh> : <VideoScreen id={item.id} width={w - .16} height={h - .16} />}
+      <group rotation={[0, 0, -item.rotation[1]]}>
+        {preview ? <mesh position={[0, 0, .085]}><planeGeometry args={[screenWidth, screenHeight]} />{mat('#20262b')}</mesh> : <VideoScreen id={item.id} width={screenWidth} height={screenHeight} />}
+      </group>
     </>
   }
   if (item.type === 'cd-player') return <>
