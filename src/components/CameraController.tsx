@@ -1,15 +1,15 @@
-import { useFrame, useThree } from '@react-three/fiber'
+import { OrbitControls } from '@react-three/drei'
+import { useThree } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
-import { OrthographicCamera, Vector3 } from 'three'
+import { OrthographicCamera } from 'three'
 import { useRoomStore } from '../store'
 
-const roomView = { position: [9.5, 8.5, 10], target: [0, 3.5, 0] }
+const INITIAL_AZIMUTH = Math.atan2(9.5, 10)
+const AZIMUTH_LIMIT = Math.PI / 4
 
 export default function CameraController() {
-  const { camera, pointer, size } = useThree()
+  const { camera, size } = useThree()
   const { mode } = useRoomStore()
-  const lookAt = useRef(new Vector3(0, 3.5, 0))
-  const destination = useRef(new Vector3())
   const zoomOffset = useRef(0)
   const compactScreen = size.width < 720 || (size.height < 520 && window.matchMedia('(pointer: coarse)').matches)
 
@@ -31,12 +31,17 @@ export default function CameraController() {
     return () => window.removeEventListener('room-zoom', zoom)
   }, [camera])
 
-  useFrame((_, delta) => {
-    destination.current.set(roomView.position[0], roomView.position[1], roomView.position[2])
-    if (mode === 'normal' && !compactScreen) destination.current.add(new Vector3(pointer.x * 0.22, pointer.y * 0.12, 0))
-    camera.position.lerp(destination.current, 1 - Math.exp(-3.8 * delta))
-    lookAt.current.lerp(new Vector3(roomView.target[0], roomView.target[1], roomView.target[2]), 1 - Math.exp(-4.5 * delta))
-    camera.lookAt(lookAt.current)
-  })
-  return null
+  return <OrbitControls
+    enabled={mode === 'normal'}
+    target={[0, 3.5, 0]}
+    enablePan={false}
+    enableZoom={false}
+    enableDamping
+    dampingFactor={0.08}
+    rotateSpeed={0.55}
+    minAzimuthAngle={INITIAL_AZIMUTH - AZIMUTH_LIMIT}
+    maxAzimuthAngle={INITIAL_AZIMUTH + AZIMUTH_LIMIT}
+    minPolarAngle={Math.PI / 5}
+    maxPolarAngle={Math.PI / 2 - 0.12}
+  />
 }
