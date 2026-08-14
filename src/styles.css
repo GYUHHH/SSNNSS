@@ -365,7 +365,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .art-view.round { width: 190px; height: 190px; margin: 0 auto; border-radius: 50%; object-fit: cover; }
 .art-view.round.blank { background: #e2d6c6; }
 .clip-preview { width: 100%; margin-top: 10px; border-radius: 8px; background: #20262b; display: block; }
-.yt-player { position: fixed; z-index: 6; overflow: hidden; background: #20262b; }
+.yt-player { position: fixed; z-index: 6; overflow: hidden; border-radius: 8px; background: #20262b; }
 .yt-player iframe { display: block; width: 100%; height: 100%; border: 0; }
 .yt-player.docked { right: 22px; top: 96px; width: min(436px, calc(92vw - 24px)); aspect-ratio: 16 / 9; }
 .yt-player.offscreen { left: -9999px; top: 0; width: 320px; aspect-ratio: 16 / 9; pointer-events: none; }
