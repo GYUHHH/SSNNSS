@@ -14,11 +14,10 @@ export default function CameraController() {
   const { camera, gl, size } = useThree()
   const { mode } = useRoomStore()
   const zoomTarget = useRef(59)
-  const touchPoints = useRef(new Map<number, [number, number]>())
-  const touchStarts = useRef(new Map<number, { x: number; y: number; time: number }>())
+  const touchStart = useRef<{ x: number; y: number; time: number } | null>(null)
   const pinchDistance = useRef(0)
   const lastTap = useRef({ time: 0, x: 0, y: 0 })
-  const dragZoom = useRef<{ pointerId: number; startY: number; startZoom: number } | null>(null)
+  const dragZoom = useRef<{ identifier: number; startY: number; startZoom: number } | null>(null)
   const [dragZooming, setDragZooming] = useState(false)
   const compactScreen = size.width < 720 || (size.height < 520 && window.matchMedia('(pointer: coarse)').matches)
   const minZoom = compactScreen ? MOBILE_MIN_ZOOM : DESKTOP_MIN_ZOOM
@@ -32,56 +31,60 @@ export default function CameraController() {
 
   useEffect(() => {
     const element = gl.domElement
-    const distance = () => { const [a, b] = [...touchPoints.current.values()]; return a && b ? Math.hypot(a[0] - b[0], a[1] - b[1]) : 0 }
+    const distance = (touches: TouchList) => touches.length < 2 ? 0 : Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY)
     const onWheel = (event: WheelEvent) => { event.preventDefault(); zoomTarget.current = MathUtils.clamp(zoomTarget.current * Math.exp(event.deltaY * .0015), minZoom, MAX_ZOOM) }
-    const onPointerDown = (event: PointerEvent) => {
-      if (event.pointerType !== 'touch') return
-      const now = performance.now()
-      const secondTap = mode === 'normal' && compactScreen && touchPoints.current.size === 0 && now - lastTap.current.time < 320 && Math.hypot(event.clientX - lastTap.current.x, event.clientY - lastTap.current.y) < 36
-      touchPoints.current.set(event.pointerId, [event.clientX, event.clientY])
-      touchStarts.current.set(event.pointerId, { x: event.clientX, y: event.clientY, time: now })
-      if (secondTap) {
-        dragZoom.current = { pointerId: event.pointerId, startY: event.clientY, startZoom: zoomTarget.current }
+    const onTouchStart = (event: TouchEvent) => {
+      if (event.touches.length === 2) {
+        pinchDistance.current = distance(event.touches)
         lastTap.current.time = 0
+        dragZoom.current = null
         setDragZooming(true)
-        event.preventDefault(); event.stopImmediatePropagation(); element.setPointerCapture(event.pointerId)
-      } else if (touchPoints.current.size === 2) pinchDistance.current = distance()
-    }
-    const onPointerMove = (event: PointerEvent) => {
-      if (!touchPoints.current.has(event.pointerId)) return
-      touchPoints.current.set(event.pointerId, [event.clientX, event.clientY])
-      if (dragZoom.current?.pointerId === event.pointerId) {
-        event.preventDefault(); event.stopImmediatePropagation()
-        zoomTarget.current = MathUtils.clamp(dragZoom.current.startZoom * Math.exp((event.clientY - dragZoom.current.startY) * .012), minZoom, MAX_ZOOM)
+        event.preventDefault()
         return
       }
-      if (touchPoints.current.size !== 2) return
-      const next = distance()
-      if (pinchDistance.current) zoomTarget.current = MathUtils.clamp(zoomTarget.current * next / pinchDistance.current, minZoom, MAX_ZOOM)
-      pinchDistance.current = next
+      if (event.touches.length !== 1) return
+      const touch = event.touches[0]
+      const now = performance.now()
+      const secondTap = mode === 'normal' && compactScreen && now - lastTap.current.time < 320 && Math.hypot(touch.clientX - lastTap.current.x, touch.clientY - lastTap.current.y) < 36
+      touchStart.current = { x: touch.clientX, y: touch.clientY, time: now }
+      if (secondTap) {
+        dragZoom.current = { identifier: touch.identifier, startY: touch.clientY, startZoom: zoomTarget.current }
+        lastTap.current.time = 0
+        setDragZooming(true)
+        event.preventDefault(); event.stopPropagation()
+      }
     }
-    const onPointerEnd = (event: PointerEvent, cancelled = false) => {
-      const point = touchPoints.current.get(event.pointerId)
-      const start = touchStarts.current.get(event.pointerId)
-      if (dragZoom.current?.pointerId === event.pointerId) {
-        event.preventDefault(); event.stopImmediatePropagation()
-        if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId)
+    const onTouchMove = (event: TouchEvent) => {
+      if (event.touches.length === 2) {
+        const next = distance(event.touches)
+        if (pinchDistance.current) zoomTarget.current = MathUtils.clamp(zoomTarget.current * next / pinchDistance.current, minZoom, MAX_ZOOM)
+        pinchDistance.current = next
+        event.preventDefault()
+        return
+      }
+      if (!dragZoom.current || event.touches.length !== 1 || event.touches[0].identifier !== dragZoom.current.identifier) return
+      event.preventDefault(); event.stopPropagation()
+      zoomTarget.current = MathUtils.clamp(dragZoom.current.startZoom * Math.exp((event.touches[0].clientY - dragZoom.current.startY) * .012), minZoom, MAX_ZOOM)
+    }
+    const onTouchEnd = (event: TouchEvent, cancelled = false) => {
+      const touch = event.changedTouches[0]
+      if (dragZoom.current && [...event.changedTouches].some((entry) => entry.identifier === dragZoom.current?.identifier)) {
+        event.preventDefault(); event.stopPropagation()
         dragZoom.current = null
         setDragZooming(false)
-      } else if (mode === 'normal' && !cancelled && touchPoints.current.size === 1 && point && start && performance.now() - start.time < 350 && Math.hypot(point[0] - start.x, point[1] - start.y) < 12) {
-        lastTap.current = { time: performance.now(), x: point[0], y: point[1] }
-      } else if (touchPoints.current.size === 1) lastTap.current.time = 0
-      touchPoints.current.delete(event.pointerId)
-      touchStarts.current.delete(event.pointerId)
-      pinchDistance.current = touchPoints.current.size === 2 ? distance() : 0
+      } else if (mode === 'normal' && !cancelled && event.touches.length === 0 && touch && touchStart.current && performance.now() - touchStart.current.time < 350 && Math.hypot(touch.clientX - touchStart.current.x, touch.clientY - touchStart.current.y) < 12) {
+        lastTap.current = { time: performance.now(), x: touch.clientX, y: touch.clientY }
+      } else if (event.touches.length === 0) lastTap.current.time = 0
+      if (event.touches.length < 2) { pinchDistance.current = 0; setDragZooming(false) }
+      if (event.touches.length === 0) touchStart.current = null
     }
-    const onPointerCancel = (event: PointerEvent) => onPointerEnd(event, true)
+    const onTouchCancel = (event: TouchEvent) => onTouchEnd(event, true)
     element.addEventListener('wheel', onWheel, { passive: false })
-    element.addEventListener('pointerdown', onPointerDown, true)
-    element.addEventListener('pointermove', onPointerMove, true)
-    element.addEventListener('pointerup', onPointerEnd, true)
-    element.addEventListener('pointercancel', onPointerCancel, true)
-    return () => { element.removeEventListener('wheel', onWheel); element.removeEventListener('pointerdown', onPointerDown, true); element.removeEventListener('pointermove', onPointerMove, true); element.removeEventListener('pointerup', onPointerEnd, true); element.removeEventListener('pointercancel', onPointerCancel, true) }
+    element.addEventListener('touchstart', onTouchStart, { passive: false, capture: true })
+    element.addEventListener('touchmove', onTouchMove, { passive: false, capture: true })
+    element.addEventListener('touchend', onTouchEnd, { passive: false, capture: true })
+    element.addEventListener('touchcancel', onTouchCancel, { passive: false, capture: true })
+    return () => { element.removeEventListener('wheel', onWheel); element.removeEventListener('touchstart', onTouchStart, true); element.removeEventListener('touchmove', onTouchMove, true); element.removeEventListener('touchend', onTouchEnd, true); element.removeEventListener('touchcancel', onTouchCancel, true) }
   }, [compactScreen, gl, minZoom, mode])
 
   useFrame((_, delta) => {
