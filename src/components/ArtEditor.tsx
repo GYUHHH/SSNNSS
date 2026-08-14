@@ -110,7 +110,6 @@ export function VideoLinkInput({ id }: { id: string }) {
   const current = videoLinks[id]
   const apply = () => { if (!setVideoLink(id, text)) { setFailed(true); return } setFailed(false); setText('') }
   return <div className="video-link">
-    {current && <iframe title="유튜브 재생" src={`https://www.youtube.com/embed/${current}`} allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowFullScreen />}
     <div className="banner-input">
       <input type="text" value={text} onChange={(event) => { setText(event.target.value); setFailed(false) }} placeholder="유튜브 링크 붙여넣기" onKeyDown={(event) => { if (event.key === 'Enter') apply() }} />
       <button type="button" onClick={apply}>넣기</button>
