@@ -121,7 +121,7 @@ div.art-view { aspect-ratio: 3 / 4; }
   .time-controls { bottom: calc(12px + env(safe-area-inset-bottom)); left: calc(12px + env(safe-area-inset-left)); }
   .time-controls button { min-width: 40px; min-height: 40px; padding: 6px 8px; }
   .room-controls { right: calc(12px + env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom)); }
-  .zoom-controls button { width: 44px; height: 44px; }
+  .zoom-controls button { width: 44px; height: 36px; }
 
   .art-open .scene { transform: none; }
   .art-open .room-ui, .art-open .room-controls { right: calc(12px + env(safe-area-inset-right)); }
