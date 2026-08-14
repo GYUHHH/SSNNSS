@@ -118,3 +118,12 @@ export function VideoLinkInput({ id }: { id: string }) {
     {current && <button type="button" onClick={() => setVideoLink(id, null)}>링크 지우기</button>}
   </div>
 }
+
+export function FriendNameInput({ id }: { id: string }) {
+  const { artworks, setArtwork } = useRoomStore()
+  const [text, setText] = useState(artworks[`${id}:name`] || '')
+  return <div className="banner-input">
+    <input type="text" maxLength={12} value={text} onChange={(event) => setText(event.target.value)} placeholder="이웃 이름" onKeyDown={(event) => { if (event.key === 'Enter') setArtwork(`${id}:name`, text.trim() || null) }} />
+    <button type="button" onClick={() => setArtwork(`${id}:name`, text.trim() || null)}>적용</button>
+  </div>
+}

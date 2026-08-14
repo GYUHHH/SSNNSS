@@ -362,3 +362,5 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .video-link button { border: 1px solid #b8aa9a; border-radius: 4px; padding: 6px 10px; font-size: 12px; color: #4c4036; background: #fffaf0; cursor: pointer; }
 .video-link .banner-input button { border-color: #54443a; color: #fff8ed; background: #54443a; }
 .video-link-error { color: #b3563f; font-size: 12px; }
+.art-view.round { width: 190px; height: 190px; margin: 0 auto; border-radius: 50%; object-fit: cover; }
+.art-view.round.blank { background: #e2d6c6; }

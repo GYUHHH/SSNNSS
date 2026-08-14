@@ -145,6 +145,12 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     <mesh castShadow position={[0, .13, 0]}><sphereGeometry args={[.09, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshStandardMaterial color={material.color ?? '#6b6478'} emissive={lit ? '#8f86ad' : '#000000'} emissiveIntensity={lit ? .5 : 0} transparent={material.transparent} opacity={material.opacity} /></mesh>
     {lit && <StarField />}
   </>
+  if (item.type === 'friend-card') return <>
+    <RoundedBox castShadow args={[1.4, 2.1, .07]} radius={.06} smoothness={2} position={[0, 0, .035]}>{mat('#fbf6ec')}</RoundedBox>
+    <mesh position={[0, .48, .076]}><circleGeometry args={[.44, 30]} /><meshStandardMaterial key={art && !preview ? 'photo' : 'blank'} color={art && !preview ? '#ffffff' : '#e2d6c6'} map={!preview ? art ?? undefined : undefined} roughness={.9} transparent={material.transparent} opacity={material.opacity} /></mesh>
+    <mesh position={[0, .48, .073]}><circleGeometry args={[.47, 30]} />{mat('#d9c9ae')}</mesh>
+    {!preview && <FriendCardText id={item.id} />}
+  </>
   if (item.type.startsWith('video-frame')) {
     const wide = item.type === 'video-frame-4'
     const [w, h] = wide ? [1.9, 2.4] : [1.5, 2.0]
@@ -572,4 +578,36 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
     <mesh position={[.02, 0, .002]} rotation={[0, 0, -Math.PI / 2]}><circleGeometry args={[.075, 3]} /><meshBasicMaterial color="#ffffff" /></mesh>
   </group>}
   </>
+}
+
+// the name and counts on a friend card, drawn to a canvas so the board can carry text
+function drawFriendCard(canvas: HTMLCanvasElement, name: string) {
+  const ctx = canvas.getContext('2d')!
+  const w = canvas.width, h = canvas.height
+  ctx.clearRect(0, 0, w, h)
+  ctx.fillStyle = '#3f3a33'
+  ctx.font = 'bold 34px "Segoe UI", sans-serif'
+  ctx.textAlign = 'center'
+  ctx.fillText(name.slice(0, 12), w / 2, 48)
+  ctx.fillStyle = '#a08d7c'
+  ctx.font = '20px "Segoe UI", sans-serif'
+  ctx.fillText('친구', w / 2, 84)
+  ctx.strokeStyle = '#e2d6c6'
+  ctx.lineWidth = 2
+  ctx.beginPath(); ctx.moveTo(w * .18, 104); ctx.lineTo(w * .82, 104); ctx.stroke()
+}
+
+function FriendCardText({ id }: { id: string }) {
+  const name = useOptionalRoomStore()?.artworks[`${id}:name`] || '이웃'
+  const texture = useMemo(() => {
+    const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 128
+    drawFriendCard(canvas, name)
+    const created = new CanvasTexture(canvas); created.colorSpace = SRGBColorSpace
+    return created
+  }, [])
+  useEffect(() => {
+    drawFriendCard(texture.image as HTMLCanvasElement, name)
+    texture.needsUpdate = true
+  }, [name, texture])
+  return <mesh position={[0, -.42, .076]}><planeGeometry args={[1.1, .55]} /><meshBasicMaterial map={texture} transparent /></mesh>
 }

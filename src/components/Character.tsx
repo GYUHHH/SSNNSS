@@ -169,7 +169,6 @@ export default function Character() {
         <RoundedBox args={[.17, .27, .18]} radius={.05} smoothness={2} position={[0, -.42, 0]}><meshStandardMaterial color="#d6a07e" roughness={.9} /></RoundedBox>
         <RoundedBox args={[.2, .13, .29]} radius={.055} smoothness={2} position={[0, -.6, .055]}><meshStandardMaterial color="#4c3b34" roughness={.88} /></RoundedBox>
       </group>
-      <ProfileOrb />
       {cupHeld && <mesh position={[.4, .61, .1]}><cylinderGeometry args={[.09, .09, .18, 16]} /><meshStandardMaterial color="#f5e7cc" roughness={.85} /></mesh>}
       {moveNotice && <Html position={[0, 2, 0]} center><div className="speech-bubble">여기로 이동할 수 없어요</div></Html>}
       {selectedObject === 'plant' && characterState === 'interacting' && <Html position={[0, 2, 0]} center><div className="speech-bubble">새 잎이 났네.</div></Html>}
@@ -178,19 +177,3 @@ export default function Character() {
   </group>
 }
 
-// the little blue marker that floats by the character's head and opens the profile
-function ProfileOrb() {
-  const orb = useRef<Group>(null)
-  const [hovered, setHovered] = useState(false)
-  const { openProfile } = useRoomStore()
-  useCursor(hovered)
-  useFrame(({ clock }) => { if (orb.current) orb.current.position.y = 1.62 + Math.sin(clock.elapsedTime * 1.6) * .045 })
-  return <group ref={orb} position={[.42, 1.62, 0]}
-    onPointerOver={(event) => { event.stopPropagation(); setHovered(true) }}
-    onPointerOut={() => setHovered(false)}
-    onPointerDown={(event) => event.stopPropagation()}
-    onClick={(event) => { event.stopPropagation(); openProfile() }}>
-    <mesh scale={hovered ? 1.18 : 1}><sphereGeometry args={[.09, 14, 12]} /><meshStandardMaterial color="#6fa8dc" emissive="#3d7fd0" emissiveIntensity={.75} roughness={.35} /></mesh>
-    <mesh scale={hovered ? 1.18 : 1}><sphereGeometry args={[.125, 14, 12]} /><meshBasicMaterial color="#8fc2ee" transparent opacity={.22} depthWrite={false} /></mesh>
-  </group>
-}
