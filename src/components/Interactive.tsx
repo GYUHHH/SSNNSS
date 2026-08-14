@@ -1,6 +1,6 @@
 import { useCursor } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useLayoutEffect, useRef, useState } from 'react'
 import type { Group } from 'three'
 import { type SelectedObject, useRoomStore } from '../store'
 import { isOwnedSurfaceId, ownerIdOf } from '../services/roomGrid'
@@ -29,9 +29,11 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
   const hoverGroup = item && isOwnedSurfaceId(item.surfaceId) ? ownerIdOf(item.surfaceId) : id
   useCursor(hovered)
   const cancelPress = () => { if (timer.current) clearTimeout(timer.current); timer.current = null; press.current = null }
-  useEffect(() => () => {
-    cancelPress()
-    if (hoverShared.by === id) { hoverShared.group = null; hoverShared.by = null }
+  useLayoutEffect(() => {
+    // Normal-mode objects mount again after editing. Clear the pointer state R3F kept for the old object
+    // before the first frame, otherwise it stays enlarged until the pointer leaves and re-enters.
+    hoverShared.group = null; hoverShared.by = null
+    return () => { cancelPress(); if (hoverShared.by === id) { hoverShared.group = null; hoverShared.by = null } }
   }, [])
 
   useFrame((_, delta) => {

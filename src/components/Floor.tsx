@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { BufferGeometry, Float32BufferAttribute } from 'three'
 import { resolutionFor, useRoomStore } from '../store'
 import PlacementGrid from './PlacementGrid'
-import { floorSurface, withResolution } from '../services/roomGrid'
+import { cellsFor, floorSurface, withResolution } from '../services/roomGrid'
 import { floorStyleOf } from '../services/styles'
 
 const GROUT_DIVISIONS = 5
@@ -34,7 +34,17 @@ export default function Floor() {
       onClick={(event) => { event.stopPropagation(); if (mode === 'normal') moveCharacterTo([event.point.x, 0, event.point.z]); else if (selected?.movable && selected.allowedSurfaces.includes('floor') && !movingFurnitureId) placeFurnitureAt(selected.id, [event.point.x, 0, event.point.z], 'floor') }}
     ><boxGeometry args={[floorSurface.width, 0.05, floorSurface.height]} /><meshStandardMaterial color={style.color} roughness={style.roughness} /></mesh>
     {style.pattern === 'grout' && <TileGrout />}
-    {mode === 'edit' && <PlacementGrid surface={floorSurface} />}
-    {mode === 'edit' && (() => { const relevant = preview?.allowedSurfaces.includes('floor') ? preview : selected?.allowedSurfaces.includes('floor') ? selected : null; return relevant && resolutionFor(relevant) === 'subgrid2' ? <PlacementGrid surface={withResolution(floorSurface, 'subgrid2')} /> : null })()}
+    {mode === 'edit' && (() => {
+      const relevant = preview?.allowedSurfaces.includes('floor') ? preview : selected?.allowedSurfaces.includes('floor') ? selected : null
+      if (!relevant) return <PlacementGrid surface={floorSurface} />
+      // just the neighbourhood of what is being placed, at that item's own cell size
+      const cells = cellsFor(relevant, relevant.footprint, relevant.rotation[1])
+      const pad = resolutionFor(relevant) === 'subgrid2' ? 2 : 1
+      const area = {
+        x0: Math.min(...cells.map((cell) => cell.x)) - pad, x1: Math.max(...cells.map((cell) => cell.x)) + 1 + pad,
+        y0: Math.min(...cells.map((cell) => cell.y)) - pad, y1: Math.max(...cells.map((cell) => cell.y)) + 1 + pad,
+      }
+      return <PlacementGrid surface={withResolution(floorSurface, resolutionFor(relevant))} area={area} />
+    })()}
   </>
 }
