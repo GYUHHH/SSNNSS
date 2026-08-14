@@ -52,7 +52,7 @@ function EditableFurniture({ id, children }: { id: FurnitureId; children: ReactN
   const moveOntoTop = (point: [number, number, number]) => {
     const moving = preview ?? furniture.find((entry) => entry.id === movingFurnitureId); if (!moving) return false
     const movingResolution = resolutionFor(moving)
-    const target = furniture.flatMap(surfacesForOwner).find((entry) => {
+    const target = surfacesForOwner(item).find((entry) => {
       if (!moving.allowedSurfaces.includes(entry.type)) return false
       return fitsSurface(withResolution(entry, movingResolution), worldToGrid(withResolution(entry, movingResolution), point, moving.footprint, moving.rotation[1]), moving.footprint, moving.rotation[1])
     }); if (!target) return false
