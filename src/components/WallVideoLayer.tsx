@@ -33,6 +33,20 @@ export default function WallVideoLayer() {
     window.addEventListener('pointerdown', onFirstClick, { once: true })
     return () => window.removeEventListener('pointerdown', onFirstClick)
   }, [])
+  // Focus guard: if a wall iframe holds focus when the tab is left, the browser re-focuses it on return and
+  // the YouTube player mistakes that for user activity, waking its control overlay. Whenever focus lands on a
+  // wall iframe (window 'blur' fires the moment it does, and also on real tab-leave) it is released right away,
+  // so a tab return has no focus to restore and the overlay stays asleep. Clicks inside the video still work —
+  // their effect lands before the focus is given back.
+  useEffect(() => {
+    const releaseWallIframeFocus = () => setTimeout(() => {
+      const active = document.activeElement
+      if (active instanceof HTMLIFrameElement && active.closest('.wall-video')) active.blur()
+    }, 0)
+    window.addEventListener('blur', releaseWallIframeFocus)
+    window.addEventListener('focus', releaseWallIframeFocus)
+    return () => { window.removeEventListener('blur', releaseWallIframeFocus); window.removeEventListener('focus', releaseWallIframeFocus) }
+  }, [])
   return <>{playingFrames.map((id) => <WallVideo key={id} frameId={id} />)}</>
 }
 
