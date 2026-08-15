@@ -27,11 +27,11 @@ export default function Floor() {
     if (movingFurnitureId && selected?.id === movingFurnitureId && selected.allowedSurfaces.includes('floor')) moveFurniture(selected.id, [point.x, selected.position[1], point.z])
   }
   return <>
-    <mesh receiveShadow position={[0, 0.01, 0]}
+    <mesh receiveShadow position={[0, -0.075, 0]}
       onPointerDown={(event) => { if (mode === 'edit') event.stopPropagation() }}
       onPointerMove={(event) => { if (movingFurnitureId === selected?.id || (previewDragging && preview?.allowedSurfaces.includes('floor'))) { event.stopPropagation(); moveTo(event.point) } }}
       onClick={(event) => { event.stopPropagation(); if (mode === 'normal') moveCharacterTo([event.point.x, 0, event.point.z]); else if (selected?.movable && selected.allowedSurfaces.includes('floor') && !movingFurnitureId) placeFurnitureAt(selected.id, [event.point.x, 0, event.point.z], 'floor') }}
-    ><boxGeometry args={[floorSurface.width, 0.05, floorSurface.height]} /><meshStandardMaterial color={style.color} roughness={style.roughness} /></mesh>
+    ><boxGeometry args={[floorSurface.width, 0.22, floorSurface.height]} /><meshStandardMaterial color={style.color} roughness={style.roughness} /></mesh>
     {style.pattern === 'grout' && <TileGrout />}
     {mode === 'edit' && (() => {
       const relevant = preview?.allowedSurfaces.includes('floor') ? preview : selected?.allowedSurfaces.includes('floor') ? selected : null
