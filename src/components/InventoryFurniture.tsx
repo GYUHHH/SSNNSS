@@ -625,7 +625,7 @@ function ProfileBoardFace() {
   }, [total, today, friends, texture])
   const portrait = useMemo(() => { if (!photo) return null; const map = new TextureLoader().load(photo); map.colorSpace = SRGBColorSpace; return map }, [photo])
   return <>
-    {portrait && <mesh position={[0, .5, .076]}><circleGeometry args={[.44, 30]} /><meshBasicMaterial map={portrait} /></mesh>}
+    {portrait && <mesh position={[0, .5, .076]}><circleGeometry args={[.47, 30]} /><meshBasicMaterial map={portrait} /></mesh>}
     <mesh position={[0, -.45, .076]}><planeGeometry args={[1.2, .48]} /><meshBasicMaterial map={texture} transparent /></mesh>
   </>
 }
