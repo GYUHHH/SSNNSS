@@ -60,7 +60,9 @@ function WallVideo({ frameId }: { frameId: string }) {
           video to a 1-unit window — hand it a plane matching the screen so the hole covers the full frame */}
       <Html transform occlude="blending" geometry={<planeGeometry args={[screenWidth, screenHeight]} />} distanceFactor={400} position={[0, 0, .05]} scale={screenWidth / 640} zIndexRange={[4, 0]} style={{ pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
         <div className="wall-video" style={{ width: 640, height: Math.round(640 * ((h - .06) / (w - .06))), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} onPointerDown={(event) => event.stopPropagation()}>
-          <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra="autoplay=1&playsinline=1&mute=1" />
+          {/* controls=0 keeps YouTube's control bar from popping over the wall screen (it auto-shows on tab
+              return); the expanded panel player keeps its controls */}
+          <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra="autoplay=1&playsinline=1&mute=1&controls=0" />
           {mode !== 'edit' && <div className="wall-video-actions">
             <button type="button" aria-label="크게 보기" onClick={() => openVideoPanel(frameId)}>⤢</button>
             <button type="button" aria-label={muted ? '소리 켜기' : '소리 끄기'} onClick={() => { if (muted) unmuteFrame(frameId); else muteFrame(frameId); setFrameMuted(frameId, !muted) }}>
