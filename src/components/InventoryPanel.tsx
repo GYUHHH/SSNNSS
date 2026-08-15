@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { type FurnitureItem, initialFurniture, inventoryItems, type InventoryCategory, useRoomStore } from '../store'
 import { thumbnailFor } from '../services/thumbnails'
+import { colorPresets, floorStyleOf, floorStyles, wallStylePresets } from '../services/styles'
 
 function ItemIcon({ item }: { item: { type: string; styleId?: string } }) {
   const [src, setSrc] = useState<string | null>(null)
@@ -16,6 +17,20 @@ const OWNABLE = [...inventoryItems, ...initialFurniture.filter((item) => item.mo
   .filter((entry, index, all) => all.findIndex((other) => other.type === entry.type) === index)
   .map((entry) => ({ type: entry.type, name: entry.name, size: entry.size, footprint: entry.footprint, allowedSurfaces: entry.allowedSurfaces }))
 
+// wall and floor recolors live in the inventory now — clicking the room surfaces no longer opens a picker
+function RoomColorEditor() {
+  const { wallStyle, floorStyle, setWallStyle, setFloorStyle } = useRoomStore()
+  const wallSwatches = colorPresets.filter((preset) => (wallStylePresets as readonly string[]).includes(preset.id))
+  return <div className="room-colors">
+    {([['leftWall', '왼쪽 벽'], ['rightWall', '오른쪽 벽']] as const).map(([wallId, label]) => <div key={wallId} className="room-color-row"><span>{label}</span>
+      <div className="style-swatches">{wallSwatches.map((preset) => <button key={preset.id} type="button" title={preset.label} className={wallStyle[wallId] === preset.id ? 'active' : ''} style={{ background: preset.color }} onClick={() => setWallStyle(wallId, preset.id)} />)}</div>
+    </div>)}
+    <div className="room-color-row"><span>바닥</span>
+      <div className="style-swatches">{floorStyles.map((style) => <button key={style.id} type="button" title={style.label} className={floorStyleOf(floorStyle).id === style.id ? 'active' : ''} style={{ background: style.color }} onClick={() => setFloorStyle(style.id)} />)}</div>
+    </div>
+  </div>
+}
+
 export default function InventoryPanel() {
   const [category, setCategory] = useState<InventoryCategory>('전체')
   const { startPreview, preview, previewValid, placePreview, cancelPreview, availableCount } = useRoomStore()
@@ -28,6 +43,7 @@ export default function InventoryPanel() {
       {stock.length === 0 && <p className="inventory-empty">남은 가구가 없어요. 방에 놓인 가구를 정리하면 다시 꺼낼 수 있어요.</p>}
       {stock.map((entry) => <button key={entry.type} type="button" onClick={() => startPreview(entry.type)}><ItemIcon item={entry as FurnitureItem} /><span>{entry.name}<small>{entry.footprint.width ? `${entry.size[0]} × ${entry.size[1]}` : '벽'}</small></span></button>)}
     </div>
+    <RoomColorEditor />
     {preview && <footer><span className={previewValid ? 'valid' : 'invalid'}>{previewValid ? '배치 가능한 위치' : '이 위치에는 배치할 수 없어요'}</span><button type="button" disabled={!previewValid} onClick={placePreview}>배치</button></footer>}
   </section>
 }
