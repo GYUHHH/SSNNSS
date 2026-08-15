@@ -15,6 +15,6 @@ export default function YouTubePlayer() {
   const docked = selectedObject === playingFrame && !!selected?.type.startsWith('video-frame')
   if (!docked) return null
   return <section className="yt-player docked" aria-label="유튜브 재생">
-    <ResumingIframe videoId={videoId} frameId={playingFrame} extra="autoplay=1" />
+    <ResumingIframe key={playingFrame} videoId={videoId} frameId={playingFrame} extra="autoplay=1" />
   </section>
 }
