@@ -36,6 +36,7 @@ const command = (frameId: string, func: string, args: unknown[] = []) =>
   activeIframes[frameId]?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
 
 export const unmuteFrame = (frameId: string) => command(frameId, 'unMute')
+export const muteFrame = (frameId: string) => command(frameId, 'mute')
 
 // playlist state control over the iframe API, addressed by frame id
 export const playlistControls = (frameId: string) => ({

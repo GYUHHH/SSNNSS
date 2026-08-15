@@ -4,18 +4,24 @@ import { useEffect, useRef, useState } from 'react'
 import type { Group } from 'three'
 import { useRoomStore } from '../store'
 import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
-import { embedSrc, trackIframe, unmuteFrame } from '../services/ytResume'
+import { embedSrc, trackIframe, muteFrame, unmuteFrame } from '../services/ytResume'
 
-// The playing iframe lives here, OUTSIDE the furniture tree: entering edit mode swaps every piece into a
+// The playing iframes live here, OUTSIDE the furniture tree: entering edit mode swaps every piece into a
 // different wrapper, which would unmount an iframe rendered inside it and reload the video. This layer stays
-// mounted through mode changes and simply copies the frame's live world matrix each frame, so playback survives
-// editing and even follows the frame while it is being dragged.
+// mounted through mode changes and simply copies each frame's live world matrix per frame, so playback survives
+// editing and even follows the frame while it is being dragged. Every playing frame gets its own player, so
+// several frames can run at once, each with its own mute toggle.
 export default function WallVideoLayer() {
-  const { playingFrame, videoLinks, selectedObject, furniture, setPlayingFrame, openVideoPanel, mode, wallMuted, setWallMuted } = useRoomStore()
-  if (!playingFrame) return null
-  const item = furniture.find((entry) => entry.id === playingFrame)
-  const videoId = videoLinks[playingFrame]
-  if (!item || item.removed || !videoId || selectedObject === playingFrame) return null
+  const { playingFrames } = useRoomStore()
+  return <>{playingFrames.map((id) => <WallVideo key={id} frameId={id} />)}</>
+}
+
+function WallVideo({ frameId }: { frameId: string }) {
+  const { videoLinks, selectedObject, furniture, stopFrame, openVideoPanel, mode, mutedFrames, setFrameMuted } = useRoomStore()
+  const item = furniture.find((entry) => entry.id === frameId)
+  const videoId = videoLinks[frameId]
+  if (!item || item.removed || !videoId || selectedObject === frameId) return null
+  const muted = mutedFrames.includes(frameId)
   const [w, h] = VIDEO_FRAME_SIZES[item.type] ?? VIDEO_FRAME_SIZES['video-frame-3']
   const turned = Math.abs(Math.round(item.rotation[1] / (Math.PI / 2))) % 2 === 1
   const screenWidth = (turned ? h : w) - .16
@@ -23,17 +29,18 @@ export default function WallVideoLayer() {
     <group rotation={[0, 0, -item.rotation[1]]}>
       <Html transform distanceFactor={400} position={[0, 0, .09]} scale={screenWidth / 1280} zIndexRange={[4, 0]} style={{ pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
         <div className="wall-video" style={{ width: 1280, height: Math.round(1280 * ((h - .16) / (w - .16))), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} onPointerDown={(event) => event.stopPropagation()}>
-          <ResumingIframe key={playingFrame} videoId={videoId} frameId={playingFrame} extra={wallMuted ? 'autoplay=1&playsinline=1&mute=1' : 'autoplay=1&playsinline=1'} />
+          <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra={muted ? 'autoplay=1&playsinline=1&mute=1' : 'autoplay=1&playsinline=1'} />
           {mode !== 'edit' && <div className="wall-video-actions">
-            <button type="button" aria-label="크게 보기" onClick={() => openVideoPanel(playingFrame)}>⤢</button>
-            {wallMuted && <button type="button" aria-label="소리 켜기" onClick={() => { unmuteFrame(playingFrame); setWallMuted(false) }}>
+            <button type="button" aria-label="크게 보기" onClick={() => openVideoPanel(frameId)}>⤢</button>
+            <button type="button" aria-label={muted ? '소리 켜기' : '소리 끄기'} onClick={() => { if (muted) unmuteFrame(frameId); else muteFrame(frameId); setFrameMuted(frameId, !muted) }}>
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="#fff" stroke="none" />
-                <line x1="23" y1="9" x2="17" y2="15" />
-                <line x1="17" y1="9" x2="23" y2="15" />
+                {muted
+                  ? <><line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" /></>
+                  : <><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M19 5.5a10 10 0 0 1 0 13" /></>}
               </svg>
-            </button>}
-            <button type="button" aria-label="재생 멈추기" onClick={() => setPlayingFrame(null)}>×</button>
+            </button>
+            <button type="button" aria-label="재생 멈추기" onClick={() => stopFrame(frameId)}>×</button>
           </div>}
         </div>
       </Html>

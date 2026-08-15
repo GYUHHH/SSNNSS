@@ -7,14 +7,13 @@ import { ResumingIframe } from './WallVideoLayer'
 // ponytail: off-screen, not display:none — a hidden iframe gets its playback suspended. Swap to the YouTube
 // IFrame API only if autoplay-with-sound has to survive a page load with no click behind it.
 export default function YouTubePlayer() {
-  const { playingFrame, videoLinks, selectedObject, furniture } = useRoomStore()
-  if (!playingFrame) return null
-  const videoId = videoLinks[playingFrame]
-  if (!videoId) return null
-  const selected = furniture.find((item) => item.id === selectedObject)
-  const docked = selectedObject === playingFrame && !!selected?.type.startsWith('video-frame')
+  const { playingFrames, videoLinks, selectedObject, furniture } = useRoomStore()
+  const docked = typeof selectedObject === 'string' && playingFrames.includes(selectedObject) ? selectedObject : null
   if (!docked) return null
+  const videoId = videoLinks[docked]
+  const selected = furniture.find((item) => item.id === docked)
+  if (!videoId || !selected?.type.startsWith('video-frame')) return null
   return <section className="yt-player docked" aria-label="유튜브 재생">
-    <ResumingIframe key={playingFrame} videoId={videoId} frameId={playingFrame} extra="autoplay=1" />
+    <ResumingIframe key={docked} videoId={videoId} frameId={docked} extra="autoplay=1" />
   </section>
 }
