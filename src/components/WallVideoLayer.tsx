@@ -26,7 +26,13 @@ export default function WallVideoLayer() {
           <ResumingIframe videoId={videoId} frameId={playingFrame} extra={wallMuted ? 'autoplay=1&playsinline=1&mute=1' : 'autoplay=1&playsinline=1'} />
           {mode !== 'edit' && <div className="wall-video-actions">
             <button type="button" aria-label="크게 보기" onClick={() => openVideoPanel(playingFrame)}>⤢</button>
-            {wallMuted && <button type="button" aria-label="소리 켜기" onClick={() => { unmuteFrame(playingFrame); setWallMuted(false) }}>🔇</button>}
+            {wallMuted && <button type="button" aria-label="소리 켜기" onClick={() => { unmuteFrame(playingFrame); setWallMuted(false) }}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="#fff" stroke="none" />
+                <line x1="23" y1="9" x2="17" y2="15" />
+                <line x1="17" y1="9" x2="23" y2="15" />
+              </svg>
+            </button>}
             <button type="button" aria-label="재생 멈추기" onClick={() => setPlayingFrame(null)}>×</button>
           </div>}
         </div>
