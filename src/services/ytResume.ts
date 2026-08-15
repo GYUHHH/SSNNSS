@@ -3,6 +3,9 @@
 // last position per frame and hand it to the next embed as its start point, so the switch resumes instead of
 // rewinding to zero. Runtime-only on purpose — a reload starting the clip over is expected.
 export const videoResume: Record<string, number> = {}
+export const playlistIndexResume: Record<string, number> = {}
+// the live iframe per frame, so playlist controls can reach the player that is actually on the wall
+const activeIframes: Record<string, HTMLIFrameElement> = {}
 
 export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => void {
   const onMessage = (event: MessageEvent) => {
@@ -11,14 +14,39 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
       const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
       const currentTime = data?.info?.currentTime
       if (typeof currentTime === 'number') videoResume[frameId] = currentTime
+      const playlistIndex = data?.info?.playlistIndex
+      if (typeof playlistIndex === 'number' && playlistIndex >= 0) playlistIndexResume[frameId] = playlistIndex
     } catch { /* not a youtube message */ }
   }
   const hello = () => iframe.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: frameId }), '*')
   window.addEventListener('message', onMessage)
   iframe.addEventListener('load', hello)
   hello()
-  return () => { window.removeEventListener('message', onMessage); iframe.removeEventListener('load', hello) }
+  activeIframes[frameId] = iframe
+  return () => {
+    window.removeEventListener('message', onMessage)
+    iframe.removeEventListener('load', hello)
+    if (activeIframes[frameId] === iframe) delete activeIframes[frameId]
+  }
 }
 
-export const embedSrc = (videoId: string, frameId: string, extra: string) =>
-  `https://www.youtube.com/embed/${videoId}?enablejsapi=1&start=${Math.max(0, Math.floor(videoResume[frameId] ?? 0))}&${extra}`
+const command = (frameId: string, func: string, args: unknown[] = []) =>
+  activeIframes[frameId]?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
+
+// playlist state control over the iframe API, addressed by frame id
+export const playlistControls = (frameId: string) => ({
+  loadPlaylist: (playlistId: string) => command(frameId, 'loadPlaylist', [{ listType: 'playlist', list: playlistId }]),
+  nextVideo: () => command(frameId, 'nextVideo'),
+  previousVideo: () => command(frameId, 'previousVideo'),
+  playVideoAt: (index: number) => command(frameId, 'playVideoAt', [index]),
+})
+
+export const embedSrc = (stored: string, frameId: string, extra: string) => {
+  const start = Math.max(0, Math.floor(videoResume[frameId] ?? 0))
+  if (stored.startsWith('pl:')) {
+    const index = playlistIndexResume[frameId]
+    const at = typeof index === 'number' ? `&index=${index}` : ''
+    return `https://www.youtube.com/embed?listType=playlist&list=${stored.slice(3)}${at}&enablejsapi=1&start=${start}&${extra}`
+  }
+  return `https://www.youtube.com/embed/${stored}?enablejsapi=1&start=${start}&${extra}`
+}

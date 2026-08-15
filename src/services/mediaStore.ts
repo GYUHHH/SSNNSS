@@ -42,3 +42,14 @@ export function youTubeId(input: string): string | null {
   const match = text.match(/(?:youtu\.be\/|v=|\/embed\/|\/shorts\/)([\w-]{11})/)
   return match ? match[1] : null
 }
+
+// a link is either one video or a whole playlist; stored compactly as "<videoId>" / "pl:<playlistId>"
+export type YouTubeTarget = { type: 'video'; videoId: string } | { type: 'playlist'; playlistId: string }
+export function youTubeTarget(input: string): YouTubeTarget | null {
+  const list = input.trim().match(/[?&]list=([\w-]{10,})/)
+  if (list) return { type: 'playlist', playlistId: list[1] }
+  const videoId = youTubeId(input)
+  return videoId ? { type: 'video', videoId } : null
+}
+export const encodeTarget = (target: YouTubeTarget) => target.type === 'playlist' ? `pl:${target.playlistId}` : target.videoId
+export const decodeTarget = (stored: string): YouTubeTarget => stored.startsWith('pl:') ? { type: 'playlist', playlistId: stored.slice(3) } : { type: 'video', videoId: stored }

@@ -3,7 +3,7 @@ import { createSlot, deleteSlot, loadArtworks, loadProfile, saveProfile, type Pr
 import { canPlaceItem, cellsFor, clampGrid, floorSurface, GRID_COUNT, gridToWorld, isOwnedSurfaceId, nearestWallId, normalizedCells, ownerIdOf, resolveSurface, withResolution, type Footprint, type GridPosition, type PlacementItem, type PlacementResolution, type PlacementSurface, type SurfaceId, type SurfaceKind, type WallId, worldToGrid } from './services/roomGrid'
 import { characterPosition } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
-import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveVideoLinks, youTubeId } from './services/mediaStore'
+import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveVideoLinks, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { playTrack, setMusicVolume as applyMusicVolume, stopMusic } from './services/music'
 
 export type SelectedObject = string | null
@@ -436,9 +436,9 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   useEffect(() => { listVideoIds().then((ids) => { if (ids?.length) setVideoFrames(Object.fromEntries(ids.map((id) => [id, 1]))) }) }, [])
   const setProfilePhoto = (photo: string | null) => setProfile((current) => { const next = { ...current, photo: photo ?? undefined }; saveProfile(next); return next })
   const setVideoLink = (id: string, url: string | null) => {
-    const videoId = url ? youTubeId(url) : null
-    if (url && !videoId) return false
-    setVideoLinks((prev) => { const next = { ...prev }; if (videoId) next[id] = videoId; else delete next[id]; saveVideoLinks(next); return next })
+    const target = url ? youTubeTarget(url) : null
+    if (url && !target) return false
+    setVideoLinks((prev) => { const next = { ...prev }; if (target) next[id] = encodeTarget(target); else delete next[id]; saveVideoLinks(next); return next })
     return true
   }
   const setVideoClip = (id: string, file: File | null) => {
