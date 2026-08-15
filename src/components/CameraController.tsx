@@ -32,7 +32,7 @@ export default function CameraController() {
   useEffect(() => {
     const element = gl.domElement
     const distance = (touches: TouchList) => touches.length < 2 ? 0 : Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY)
-    const onWheel = (event: WheelEvent) => { event.preventDefault(); zoomTarget.current = MathUtils.clamp(zoomTarget.current * Math.exp(event.deltaY * .0015), minZoom, MAX_ZOOM) }
+    const onWheel = (event: WheelEvent) => { event.preventDefault(); zoomTarget.current = MathUtils.clamp(zoomTarget.current * Math.exp(-event.deltaY * .0015), minZoom, MAX_ZOOM) }
     const onTouchStart = (event: TouchEvent) => {
       if (event.touches.length === 2) {
         pinchDistance.current = distance(event.touches)
