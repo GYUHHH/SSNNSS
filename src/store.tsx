@@ -132,6 +132,20 @@ const initialBooks: Book[] = [
 
 const hydrateBooks = () => (loadBooks<Book[]>() ?? initialBooks).map((book) => ({ ...book, entries: book.entries.map((entry) => ({ ...entry, comments: entry.comments ?? [] })) }))
 
+// per-frame audio choice: true = sound on, false = muted on purpose, absent = never chosen.
+// Falls back to the old positive-list key once, migrating "was unmuted" entries to true.
+export const loadAudioPrefs = (): Record<string, boolean> => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('my-room-video-audio-v1') ?? 'null')
+    if (saved && typeof saved === 'object' && !Array.isArray(saved)) return saved
+  } catch { /* fall through to migration */ }
+  try {
+    const old = JSON.parse(localStorage.getItem('my-room-video-unmuted-v1') ?? '[]')
+    if (Array.isArray(old)) return Object.fromEntries(old.map((id: string) => [id, true]))
+  } catch { /* storage may be unavailable */ }
+  return {}
+}
+
 // lamp/appliance on-off states and the other small interactions survive a reload as-is
 const loadInteractions = (): { toggles: string[]; computerOn: boolean; cupHeld: boolean } => {
   try {
@@ -233,17 +247,16 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const [videoFrames, setVideoFrames] = useState<Record<string, number>>({})
   const [videoLinks, setVideoLinks] = useState<Record<string, string>>(() => (typeof window === 'undefined' ? {} : loadVideoLinks()))
   // every linked frame starts playing on entry, muted — browsers block sound before any user gesture.
-  // Once a frame is unmuted that choice is remembered, so the next visit starts it with sound
-  // (the browser may still hold playback until a click if the site hasn't earned sound autoplay).
-  const loadUnmutedFrames = (): string[] => { try { return JSON.parse(localStorage.getItem('my-room-video-unmuted-v1') ?? '[]') } catch { return [] } }
+  // Per-frame audio preference: true = user wants sound, false = user muted it on purpose, absent = never chose.
+  // Absent frames get sound on the visitor's first click; explicit false is never overridden.
   const [playingFrames, setPlayingFrames] = useState<string[]>(() => furniture.filter((item) => !item.removed && item.type.startsWith('video-frame') && videoLinks[item.id]).map((item) => item.id))
-  const [mutedFrames, setMutedFrames] = useState<string[]>(() => { if (typeof window === 'undefined') return playingFrames; const unmuted = loadUnmutedFrames(); return playingFrames.filter((id) => !unmuted.includes(id)) })
+  const [mutedFrames, setMutedFrames] = useState<string[]>(() => { if (typeof window === 'undefined') return playingFrames; const prefs = loadAudioPrefs(); return playingFrames.filter((id) => prefs[id] !== true) })
   // persist=false is for the browser overruling us (sound autoplay blocked): the UI flips to muted
   // without forgetting that the user wants this frame loud on future visits
   const setFrameMuted = (id: string, muted: boolean, persist = true) => {
     setMutedFrames((prev) => muted ? (prev.includes(id) ? prev : [...prev, id]) : prev.filter((value) => value !== id))
     if (!persist) return
-    try { const unmuted = new Set(loadUnmutedFrames()); if (muted) unmuted.delete(id); else unmuted.add(id); localStorage.setItem('my-room-video-unmuted-v1', JSON.stringify([...unmuted])) } catch { /* storage may be unavailable */ }
+    try { const prefs = loadAudioPrefs(); prefs[id] = !muted; localStorage.setItem('my-room-video-audio-v1', JSON.stringify(prefs)) } catch { /* storage may be unavailable */ }
   }
   const [debugAnchors, setDebugAnchors] = useState(false)
   // the item's placement as of the LAST moveFurniture call — endMove fires on pointerUp right after

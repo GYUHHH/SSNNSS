@@ -2,7 +2,7 @@ import { Html } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
 import type { Group } from 'three'
-import { useRoomStore } from '../store'
+import { loadAudioPrefs, useRoomStore } from '../store'
 import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
 import { embedSrc, trackIframe, muteFrame, unmuteFrame, requestSound } from '../services/ytResume'
 
@@ -12,7 +12,25 @@ import { embedSrc, trackIframe, muteFrame, unmuteFrame, requestSound } from '../
 // editing and even follows the frame while it is being dragged. Every playing frame gets its own player, so
 // several frames can run at once, each with its own mute toggle.
 export default function WallVideoLayer() {
-  const { playingFrames } = useRoomStore()
+  const { playingFrames, mutedFrames, setFrameMuted } = useRoomStore()
+  // The visitor's first click/tap anywhere doubles as audio activation, once: frames with NO saved audio
+  // choice get their sound turned on (and remembered); frames the user explicitly muted stay silent.
+  // Pref-true frames blocked by autoplay policy retry on their own gesture listener in requestSound.
+  const latest = useRef({ playingFrames, mutedFrames, setFrameMuted })
+  latest.current = { playingFrames, mutedFrames, setFrameMuted }
+  useEffect(() => {
+    const onFirstClick = () => {
+      const prefs = loadAudioPrefs()
+      for (const id of latest.current.playingFrames) {
+        if (prefs[id] === undefined && latest.current.mutedFrames.includes(id)) {
+          unmuteFrame(id)
+          latest.current.setFrameMuted(id, false)
+        }
+      }
+    }
+    window.addEventListener('pointerdown', onFirstClick, { once: true })
+    return () => window.removeEventListener('pointerdown', onFirstClick)
+  }, [])
   return <>{playingFrames.map((id) => <WallVideo key={id} frameId={id} />)}</>
 }
 
