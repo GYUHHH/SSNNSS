@@ -35,7 +35,7 @@ function WallVideo({ frameId }: { frameId: string }) {
   return <FollowFit fitName={`fit:${item.id}`}>
     <group rotation={[0, 0, -item.rotation[1]]}>
       {/* 640 CSS px stretched to the frame: YouTube lays its controls out for a small player, so they read 2x bigger */}
-      <Html transform occlude="blending" distanceFactor={400} position={[0, 0, .05]} scale={screenWidth / 640} zIndexRange={[4, 0]} style={{ pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
+      <Html transform distanceFactor={400} position={[0, 0, .05]} scale={screenWidth / 640} zIndexRange={[4, 0]} style={{ pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
         <div className="wall-video" style={{ width: 640, height: Math.round(640 * ((h - .06) / (w - .06))), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} onPointerDown={(event) => event.stopPropagation()}>
           <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra="autoplay=1&playsinline=1&mute=1" />
           {mode !== 'edit' && <div className="wall-video-actions">
