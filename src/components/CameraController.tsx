@@ -73,8 +73,8 @@ export default function CameraController() {
       dragZoom.current.lastX = event.touches[0].clientX
       dragZoom.current.lastY = event.touches[0].clientY
       if (controls.current) {
-        controls.current.setAzimuthalAngle(MathUtils.clamp(controls.current.getAzimuthalAngle() - dx * .006, 0, Math.PI / 2))
-        controls.current.setPolarAngle(MathUtils.clamp(controls.current.getPolarAngle() - dy * .0035, 0, Math.PI / 2))
+        controls.current.setAzimuthalAngle(MathUtils.clamp(controls.current.getAzimuthalAngle() - dx * .018, 0, Math.PI / 2))
+        controls.current.setPolarAngle(MathUtils.clamp(controls.current.getPolarAngle() - dy * .0105, 0, Math.PI / 2))
       }
     }
     const onTouchEnd = (event: TouchEvent, cancelled = false) => {
