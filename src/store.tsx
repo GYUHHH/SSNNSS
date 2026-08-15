@@ -187,7 +187,7 @@ type RoomStore = {
   mode: RoomMode; furniture: FurnitureItem[]; selectedFurnitureId: FurnitureId | null; selectedPlacementValid: boolean; movingFurnitureId: FurnitureId | null; preview: FurnitureItem | null; previewValid: boolean; previewDragging: boolean
   wallStyle: RoomStyle; floorStyle: string | undefined; styleTarget: StyleTarget | null; debugAnchors: boolean; moveNotice: boolean; floorTarget: [number, number, number] | null; musicTrack: string | null; setMusicTrack: (id: string | null) => void; musicVolume: number; setMusicVolume: (value: number) => void
   selectObject: (object: Exclude<SelectedObject, null>) => void; clearSelection: () => void; finishCharacterAction: (state: Exclude<CharacterState, 'walking'>) => void; moveCharacterTo: (position: [number, number, number]) => void; settleFloorMove: (reached: boolean) => void; openBook: (id: string) => void; closeBook: () => void; addBook: (title: string, visibility: Visibility) => void; deleteBook: (id: string) => void; updateBookVisibility: (id: string, visibility: Visibility) => void; setBookShelf: (id: string, shelf: number) => void; addEntry: (bookId: string, entry: EntryDraft) => void; deleteEntry: (bookId: string, entryId: string) => void; addEntryComment: (bookId: string, entryId: string, name: string, text: string) => void; removeEntryComment: (bookId: string, entryId: string, commentId: string) => void; toggleDebugAnchors: () => void
-  toggleEditMode: () => void; enterEditFurniture: (id: FurnitureId) => void; selectFurniture: (id: FurnitureId) => void; beginMove: (id: FurnitureId) => void; moveFurniture: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; placeFurnitureAt: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; endMove: () => void; rotateFurniture: () => void; removeFurniture: (id?: FurnitureId) => void; undoLayout: () => void; resetLayout: () => void; startPreview: (type: string) => void; beginPreviewDrag: () => void; movePreview: (position: [number, number, number], surfaceId?: SurfaceId) => void; endPreviewDrag: () => void; placePreview: () => void; cancelPreview: () => void
+  toggleEditMode: () => void; enterEditFurniture: (id: FurnitureId) => void; selectFurniture: (id: FurnitureId) => void; beginMove: (id: FurnitureId) => void; moveFurniture: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; placeFurnitureAt: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; endMove: () => void; rotateFurniture: () => void; removeFurniture: (id?: FurnitureId) => void; undoLayout: () => void; resetLayout: () => void; startPreview: (type: string, styleId?: string) => void; beginPreviewDrag: () => void; movePreview: (position: [number, number, number], surfaceId?: SurfaceId) => void; endPreviewDrag: () => void; placePreview: () => void; cancelPreview: () => void
   openStyleTarget: (target: StyleTarget) => void; closeStyleTarget: () => void; setWallStyle: (wallId: WallId, presetId: string) => void; setFloorStyle: (presetId: string) => void; setFurnitureStyle: (id: FurnitureId, presetId: string) => void
 }
 export type TimeOfDay = 'day' | 'evening' | 'night'
@@ -364,9 +364,11 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   // a stored (removed) default item — bed, sofa, clock... — acts as its own template so it can be taken back out
   // of the 가구함; decor types keep using their catalog templates
   const storedTemplateFor = (type: string) => furniture.find((item) => item.removed && item.movable && item.type === type)
-  const startPreview = (type: string) => {
+  const startPreview = (type: string, styleId?: string) => {
     if (availableCount(type) <= 0) return
-    const template = inventoryItems.find((entry) => entry.type === type) ?? storedTemplateFor(type); if (!template) return
+    const found = inventoryItems.find((entry) => entry.type === type) ?? storedTemplateFor(type); if (!found) return
+    // a catalog variant (e.g. the white line) is the same furniture pre-tinted with a styleId
+    const template = styleId ? { ...found, styleId } : found
     const surfaceIds: SurfaceId[] = template.allowedSurfaces.includes('wall') ? ['leftWall', 'rightWall'] : ['floor']
     let fallback: FurnitureItem | undefined
     let next: FurnitureItem | undefined
