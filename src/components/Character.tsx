@@ -3,11 +3,12 @@ import { useFrame } from '@react-three/fiber'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { Group, Vector3 } from 'three'
 import { baseFloorCells, useRoomStore } from '../store'
-import { characterPosition } from '../services/characterTracker'
+import { characterPosition, persistCharacterPosition } from '../services/characterTracker'
 import { resolveInteraction, stateForInteraction } from '../services/interactionAnchors'
 import { cellsFor, findPath, floorSurface, gridToWorld, type GridPosition, worldToGrid } from '../services/roomGrid'
 
-const start = new Vector3(0.1, 0, -0.2)
+// resumes from the last remembered spot (characterTracker loads it from storage at module init)
+const start = new Vector3(characterPosition[0], 0, characterPosition[2])
 const CELL = { width: 1, depth: 1 }
 
 const turnToward = (current: number, target: number, amount: number) => current + Math.atan2(Math.sin(target - current), Math.cos(target - current)) * amount
@@ -43,7 +44,7 @@ export default function Character() {
 
   useFrame((_, delta) => {
     if (!actor.current) return
-    characterPosition[0] = actor.current.position.x; characterPosition[2] = actor.current.position.z
+    characterPosition[0] = actor.current.position.x; characterPosition[2] = actor.current.position.z; persistCharacterPosition()
     clock.current += delta
     const walking = characterState === 'walking'
     if (interactionStart.current.key !== selectedObject) interactionStart.current = { key: selectedObject, position: [actor.current.position.x, 0, actor.current.position.z] }
