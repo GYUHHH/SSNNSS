@@ -23,8 +23,10 @@ export default function WallVideoLayer() {
       const prefs = loadAudioPrefs()
       for (const id of latest.current.playingFrames) {
         if (prefs[id] === undefined && latest.current.mutedFrames.includes(id)) {
-          unmuteFrame(id)
+          // remember the choice, then let requestSound apply it — it waits out players that are not ready
+          // yet and verifies the volume actually landed, instead of firing one possibly-lost command
           latest.current.setFrameMuted(id, false)
+          requestSound(id, () => latest.current.setFrameMuted(id, true, false))
         }
       }
     }
