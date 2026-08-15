@@ -221,6 +221,9 @@ export type GuestComment = { id: string; name: string; text: string; createdAt: 
 const toPlacement = ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, allowedSurfaces, styleId, removed, updatedAt }: FurnitureItem): FurniturePlacement => ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, resolution: resolutionFor({ allowedSurfaces }), styleId, removed, updatedAt })
 // every catalogue piece exists exactly once for now; a future account would supply real per-user counts
 const OWNED_PER_TYPE = 1
+// video frames and lights come in pairs; everything else stays single
+const OWNED_OVERRIDES: Record<string, number> = { 'video-frame-3': 2, 'video-frame-4': 2, 'video-frame-5': 2, lamp: 2, 'floor-lamp': 2, 'string-lights': 2, 'led-lamp': 2 }
+const ownedCountOf = (type: string) => OWNED_OVERRIDES[type] ?? OWNED_PER_TYPE
 export const MAX_ROOMS = 3
 
 const RoomContext = createContext<RoomStore | null>(null)
@@ -488,7 +491,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const addGuestComment = (id: string, name: string, text: string) => setGuestbook((prev) => ({ ...prev, [id]: [{ id: `gc-${Date.now()}`, name: name.trim() || '익명', text, createdAt: new Date().toISOString() }, ...(prev[id] ?? [])] }))
   const removeGuestComment = (id: string, commentId: string) => setGuestbook((prev) => ({ ...prev, [id]: (prev[id] ?? []).filter((comment) => comment.id !== commentId) }))
   // you own one of each, wherever it stands — a piece placed in another room is not available in this one
-  const availableCount = (type: string) => Math.max(0, OWNED_PER_TYPE - furniture.filter((item) => item.type === type && !item.removed).length - (placedElsewhere[type] ?? 0))
+  const availableCount = (type: string) => Math.max(0, ownedCountOf(type) - furniture.filter((item) => item.type === type && !item.removed).length - (placedElsewhere[type] ?? 0))
   const openRoom = (id: string) => {
     setActiveSlot(id)
     setActiveRoomId(id)
