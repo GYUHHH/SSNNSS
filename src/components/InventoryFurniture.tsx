@@ -160,7 +160,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     return <>
       <RoundedBox castShadow args={[w, h, .04]} radius={.015} smoothness={2} position={[0, 0, .02]}>{mat('#3a332c')}</RoundedBox>
       <group rotation={[0, 0, -rotationY]}>
-        {preview ? <mesh position={[0, 0, .045]}><planeGeometry args={[screenWidth, screenHeight]} />{mat('#20262b')}</mesh> : <VideoScreen id={item.id} width={screenWidth} height={screenHeight} />}
+        {preview ? <mesh position={[0, 0, .042]}><planeGeometry args={[screenWidth, screenHeight]} />{mat('#20262b')}</mesh> : <VideoScreen id={item.id} width={screenWidth} height={screenHeight} />}
       </group>
     </>
   }
@@ -575,13 +575,13 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
       if (url) URL.revokeObjectURL(url)
     }
   }, [id, version, link])
-  return <><mesh position={[0, 0, .045]}>
+  return <><mesh position={[0, 0, .042]}>
     <planeGeometry args={[width, height]} />
     {texture
       ? <meshBasicMaterial key="clip" map={texture} />
       : <meshStandardMaterial key="empty" color="#20262b" emissive="#2b3236" emissiveIntensity={.25} />}
   </mesh>
-  {link && !store?.playingFrames.includes(id) && <group position={[0, 0, .055]}>
+  {link && !store?.playingFrames.includes(id) && <group position={[0, 0, .048]}>
     <mesh><circleGeometry args={[.16, 20]} /><meshBasicMaterial color="#000000" transparent opacity={.55} /></mesh>
     {/* a 3-segment circle spans -r/2..r on x, so pull it left by r/4 to sit dead-center in the badge */}
     <mesh position={[-.019, 0, .002]}><circleGeometry args={[.075, 3]} /><meshBasicMaterial color="#ffffff" /></mesh>
