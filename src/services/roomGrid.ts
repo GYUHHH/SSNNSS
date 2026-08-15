@@ -57,6 +57,15 @@ export type SurfaceHost = { id: string; type: string; position: [number, number,
 // the mesh's Ry(+yaw)) is the ONLY place the owner's rotation enters — using the rotated footprint here too would
 // rotate the grid twice, leaving it 90° off the furniture. Items keep their local gridX/gridY, so they (and the
 // grid) turn together with the owner. subCellSize stays exactly GRID_SIZE/2: (footprint*GRID_SIZE)/(footprint*2)
+// The bookshelf grows with its tiers: 2 by default, one more whenever a book sits on the current top tier.
+// Its cap (and anything placed on top) follows the tier count.
+export const bookshelfTiers = (shelves: number[]) => Math.max(2, Math.max(-1, ...shelves) + 2)
+export const bookshelfCapY = (tiers: number) => 0.18 + (tiers - 1) * 0.62 + 0.84
+// ponytail: module-level mutable set by the store each render — the bookshelf is a singleton, so one shared
+// offset beats threading book state through every surface call site; revisit if shelves become per-instance
+let bookshelfTopOffset = 2.94
+export const setBookshelfTopOffset = (value: number) => { bookshelfTopOffset = value }
+
 export const surfacesForOwner = (item: SurfaceHost): PlacementSurface[] => {
   if (item.type === 'wall-shelf' && item.wallId) {
     const wall = wallSurfaces[item.wallId]
@@ -74,7 +83,7 @@ export const surfacesForOwner = (item: SurfaceHost): PlacementSurface[] => {
   return configs.map((config) => ({
     id: `${item.id}:${config.suffix}`, ownerId: item.id, type: config.kind, orientation: 'horizontal',
     width: footprint.width * GRID_SIZE, height: footprint.depth * GRID_SIZE, gridColumns: footprint.width * 2, gridRows: footprint.depth * 2,
-    position: [item.position[0], item.position[1] + config.heightOffset, item.position[2]],
+    position: [item.position[0], item.position[1] + (item.type === 'bookshelf' ? bookshelfTopOffset : config.heightOffset), item.position[2]],
     rotation: [Math.PI / 2, 0, -item.rotation[1]], normal: [0, 1, 0],
     allowedItemTypes: config.allowedItemTypes,
   }))
