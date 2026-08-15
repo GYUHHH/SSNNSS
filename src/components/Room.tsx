@@ -1,6 +1,6 @@
 import { ContactShadows, OrthographicCamera } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
-import { Suspense } from 'react'
+import { Suspense, useRef } from 'react'
 import { useRoomStore } from '../store'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
@@ -29,7 +29,11 @@ const LIGHTING = {
 function Scene() {
   const { clearSelection, mode, toggleEditMode, timeOfDay } = useRoomStore()
   const light = LIGHTING[timeOfDay]
-  return <Canvas shadows="basic" dpr={[1, 2]} gl={{ antialias: true }} onPointerMissed={(event) => { if ((event.target as HTMLElement)?.tagName !== 'CANVAS') return; (mode === 'edit' ? toggleEditMode : clearSelection)() }} camera={{ position: [9.5, 8.5, 10] }}>
+  // The canvas sits ABOVE the wall-video DOM (which drei's blending occlusion reveals through punched holes,
+  // so furniture in front of a frame really covers its video) and is pointer-transparent: scene events attach
+  // to this host div instead, and clicks over a video fall through the canvas into the iframe.
+  const eventHost = useRef<HTMLDivElement>(null!)
+  return <div ref={eventHost} className="canvas-host"><Canvas shadows="basic" dpr={[1, 2]} gl={{ antialias: true }} eventSource={eventHost} onPointerMissed={(event) => { if (!(event.target as HTMLElement)?.closest?.('.canvas-host')) return; (mode === 'edit' ? toggleEditMode : clearSelection)() }} camera={{ position: [9.5, 8.5, 10] }}>
     <color attach="background" args={[light.bg]} />
     <OrthographicCamera makeDefault position={[9.5, 8.5, 10]} zoom={59} near={0.1} far={100} />
     <ambientLight intensity={light.ambient} color={light.ambientColor} />
@@ -38,7 +42,7 @@ function Scene() {
       <Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><InventoryPreview /><SurfaceDropZones /><Character /><CameraController /><DebugAnchors /><WallVideoLayer />
       <ContactShadows position={[0, 0.018, 0]} opacity={0.38} scale={9} blur={2.4} far={2.2} resolution={1024} />
     </Suspense>
-  </Canvas>
+  </Canvas></div>
 }
 
 export default function Room() { return <Scene /> }
