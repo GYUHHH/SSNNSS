@@ -32,10 +32,13 @@ function WallVideo({ frameId }: { frameId: string }) {
   const [w, h] = VIDEO_FRAME_SIZES[item.type] ?? VIDEO_FRAME_SIZES['video-frame-3']
   const turned = Math.abs(Math.round(item.rotation[1] / (Math.PI / 2))) % 2 === 1
   const screenWidth = (turned ? h : w) - .06
+  const screenHeight = screenWidth * (h - .06) / (w - .06)
   return <FollowFit fitName={`fit:${item.id}`}>
     <group rotation={[0, 0, -item.rotation[1]]}>
       {/* 640 CSS px stretched to the frame: YouTube lays its controls out for a small player, so they read 2x bigger */}
-      <Html transform occlude="blending" distanceFactor={400} position={[0, 0, .05]} scale={screenWidth / 640} zIndexRange={[4, 0]} style={{ pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
+      {/* drei sizes the punch-through occluder as a 1x1 plane under an orthographic camera, which clips the
+          video to a 1-unit window — hand it a plane matching the screen so the hole covers the full frame */}
+      <Html transform occlude="blending" geometry={<planeGeometry args={[screenWidth, screenHeight]} />} distanceFactor={400} position={[0, 0, .05]} scale={screenWidth / 640} zIndexRange={[4, 0]} style={{ pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
         <div className="wall-video" style={{ width: 640, height: Math.round(640 * ((h - .06) / (w - .06))), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} onPointerDown={(event) => event.stopPropagation()}>
           <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra="autoplay=1&playsinline=1&mute=1" />
           {mode !== 'edit' && <div className="wall-video-actions">
