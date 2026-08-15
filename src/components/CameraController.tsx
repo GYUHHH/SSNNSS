@@ -69,7 +69,7 @@ export default function CameraController() {
       // sideways movement swings the view while vertical movement stays pure zoom
       const dx = event.touches[0].clientX - dragZoom.current.lastX
       dragZoom.current.lastX = event.touches[0].clientX
-      if (controls.current) controls.current.setAzimuthalAngle(MathUtils.clamp(controls.current.getAzimuthalAngle() - dx * .018, 0, Math.PI / 2))
+      if (controls.current) controls.current.setAzimuthalAngle(MathUtils.clamp(controls.current.getAzimuthalAngle() - dx * .027, 0, Math.PI / 2))
     }
     const onTouchEnd = (event: TouchEvent, cancelled = false) => {
       const touch = event.changedTouches[0]
