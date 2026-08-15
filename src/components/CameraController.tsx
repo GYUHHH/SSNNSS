@@ -15,8 +15,8 @@ export default function CameraController() {
   const touchStart = useRef<{ x: number; y: number; time: number } | null>(null)
   const pinchDistance = useRef(0)
   const lastTap = useRef({ time: 0, x: 0, y: 0 })
-  const dragZoom = useRef<{ identifier: number; startY: number; startZoom: number; lastX: number } | null>(null)
-  const controls = useRef<{ getAzimuthalAngle: () => number; setAzimuthalAngle: (value: number) => void } | null>(null)
+  const dragZoom = useRef<{ identifier: number; startY: number; startZoom: number; lastX: number; lastY: number } | null>(null)
+  const controls = useRef<{ getAzimuthalAngle: () => number; setAzimuthalAngle: (value: number) => void; getPolarAngle: () => number; setPolarAngle: (value: number) => void } | null>(null)
   const [dragZooming, setDragZooming] = useState(false)
   const compactScreen = size.width < 720 || (size.height < 520 && window.matchMedia('(pointer: coarse)').matches)
   const minZoom = compactScreen ? MOBILE_MIN_ZOOM : DESKTOP_MIN_ZOOM
@@ -49,7 +49,7 @@ export default function CameraController() {
       const secondTap = mode === 'normal' && compactScreen && now - lastTap.current.time < 320 && Math.hypot(touch.clientX - lastTap.current.x, touch.clientY - lastTap.current.y) < 36
       touchStart.current = { x: touch.clientX, y: touch.clientY, time: now }
       if (secondTap) {
-        dragZoom.current = { identifier: touch.identifier, startY: touch.clientY, startZoom: zoomTarget.current, lastX: touch.clientX }
+        dragZoom.current = { identifier: touch.identifier, startY: touch.clientY, startZoom: zoomTarget.current, lastX: touch.clientX, lastY: touch.clientY }
         lastTap.current.time = 0
         setDragZooming(true)
         event.preventDefault(); event.stopPropagation()
@@ -66,10 +66,16 @@ export default function CameraController() {
       if (!dragZoom.current || event.touches.length !== 1 || event.touches[0].identifier !== dragZoom.current.identifier) return
       event.preventDefault(); event.stopPropagation()
       zoomTarget.current = MathUtils.clamp(dragZoom.current.startZoom * Math.exp((event.touches[0].clientY - dragZoom.current.startY) * .012), minZoom, MAX_ZOOM)
-      // sideways movement in the same gesture swings the view, so a diagonal drag zooms and orbits together
+      // the drag moves the viewpoint in every direction from the second tap's spot: sideways swings the view,
+      // up/down tilts it (gently, on top of the zoom), so a diagonal drag pans and zooms together
       const dx = event.touches[0].clientX - dragZoom.current.lastX
+      const dy = event.touches[0].clientY - dragZoom.current.lastY
       dragZoom.current.lastX = event.touches[0].clientX
-      if (controls.current) controls.current.setAzimuthalAngle(MathUtils.clamp(controls.current.getAzimuthalAngle() - dx * .006, 0, Math.PI / 2))
+      dragZoom.current.lastY = event.touches[0].clientY
+      if (controls.current) {
+        controls.current.setAzimuthalAngle(MathUtils.clamp(controls.current.getAzimuthalAngle() - dx * .006, 0, Math.PI / 2))
+        controls.current.setPolarAngle(MathUtils.clamp(controls.current.getPolarAngle() - dy * .0035, 0, Math.PI / 2))
+      }
     }
     const onTouchEnd = (event: TouchEvent, cancelled = false) => {
       const touch = event.changedTouches[0]
