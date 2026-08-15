@@ -53,5 +53,5 @@ export function ResumingIframe({ videoId, frameId, extra }: { videoId: string; f
   const frame = useRef<HTMLIFrameElement>(null)
   const [src] = useState(() => embedSrc(videoId, frameId, extra))
   useEffect(() => { if (frame.current) return trackIframe(frame.current, frameId) }, [frameId])
-  return <iframe ref={frame} title="유튜브 재생" src={src} allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+  return <iframe ref={frame} title="유튜브 재생" src={src} referrerPolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
 }
