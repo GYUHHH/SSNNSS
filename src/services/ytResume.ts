@@ -45,6 +45,29 @@ const command = (frameId: string, func: string, args: unknown[] = []) =>
 export const unmuteFrame = (frameId: string) => command(frameId, 'unMute')
 export const muteFrame = (frameId: string) => command(frameId, 'mute')
 
+// Autoplay always wins: every wall embed starts muted (never blocked), then this lifts the mute for frames the
+// user unmuted before. If the browser refuses sound without a gesture it pauses the video — we catch that,
+// re-mute, resume playback, and report back so the UI shows the mute button again.
+export function requestSound(frameId: string, onBlocked: () => void) {
+  const iframe = activeIframes[frameId]
+  if (!iframe) return
+  let settled = false
+  let lastMuted: boolean | undefined
+  const cleanup = () => window.removeEventListener('message', onMessage)
+  const onMessage = (event: MessageEvent) => {
+    if (event.source !== iframe.contentWindow || settled) return
+    try {
+      const info = (typeof event.data === 'string' ? JSON.parse(event.data) : event.data)?.info
+      if (typeof info?.muted === 'boolean') lastMuted = info.muted
+      if (info?.muted === false && info?.playerState === 1) { settled = true; cleanup() }
+      if (info?.playerState === 2) { settled = true; command(frameId, 'mute'); command(frameId, 'playVideo'); onBlocked(); cleanup() }
+    } catch { /* not a youtube message */ }
+  }
+  window.addEventListener('message', onMessage)
+  command(frameId, 'unMute')
+  setTimeout(() => { if (!settled) { cleanup(); if (lastMuted !== false) onBlocked() } }, 4000)
+}
+
 // playlist state control over the iframe API, addressed by frame id
 export const playlistControls = (frameId: string) => ({
   loadPlaylist: (playlistId: string) => command(frameId, 'loadPlaylist', [{ listType: 'playlist', list: playlistId }]),

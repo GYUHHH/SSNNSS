@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Group } from 'three'
 import { useRoomStore } from '../store'
 import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
-import { embedSrc, trackIframe, muteFrame, unmuteFrame } from '../services/ytResume'
+import { embedSrc, trackIframe, muteFrame, unmuteFrame, requestSound } from '../services/ytResume'
 
 // The playing iframes live here, OUTSIDE the furniture tree: entering edit mode swaps every piece into a
 // different wrapper, which would unmount an iframe rendered inside it and reload the video. This layer stays
@@ -20,8 +20,16 @@ function WallVideo({ frameId }: { frameId: string }) {
   const { videoLinks, selectedObject, furniture, stopFrame, openVideoPanel, mode, mutedFrames, setFrameMuted } = useRoomStore()
   const item = furniture.find((entry) => entry.id === frameId)
   const videoId = videoLinks[frameId]
-  if (!item || item.removed || !videoId || selectedObject === frameId) return null
   const muted = mutedFrames.includes(frameId)
+  const active = !!item && !item.removed && !!videoId && selectedObject !== frameId
+  // the embed itself always starts muted so autoplay is never blocked; sound is lifted right after, and if the
+  // browser refuses (fresh visitor, no gesture yet) playback simply continues muted with the 🔇 button shown
+  useEffect(() => {
+    if (!active || muted) return
+    const timer = setTimeout(() => requestSound(frameId, () => setFrameMuted(frameId, true, false)), 1500)
+    return () => clearTimeout(timer)
+  }, [active, frameId])  // eslint-disable-line react-hooks/exhaustive-deps -- re-run per frame mount, not per toggle
+  if (!active) return null
   const [w, h] = VIDEO_FRAME_SIZES[item.type] ?? VIDEO_FRAME_SIZES['video-frame-3']
   const turned = Math.abs(Math.round(item.rotation[1] / (Math.PI / 2))) % 2 === 1
   const screenWidth = (turned ? h : w) - .06
@@ -30,7 +38,7 @@ function WallVideo({ frameId }: { frameId: string }) {
       {/* 640 CSS px stretched to the frame: YouTube lays its controls out for a small player, so they read 2x bigger */}
       <Html transform distanceFactor={400} position={[0, 0, .05]} scale={screenWidth / 640} zIndexRange={[4, 0]} style={{ pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
         <div className="wall-video" style={{ width: 640, height: Math.round(640 * ((h - .06) / (w - .06))), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} onPointerDown={(event) => event.stopPropagation()}>
-          <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra={muted ? 'autoplay=1&playsinline=1&mute=1' : 'autoplay=1&playsinline=1'} />
+          <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra="autoplay=1&playsinline=1&mute=1" />
           {mode !== 'edit' && <div className="wall-video-actions">
             <button type="button" aria-label="크게 보기" onClick={() => openVideoPanel(frameId)}>⤢</button>
             <button type="button" aria-label={muted ? '소리 켜기' : '소리 끄기'} onClick={() => { if (muted) unmuteFrame(frameId); else muteFrame(frameId); setFrameMuted(frameId, !muted) }}>
