@@ -39,7 +39,7 @@ export default function InventoryPanel() {
   const { startPreview, preview, previewValid, placePreview, cancelPreview, availableCount } = useRoomStore()
   // only what you still own and have not put down somewhere — placing one takes it off this list
   const stock = CATALOG.filter((entry) => availableCount(entry.type) > 0 && (category === '전체' || categoryFor(entry.type) === category))
-  return <section className="inventory-panel" aria-label="가구함">
+  return <section className={preview ? 'inventory-panel previewing' : 'inventory-panel'} aria-label="가구함">
     <header><strong>가구함</strong>{preview && <button type="button" onClick={cancelPreview}>미리보기 취소</button>}</header>
     <nav>{categories.map((entry) => <button key={entry} className={category === entry ? 'active' : ''} type="button" onClick={() => setCategory(entry)}>{entry}</button>)}</nav>
     <div className="inventory-items">

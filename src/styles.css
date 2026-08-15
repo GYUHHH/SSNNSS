@@ -32,6 +32,13 @@ input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-
 .room-color-row .style-swatches { margin-top: 4px; }
 .canvas-host { width: 100%; height: 100%; }
 .build-tag { position: fixed; top: 8px; right: 10px; z-index: 30; font-size: 11px; color: #b0a595; pointer-events: none; }
+/* on small screens the full-width inventory sheet would hide the room while placing — collapse it to just
+   the placement bar during a preview; it comes back as soon as the piece is placed or cancelled */
+@media (max-width: 719px), (max-height: 520px) and (pointer: coarse) {
+  .inventory-panel.previewing { height: auto; }
+  .inventory-panel.previewing > :not(footer) { display: none; }
+  .inventory-panel.previewing footer { margin-top: 0; }
+}
 .canvas-host canvas { pointer-events: none; }
 .speech-bubble { position: relative; width: max-content; max-width: 190px; padding: 9px 11px; border: 1px solid #9f8f7d; border-radius: 5px; color: #3e3731; background: #fff9ef; font-size: 12px; white-space: nowrap; }
 .speech-bubble::after { content: ""; position: absolute; bottom: -6px; left: 22px; width: 10px; height: 10px; border-right: 1px solid #9f8f7d; border-bottom: 1px solid #9f8f7d; background: #fff9ef; transform: rotate(45deg); }
