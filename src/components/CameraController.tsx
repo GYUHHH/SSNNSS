@@ -4,8 +4,6 @@ import { useEffect, useRef, useState } from 'react'
 import { MathUtils, OrthographicCamera, TOUCH } from 'three'
 import { useRoomStore } from '../store'
 
-const INITIAL_AZIMUTH = Math.atan2(9.5, 10)
-const AZIMUTH_LIMIT = Math.PI / 4
 const DESKTOP_MIN_ZOOM = 42
 const MOBILE_MIN_ZOOM = 30
 const MAX_ZOOM = 220
@@ -106,9 +104,9 @@ export default function CameraController() {
     enableDamping
     dampingFactor={0.08}
     rotateSpeed={0.55}
-    minAzimuthAngle={INITIAL_AZIMUTH - AZIMUTH_LIMIT}
-    maxAzimuthAngle={INITIAL_AZIMUTH + AZIMUTH_LIMIT}
-    minPolarAngle={Math.PI / 5}
-    maxPolarAngle={Math.PI / 2 - 0.12}
+    minAzimuthAngle={0}
+    maxAzimuthAngle={Math.PI / 2}
+    minPolarAngle={0}
+    maxPolarAngle={Math.PI / 2}
   />
 }
