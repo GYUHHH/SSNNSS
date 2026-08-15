@@ -21,7 +21,7 @@ import WallVideoLayer from './WallVideoLayer'
 
 // per-time-of-day lighting: night keeps lights low so lit lamps visibly carry the room
 const LIGHTING = {
-  day: { bg: '#f4efe6', ambient: 2.1, ambientColor: '#ffe6bd', dir: 2.4, dirColor: '#ffe0a9' },
+  day: { bg: '#f4efe6', ambient: 2.1, ambientColor: '#fff7ee', dir: 2.4, dirColor: '#fff3e2' },
   evening: { bg: '#e9d3bc', ambient: 1.3, ambientColor: '#ffc894', dir: 1.7, dirColor: '#ff9a5e' },
   night: { bg: '#232939', ambient: 0.5, ambientColor: '#8b97b8', dir: 0.35, dirColor: '#aab4d4' },
 } as const
