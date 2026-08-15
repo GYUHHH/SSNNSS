@@ -22,12 +22,11 @@ function WallVideo({ frameId }: { frameId: string }) {
   const videoId = videoLinks[frameId]
   const muted = mutedFrames.includes(frameId)
   const active = !!item && !item.removed && !!videoId && selectedObject !== frameId
-  // the embed itself always starts muted so autoplay is never blocked; sound is lifted right after, and if the
-  // browser refuses (fresh visitor, no gesture yet) playback simply continues muted with the 🔇 button shown
+  // the embed itself always starts muted so autoplay is never blocked; sound is lifted immediately (retrying
+  // until the player answers), and if the browser refuses (fresh visitor, no gesture yet) playback simply
+  // continues muted with the 🔇 button shown
   useEffect(() => {
-    if (!active || muted) return
-    const timer = setTimeout(() => requestSound(frameId, () => setFrameMuted(frameId, true, false)), 1500)
-    return () => clearTimeout(timer)
+    if (active && !muted) requestSound(frameId, () => setFrameMuted(frameId, true, false))
   }, [active, frameId])  // eslint-disable-line react-hooks/exhaustive-deps -- re-run per frame mount, not per toggle
   if (!active) return null
   const [w, h] = VIDEO_FRAME_SIZES[item.type] ?? VIDEO_FRAME_SIZES['video-frame-3']
