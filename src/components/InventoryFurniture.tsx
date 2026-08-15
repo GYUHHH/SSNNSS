@@ -156,7 +156,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     const rotationY = item.rotation?.[1] ?? 0
     const turned = Math.abs(Math.round(rotationY / (Math.PI / 2))) % 2 === 1
     const screenWidth = (turned ? h : w) - .06
-    const screenHeight = screenWidth * (h - .06) / (w - .06)
+    const screenHeight = (turned ? w : h) - .06
     return <>
       <RoundedBox castShadow args={[w, h, .04]} radius={.015} smoothness={2} position={[0, 0, .02]}>{mat('#3a332c')}</RoundedBox>
       <group rotation={[0, 0, -rotationY]}>
