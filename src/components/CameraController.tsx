@@ -30,7 +30,9 @@ export default function CameraController() {
   }, [camera, compactScreen, size.width])
 
   useEffect(() => {
-    const element = gl.domElement
+    // the canvas is pointer-transparent (clicks reach wall-video iframes behind it) — real pointer targets
+    // become the .canvas-host wrapper, so wheel/touch must listen there
+    const element = (gl.domElement.closest('.canvas-host') ?? gl.domElement) as HTMLElement
     const distance = (touches: TouchList) => touches.length < 2 ? 0 : Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY)
     const onWheel = (event: WheelEvent) => { event.preventDefault(); zoomTarget.current = MathUtils.clamp(zoomTarget.current * Math.exp(-event.deltaY * .0015), minZoom, MAX_ZOOM) }
     const onTouchStart = (event: TouchEvent) => {
