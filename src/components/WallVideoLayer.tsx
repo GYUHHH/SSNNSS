@@ -27,13 +27,14 @@ function WallVideo({ frameId }: { frameId: string }) {
   const screenWidth = (turned ? h : w) - .06
   return <FollowFit fitName={`fit:${item.id}`}>
     <group rotation={[0, 0, -item.rotation[1]]}>
-      <Html transform distanceFactor={400} position={[0, 0, .05]} scale={screenWidth / 1280} zIndexRange={[4, 0]} style={{ pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
-        <div className="wall-video" style={{ width: 1280, height: Math.round(1280 * ((h - .06) / (w - .06))), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} onPointerDown={(event) => event.stopPropagation()}>
+      {/* 640 CSS px stretched to the frame: YouTube lays its controls out for a small player, so they read 2x bigger */}
+      <Html transform distanceFactor={400} position={[0, 0, .05]} scale={screenWidth / 640} zIndexRange={[4, 0]} style={{ pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
+        <div className="wall-video" style={{ width: 640, height: Math.round(640 * ((h - .06) / (w - .06))), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} onPointerDown={(event) => event.stopPropagation()}>
           <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra={muted ? 'autoplay=1&playsinline=1&mute=1' : 'autoplay=1&playsinline=1'} />
           {mode !== 'edit' && <div className="wall-video-actions">
             <button type="button" aria-label="크게 보기" onClick={() => openVideoPanel(frameId)}>⤢</button>
             <button type="button" aria-label={muted ? '소리 켜기' : '소리 끄기'} onClick={() => { if (muted) unmuteFrame(frameId); else muteFrame(frameId); setFrameMuted(frameId, !muted) }}>
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="#fff" stroke="none" />
                 {muted
                   ? <><line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" /></>
