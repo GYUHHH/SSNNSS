@@ -89,7 +89,8 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   </>
   if (item.type === 'mini-fridge') return <>
     <RoundedBox castShadow args={[.56, .84, .54]} radius={.03} smoothness={2} position={[0, .44, 0]}>{mat('#dfe3e0')}</RoundedBox>
-    {lit && <mesh position={[0, .5, .12]}><boxGeometry args={[.46, .6, .3]} /><meshStandardMaterial color="#fff8e8" emissive="#fff3d0" emissiveIntensity={.5} /></mesh>}
+    {/* interior front sits .005 proud of the cabinet face — coplanar faces z-fight when the door is open */}
+    {lit && <mesh position={[0, .5, .125]}><boxGeometry args={[.46, .6, .3]} /><meshStandardMaterial color="#fff8e8" emissive="#fff3d0" emissiveIntensity={.5} /></mesh>}
     <FridgeDoor open={lit}>
       <RoundedBox castShadow args={[.52, .74, .05]} radius={.02} smoothness={2} position={[.26, 0, .025]}>{mat('#eef1ee')}</RoundedBox>
       <mesh position={[.47, .1, .06]}><boxGeometry args={[.03, .26, .03]} />{mat('#9aa39c')}</mesh>
