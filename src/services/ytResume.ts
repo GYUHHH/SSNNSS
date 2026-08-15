@@ -41,17 +41,17 @@ export const playlistControls = (frameId: string) => ({
   playVideoAt: (index: number) => command(frameId, 'playVideoAt', [index]),
 })
 
-// Everything autoplays muted and loops: a lone video repeats itself (YouTube ignores loop=1 unless the
+// Everything autoplays with sound and loops: a lone video repeats itself (YouTube ignores loop=1 unless the
 // same id is also passed as playlist=), and a playlist plays in order from its index then wraps to the top.
 const videoEmbedSrc = (videoId: string, start: number, extra: string) =>
-  `https://www.youtube.com/embed/${videoId}?enablejsapi=1&mute=1&loop=1&playlist=${videoId}&start=${start}&${extra}`
+  `https://www.youtube.com/embed/${videoId}?enablejsapi=1&loop=1&playlist=${videoId}&start=${start}&${extra}`
 
 const playlistEmbedSrc = (playlistId: string, startVideo: string | undefined, urlIndex: number | undefined, frameId: string, start: number, extra: string) => {
   const resume = playlistIndexResume[frameId]
   const index = typeof resume === 'number' ? resume : urlIndex
-  if (index === undefined && startVideo) return `https://www.youtube.com/embed/${startVideo}?list=${playlistId}&enablejsapi=1&mute=1&loop=1&start=${start}&${extra}`
+  if (index === undefined && startVideo) return `https://www.youtube.com/embed/${startVideo}?list=${playlistId}&enablejsapi=1&loop=1&start=${start}&${extra}`
   const at = index === undefined ? '' : `&index=${index}`
-  return `https://www.youtube.com/embed/videoseries?list=${playlistId}${at}&enablejsapi=1&mute=1&loop=1&start=${start}&${extra}`
+  return `https://www.youtube.com/embed/videoseries?list=${playlistId}${at}&enablejsapi=1&loop=1&start=${start}&${extra}`
 }
 
 export const embedSrc = (stored: string, frameId: string, extra: string) => {
