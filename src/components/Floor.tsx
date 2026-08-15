@@ -27,7 +27,6 @@ export default function Floor() {
     if (movingFurnitureId && selected?.id === movingFurnitureId && selected.allowedSurfaces.includes('floor')) moveFurniture(selected.id, [point.x, selected.position[1], point.z])
   }
   return <>
-    <mesh receiveShadow position={[0, -0.18, 0]}><boxGeometry args={[floorSurface.width, 0.35, floorSurface.height]} /><meshStandardMaterial color="#b87945" roughness={0.82} /></mesh>
     <mesh receiveShadow position={[0, 0.01, 0]}
       onPointerDown={(event) => { if (mode === 'edit') event.stopPropagation() }}
       onPointerMove={(event) => { if (movingFurnitureId === selected?.id || (previewDragging && preview?.allowedSurfaces.includes('floor'))) { event.stopPropagation(); moveTo(event.point) } }}
