@@ -132,6 +132,14 @@ const initialBooks: Book[] = [
 
 const hydrateBooks = () => (loadBooks<Book[]>() ?? initialBooks).map((book) => ({ ...book, entries: book.entries.map((entry) => ({ ...entry, comments: entry.comments ?? [] })) }))
 
+// lamp/appliance on-off states and the other small interactions survive a reload as-is
+const loadInteractions = (): { toggles: string[]; computerOn: boolean; cupHeld: boolean } => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('my-room-interactions-v1') ?? '')
+    return { toggles: Array.isArray(saved?.toggles) ? saved.toggles : ['lamp'], computerOn: !!saved?.computerOn, cupHeld: !!saved?.cupHeld }
+  } catch { return { toggles: ['lamp'], computerOn: false, cupHeld: false } }
+}
+
 // existing gridX/gridY/footprint predate the sub-grid units for items that are NOW subgrid2 (they were captured at
 // base-grid scale) — silently trusting them would land the item at half its saved offset/size, so a legacy save
 // (its `resolution` flag isn't 'subgrid2') is doubled once, only on non-owned surfaces (owned-surface coords were
@@ -204,7 +212,7 @@ export const MAX_ROOMS = 3
 const RoomContext = createContext<RoomStore | null>(null)
 
 export function RoomProvider({ children }: { children: ReactNode }) {
-  const [selectedObject, setSelectedObject] = useState<SelectedObject>(null); const [characterState, setCharacterState] = useState<CharacterState>('idle'); const [computerOn, setComputerOn] = useState(false); const [toggledOn, setToggledOn] = useState<Set<string>>(new Set(['lamp'])); const [artworks, setArtworks] = useState<Record<string, string>>(() => (typeof window === 'undefined' ? {} : loadArtworks() ?? {})); const [guestbook, setGuestbook] = useState<Record<string, GuestComment[]>>(() => (typeof window === 'undefined' ? {} : loadGuestbook<Record<string, GuestComment[]>>() ?? {})); const [timeOfDay, setTimeOfDayState] = useState<TimeOfDay>(() => { try { const saved = localStorage.getItem('my-room-time-v1'); return saved === 'evening' || saved === 'night' ? saved : 'day' } catch { return 'day' } }); const [cupHeld, setCupHeld] = useState(false); const [books, setBooks] = useState<Book[]>(() => (typeof window === 'undefined' ? initialBooks : hydrateBooks())); const [openBookId, setOpenBookId] = useState<string | null>(null); const [bookshelfOpen, setBookshelfOpen] = useState(false)
+  const [selectedObject, setSelectedObject] = useState<SelectedObject>(null); const [characterState, setCharacterState] = useState<CharacterState>('idle'); const [computerOn, setComputerOn] = useState(() => loadInteractions().computerOn); const [toggledOn, setToggledOn] = useState<Set<string>>(() => new Set(loadInteractions().toggles)); const [artworks, setArtworks] = useState<Record<string, string>>(() => (typeof window === 'undefined' ? {} : loadArtworks() ?? {})); const [guestbook, setGuestbook] = useState<Record<string, GuestComment[]>>(() => (typeof window === 'undefined' ? {} : loadGuestbook<Record<string, GuestComment[]>>() ?? {})); const [timeOfDay, setTimeOfDayState] = useState<TimeOfDay>(() => { try { const saved = localStorage.getItem('my-room-time-v1'); return saved === 'evening' || saved === 'night' ? saved : 'day' } catch { return 'day' } }); const [cupHeld, setCupHeld] = useState(() => loadInteractions().cupHeld); const [books, setBooks] = useState<Book[]>(() => (typeof window === 'undefined' ? initialBooks : hydrateBooks())); const [openBookId, setOpenBookId] = useState<string | null>(null); const [bookshelfOpen, setBookshelfOpen] = useState(false)
   const rooms0 = useRef(typeof window === 'undefined' ? { active: 'room-1', slots: [{ id: 'room-1', name: '나의 방' }] } : loadSlots()).current
   const [rooms, setRooms] = useState<Array<{ id: string; name: string }>>(() => rooms0.slots.map(({ id, name }) => ({ id, name })))
   const [activeRoomId, setActiveRoomId] = useState(rooms0.active)
@@ -256,6 +264,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }, [moveNotice])
   // diary content persists like the layout does — saved after every change (add book/entry, visibility toggle)
   useEffect(() => { saveBooks(books) }, [books])
+  useEffect(() => { try { localStorage.setItem('my-room-interactions-v1', JSON.stringify({ toggles: [...toggledOn], computerOn, cupHeld })) } catch { /* storage may be unavailable */ } }, [toggledOn, computerOn, cupHeld])
   // items resolved onto a furniture-hosted surface (a mug on the desk) don't carry their own live world position —
   // it's recomputed here from the owner's CURRENT position/rotation every time `furniture` changes, so moving or
   // rotating the desk carries everything on it along for free, with no per-item cascade-update code anywhere else
