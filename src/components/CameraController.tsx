@@ -65,7 +65,7 @@ export default function CameraController() {
       }
       if (!dragZoom.current || event.touches.length !== 1 || event.touches[0].identifier !== dragZoom.current.identifier) return
       event.preventDefault(); event.stopPropagation()
-      zoomTarget.current = MathUtils.clamp(dragZoom.current.startZoom * Math.exp((event.touches[0].clientY - dragZoom.current.startY) * .012), minZoom, MAX_ZOOM)
+      zoomTarget.current = MathUtils.clamp(dragZoom.current.startZoom * Math.exp((event.touches[0].clientY - dragZoom.current.startY) * .009), minZoom, MAX_ZOOM)
       // sideways movement swings the view while vertical movement stays pure zoom
       const dx = event.touches[0].clientX - dragZoom.current.lastX
       dragZoom.current.lastX = event.touches[0].clientX
