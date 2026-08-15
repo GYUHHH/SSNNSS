@@ -11,6 +11,9 @@ import { MAX_ROOMS, RoomProvider, useRoomStore } from './store'
 import { customizableTypes } from './services/styles'
 import { thumbnailFor } from './services/thumbnails'
 
+// bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
+const BUILD = 1
+
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget } = useRoomStore()
   const [confirmingReset, setConfirmingReset] = useState(false)
@@ -44,6 +47,7 @@ function Interface() {
   const artOpen = (!!selectedItem && !!artworkKindOf(selectedItem.type)) || bookshelfOpen || !!openBookId
   return <main className={artOpen ? 'app art-open' : 'app'}>
     <div className="scene" onContextMenu={(event) => event.preventDefault()}><Room /></div>
+    <span className="build-tag" aria-hidden="true">{BUILD}</span>
     <aside className="room-ui">
       {cardControls && <section className="object-card"><span>{time}</span></section>}
       <StylePanel />
