@@ -1,11 +1,18 @@
 // The wall player and the panel player are different iframes, so moving between them starts a fresh embed.
 // YouTube's iframe API broadcasts currentTime while playing (after a "listening" handshake); we remember the
 // last position per frame and hand it to the next embed as its start point, so the switch resumes instead of
-// rewinding to zero. Runtime-only on purpose — a reload starting the clip over is expected.
-export const videoResume: Record<string, number> = {}
+// rewinding to zero. Persisted to localStorage so a page reload also picks up where playback left off.
+const STORAGE_KEY = 'my-room-video-resume-v1'
+const persisted = (() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '') } catch { return null } })()
+export const videoResume: Record<string, number> = persisted?.time ?? {}
 // which video of a playlist was on screen — YouTube ignores index= on /embed/videoseries,
 // so resuming must go through /embed/{videoId}?list= with the actual video id
-export const playlistVideoResume: Record<string, string> = {}
+export const playlistVideoResume: Record<string, string> = persisted?.video ?? {}
+let saveTimer: ReturnType<typeof setTimeout> | undefined
+const persist = () => {
+  if (saveTimer) return
+  saveTimer = setTimeout(() => { saveTimer = undefined; localStorage.setItem(STORAGE_KEY, JSON.stringify({ time: videoResume, video: playlistVideoResume })) }, 1000)
+}
 // the live iframe per frame, so playlist controls can reach the player that is actually on the wall
 const activeIframes: Record<string, HTMLIFrameElement> = {}
 
@@ -15,9 +22,9 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
     try {
       const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
       const currentTime = data?.info?.currentTime
-      if (typeof currentTime === 'number') videoResume[frameId] = currentTime
+      if (typeof currentTime === 'number') { videoResume[frameId] = currentTime; persist() }
       const currentVideo = data?.info?.videoData?.video_id
-      if (typeof currentVideo === 'string' && currentVideo && currentVideo !== 'videoseries') playlistVideoResume[frameId] = currentVideo
+      if (typeof currentVideo === 'string' && currentVideo && currentVideo !== 'videoseries') { playlistVideoResume[frameId] = currentVideo; persist() }
     } catch { /* not a youtube message */ }
   }
   const hello = () => iframe.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: frameId }), '*')
