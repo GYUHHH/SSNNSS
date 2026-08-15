@@ -11,6 +11,47 @@ import { embedSrc, trackIframe, muteFrame, unmuteFrame, requestSound, playlistVi
 // mounted through mode changes and simply copies each frame's live world matrix per frame, so playback survives
 // editing and even follows the frame while it is being dragged. Every playing frame gets its own player, so
 // several frames can run at once, each with its own mute toggle.
+// The true aspect of a YouTube video, found without any API key: shorts are detected by their portrait "oar"
+// thumbnail (it 404s for normal videos), and everything else is measured by reading the letterbox bars inside
+// the 480x360 hqdefault thumbnail (pure-black rows/columns around the content). The measured ratio is only
+// trusted when it lands near a common aspect — anything odd resolves to null so the caller skips cropping.
+const aspectCache: Record<string, Promise<number | null>> = {}
+export function videoAspect(id: string): Promise<number | null> {
+  return aspectCache[id] ??= new Promise((resolve) => {
+    const oar = new Image()
+    oar.onload = () => resolve(9 / 16)
+    oar.onerror = () => {
+      const thumb = new Image()
+      thumb.crossOrigin = 'anonymous'
+      thumb.onload = () => {
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = thumb.naturalWidth; canvas.height = thumb.naturalHeight
+          const context = canvas.getContext('2d')
+          if (!context) return resolve(null)
+          context.drawImage(thumb, 0, 0)
+          const { data, width, height } = context.getImageData(0, 0, canvas.width, canvas.height)
+          const dark = (x: number, y: number) => { const at = (y * width + x) * 4; return data[at] < 24 && data[at + 1] < 24 && data[at + 2] < 24 }
+          const rowDark = (y: number) => { for (let x = 0; x < width; x += 6) if (!dark(x, y)) return false; return true }
+          const colDark = (x: number) => { for (let y = 0; y < height; y += 6) if (!dark(x, y)) return false; return true }
+          let top = 0; while (top < height / 3 && rowDark(top)) top++
+          let bottom = 0; while (bottom < height / 3 && rowDark(height - 1 - bottom)) bottom++
+          let left = 0; while (left < width / 3 && colDark(left)) left++
+          let right = 0; while (right < width / 3 && colDark(width - 1 - right)) right++
+          const contentWidth = width - left - right, contentHeight = height - top - bottom
+          if (contentWidth <= 0 || contentHeight <= 0) return resolve(null)
+          const measured = contentWidth / contentHeight
+          const known = [16 / 9, 4 / 3, 1, 9 / 16].find((value) => Math.abs(measured - value) / value < .08)
+          resolve(known ?? null)
+        } catch { resolve(null) }
+      }
+      thumb.onerror = () => resolve(null)
+      thumb.src = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`
+    }
+    oar.src = `https://i.ytimg.com/vi/${id}/oardefault.jpg`
+  })
+}
+
 export default function WallVideoLayer() {
   const { playingFrames, mutedFrames, setFrameMuted } = useRoomStore()
   // The visitor's first click/tap anywhere doubles as audio activation, once: frames with NO saved audio
@@ -64,7 +105,8 @@ function WallVideo({ frameId }: { frameId: string }) {
   }, [active, frameId])  // eslint-disable-line react-hooks/exhaustive-deps -- re-run per frame mount, not per toggle
   // Crop only as much as the video's own letterbox allows: YouTube's edge overlays hide inside the black bars
   // of wide videos, but 4:3/portrait videos fill the iframe, so cutting a fixed band would eat real content.
-  // The aspect comes from YouTube's oEmbed endpoint; unknown aspect means no crop (overlays over lost pixels).
+  // The aspect comes from videoAspect() below (thumbnail probing — oEmbed reports 16:9 for everything);
+  // unknown aspect means no crop, losing pixels never.
   const [crop, setCrop] = useState(0)
   const dims = VIDEO_FRAME_SIZES[(item?.type ?? '')] ?? VIDEO_FRAME_SIZES['video-frame-3']
   const turned = !!item && Math.abs(Math.round(item.rotation[1] / (Math.PI / 2))) % 2 === 1
@@ -76,14 +118,11 @@ function WallVideo({ frameId }: { frameId: string }) {
     let live = true
     const lookupId = videoId.startsWith('pl:') ? (playlistVideoResume[frameId] ?? videoId.split('@')[1]) : videoId
     if (!lookupId) return
-    fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${lookupId}`)}&format=json`)
-      .then((response) => response.json())
-      .then((data) => {
-        if (!live || !data?.width || !data?.height) return
-        const contentHeight = 640 * data.height / data.width
-        setCrop(Math.round(Math.max(0, Math.min(60, (divHeight - contentHeight) / 2))))
-      })
-      .catch(() => { /* aspect unknown — keep crop 0 so no content is lost */ })
+    videoAspect(lookupId).then((aspect) => {
+      if (!live || !aspect) return
+      const contentHeight = 640 / aspect
+      setCrop(Math.round(Math.max(0, Math.min(60, (divHeight - contentHeight) / 2))))
+    })
     return () => { live = false }
   }, [active, videoId, frameId, divHeight])
   if (!active) return null
