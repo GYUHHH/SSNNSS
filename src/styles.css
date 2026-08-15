@@ -389,7 +389,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @media (max-width: 719px) { .yt-playing { left: 14px; bottom: 62px; } .yt-playing button { min-height: 40px; } }
 .yt-dock-space { width: 100%; aspect-ratio: 16 / 9; }
 .wall-video { position: relative; background: #000; overflow: hidden; }
-.wall-video iframe { display: block; position: absolute; left: 0; top: -60px; width: 100%; height: calc(100% + 120px); border: 0; }
+.wall-video iframe { display: block; position: absolute; left: 0; top: 0; width: 100%; height: 100%; border: 0; }
 .wall-video-actions { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
 .wall-video-actions button { width: 46px; height: 46px; padding: 0; border: 0; border-radius: 50%; color: #fff; background: rgb(0 0 0 / 55%); cursor: pointer; font-size: 23px; line-height: 1; }
 .wall-video-actions button svg { display: block; margin: auto; }
