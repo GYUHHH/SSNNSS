@@ -43,7 +43,7 @@ const command = (frameId: string, func: string, args: unknown[] = []) =>
   activeIframes[frameId]?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
 
 // a mute=1 embed can come up with its volume at 0, so unmuting alone stays silent — always restore volume too
-export const unmuteFrame = (frameId: string) => { command(frameId, 'unMute'); command(frameId, 'setVolume', [100]) }
+export const unmuteFrame = (frameId: string) => { command(frameId, 'unMute'); command(frameId, 'setVolume', [70]) }
 export const muteFrame = (frameId: string) => command(frameId, 'mute')
 
 // Autoplay always wins: every wall embed starts muted (never blocked), then this lifts the mute for frames the
@@ -57,7 +57,7 @@ export function requestSound(frameId: string, onBlocked: () => void, onSound?: (
   let settled = false
   let awaitingGesture = false
   let lastAskedAt = 0
-  const ask = () => { lastAskedAt = performance.now(); command(frameId, 'unMute'); command(frameId, 'setVolume', [100]) }
+  const ask = () => { lastAskedAt = performance.now(); command(frameId, 'unMute'); command(frameId, 'setVolume', [70]) }
   const cleanup = () => { window.removeEventListener('message', onMessage); window.removeEventListener('pointerdown', onGesture); clearTimeout(timer) }
   const onGesture = () => { if (!settled) { awaitingGesture = false; ask(); command(frameId, 'playVideo') } }
   const onMessage = (event: MessageEvent) => {
