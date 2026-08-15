@@ -3,7 +3,9 @@
 // last position per frame and hand it to the next embed as its start point, so the switch resumes instead of
 // rewinding to zero. Runtime-only on purpose — a reload starting the clip over is expected.
 export const videoResume: Record<string, number> = {}
-export const playlistIndexResume: Record<string, number> = {}
+// which video of a playlist was on screen — YouTube ignores index= on /embed/videoseries,
+// so resuming must go through /embed/{videoId}?list= with the actual video id
+export const playlistVideoResume: Record<string, string> = {}
 // the live iframe per frame, so playlist controls can reach the player that is actually on the wall
 const activeIframes: Record<string, HTMLIFrameElement> = {}
 
@@ -14,8 +16,8 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
       const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
       const currentTime = data?.info?.currentTime
       if (typeof currentTime === 'number') videoResume[frameId] = currentTime
-      const playlistIndex = data?.info?.playlistIndex
-      if (typeof playlistIndex === 'number' && playlistIndex >= 0) playlistIndexResume[frameId] = playlistIndex
+      const currentVideo = data?.info?.videoData?.video_id
+      if (typeof currentVideo === 'string' && currentVideo && currentVideo !== 'videoseries') playlistVideoResume[frameId] = currentVideo
     } catch { /* not a youtube message */ }
   }
   const hello = () => iframe.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: frameId }), '*')
@@ -42,15 +44,14 @@ export const playlistControls = (frameId: string) => ({
 })
 
 // Everything autoplays with sound and loops: a lone video repeats itself (YouTube ignores loop=1 unless the
-// same id is also passed as playlist=), and a playlist plays in order from its index then wraps to the top.
+// same id is also passed as playlist=), and a playlist plays in order then wraps to the top.
 const videoEmbedSrc = (videoId: string, start: number, extra: string) =>
   `https://www.youtube.com/embed/${videoId}?enablejsapi=1&loop=1&playlist=${videoId}&start=${start}&${extra}`
 
 const playlistEmbedSrc = (playlistId: string, startVideo: string | undefined, urlIndex: number | undefined, frameId: string, start: number, extra: string) => {
-  const resume = playlistIndexResume[frameId]
-  const index = typeof resume === 'number' ? resume : urlIndex
-  if (index === undefined && startVideo) return `https://www.youtube.com/embed/${startVideo}?list=${playlistId}&enablejsapi=1&loop=1&start=${start}&${extra}`
-  const at = index === undefined ? '' : `&index=${index}`
+  const current = playlistVideoResume[frameId] ?? startVideo
+  if (current) return `https://www.youtube.com/embed/${current}?list=${playlistId}&enablejsapi=1&loop=1&start=${start}&${extra}`
+  const at = urlIndex === undefined ? '' : `&index=${urlIndex}`
   return `https://www.youtube.com/embed/videoseries?list=${playlistId}${at}&enablejsapi=1&loop=1&start=${start}&${extra}`
 }
 
