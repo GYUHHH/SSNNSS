@@ -174,7 +174,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     <mesh userData={{ excludeFromFit: true }} castShadow position={[-.34, -1.22, .06]}><cylinderGeometry args={[.035, .045, .1, 8]} />{mat('#c9a06c')}</mesh>
     {!preview && <MusicControls id={item.id} y={1.05} />}
   </>
-  if (item.type === 'banner') return <>{[.285, -.285].map((y) => <RoundedBox key={y} castShadow args={[2.04, .03, .07]} radius={.012} smoothness={2} position={[0, y, .035]}>{mat('#3a332c')}</RoundedBox>)}{preview ? <mesh position={[0, 0, .075]}><planeGeometry args={[2.04, .54]} />{mat('#5a4a35')}</mesh> : <BannerArt id={item.id} />}{!preview && store?.mode === 'normal' && store.selectedObject === item.id && <Html position={[0, .72, .1]} center zIndexRange={[4, 0]}><section className="object-card banner-popup" onPointerDown={(event) => event.stopPropagation()}><BannerTextInput id={item.id} artwork={store.artworks[item.id]} saveArtwork={store.setArtwork} /></section></Html>}</>
+  if (item.type === 'banner') return <>{[.285, -.285].map((y) => <RoundedBox key={y} castShadow args={[2.04, .03, .07]} radius={.012} smoothness={2} position={[0, y, .035]}>{mat('#3a332c')}</RoundedBox>)}{[1.005, -1.005].map((x) => <RoundedBox key={x} castShadow args={[.03, .6, .07]} radius={.012} smoothness={2} position={[x, 0, .035]}>{mat('#3a332c')}</RoundedBox>)}{preview ? <mesh position={[0, 0, .075]}><planeGeometry args={[1.98, .54]} />{mat('#5a4a35')}</mesh> : <BannerArt id={item.id} />}{!preview && store?.mode === 'normal' && store.selectedObject === item.id && <Html position={[0, .72, .1]} center zIndexRange={[4, 0]}><section className="object-card banner-popup" onPointerDown={(event) => event.stopPropagation()}><BannerTextInput id={item.id} artwork={store.artworks[item.id]} saveArtwork={store.setArtwork} /></section></Html>}</>
   if (item.type === 'window') return <><mesh castShadow position={[0, 0, .03]}><boxGeometry args={[2.02, 1.38, .06]} />{mat('#8a6048')}</mesh>{preview ? <mesh position={[0, 0, .062]}><planeGeometry args={[1.86, 1.22]} />{mat('#bcd6e8')}</mesh> : <WindowView />}<mesh position={[0, 0, .07]}><boxGeometry args={[.05, 1.32, .02]} />{mat('#8a6048')}</mesh><mesh position={[0, 0, .07]}><boxGeometry args={[1.92, .05, .02]} />{mat('#8a6048')}</mesh></>
   if (item.type === 'curtain') return <><mesh castShadow position={[0, 1.33, .08]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[.035, .035, 1.52, 8]} />{mat('#6b4c39')}</mesh>{[-.58, -.29, 0, .3, .58].map((x, index) => <RoundedBox key={x} castShadow args={[.3, 2.58, .1]} radius={.045} smoothness={2} position={[x, -.05, .04 + (index % 2) * .025]}>{mat(index % 2 ? '#d9c1a8' : '#c9a98c')}</RoundedBox>)}</>
   if (item.type === 'fireplace') return <>
@@ -416,7 +416,7 @@ function BannerArt({ id }: { id: string }) {
     return t
   }, [])
   useFrame(({ clock }) => { drawBanner(texture.image as HTMLCanvasElement, clock.elapsedTime, text); texture.needsUpdate = true })
-  return <mesh position={[0, 0, .075]}><planeGeometry args={[2.04, .54]} /><meshBasicMaterial map={texture} /></mesh>
+  return <mesh position={[0, 0, .075]}><planeGeometry args={[1.98, .54]} /><meshBasicMaterial map={texture} /></mesh>
 }
 
 function StringLightsArt({ lit, preview, tint, opacity }: { lit: boolean; preview: boolean; tint?: string; opacity: number }) {
