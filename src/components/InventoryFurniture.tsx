@@ -580,7 +580,8 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
   </mesh>
   {link && <group position={[0, 0, .055]}>
     <mesh><circleGeometry args={[.16, 20]} /><meshBasicMaterial color="#000000" transparent opacity={.55} /></mesh>
-    <mesh position={[.02, 0, .002]}><circleGeometry args={[.075, 3]} /><meshBasicMaterial color="#ffffff" /></mesh>
+    {/* a 3-segment circle spans -r/2..r on x, so pull it left by r/4 to sit dead-center in the badge */}
+    <mesh position={[-.019, 0, .002]}><circleGeometry args={[.075, 3]} /><meshBasicMaterial color="#ffffff" /></mesh>
   </group>}
   </>
 }
