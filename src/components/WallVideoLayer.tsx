@@ -24,11 +24,11 @@ function WallVideo({ frameId }: { frameId: string }) {
   const muted = mutedFrames.includes(frameId)
   const [w, h] = VIDEO_FRAME_SIZES[item.type] ?? VIDEO_FRAME_SIZES['video-frame-3']
   const turned = Math.abs(Math.round(item.rotation[1] / (Math.PI / 2))) % 2 === 1
-  const screenWidth = (turned ? h : w) - .16
+  const screenWidth = (turned ? h : w) - .06
   return <FollowFit fitName={`fit:${item.id}`}>
     <group rotation={[0, 0, -item.rotation[1]]}>
-      <Html transform distanceFactor={400} position={[0, 0, .09]} scale={screenWidth / 1280} zIndexRange={[4, 0]} style={{ pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
-        <div className="wall-video" style={{ width: 1280, height: Math.round(1280 * ((h - .16) / (w - .16))), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} onPointerDown={(event) => event.stopPropagation()}>
+      <Html transform distanceFactor={400} position={[0, 0, .05]} scale={screenWidth / 1280} zIndexRange={[4, 0]} style={{ pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
+        <div className="wall-video" style={{ width: 1280, height: Math.round(1280 * ((h - .06) / (w - .06))), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} onPointerDown={(event) => event.stopPropagation()}>
           <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra={muted ? 'autoplay=1&playsinline=1&mute=1' : 'autoplay=1&playsinline=1'} />
           {mode !== 'edit' && <div className="wall-video-actions">
             <button type="button" aria-label="크게 보기" onClick={() => openVideoPanel(frameId)}>⤢</button>

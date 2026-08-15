@@ -154,12 +154,12 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     const [w, h] = VIDEO_FRAME_SIZES[item.type] ?? VIDEO_FRAME_SIZES['video-frame-3']
     const rotationY = item.rotation?.[1] ?? 0
     const turned = Math.abs(Math.round(rotationY / (Math.PI / 2))) % 2 === 1
-    const screenWidth = (turned ? h : w) - .16
-    const screenHeight = screenWidth * (h - .16) / (w - .16)
+    const screenWidth = (turned ? h : w) - .06
+    const screenHeight = screenWidth * (h - .06) / (w - .06)
     return <>
-      <RoundedBox castShadow args={[w, h, .08]} radius={.03} smoothness={2} position={[0, 0, .04]}>{mat('#3a332c')}</RoundedBox>
+      <RoundedBox castShadow args={[w, h, .04]} radius={.015} smoothness={2} position={[0, 0, .02]}>{mat('#3a332c')}</RoundedBox>
       <group rotation={[0, 0, -rotationY]}>
-        {preview ? <mesh position={[0, 0, .085]}><planeGeometry args={[screenWidth, screenHeight]} />{mat('#20262b')}</mesh> : <VideoScreen id={item.id} width={screenWidth} height={screenHeight} />}
+        {preview ? <mesh position={[0, 0, .045]}><planeGeometry args={[screenWidth, screenHeight]} />{mat('#20262b')}</mesh> : <VideoScreen id={item.id} width={screenWidth} height={screenHeight} />}
       </group>
     </>
   }
@@ -236,7 +236,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     {lit && <mesh position={[0, .25, 0]} scale={[1, 1.6, 1]}><sphereGeometry args={[.028, 8, 6]} /><meshStandardMaterial color="#ffd27a" emissive="#ffb84d" emissiveIntensity={1.6} /></mesh>}
     {lit && <FlickerLight position={[0, .3, 0]} color="#ffc66d" base={1.6} amp={.5} distance={1.4} />}
   </>
-  if (item.type.startsWith('wall-art')) return <><mesh castShadow position={[0, 0, .04]}><boxGeometry args={[1.4, 2.1, .03]} /><meshStandardMaterial color={material.color ?? '#d9aa55'} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh position={[0, 0, .058]}><planeGeometry args={[1.2, 1.9]} /><meshStandardMaterial key={art && !preview ? 'art' : 'plain'} color={art && !preview ? '#ffffff' : material.color ?? '#e8dcc7'} map={!preview ? art ?? undefined : undefined} roughness={.85} transparent={material.transparent} opacity={material.opacity} /></mesh></>
+  if (item.type.startsWith('wall-art')) return <><mesh castShadow position={[0, 0, .008]}><boxGeometry args={[1.4, 2.1, .016]} /><meshStandardMaterial color={material.color ?? '#d9aa55'} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh position={[0, 0, .019]}><planeGeometry args={[1.34, 2.04]} /><meshStandardMaterial key={art && !preview ? 'art' : 'plain'} color={art && !preview ? '#ffffff' : material.color ?? '#e8dcc7'} map={!preview ? art ?? undefined : undefined} roughness={.85} transparent={material.transparent} opacity={material.opacity} /></mesh></>
   if (item.type === 'wall-shelf') return <RoundedBox args={[2.1, .12, .7]} radius={.025} smoothness={2} position={[0, -.27, .35]}><meshStandardMaterial color={material.color ?? '#8a6048'} transparent={material.transparent} opacity={material.opacity} /></RoundedBox>
   if (item.type === 'cushion') return <RoundedBox castShadow args={[.32, .12, .32]} radius={.09} smoothness={2} position={[0, .06, 0]}><meshStandardMaterial color={material.color ?? '#cf9a92'} roughness={.9} transparent={material.transparent} opacity={material.opacity} /></RoundedBox>
   if (item.type === 'plush') return <><mesh castShadow position={[0, .13, 0]}><sphereGeometry args={[.13, 10, 8]} /><meshStandardMaterial color={material.color ?? '#cba24d'} roughness={.9} transparent={material.transparent} opacity={material.opacity} /></mesh>{[-.08, .08].map((x) => <mesh castShadow key={x} position={[x, .24, 0]}><sphereGeometry args={[.045, 8, 6]} /><meshStandardMaterial color={material.color ?? '#cba24d'} roughness={.9} transparent={material.transparent} opacity={material.opacity} /></mesh>)}</>
@@ -244,7 +244,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'book-prop') return <>{[0, 1].map((index) => <mesh castShadow key={index} position={[index * .03, .02 + index * .045, index * -.02]} rotation={[0, index * .3, 0]}><boxGeometry args={[.26, .04, .19]} /><meshStandardMaterial color={material.color ?? (index ? '#b06952' : '#8a9c82')} transparent={material.transparent} opacity={material.opacity} /></mesh>)}</>
   if (item.type === 'speaker') return <><RoundedBox castShadow args={[.16, .26, .14]} radius={.02} smoothness={2} position={[0, .13, 0]}><meshStandardMaterial color={material.color ?? '#4c4038'} transparent={material.transparent} opacity={material.opacity} /></RoundedBox><mesh position={[0, .18, .071]}><circleGeometry args={[.045, 14]} /><meshStandardMaterial color="#2b2621" transparent={material.transparent} opacity={material.opacity} /></mesh><mesh position={[0, .08, .071]}><circleGeometry args={[.03, 14]} /><meshStandardMaterial color="#2b2621" transparent={material.transparent} opacity={material.opacity} /></mesh></>
   if (item.type === 'animated-poster') return <><mesh castShadow position={[0, 0, .04]}><boxGeometry args={[1.4, 2.1, .03]} /><meshStandardMaterial color={material.color ?? '#4a4238'} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh position={[0, 0, .058]}><planeGeometry args={[1.2, 1.9]} />{preview ? <meshStandardMaterial color={material.color ?? '#2c3b57'} transparent opacity={material.opacity} /> : <NightSkyArt />}</mesh></>
-  if (item.type.startsWith('photo-frame')) return <group rotation={item.wallId ? [0, 0, 0] : [-Math.PI / 2, 0, 0]}><mesh castShadow position={[0, 0, .012]}><boxGeometry args={[.34, .34, .02]} /><meshStandardMaterial color={material.color ?? '#8a6a52'} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh position={[0, 0, .024]}><planeGeometry args={[.315, .315]} /><meshStandardMaterial key={art && !preview ? 'art' : 'plain'} color={art && !preview ? '#ffffff' : '#8a9c82'} map={!preview ? art ?? undefined : undefined} transparent={material.transparent} opacity={material.opacity} /></mesh></group>
+  if (item.type.startsWith('photo-frame')) return <group rotation={item.wallId ? [0, 0, 0] : [-Math.PI / 2, 0, 0]}><mesh castShadow position={[0, 0, .006]}><boxGeometry args={[.34, .34, .012]} /><meshStandardMaterial color={material.color ?? '#8a6a52'} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh position={[0, 0, .014]}><planeGeometry args={[.33, .33]} /><meshStandardMaterial key={art && !preview ? 'art' : 'plain'} color={art && !preview ? '#ffffff' : '#8a9c82'} map={!preview ? art ?? undefined : undefined} transparent={material.transparent} opacity={material.opacity} /></mesh></group>
   if (item.type === 'computer') return <><mesh castShadow position={[0, .6, -.08]}><boxGeometry args={[1.06, .64, .1]} />{mat('#4b4c50')}</mesh><mesh castShadow position={[0, .15, -.08]}><boxGeometry args={[.12, .32, .12]} />{mat('#49454a')}</mesh><mesh castShadow position={[0, .02, -.02]}><boxGeometry args={[.56, .07, .3]} />{mat('#49454a')}</mesh><mesh castShadow position={[-.05, .025, .43]}><boxGeometry args={[.66, .05, .25]} />{mat('#e9deca')}</mesh></>
   if (item.type === 'rug') return <><RoundedBox castShadow args={[2.1, .06, 1.4]} radius={.025} smoothness={2} position={[0, .03, 0]}>{mat('#b98363')}</RoundedBox><RoundedBox args={[1.74, .012, 1.04]} radius={.02} smoothness={2} position={[0, .063, 0]}>{mat('#e8dcc7')}</RoundedBox></>
   if (item.type === 'plant') return <><mesh castShadow position={[0, .32, 0]}><cylinderGeometry args={[.34, .26, .62, 10]} />{mat('#b06952')}</mesh>{[[-.28, .9, 0], [.25, 1.05, .08], [0, 1.18, -.22]].map(([x, y, z], index) => <mesh castShadow key={index} position={[x, y, z]}><sphereGeometry args={[.32, 8, 8]} />{mat('#8a9c82')}</mesh>)}</>
@@ -256,7 +256,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'sofa') return <><RoundedBox castShadow args={[2, .32, .64]} radius={.06} smoothness={2} position={[0, .34, 0]}>{mat('#cf9a92')}</RoundedBox>{[-.94, .94].map((x) => <RoundedBox castShadow key={x} args={[.22, .5, .68]} radius={.08} smoothness={2} position={[x, .5, 0]}>{mat('#cf9a92')}</RoundedBox>)}<RoundedBox castShadow args={[1.56, .62, .22]} radius={.09} smoothness={2} rotation={[.12, 0, 0]} position={[0, .75, -.24]}>{mat('#cf9a92')}</RoundedBox></>
   if (item.type === 'bookshelf') return <>{[-1.45, 1.45].map((x) => <mesh castShadow key={x} position={[x, 2.15, 0]}><boxGeometry args={[.16, 4.3, .48]} />{mat('#a97a58')}</mesh>)}{[.3, 1.4, 2.5, 3.6, 4.24].map((y) => <mesh castShadow key={y} position={[0, y, 0]}><boxGeometry args={[3.05, .12, .52]} />{mat('#b98363')}</mesh>)}</>
   if (item.type === 'clock') return <><mesh castShadow position={[0, 0, .03]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[.4, .4, .06, 20]} />{mat('#6b4c39')}</mesh><mesh position={[0, 0, .062]}><circleGeometry args={[.33, 20]} />{mat('#f3ead9')}</mesh></>
-  if (item.type === 'poster' || item.type === 'photo') return <><mesh castShadow position={[0, 0, .04]}><boxGeometry args={[1.4, 2.1, .03]} />{mat('#8a6a52')}</mesh><mesh position={[0, 0, .058]}><planeGeometry args={[1.2, 1.9]} />{mat('#d9c9ae')}</mesh></>
+  if (item.type === 'poster' || item.type === 'photo') return <><mesh castShadow position={[0, 0, .008]}><boxGeometry args={[1.4, 2.1, .016]} />{mat('#8a6a52')}</mesh><mesh position={[0, 0, .019]}><planeGeometry args={[1.34, 2.04]} />{mat('#d9c9ae')}</mesh></>
   return <><mesh castShadow position={[0, .2, 0]}><cylinderGeometry args={[.14, .2, .4, 10]} /><meshStandardMaterial color={material.color ?? '#a1795a'} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh castShadow position={[0, .47, 0]}><sphereGeometry args={[.18, 10, 8]} /><meshStandardMaterial color={material.color ?? '#e0b17b'} transparent={material.transparent} opacity={material.opacity} /></mesh></>
 }
 
@@ -572,13 +572,13 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
       if (url) URL.revokeObjectURL(url)
     }
   }, [id, version, link])
-  return <><mesh position={[0, 0, .085]}>
+  return <><mesh position={[0, 0, .045]}>
     <planeGeometry args={[width, height]} />
     {texture
       ? <meshBasicMaterial key="clip" map={texture} />
       : <meshStandardMaterial key="empty" color="#20262b" emissive="#2b3236" emissiveIntensity={.25} />}
   </mesh>
-  {link && <group position={[0, 0, .095]}>
+  {link && <group position={[0, 0, .055]}>
     <mesh><circleGeometry args={[.16, 20]} /><meshBasicMaterial color="#000000" transparent opacity={.55} /></mesh>
     <mesh position={[.02, 0, .002]}><circleGeometry args={[.075, 3]} /><meshBasicMaterial color="#ffffff" /></mesh>
   </group>}
