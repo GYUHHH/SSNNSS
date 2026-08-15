@@ -58,7 +58,7 @@ function WallVideo({ frameId }: { frameId: string }) {
       {/* 640 CSS px stretched to the frame: YouTube lays its controls out for a small player, so they read 2x bigger */}
       {/* drei sizes the punch-through occluder as a 1x1 plane under an orthographic camera, which clips the
           video to a 1-unit window — hand it a plane matching the screen so the hole covers the full frame */}
-      <Html transform occlude="blending" geometry={<planeGeometry args={[screenWidth, screenHeight]} />} distanceFactor={400} position={[0, 0, .045]} scale={screenWidth / 640} zIndexRange={[4, 0]} style={{ pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
+      <Html transform occlude="blending" geometry={<planeGeometry args={[screenWidth, screenHeight]} />} distanceFactor={400} position={[0, 0, .042]} scale={screenWidth / 640} zIndexRange={[4, 0]} style={{ pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
         <div className="wall-video" style={{ width: 640, height: Math.round(640 * (screenHeight / screenWidth)), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} onPointerDown={(event) => event.stopPropagation()}>
           {/* controls=0 keeps YouTube's control bar from popping over the wall screen (it auto-shows on tab
               return); the expanded panel player keeps its controls */}
