@@ -43,13 +43,18 @@ export function youTubeId(input: string): string | null {
   return match ? match[1] : null
 }
 
-// a link is either one video or a whole playlist; stored compactly as "<videoId>" / "pl:<playlistId>"
-export type YouTubeTarget = { type: 'video'; videoId: string } | { type: 'playlist'; playlistId: string }
+// one video, or a playlist optionally entered at a specific video; stored compactly as
+// "<videoId>" / "pl:<playlistId>" / "pl:<playlistId>@<startVideoId>"
+export type YouTubeTarget = { type: 'video'; videoId: string } | { type: 'playlist'; playlistId: string; videoId?: string }
 export function youTubeTarget(input: string): YouTubeTarget | null {
   const list = input.trim().match(/[?&]list=([\w-]{10,})/)
-  if (list) return { type: 'playlist', playlistId: list[1] }
   const videoId = youTubeId(input)
+  if (list) return { type: 'playlist', playlistId: list[1], videoId: videoId ?? undefined }
   return videoId ? { type: 'video', videoId } : null
 }
-export const encodeTarget = (target: YouTubeTarget) => target.type === 'playlist' ? `pl:${target.playlistId}` : target.videoId
-export const decodeTarget = (stored: string): YouTubeTarget => stored.startsWith('pl:') ? { type: 'playlist', playlistId: stored.slice(3) } : { type: 'video', videoId: stored }
+export const encodeTarget = (target: YouTubeTarget) => target.type === 'playlist' ? `pl:${target.playlistId}${target.videoId ? `@${target.videoId}` : ''}` : target.videoId
+export const decodeTarget = (stored: string): YouTubeTarget => {
+  if (!stored.startsWith('pl:')) return { type: 'video', videoId: stored }
+  const [playlistId, videoId] = stored.slice(3).split('@')
+  return { type: 'playlist', playlistId, videoId: videoId || undefined }
+}

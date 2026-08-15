@@ -554,7 +554,8 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
       video.colorSpace = SRGBColorSpace
       setTexture(video)
     }
-    if (link && !link.startsWith('pl:')) new TextureLoader().setCrossOrigin('anonymous').loadAsync(`https://img.youtube.com/vi/${link}/hqdefault.jpg`).then((poster) => {
+    const posterId = link && (link.startsWith('pl:') ? link.split('@')[1] : link)
+    if (posterId) new TextureLoader().setCrossOrigin('anonymous').loadAsync(`https://img.youtube.com/vi/${posterId}/hqdefault.jpg`).then((poster) => {
       if (!live) return
       poster.colorSpace = SRGBColorSpace
       setTexture(poster)

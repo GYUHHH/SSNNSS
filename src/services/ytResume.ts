@@ -44,13 +44,16 @@ export const playlistControls = (frameId: string) => ({
 const videoEmbedSrc = (videoId: string, start: number, extra: string) =>
   `https://www.youtube.com/embed/${videoId}?enablejsapi=1&start=${start}&${extra}`
 
-const playlistEmbedSrc = (playlistId: string, frameId: string, start: number, extra: string) => {
+const playlistEmbedSrc = (playlistId: string, startVideo: string | undefined, frameId: string, start: number, extra: string) => {
   const index = playlistIndexResume[frameId]
+  if (typeof index !== 'number' && startVideo) return `https://www.youtube.com/embed/${startVideo}?list=${playlistId}&enablejsapi=1&start=${start}&${extra}`
   const at = typeof index === 'number' ? `&index=${index}` : ''
   return `https://www.youtube.com/embed/videoseries?list=${playlistId}${at}&enablejsapi=1&start=${start}&${extra}`
 }
 
 export const embedSrc = (stored: string, frameId: string, extra: string) => {
   const start = Math.max(0, Math.floor(videoResume[frameId] ?? 0))
-  return stored.startsWith('pl:') ? playlistEmbedSrc(stored.slice(3), frameId, start, extra) : videoEmbedSrc(stored, start, extra)
+  if (!stored.startsWith('pl:')) return videoEmbedSrc(stored, start, extra)
+  const [playlistId, startVideo] = stored.slice(3).split('@')
+  return playlistEmbedSrc(playlistId, startVideo || undefined, frameId, start, extra)
 }
