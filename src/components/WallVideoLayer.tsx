@@ -26,7 +26,7 @@ function WallVideo({ frameId }: { frameId: string }) {
   // until the player answers), and if the browser refuses (fresh visitor, no gesture yet) playback simply
   // continues muted with the 🔇 button shown
   useEffect(() => {
-    if (active && !muted) requestSound(frameId, () => setFrameMuted(frameId, true, false))
+    if (active && !muted) requestSound(frameId, () => setFrameMuted(frameId, true, false), () => setFrameMuted(frameId, false, false))
   }, [active, frameId])  // eslint-disable-line react-hooks/exhaustive-deps -- re-run per frame mount, not per toggle
   if (!active) return null
   const [w, h] = VIDEO_FRAME_SIZES[item.type] ?? VIDEO_FRAME_SIZES['video-frame-3']

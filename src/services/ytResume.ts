@@ -46,28 +46,37 @@ export const unmuteFrame = (frameId: string) => command(frameId, 'unMute')
 export const muteFrame = (frameId: string) => command(frameId, 'mute')
 
 // Autoplay always wins: every wall embed starts muted (never blocked), then this lifts the mute for frames the
-// user unmuted before — asked for immediately and re-asked on every player message until it takes, so sound
-// comes on the instant the player is ready. If the browser refuses sound without a gesture it pauses the
-// video — we catch that, re-mute, resume playback, and report back so the UI shows the mute button again.
-export function requestSound(frameId: string, onBlocked: () => void) {
+// user unmuted before. The unmute is asked for immediately and re-asked on every player message until it takes
+// (the embed can take seconds to load after a reload — never give up while it is still booting). If the browser
+// refuses sound without a gesture it pauses the video — we catch that, re-mute so playback continues, flip the
+// UI to muted, and retry on the visitor's first click anywhere, which grants the missing gesture.
+export function requestSound(frameId: string, onBlocked: () => void, onSound?: () => void) {
   const iframe = activeIframes[frameId]
   if (!iframe) return
   let settled = false
-  let lastMuted: boolean | undefined
-  const cleanup = () => window.removeEventListener('message', onMessage)
+  let awaitingGesture = false
+  let lastAskedAt = 0
+  const ask = () => { lastAskedAt = performance.now(); command(frameId, 'unMute') }
+  const cleanup = () => { window.removeEventListener('message', onMessage); window.removeEventListener('pointerdown', onGesture); clearTimeout(timer) }
+  const onGesture = () => { if (!settled) { awaitingGesture = false; ask(); command(frameId, 'playVideo') } }
   const onMessage = (event: MessageEvent) => {
     if (event.source !== iframe.contentWindow || settled) return
     try {
       const info = (typeof event.data === 'string' ? JSON.parse(event.data) : event.data)?.info
-      if (typeof info?.muted === 'boolean') lastMuted = info.muted
-      if (info?.muted === false && info?.playerState === 1) { settled = true; cleanup(); return }
-      if (info?.playerState === 2) { settled = true; command(frameId, 'mute'); command(frameId, 'playVideo'); onBlocked(); cleanup(); return }
-      if (info?.muted === true) command(frameId, 'unMute')
+      if (info?.muted === false && info?.playerState === 1) { settled = true; onSound?.(); cleanup(); return }
+      if (info?.playerState === 2) {
+        // paused right after our unmute ask = the browser vetoed sound; any other pause is the user's — back off
+        if (performance.now() - lastAskedAt < 1500 && !awaitingGesture) { awaitingGesture = true; command(frameId, 'mute'); command(frameId, 'playVideo'); onBlocked() }
+        else if (performance.now() - lastAskedAt >= 1500) { settled = true; cleanup() }
+        return
+      }
+      if (info?.muted === true && !awaitingGesture) ask()
     } catch { /* not a youtube message */ }
   }
   window.addEventListener('message', onMessage)
-  command(frameId, 'unMute')
-  setTimeout(() => { if (!settled) { cleanup(); if (lastMuted !== false) onBlocked() } }, 4000)
+  window.addEventListener('pointerdown', onGesture)
+  ask()
+  const timer = setTimeout(() => { if (!settled) { cleanup(); if (!awaitingGesture) onBlocked() } }, 60000)
 }
 
 // playlist state control over the iframe API, addressed by frame id
