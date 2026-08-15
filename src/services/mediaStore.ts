@@ -43,18 +43,26 @@ export function youTubeId(input: string): string | null {
   return match ? match[1] : null
 }
 
-// one video, or a playlist optionally entered at a specific video; stored compactly as
-// "<videoId>" / "pl:<playlistId>" / "pl:<playlistId>@<startVideoId>"
-export type YouTubeTarget = { type: 'video'; videoId: string } | { type: 'playlist'; playlistId: string; videoId?: string }
+// one video, or a playlist optionally entered at a video and/or position; stored compactly as
+// "<videoId>" / "pl:<playlistId>" / "pl:<playlistId>@<startVideoId>" / "pl:<playlistId>@<startVideoId>@<index0>"
+export type YouTubeTarget = { type: 'video'; videoId: string } | { type: 'playlist'; playlistId: string; videoId?: string; index?: number }
 export function youTubeTarget(input: string): YouTubeTarget | null {
   const list = input.trim().match(/[?&]list=([\w-]{10,})/)
   const videoId = youTubeId(input)
-  if (list) return { type: 'playlist', playlistId: list[1], videoId: videoId ?? undefined }
+  if (list) {
+    const urlIndex = input.match(/[?&]index=(\d+)/)
+    return { type: 'playlist', playlistId: list[1], videoId: videoId ?? undefined, index: urlIndex ? Math.max(0, Number(urlIndex[1]) - 1) : undefined }
+  }
   return videoId ? { type: 'video', videoId } : null
 }
-export const encodeTarget = (target: YouTubeTarget) => target.type === 'playlist' ? `pl:${target.playlistId}${target.videoId ? `@${target.videoId}` : ''}` : target.videoId
+export const encodeTarget = (target: YouTubeTarget) => {
+  if (target.type === 'video') return target.videoId
+  const tail = [target.videoId ?? '', target.index === undefined ? '' : String(target.index)]
+  while (tail.length && !tail[tail.length - 1]) tail.pop()
+  return ['pl:' + target.playlistId, ...tail].join('@')
+}
 export const decodeTarget = (stored: string): YouTubeTarget => {
   if (!stored.startsWith('pl:')) return { type: 'video', videoId: stored }
-  const [playlistId, videoId] = stored.slice(3).split('@')
-  return { type: 'playlist', playlistId, videoId: videoId || undefined }
+  const [playlistId, videoId, index] = stored.slice(3).split('@')
+  return { type: 'playlist', playlistId, videoId: videoId || undefined, index: index ? Number(index) : undefined }
 }
