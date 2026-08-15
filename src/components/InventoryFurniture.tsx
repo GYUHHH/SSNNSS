@@ -148,7 +148,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   </>
   if (item.type === 'profile-board') return <>
     <RoundedBox castShadow args={[1.4, 2.1, .07]} radius={.06} smoothness={2} position={[0, 0, .035]}>{mat('#fbf6ec')}</RoundedBox>
-    <mesh position={[0, .5, .073]}><circleGeometry args={[.47, 30]} />{mat('#e2d6c6')}</mesh>
+    <mesh position={[0, .36, .073]}><circleGeometry args={[.47, 30]} />{mat('#e2d6c6')}</mesh>
     {!preview && <ProfileBoardFace />}
   </>
   if (item.type.startsWith('video-frame')) {
@@ -626,8 +626,8 @@ function ProfileBoardFace() {
   }, [total, today, friends, texture])
   const portrait = useMemo(() => { if (!photo) return null; const map = new TextureLoader().load(photo); map.colorSpace = SRGBColorSpace; return map }, [photo])
   return <>
-    {portrait && <mesh position={[0, .5, .076]}><circleGeometry args={[.47, 30]} /><meshBasicMaterial map={portrait} /></mesh>}
-    <mesh position={[0, -.45, .076]}><planeGeometry args={[1.2, .48]} /><meshBasicMaterial map={texture} transparent /></mesh>
+    {portrait && <mesh position={[0, .36, .076]}><circleGeometry args={[.47, 30]} /><meshBasicMaterial map={portrait} /></mesh>}
+    <mesh position={[0, -.59, .076]}><planeGeometry args={[1.2, .48]} /><meshBasicMaterial map={texture} transparent /></mesh>
   </>
 }
 
