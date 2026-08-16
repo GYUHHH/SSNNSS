@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { useRoomStore } from '../store'
 
 export default function ProfileCard() {
-  const { profileOpen, closeProfile, profile, setProfilePhoto } = useRoomStore()
+  const { profileOpen, closeProfile, profile, setProfilePhoto, setProfileHandle } = useRoomStore()
   const inputRef = useRef<HTMLInputElement>(null)
   if (!profileOpen) return null
   const pick = (file: File) => {
@@ -22,6 +22,7 @@ export default function ProfileCard() {
   }
   return <div className="profile-overlay" onMouseDown={(event) => event.currentTarget === event.target && closeProfile()}>
     <section className="profile-card" aria-label="프로필">
+      <input className="profile-handle" aria-label="아이디" value={profile.handle ?? ''} placeholder="ID" onChange={(event) => setProfileHandle(event.target.value)} />
       <button className="profile-photo" type="button" onClick={() => inputRef.current?.click()} aria-label="프로필 사진 바꾸기">
         {profile.photo ? <img src={profile.photo} alt="프로필 사진" /> : <span>사진</span>}
       </button>

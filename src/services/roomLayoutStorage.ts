@@ -103,7 +103,7 @@ export function saveGuestbook(guestbook: unknown) {
 }
 
 // visitor counts and the profile photo — counted locally until there is a server to ask
-export type Profile = { photo?: string; total: number; today: number; lastVisit: string; friends: number }
+export type Profile = { photo?: string; handle?: string; total: number; today: number; lastVisit: string; friends: number }
 const profileKey = 'my-room-profile-v1'
 export function loadProfile(): Profile | null {
   try { const raw = localStorage.getItem(profileKey); return raw ? JSON.parse(raw) as Profile : null } catch { return null }

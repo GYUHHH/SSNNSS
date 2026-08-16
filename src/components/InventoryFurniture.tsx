@@ -1,4 +1,4 @@
-import { Html, RoundedBox } from '@react-three/drei'
+import { Html, RoundedBox, Text } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo } from 'react'
 import { CanvasTexture, SRGBColorSpace, type Texture, TextureLoader, VideoTexture, type PointLight } from 'three'
@@ -630,6 +630,7 @@ function ProfileBoardFace() {
   const portrait = useMemo(() => { if (!photo) return null; const map = new TextureLoader().load(photo); map.colorSpace = SRGBColorSpace; return map }, [photo])
   return <>
     {portrait && <mesh position={[0, .36, .076]}><circleGeometry args={[.47, 30]} /><meshBasicMaterial map={portrait} /></mesh>}
+    {profile?.handle && <Text position={[0, -.22, .076]} fontSize={.13} color="#403f3d" anchorX="center" anchorY="middle">{profile.handle}</Text>}
     <mesh position={[0, -.59, .076]}><planeGeometry args={[1.2, .48]} /><meshBasicMaterial map={texture} transparent /></mesh>
   </>
 }
