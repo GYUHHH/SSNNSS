@@ -208,6 +208,11 @@ export const onAuthChange = (listener: (email: string | null) => void) => {
 }
 export async function signOut() { await supabaseClient().auth.signOut() }
 
+// Google OAuth: full-page redirect out and back, session persisted by the SDK
+export async function signInWithGoogle() {
+  await supabaseClient().auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${location.origin}${BASE}` } })
+}
+
 // signup by emailed one-time code (the email template must print {{ .Token }})
 export async function sendOtpCode(email: string): Promise<boolean> {
   const { error } = await supabaseClient().auth.signInWithOtp({ email })
