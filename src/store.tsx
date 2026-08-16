@@ -4,7 +4,7 @@ import { bookshelfCapY, bookshelfTiers, canPlaceItem, cellsFor, clampGrid, floor
 import { characterPosition } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
 import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveVideoLinks, encodeTarget, youTubeTarget } from './services/mediaStore'
-import { playTrack, setMusicVolume as applyMusicVolume, stopMusic } from './services/music'
+import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic } from './services/music'
 
 export type SelectedObject = string | null
 export type FurnitureId = string
@@ -274,6 +274,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const setMusicTrack = (id: string | null) => { setMusicTrackState(id); if (id) playTrack(id); else stopMusic() }
   const [musicVolume, setMusicVolumeState] = useState(0.7)
   const setMusicVolume = (value: number) => { setMusicVolumeState(value); applyMusicVolume(value) }
+  // the playlist auto-advances inside the music service; mirror the new track id (disc spin, notes)
+  useEffect(() => onTrackChange((id) => setMusicTrackState(id)), [])
   useEffect(() => {
     if (!moveNotice) return
     const dismiss = () => { if (noticeTimer.current) window.clearTimeout(noticeTimer.current); noticeTimer.current = 0; setMoveNotice(false) }

@@ -6,10 +6,10 @@ import { BannerTextInput, useArtTexture } from './ArtEditor'
 import { type ReactNode, useRef, useState } from 'react'
 import type { Group, MeshStandardMaterial } from 'three'
 import Furniture, { FittedMesh } from './Furniture'
+import MusicPanel from './MusicPanel'
 import { type FurnitureItem, useOptionalRoomStore, useRoomStore } from '../store'
 import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
-import { trackList } from '../services/music'
 import { getVideo } from '../services/mediaStore'
 import { publicBase } from '../services/publicBase'
 import MirrorGlass from './MirrorGlass'
@@ -527,13 +527,8 @@ function CalendarArt() {
 function MusicControls({ id, y }: { id: string; y: number }) {
   const store = useOptionalRoomStore()
   if (!store || store.mode !== 'normal' || store.selectedObject !== id) return null
-  const { musicTrack, setMusicTrack, musicVolume, setMusicVolume } = store
   return <Html position={[0, y, 0]} center zIndexRange={[4, 0]}>
-    <div className="track-list floating" onPointerDown={(event) => event.stopPropagation()}>
-      {trackList.map((track) => <button key={track.id} type="button" className={musicTrack === track.id ? 'active' : ''} onClick={() => setMusicTrack(track.id)}>{musicTrack === track.id ? `♪ ${track.label}` : track.label}</button>)}
-      <button type="button" disabled={!musicTrack} onClick={() => setMusicTrack(null)}>정지</button>
-      <label className="volume-control">볼륨<input type="range" min={0} max={1} step={0.05} value={musicVolume} onChange={(event) => setMusicVolume(Number(event.target.value))} /></label>
-    </div>
+    <div onPointerDown={(event) => event.stopPropagation()}><MusicPanel /></div>
   </Html>
 }
 
