@@ -24,6 +24,8 @@ const persist = () => {
 }
 // the live iframe per frame, so playlist controls can reach the player that is actually on the wall
 const activeIframes: Record<string, HTMLIFrameElement> = {}
+const soundRequestCancels: Record<string, () => void> = {}
+export const cancelSoundRequest = (frameId: string) => soundRequestCancels[frameId]?.()
 
 export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => void {
   const onMessage = (event: MessageEvent) => {
@@ -77,8 +79,12 @@ export function requestSound(frameId: string, onBlocked: () => void, onSound?: (
   let volumeRetried = false
   let lastAskedAt = 0
   let lastMuted: boolean | undefined
+  let timer: ReturnType<typeof setTimeout> | undefined
   const ask = () => { lastAskedAt = performance.now(); command(frameId, 'unMute'); command(frameId, 'setVolume', [70]) }
-  const cleanup = () => { window.removeEventListener('message', onMessage); window.removeEventListener('pointerdown', onGesture); clearTimeout(timer) }
+  const cleanup = () => {
+    window.removeEventListener('message', onMessage); window.removeEventListener('pointerdown', onGesture); clearTimeout(timer)
+    if (soundRequestCancels[frameId] === cleanup) delete soundRequestCancels[frameId]
+  }
   const onGesture = () => { if (!settled) { awaitingGesture = false; ask(); command(frameId, 'playVideo') } }
   const onMessage = (event: MessageEvent) => {
     if (event.source !== iframe.contentWindow || settled) return
@@ -102,11 +108,13 @@ export function requestSound(frameId: string, onBlocked: () => void, onSound?: (
       if (info?.muted === true && !awaitingGesture) ask()
     } catch { /* not a youtube message */ }
   }
+  soundRequestCancels[frameId]?.()
+  soundRequestCancels[frameId] = cleanup
   window.addEventListener('message', onMessage)
   window.addEventListener('pointerdown', onGesture)
   ask()
   // on timeout: if the unmute itself took hold, sound state is whatever it is — only report blocked when it never did
-  const timer = setTimeout(() => { if (!settled) { cleanup(); if (!awaitingGesture && lastMuted !== false) onBlocked() } }, 60000)
+  timer = setTimeout(() => { if (!settled) { cleanup(); if (!awaitingGesture && lastMuted !== false) onBlocked() } }, 60000)
   // cancellable: the caller stops the monitor when the frame unmounts or the user mutes it — otherwise a
   // stale monitor would keep un-muting the player against the user's wishes
   return () => { settled = true; cleanup() }
