@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { Group } from 'three'
 import { loadAudioPrefs, useRoomStore } from '../store'
 import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
+import { isVisiting } from '../services/social'
+import { openReactionPicker } from './ReactionPicker'
 import { embedSrc, trackIframe, requestSound, playlistVideoResume, watchPlaylistOrder, playFrame, framePlayerStates, onFrameMuteState } from '../services/ytResume'
 
 // The playing iframes live here, OUTSIDE the furniture tree: entering edit mode swaps every piece into a
@@ -171,6 +173,16 @@ function WallVideo({ frameId }: { frameId: string }) {
     return () => { live = false }
   }, [active, videoId, frameId, divHeight])
   if (!active) return null
+  // the shields cover the screen, so without this a hold would only register on the frame's edge
+  const holdTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const held = useRef(false)
+  const cancelHold = () => { clearTimeout(holdTimer.current); holdTimer.current = undefined }
+  const startHold = (event: React.PointerEvent) => {
+    if (!isVisiting()) return
+    held.current = false
+    const { clientX, clientY } = event
+    holdTimer.current = setTimeout(() => { held.current = true; openReactionPicker({ id: frameId, x: clientX, y: clientY }) }, 500)
+  }
   return <FollowFit fitName={`fit:${item.id}`}>
     <group rotation={[0, 0, -item.rotation[1]]}>
       {/* 640 CSS px stretched to the frame: YouTube lays its controls out for a small player, so they read 2x bigger */}
@@ -184,7 +196,9 @@ function WallVideo({ frameId }: { frameId: string }) {
           {/* the two shields carry the open-the-panel click and together cover everything but YouTube's own
               skip-ad corner, which is left live so the visitor can press it themselves */}
           {mode !== 'edit' && ['top', 'rest'].map((part) => <div key={part} className={`wall-video-shield ${part}`}
-            onPointerDown={(event) => event.stopPropagation()} onClick={() => openVideoPanel(frameId)} />)}
+            onPointerDown={(event) => { event.stopPropagation(); startHold(event) }}
+            onPointerUp={cancelHold} onPointerLeave={cancelHold} onPointerCancel={cancelHold}
+            onClick={() => { if (held.current) { held.current = false; return } openVideoPanel(frameId) }} />)}
         </div>
       </Html>
     </group>
