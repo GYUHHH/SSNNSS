@@ -32,7 +32,7 @@ export default function SoundHub() {
   latest.current = { playingFrames, mutedFrames, setFrameMuted }
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== 'm' || event.metaKey || event.ctrlKey || event.altKey) return
+      if (event.code !== 'KeyM' || event.metaKey || event.ctrlKey || event.altKey) return
       const target = event.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
       const { playingFrames: playing, mutedFrames: mutedList, setFrameMuted: setMuted } = latest.current
