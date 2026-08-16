@@ -109,6 +109,8 @@ export default function WallVideoLayer() {
   // nudged back — a video the user paused stays paused, and no commands go to players that need none.
   const playingBeforeHide = useRef<string[]>([])
   useEffect(() => {
+    // mobile only: desktop browsers keep background tabs playing, so PC gets no intervention at all
+    if (!window.matchMedia('(pointer: coarse)').matches) return
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') {
         playingBeforeHide.current = latest.current.playingFrames.filter((id) => framePlayerStates[id] === 1 || framePlayerStates[id] === 3)
