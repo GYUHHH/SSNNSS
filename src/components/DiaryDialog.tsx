@@ -1,6 +1,6 @@
 import { type ChangeEvent, type FormEvent, useRef, useState } from 'react'
 import { type Book, type Entry, type EntryDraft, type Visibility, useRoomStore } from '../store'
-import { currentRoomHandle, isVisiting, roomPath, toggleLike } from '../services/social'
+import { currentRoomHandle, isVisiting, myVisitorId, roomPath, toggleLike } from '../services/social'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -35,7 +35,7 @@ function EntryList({ bookId, entries }: { bookId: string; entries: Entry[] }) {
 
 // One record: photo full-bleed, then the like / comment / share row, then its comments.
 function EntryItem({ bookId, entry }: { bookId: string; entry: Entry }) {
-  const { likeTotals, myLikes } = useRoomStore()
+  const { likeTotals, myLikes, guestbook } = useRoomStore()
   const [editing, setEditing] = useState(false)
   // the server is authoritative, but its answer arrives after the click — hold it locally so the heart reacts at once
   const [pressed, setPressed] = useState<{ count: number; liked: boolean } | null>(null)
@@ -53,13 +53,13 @@ function EntryItem({ bookId, entry }: { bookId: string; entry: Entry }) {
     {entry.images[0] && <img src={assetUrl(entry.images[0])} alt="기록 사진" />}
     <div className="entry-actions">
       <button type="button" className={likes.liked ? 'liked' : ''} aria-label="좋아요" onClick={() => void toggleLike(entry.id).then((result) => result && setPressed(result))}><HeartIcon filled={likes.liked} />{likes.count > 0 && <span>{likes.count}</span>}</button>
-      <button type="button" aria-label="댓글" onClick={() => commentInput.current?.focus()}><CommentIcon />{(entry.comments ?? []).length > 0 && <span>{(entry.comments ?? []).length}</span>}</button>
+      <button type="button" aria-label="댓글" onClick={() => commentInput.current?.focus()}><CommentIcon />{(guestbook[entry.id] ?? []).length > 0 && <span>{(guestbook[entry.id] ?? []).length}</span>}</button>
       <button type="button" className={shared ? 'shared' : ''} aria-label="공유" onClick={share}><ShareIcon /></button>
       {!isVisiting() && <button type="button" className="entry-edit" aria-label="수정" onClick={() => setEditing(true)}><EditIcon /></button>}
     </div>
     {entry.content && <p>{entry.content}</p>}
     {!isVisiting() && <small>{entry.visibility === 'public' ? '공개 기록' : '비공개 기록'}</small>}
-    <EntryComments bookId={bookId} entry={entry} inputRef={commentInput} />
+    <EntryComments entry={entry} inputRef={commentInput} />
     {editing && <EntryEditor bookId={bookId} entry={entry} onClose={() => setEditing(false)} />}
   </article>
 }
@@ -94,18 +94,20 @@ function EntryEditor({ bookId, entry, onClose }: { bookId: string; entry: Entry;
   </div>
 }
 
-function EntryComments({ bookId, entry, inputRef }: { bookId: string; entry: Entry; inputRef: React.RefObject<HTMLTextAreaElement | null> }) {
-  const { addEntryComment, removeEntryComment } = useRoomStore()
+function EntryComments({ entry, inputRef }: { entry: Entry; inputRef: React.RefObject<HTMLTextAreaElement | null> }) {
+  const { guestbook, addGuestComment, removeGuestComment } = useRoomStore()
   const [text, setText] = useState('')
+  const comments = guestbook[entry.id] ?? []
+  const mine = myVisitorId()
   // grow with the text; CSS caps the height at three lines and takes over with a scrollbar
   const fit = (element: HTMLTextAreaElement | null) => { if (!element) return; element.style.height = 'auto'; element.style.height = `${element.scrollHeight}px` }
-  const submit = (event: FormEvent) => { event.preventDefault(); if (!text.trim()) return; addEntryComment(bookId, entry.id, '', text.trim()); setText(''); if (inputRef.current) inputRef.current.style.height = 'auto' }
+  const submit = (event: FormEvent) => { event.preventDefault(); if (!text.trim()) return; addGuestComment(entry.id, text.trim()); setText(''); if (inputRef.current) inputRef.current.style.height = 'auto' }
   return <section className="entry-comments" aria-label="댓글">
-    {!isVisiting() && <form className="entry-comment-form" onSubmit={submit}>
+    <form className="entry-comment-form" onSubmit={submit}>
       <textarea ref={inputRef} rows={1} maxLength={200} value={text} onChange={(event) => { setText(event.target.value); fit(event.currentTarget) }} placeholder="댓글" />
       <button type="submit">전송</button>
-    </form>}
-    <div className="entry-comment-list">{(entry.comments ?? []).map((comment) => <article key={comment.id} className="entry-comment"><header><strong>{comment.name}</strong><time>{comment.createdAt.slice(0, 10)}</time>{!isVisiting() && <button type="button" aria-label="댓글 삭제" onClick={() => removeEntryComment(bookId, entry.id, comment.id)}>×</button>}</header><p>{comment.text}</p></article>)}</div>
+    </form>
+    <div className="entry-comment-list">{comments.map((comment) => <article key={comment.id} className="entry-comment"><header><strong>{comment.name}{comment.verified && ' ✓'}</strong><time>{comment.createdAt.slice(0, 10)}</time>{(!isVisiting() || comment.visitor === mine) && <button type="button" aria-label="댓글 삭제" onClick={() => removeGuestComment(entry.id, comment.id)}>×</button>}</header><p>{comment.text}</p></article>)}</div>
   </section>
 }
 
