@@ -121,8 +121,8 @@ function WallVideo({ frameId }: { frameId: string }) {
   // until the player answers), and if the browser refuses (fresh visitor, no gesture yet) playback simply
   // continues muted with the 🔇 button shown
   useEffect(() => {
-    if (active && !muted) requestSound(frameId, () => setFrameMuted(frameId, true, false), () => setFrameMuted(frameId, false, false))
-  }, [active, frameId])  // eslint-disable-line react-hooks/exhaustive-deps -- re-run per frame mount, not per toggle
+    if (active && !muted) return requestSound(frameId, () => setFrameMuted(frameId, true, false), () => setFrameMuted(frameId, false, false))
+  }, [active, muted, frameId])  // eslint-disable-line react-hooks/exhaustive-deps -- setFrameMuted identity is unstable
   // Crop only as much as the video's own letterbox allows: YouTube's edge overlays hide inside the black bars
   // of wide videos, but 4:3/portrait videos fill the iframe, so cutting a fixed band would eat real content.
   // The aspect comes from videoAspect() below (thumbnail probing — oEmbed reports 16:9 for everything);

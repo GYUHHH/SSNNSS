@@ -56,9 +56,9 @@ export const muteFrame = (frameId: string) => command(frameId, 'mute')
 // gets ONE delayed setVolume retry (a lost volume command is not the same as autoplay blocking). If the browser
 // refuses sound without a gesture it pauses the video — we catch that, re-mute so playback continues, flip the
 // UI to muted, and retry on the visitor's next click, which grants the missing gesture.
-export function requestSound(frameId: string, onBlocked: () => void, onSound?: () => void) {
+export function requestSound(frameId: string, onBlocked: () => void, onSound?: () => void): () => void {
   const iframe = activeIframes[frameId]
-  if (!iframe) return
+  if (!iframe) return () => { /* nothing to cancel */ }
   let settled = false
   let awaitingGesture = false
   let volumeRetried = false
@@ -94,6 +94,9 @@ export function requestSound(frameId: string, onBlocked: () => void, onSound?: (
   ask()
   // on timeout: if the unmute itself took hold, sound state is whatever it is — only report blocked when it never did
   const timer = setTimeout(() => { if (!settled) { cleanup(); if (!awaitingGesture && lastMuted !== false) onBlocked() } }, 60000)
+  // cancellable: the caller stops the monitor when the frame unmounts or the user mutes it — otherwise a
+  // stale monitor would keep un-muting the player against the user's wishes
+  return () => { settled = true; cleanup() }
 }
 
 // Enforce the site's own play order for a playlist frame. The playlist embed still advances by itself in
