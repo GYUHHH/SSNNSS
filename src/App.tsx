@@ -7,6 +7,7 @@ import ProfileCard from './components/ProfileCard'
 import YouTubePlayer from './components/YouTubePlayer'
 import SoundHub from './components/SoundHub'
 import LoginGate from './components/LoginGate'
+import HandleSetup from './components/HandleSetup'
 import Room from './components/Room'
 import StylePanel from './components/StylePanel'
 import { MAX_ROOMS, RoomProvider, useRoomStore } from './store'
@@ -15,7 +16,7 @@ import { isVisiting } from './services/social'
 import { thumbnailFor } from './services/thumbnails'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 65
+const BUILD = 66
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget } = useRoomStore()
@@ -64,6 +65,7 @@ function Interface() {
     <YouTubePlayer />
     <SoundHub />
     <LoginGate />
+    <HandleSetup />
     <ProfileCard />
     <aside className={artOpen ? 'art-panel open' : 'art-panel'} aria-hidden={!artOpen}><BookShelfPanel /><DiaryDialog /><ArtworkOverlay /></aside>
   </main>

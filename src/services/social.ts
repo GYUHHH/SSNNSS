@@ -179,6 +179,33 @@ export const onAuthChange = (listener: (email: string | null) => void) => {
 }
 export async function signOut() { await supabaseClient().auth.signOut() }
 
+// Signup finishes by claiming a unique id: the personal room is published under it and bound to the account.
+// A fresh device on an existing account adopts the server copy instead of publishing its empty local room.
+export async function ownedRoom(): Promise<{ handle: string; data: Record<string, string> } | null> {
+  try {
+    const { data } = await supabaseClient().auth.getSession()
+    const uid = data.session?.user.id
+    if (!uid) return null
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?owner=eq.${escape(uid)}&select=handle,data&limit=1`, { headers })
+    const rows = await response.json()
+    return Array.isArray(rows) ? rows[0] ?? null : null
+  } catch { return null }
+}
+
+export async function handleTaken(handle: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${escape(handle)}&select=handle`, { headers })
+    const rows = await response.json()
+    return Array.isArray(rows) && rows.length > 0
+  } catch { return true }
+}
+
+export function adoptRoomData(bundle: Record<string, string>) {
+  try {
+    for (const [key, value] of Object.entries(bundle)) if (key.startsWith('my-room-')) localStorage.setItem(key, value)
+  } catch { /* storage may be unavailable */ }
+}
+
 export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void, onRoomData: () => void): () => void {
   const room = currentRoomHandle()
   if (!room) return () => { /* nothing to unsubscribe */ }

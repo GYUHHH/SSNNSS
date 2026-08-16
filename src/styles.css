@@ -43,6 +43,7 @@ input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-
 .login-card strong { font-size: 15px; color: #3a3a38; }
 .login-form { display: grid; gap: 8px; }
 .login-form input { padding: 10px 12px; border: 0; border-radius: 8px; background: #f2f2f0; color: #3a3a38; font-size: 13px; outline: none; }
+.login-form input.taken { background: #fbeaea; }
 .login-form button { padding: 10px 0; border: 0; border-radius: 8px; color: #ffffff; background: #3a3a38; cursor: pointer; font-size: 13px; }
 .login-sent { margin: 0; color: #75756f; font-size: 13px; }
 /* on small screens the full-width inventory sheet would hide the room while placing — collapse it to just

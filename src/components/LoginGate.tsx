@@ -9,11 +9,17 @@ export default function LoginGate() {
   const [session, setSession] = useState<string | null>(null)
   const [checked, setChecked] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const [requested, setRequested] = useState(false)
   useEffect(() => {
     void currentUserEmail().then((value) => { setSession(value); setChecked(true) })
-    return onAuthChange(setSession)
+    const stopAuth = onAuthChange(setSession)
+    // own-room login entry (profile card button) opens the same card
+    const onOpen = () => { setRequested(true); setDismissed(false) }
+    window.addEventListener('open-login', onOpen)
+    return () => { stopAuth(); window.removeEventListener('open-login', onOpen) }
   }, [])
-  if (!isVisiting() || !checked || session || dismissed) return null
+  if (!checked || session || dismissed) return null
+  if (!isVisiting() && !requested) return null
   const submit = () => { if (email.includes('@')) void sendMagicLink(email).then((ok) => setSent(ok)) }
   return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setDismissed(true)}>
     <section className="login-card" aria-label="로그인">
