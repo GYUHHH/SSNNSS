@@ -177,12 +177,14 @@ function WallVideo({ frameId }: { frameId: string }) {
       {/* drei sizes the punch-through occluder as a 1x1 plane under an orthographic camera, which clips the
           video to a 1-unit window — hand it a plane matching the screen so the hole covers the full frame */}
       <Html transform occlude="blending" geometry={<planeGeometry args={[screenWidth, screenHeight]} />} distanceFactor={400} position={[0, 0, .042]} scale={screenWidth / 640} zIndexRange={[4, 0]} style={{ pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
-        <div className="wall-video" style={{ width: 640, height: divHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto' }}
-          onPointerDown={(event) => event.stopPropagation()} onClick={() => { if (mode !== 'edit') openVideoPanel(frameId) }}>
+        <div className="wall-video" style={{ width: 640, height: divHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
           {/* controls=0 keeps YouTube's control bar from popping over the wall screen (it auto-shows on tab
               return); the expanded panel player keeps its controls */}
           <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra={!muted && userInteracted ? 'autoplay=1&playsinline=1&controls=0' : 'autoplay=1&playsinline=1&mute=1&controls=0'} frameStyle={crop ? { top: -crop, height: `calc(100% + ${crop * 2}px)` } : undefined} />
-
+          {/* the two shields carry the open-the-panel click and together cover everything but YouTube's own
+              skip-ad corner, which is left live so the visitor can press it themselves */}
+          {mode !== 'edit' && ['top', 'rest'].map((part) => <div key={part} className={`wall-video-shield ${part}`}
+            onPointerDown={(event) => event.stopPropagation()} onClick={() => openVideoPanel(frameId)} />)}
         </div>
       </Html>
     </group>

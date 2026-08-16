@@ -433,7 +433,13 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @media (max-width: 719px) { .yt-playing { left: 14px; bottom: 62px; } .yt-playing button { min-height: 40px; } }
 .yt-dock-space { width: 100%; aspect-ratio: 16 / 9; }
 .wall-video { position: relative; background: #000; overflow: hidden; }
-.wall-video iframe { display: block; position: absolute; left: 0; top: 0; width: 100%; height: 100%; border: 0; pointer-events: none; }
+.wall-video iframe { display: block; position: absolute; left: 0; top: 0; width: 100%; height: 100%; border: 0; pointer-events: auto; }
+/* Clicking the frame opens the panel, so the iframe is normally shielded. The bottom-right corner is left
+   uncovered: that is where YouTube draws its own 광고 건너뛰기 button, and only a real user click on YouTube's
+   own button can skip an ad — a script cannot reach inside a cross-origin player. */
+.wall-video-shield { position: absolute; cursor: pointer; }
+.wall-video-shield.top { left: 0; right: 0; top: 0; bottom: 82px; }
+.wall-video-shield.rest { left: 0; right: 210px; bottom: 0; height: 82px; }
 .wall-video { cursor: pointer; }
 .sound-hub { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 6; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .sound-hub-main { display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 50%; color: #fff; background: rgb(20 20 20 / 78%); cursor: pointer; }
