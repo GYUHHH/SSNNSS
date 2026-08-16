@@ -15,6 +15,7 @@ export const playlistVideoResume: Record<string, string> = persisted?.video ?? {
 export const framePlayerStates: Record<string, number> = {}
 // the player's ACTUAL mute state, broadcast so the UI can mirror reality instead of trusting intent
 const muteStateListeners = new Set<(frameId: string, muted: boolean) => void>()
+const lastReportedMuted: Record<string, boolean> = {}
 export const onFrameMuteState = (listener: (frameId: string, muted: boolean) => void) => { muteStateListeners.add(listener); return () => { muteStateListeners.delete(listener) } }
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 const persist = () => {
@@ -32,7 +33,10 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
       const currentTime = data?.info?.currentTime
       if (typeof currentTime === 'number') { videoResume[frameId] = currentTime; persist() }
       if (typeof data?.info?.playerState === 'number') framePlayerStates[frameId] = data.info.playerState
-      if (typeof data?.info?.muted === 'boolean') muteStateListeners.forEach((listener) => listener(frameId, data.info.muted))
+      if (typeof data?.info?.muted === 'boolean' && lastReportedMuted[frameId] !== data.info.muted) {
+        lastReportedMuted[frameId] = data.info.muted
+        muteStateListeners.forEach((listener) => listener(frameId, data.info.muted))
+      }
       const currentVideo = data?.info?.videoData?.video_id
       if (typeof currentVideo === 'string' && currentVideo && currentVideo !== 'videoseries') { playlistVideoResume[frameId] = currentVideo; persist() }
     } catch { /* not a youtube message */ }
