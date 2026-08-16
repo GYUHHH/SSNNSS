@@ -104,6 +104,14 @@ function WallVideo({ frameId }: { frameId: string }) {
   useEffect(() => {
     if (active && !muted) requestSound(frameId, () => setFrameMuted(frameId, true, false), () => setFrameMuted(frameId, false, false))
   }, [active, frameId])  // eslint-disable-line react-hooks/exhaustive-deps -- re-run per frame mount, not per toggle
+  // A player that has received any API command stops flashing its overlay on tab returns (observed: frames
+  // whose mute button was pressed stay clean, untouched ones do not). Muted frames get a state-neutral mute
+  // command a few times after load — the same effect as pressing the button, with nothing audible changing.
+  useEffect(() => {
+    if (!active || !muted) return
+    const timers = [1500, 4000, 8000].map((delay) => setTimeout(() => muteFrame(frameId), delay))
+    return () => timers.forEach(clearTimeout)
+  }, [active, muted, frameId])
   // Crop only as much as the video's own letterbox allows: YouTube's edge overlays hide inside the black bars
   // of wide videos, but 4:3/portrait videos fill the iframe, so cutting a fixed band would eat real content.
   // The aspect comes from videoAspect() below (thumbnail probing — oEmbed reports 16:9 for everything);
