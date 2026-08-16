@@ -396,6 +396,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .yt-dock-space { width: 100%; aspect-ratio: 16 / 9; }
 .wall-video { position: relative; background: #000; overflow: hidden; }
 .wall-video iframe { display: block; position: absolute; left: 0; top: 0; width: 100%; height: 100%; border: 0; pointer-events: none; }
-.wall-video-actions { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
-.wall-video-actions button { width: 46px; height: 46px; padding: 0; border: 0; border-radius: 50%; color: #fff; background: rgb(0 0 0 / 55%); cursor: pointer; font-size: 23px; line-height: 1; }
-.wall-video-actions button svg { display: block; margin: auto; }
+.wall-expand { position: absolute; right: 22px; bottom: 18px; width: 92px; height: 92px; padding: 0; border: 0; border-radius: 50%; color: #fff; background: rgb(0 0 0 / 55%); cursor: pointer; font-size: 46px; line-height: 1; opacity: 0; transform: translateY(-30px); pointer-events: none; transition: opacity .25s ease, transform .25s ease; }
+.wall-video:hover .wall-expand, .wall-video.revealed .wall-expand { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.wall-video.highlighted { outline: 8px solid #7db4ff; outline-offset: -8px; }
+.sound-hub { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 6; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.sound-hub-main { display: grid; place-items: center; width: 58px; height: 58px; border: 0; border-radius: 50%; color: #fff; background: rgb(20 20 20 / 78%); cursor: pointer; }
+.sound-hub-list { display: grid; gap: 6px; margin: 0; padding: 8px; list-style: none; border: 1px solid #dbdbdb; border-radius: 8px; background: #ffffff; }
+.sound-hub-list button { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 170px; padding: 8px 10px; border: 0; border-radius: 5px; color: #3a3a38; background: transparent; cursor: pointer; font-size: 13px; }
+.sound-hub-list button:hover { background: #f2f2f2; }
+.sound-hub-list button.muted { color: #9a9a95; }

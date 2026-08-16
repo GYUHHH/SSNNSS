@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Group } from 'three'
 import { loadAudioPrefs, useRoomStore } from '../store'
 import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
-import { embedSrc, trackIframe, muteFrame, unmuteFrame, requestSound, playlistVideoResume, watchPlaylistOrder } from '../services/ytResume'
+import { embedSrc, trackIframe, requestSound, playlistVideoResume, watchPlaylistOrder } from '../services/ytResume'
 
 // The playing iframes live here, OUTSIDE the furniture tree: entering edit mode swaps every piece into a
 // different wrapper, which would unmount an iframe rendered inside it and reload the video. This layer stays
@@ -108,7 +108,11 @@ export default function WallVideoLayer() {
 }
 
 function WallVideo({ frameId }: { frameId: string }) {
-  const { videoLinks, selectedObject, furniture, stopFrame, openVideoPanel, mode, mutedFrames, setFrameMuted } = useRoomStore()
+  const { videoLinks, selectedObject, furniture, openVideoPanel, mode, mutedFrames, setFrameMuted, highlightFrame } = useRoomStore()
+  // mobile has no hover: a tap on the video shows the expand button for a moment
+  const [revealed, setRevealed] = useState(false)
+  const revealTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const reveal = () => { setRevealed(true); clearTimeout(revealTimer.current); revealTimer.current = setTimeout(() => setRevealed(false), 2800) }
   const item = furniture.find((entry) => entry.id === frameId)
   const videoId = videoLinks[frameId]
   const muted = mutedFrames.includes(frameId)
@@ -148,22 +152,12 @@ function WallVideo({ frameId }: { frameId: string }) {
       {/* drei sizes the punch-through occluder as a 1x1 plane under an orthographic camera, which clips the
           video to a 1-unit window — hand it a plane matching the screen so the hole covers the full frame */}
       <Html transform occlude="blending" geometry={<planeGeometry args={[screenWidth, screenHeight]} />} distanceFactor={400} position={[0, 0, .042]} scale={screenWidth / 640} zIndexRange={[4, 0]} style={{ pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
-        <div className="wall-video" style={{ width: 640, height: divHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto' }} onPointerDown={(event) => event.stopPropagation()}>
+        <div className={`wall-video${revealed ? ' revealed' : ''}${highlightFrame === frameId ? ' highlighted' : ''}`} style={{ width: 640, height: divHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto' }}
+          onPointerDown={(event) => { event.stopPropagation(); if (event.pointerType === 'touch') reveal() }}>
           {/* controls=0 keeps YouTube's control bar from popping over the wall screen (it auto-shows on tab
               return); the expanded panel player keeps its controls */}
           <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra={!muted && userInteracted ? 'autoplay=1&playsinline=1&controls=0' : 'autoplay=1&playsinline=1&mute=1&controls=0'} frameStyle={crop ? { top: -crop, height: `calc(100% + ${crop * 2}px)` } : undefined} />
-          {mode !== 'edit' && <div className="wall-video-actions">
-            <button type="button" aria-label="크게 보기" onClick={() => openVideoPanel(frameId)}>⤢</button>
-            <button type="button" aria-label={muted ? '소리 켜기' : '소리 끄기'} onClick={() => { if (muted) unmuteFrame(frameId); else muteFrame(frameId); setFrameMuted(frameId, !muted) }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="#fff" stroke="none" />
-                {muted
-                  ? <><line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" /></>
-                  : <><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M19 5.5a10 10 0 0 1 0 13" /></>}
-              </svg>
-            </button>
-            <button type="button" aria-label="재생 멈추기" onClick={() => stopFrame(frameId)}>×</button>
-          </div>}
+          {mode !== 'edit' && <button type="button" className="wall-expand" aria-label="크게 보기" onClick={() => openVideoPanel(frameId)}>⤢</button>}
         </div>
       </Html>
     </group>

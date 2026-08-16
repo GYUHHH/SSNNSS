@@ -5,6 +5,7 @@ import DiaryDialog from './components/DiaryDialog'
 import InventoryPanel from './components/InventoryPanel'
 import ProfileCard from './components/ProfileCard'
 import YouTubePlayer from './components/YouTubePlayer'
+import SoundHub from './components/SoundHub'
 import Room from './components/Room'
 import StylePanel from './components/StylePanel'
 import { MAX_ROOMS, RoomProvider, useRoomStore } from './store'
@@ -12,7 +13,7 @@ import { customizableTypes } from './services/styles'
 import { thumbnailFor } from './services/thumbnails'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 31
+const BUILD = 32
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget } = useRoomStore()
@@ -59,6 +60,7 @@ function Interface() {
     {confirmingRoom && <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setConfirmingRoom(null)}><section className="reset-confirm"><p>이 방을 삭제할까요? 안에 놓인 가구는 가구함으로 돌아옵니다.</p><div><button type="button" onClick={() => setConfirmingRoom(null)}>취소</button><button type="button" onClick={() => { removeRoom(confirmingRoom); setConfirmingRoom(null) }}>삭제</button></div></section></div>}
     {confirmingReset && <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setConfirmingReset(false)}><section className="reset-confirm"><p>모든 가구를 처음 위치로 되돌릴까요?</p><div><button type="button" onClick={() => setConfirmingReset(false)}>취소</button><button type="button" onClick={() => { resetLayout(); setConfirmingReset(false) }}>초기화</button></div></section></div>}
     <YouTubePlayer />
+    <SoundHub />
     <ProfileCard />
     <aside className={artOpen ? 'art-panel open' : 'art-panel'} aria-hidden={!artOpen}><BookShelfPanel /><DiaryDialog /><ArtworkOverlay /></aside>
   </main>
