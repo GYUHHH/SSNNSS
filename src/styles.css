@@ -1,4 +1,4 @@
-:root { font-family: "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; color: #3a3a38; background: #f4efe6; }
+:root { font-family: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; color: #3a3a38; background: #f4efe6; }
 * { box-sizing: border-box; }
 html, body, #root { width: 100%; height: 100%; }
 body { margin: 0; min-width: 720px; overflow: hidden; }
@@ -198,7 +198,7 @@ div.art-view { aspect-ratio: 3 / 4; }
 
 /* Instagram-inspired interface chrome. The room canvas itself stays untouched. */
 :root {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple SD Gothic Neo", sans-serif;
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple SD Gothic Neo", sans-serif;
   color: #000;
   background: #fafafa;
   --ui-bg: #fff;

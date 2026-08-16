@@ -4,6 +4,7 @@ import Furniture from './Furniture'
 import { useRoomStore, type Book } from '../store'
 import { palette } from '../services/palette'
 import { colorOf } from '../services/styles'
+import { PRETENDARD_WOFF } from '../services/fonts'
 import { bookshelfCapY, bookshelfTiers } from '../services/roomGrid'
 
 // 2 tiers by default; putting a book on the current top tier grows the shelf by one more (see bookshelfTiers)
@@ -56,6 +57,6 @@ function DiaryBook({ book, index, slot, floorY }: { book: Book; index: number; s
     onClick={(event) => { event.stopPropagation(); mode === 'edit' ? selectFurniture('bookshelf') : openBook(book.id) }}
   >
     <mesh castShadow><boxGeometry args={[width, height, depth]} /><meshStandardMaterial color={book.coverColor} roughness={0.8} emissive={hovered ? book.coverColor : '#000000'} emissiveIntensity={hovered ? 0.25 : 0} /></mesh>
-    <Text position={[0, 0, depth / 2 + 0.004]} rotation={[0, 0, Math.PI / 2]} fontSize={0.045} maxWidth={height * 0.85} color={palette.linen} anchorX="center" anchorY="middle" overflowWrap="break-word">{book.title.length > 8 ? `${book.title.slice(0, 8)}…` : book.title}</Text>
+    <Text font={PRETENDARD_WOFF} position={[0, 0, depth / 2 + 0.004]} rotation={[0, 0, Math.PI / 2]} fontSize={0.045} maxWidth={height * 0.85} color={palette.linen} anchorX="center" anchorY="middle" overflowWrap="break-word">{book.title.length > 8 ? `${book.title.slice(0, 8)}…` : book.title}</Text>
   </group>
 }

@@ -10,6 +10,7 @@ import MusicPanel from './MusicPanel'
 import { type FurnitureItem, useOptionalRoomStore, useRoomStore } from '../store'
 import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
+import { PRETENDARD_WOFF } from '../services/fonts'
 import { getVideo, loadClipUrls } from '../services/mediaStore'
 import { publicBase } from '../services/publicBase'
 import MirrorGlass from './MirrorGlass'
@@ -402,7 +403,7 @@ function drawBanner(canvas: HTMLCanvasElement, t: number, text: string) {
   const ctx = canvas.getContext('2d')!
   const w = canvas.width, h = canvas.height
   ctx.fillStyle = '#1c1712'; ctx.fillRect(0, 0, w, h)
-  ctx.font = 'bold 34px "Segoe UI", sans-serif'
+  ctx.font = 'bold 34px "Pretendard Variable", Pretendard, sans-serif'
   ctx.textBaseline = 'middle'
   const span = ctx.measureText(text).width + w * .4
   const x = w - ((t * 70) % (span + w))
@@ -511,11 +512,11 @@ function CalendarArt() {
     const now = new Date()
     ctx.fillStyle = '#fffaf0'; ctx.fillRect(0, 0, 128, 148)
     ctx.fillStyle = '#b3563f'; ctx.fillRect(0, 0, 128, 34)
-    ctx.fillStyle = '#fff8ed'; ctx.font = 'bold 19px sans-serif'; ctx.textAlign = 'center'
+    ctx.fillStyle = '#fff8ed'; ctx.font = 'bold 19px "Pretendard Variable", Pretendard, sans-serif'; ctx.textAlign = 'center'
     ctx.fillText(`${now.getMonth() + 1}월`, 64, 24)
-    ctx.fillStyle = '#3f3a33'; ctx.font = 'bold 58px sans-serif'
+    ctx.fillStyle = '#3f3a33'; ctx.font = 'bold 58px "Pretendard Variable", Pretendard, sans-serif'
     ctx.fillText(String(now.getDate()), 64, 102)
-    ctx.fillStyle = '#8a7a6a'; ctx.font = '15px sans-serif'
+    ctx.fillStyle = '#8a7a6a'; ctx.font = '15px "Pretendard Variable", Pretendard, sans-serif'
     ctx.fillText(['일', '월', '화', '수', '목', '금', '토'][now.getDay()] + '요일', 64, 132)
     const t = new CanvasTexture(canvas); t.colorSpace = SRGBColorSpace
     return t
@@ -597,17 +598,17 @@ function drawProfileBoard(canvas: HTMLCanvasElement, total: number, today: numbe
   ctx.clearRect(0, 0, w, canvas.height)
   ctx.textAlign = 'center'
   ctx.fillStyle = '#3f3a33'
-  ctx.font = 'bold 30px "Segoe UI", sans-serif'
+  ctx.font = 'bold 30px "Pretendard Variable", Pretendard, sans-serif'
   ctx.fillText(`Total ${total}`, w * .29, 42)
   ctx.fillText(`Today ${today}`, w * .72, 42)
   ctx.fillStyle = '#c3b6a6'
-  ctx.font = '26px "Segoe UI", sans-serif'
+  ctx.font = '26px "Pretendard Variable", Pretendard, sans-serif'
   ctx.fillText('|', w / 2, 42)
   ctx.strokeStyle = '#e2d6c6'
   ctx.lineWidth = 2
   ctx.beginPath(); ctx.moveTo(w * .14, 66); ctx.lineTo(w * .86, 66); ctx.stroke()
   ctx.fillStyle = '#5b4e44'
-  ctx.font = 'bold 30px "Segoe UI", sans-serif'
+  ctx.font = 'bold 30px "Pretendard Variable", Pretendard, sans-serif'
   ctx.fillText(`친구 ${friends}`, w / 2, 106)
 }
 
@@ -629,7 +630,7 @@ function ProfileBoardFace() {
   const portrait = useMemo(() => { if (!photo) return null; const map = new TextureLoader().load(photo); map.colorSpace = SRGBColorSpace; return map }, [photo])
   return <>
     {portrait && <mesh position={[0, .36, .076]}><circleGeometry args={[.47, 30]} /><meshBasicMaterial map={portrait} /></mesh>}
-    {profile?.handle && <Text position={[0, -.22, .076]} fontSize={.13} color="#403f3d" anchorX="center" anchorY="middle">{profile.handle}</Text>}
+    {profile?.handle && <Text font={PRETENDARD_WOFF} position={[0, -.22, .076]} fontSize={.13} color="#403f3d" anchorX="center" anchorY="middle">{profile.handle}</Text>}
     <mesh position={[0, -.59, .076]}><planeGeometry args={[1.2, .48]} /><meshBasicMaterial map={texture} transparent /></mesh>
   </>
 }
