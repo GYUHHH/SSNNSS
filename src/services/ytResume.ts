@@ -46,8 +46,14 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
         playlistVideoResume[frameId] = currentVideo
         persist()
       }
-      // the player's first message IS its ready signal — commands sent earlier are dropped
-      if (!captionsCleared.has(frameId)) { captionsCleared.add(frameId); unloadCaptions(frameId) }
+      // onApiChange is the moment YouTube reports a module with an exposed API has just been LOADED — which
+      // is exactly when the captions module appears and can turn itself on from the account's settings. Every
+      // occurrence is answered, because the module can be loaded again later in the same session.
+      // The postMessage protocol does not use the JS API's name here: what actually arrives when a module
+      // with an exposed API is loaded is 'apiInfoDelivery' (verified live). Both names are matched anyway.
+      if (data?.event === 'apiInfoDelivery' || data?.event === 'onApiChange') { unloadCaptions(frameId); return }
+      // starting playback is the other point a fresh caption track can appear
+      if (data?.info?.playerState === 1 && !captionsCleared.has(frameId)) { captionsCleared.add(frameId); unloadCaptions(frameId) }
     } catch { /* not a youtube message */ }
   }
   const hello = () => { captionsCleared.delete(frameId); iframe.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: frameId }), '*') }
@@ -65,11 +71,19 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
 const command = (frameId: string, func: string, args: unknown[] = []) =>
   activeIframes[frameId]?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
 
-// Subtitles off for good. cc_load_policy=0 is only the embed's default and loses to a viewer whose YouTube
-// account turns captions on everywhere, so the caption module itself is unloaded once the player is ready.
+// Subtitles off for good. cc_load_policy=0 only sets the embed's default and loses to a viewer whose YouTube
+// account turns captions on everywhere, and a caption module unloaded before YouTube loads it comes back. The
+// kill is therefore repeated at onApiChange — the event that fires when a module is loaded.
 // Both names are sent because the module is 'captions' on some players and 'cc' on others.
 const captionsCleared = new Set<string>()
-const unloadCaptions = (frameId: string) => { command(frameId, 'unloadModule', ['captions']); command(frameId, 'unloadModule', ['cc']) }
+const unloadCaptions = (frameId: string) => {
+  // unloadModule is undocumented but is what actually removes the renderer; the documented setOption calls
+  // only reach a module that is still loaded, so both are sent and the unload goes last.
+  command(frameId, 'setOption', ['captions', 'track', {}])
+  command(frameId, 'setOption', ['cc', 'track', {}])
+  command(frameId, 'unloadModule', ['captions'])
+  command(frameId, 'unloadModule', ['cc'])
+}
 
 // a mute=1 embed can come up with its volume at 0, so unmuting alone stays silent — always restore volume too
 export const unmuteFrame = (frameId: string) => { command(frameId, 'unMute'); command(frameId, 'setVolume', [70]) }
