@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useRoomStore } from '../store'
 import { ClipPreview, DrawingEditor, PhotoPickButton, PlaylistOrderEditor, VideoLinkInput, VideoPickButton } from './ArtEditor'
-import { isVisiting, myVisitorId } from '../services/social'
+import { isVisiting, myVisitorId, requireHandle } from '../services/social'
 
 // which artwork panel a furniture type opens (null → none)
 export const artworkKindOf = (type: string) => type === 'photo' || type.startsWith('photo-frame') ? 'frame' : type === 'poster' || type.startsWith('wall-art') ? 'poster' : type.startsWith('video-frame') ? 'video' : type === 'guestbook' ? 'guestbook' : type === 'whiteboard' ? 'poster' : null
@@ -44,7 +44,7 @@ function Guestbook({ id, onClose }: { id: string; onClose: () => void }) {
   const { guestbook, addGuestComment, removeGuestComment } = useRoomStore()
   const [text, setText] = useState('')
   const comments = guestbook[id] ?? []
-  const submit = () => { if (!text.trim()) return; addGuestComment(id, text.trim()); setText('') }
+  const submit = () => { if (!text.trim() || !requireHandle()) return; addGuestComment(id, text.trim()); setText('') }
   return <>
     <header><strong>방명록</strong><button className="close-ui" type="button" aria-label="닫기" onClick={onClose}>×</button></header>
     <div className="guest-form">

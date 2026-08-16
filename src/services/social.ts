@@ -95,6 +95,22 @@ export const schedulePublish = () => {
   publishTimer = setTimeout(() => { void publishRoom() }, 2500)
 }
 
+// Anything that leaves a mark — a comment, a like — needs an id behind it. Callers ask here first; without
+// an id this opens the signup card instead and the action is dropped.
+export const requireHandle = (): boolean => {
+  if (ownHandle()) return true
+  window.dispatchEvent(new Event('need-id'))
+  return false
+}
+// claiming an id writes the visitor's OWN profile, so it must go through even while inside someone else's
+// room — the usual visiting guard is there to protect the host's data, not to block signing up
+export const claimHandleLocally = (handle: string) => {
+  try {
+    const profile = JSON.parse(localStorage.getItem('my-room-profile-v1') ?? '{}')
+    localStorage.setItem('my-room-profile-v1', JSON.stringify({ ...profile, handle }))
+  } catch { /* storage unavailable */ }
+}
+
 export const myVisitorId = () => visitorId()
 
 // which reactions the owner has already opened, keyed by item id — lives ONLY in the server bundle

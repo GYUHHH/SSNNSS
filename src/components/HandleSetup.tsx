@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useRoomStore } from '../store'
-import { adoptRoomData, currentUserEmail, handleTaken, isVisiting, onAuthChange, ownedRoom, publishRoom, roomPath, sendOtpCode, verifyOtpCode } from '../services/social'
+import { adoptRoomData, claimHandleLocally, currentUserEmail, handleTaken, isVisiting, myHandle, onAuthChange, ownedRoom, publishRoom, roomPath, sendOtpCode, verifyOtpCode } from '../services/social'
 
 // First-time onboarding: email → emailed 6-digit code → pick a unique id. Claiming publishes the personal
 // room, binds it to the account, and moves to its address (domain)/(id).
 export default function HandleSetup() {
-  const { setProfileHandle, profile } = useRoomStore()
+  const { setProfileHandle } = useRoomStore()
+  // never read the store's profile here: while visiting it holds the host's, whose handle would look like mine
+  const mine = myHandle()
   const [session, setSession] = useState<string | null>(null)
   const [checked, setChecked] = useState(false)
   const [dismissed, setDismissed] = useState(false)
@@ -18,6 +20,12 @@ export default function HandleSetup() {
   const [taken, setTaken] = useState(false)
   const [busy, setBusy] = useState(false)
   const [roomChecked, setRoomChecked] = useState(false)
+  const [requested, setRequested] = useState(false)
+  useEffect(() => {
+    const onNeed = () => { setRequested(true); setDismissed(false) }
+    window.addEventListener('need-id', onNeed)
+    return () => window.removeEventListener('need-id', onNeed)
+  }, [])
   useEffect(() => {
     void currentUserEmail().then((current) => { setSession(current); setChecked(true) })
     return onAuthChange(setSession)
@@ -27,7 +35,7 @@ export default function HandleSetup() {
   // profile.handle guard is load-bearing: without it a device that already holds the handle would
   // location.replace onto the address it is already on, reloading forever
   useEffect(() => {
-    if (!session || profile.handle || isVisiting()) return
+    if (!session || mine || isVisiting()) return
     let live = true
     void ownedRoom().then((room) => {
       if (!live) return
@@ -36,9 +44,11 @@ export default function HandleSetup() {
       location.replace(roomPath(room.handle))
     })
     return () => { live = false }
-  }, [session, profile.handle])
+  }, [session, mine])
   // while the owned-room lookup is in flight the id step must stay hidden, or it flashes before the redirect
-  if (isVisiting() || profile.handle || dismissed || !checked || (session && !roomChecked)) return null
+  // inside someone else's room the card stays out of the way until an action actually needs an id
+  if (mine || dismissed || !checked || (session && !roomChecked)) return null
+  if (isVisiting() && !requested) return null
   const clean = value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20)
   const valid = /^[a-z0-9_]{3,20}$/.test(clean)
   const sendCode = async () => {
@@ -60,8 +70,8 @@ export default function HandleSetup() {
     if (!valid || busy) return
     setBusy(true)
     if (await handleTaken(clean)) { setTaken(true); setBusy(false); return }
-    setProfileHandle(clean)
-    await publishRoom()
+    if (isVisiting()) claimHandleLocally(clean)
+    else { setProfileHandle(clean); await publishRoom() }
     location.replace(roomPath(clean))
   }
   return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setDismissed(true)}>
