@@ -396,8 +396,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .yt-dock-space { width: 100%; aspect-ratio: 16 / 9; }
 .wall-video { position: relative; background: #000; overflow: hidden; }
 .wall-video iframe { display: block; position: absolute; left: 0; top: 0; width: 100%; height: 100%; border: 0; pointer-events: none; }
-.wall-expand { position: absolute; right: 22px; bottom: 18px; width: 92px; height: 92px; padding: 0; border: 0; border-radius: 50%; color: #fff; background: rgb(0 0 0 / 55%); cursor: pointer; font-size: 46px; line-height: 1; opacity: 0; transform: translateY(-30px); pointer-events: none; transition: opacity .25s ease, transform .25s ease; }
-.wall-video:hover .wall-expand, .wall-video.revealed .wall-expand { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.wall-video { cursor: pointer; }
 .wall-video.highlighted { outline: 8px solid #7db4ff; outline-offset: -8px; }
 .sound-hub { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 6; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .sound-hub-main { display: grid; place-items: center; width: 58px; height: 58px; border: 0; border-radius: 50%; color: #fff; background: rgb(20 20 20 / 78%); cursor: pointer; }

@@ -121,10 +121,6 @@ export default function WallVideoLayer() {
 
 function WallVideo({ frameId }: { frameId: string }) {
   const { videoLinks, selectedObject, furniture, openVideoPanel, mode, mutedFrames, setFrameMuted, highlightFrame } = useRoomStore()
-  // mobile has no hover: a tap on the video shows the expand button for a moment
-  const [revealed, setRevealed] = useState(false)
-  const revealTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const reveal = () => { setRevealed(true); clearTimeout(revealTimer.current); revealTimer.current = setTimeout(() => setRevealed(false), 2800) }
   const item = furniture.find((entry) => entry.id === frameId)
   const videoId = videoLinks[frameId]
   const muted = mutedFrames.includes(frameId)
@@ -164,12 +160,12 @@ function WallVideo({ frameId }: { frameId: string }) {
       {/* drei sizes the punch-through occluder as a 1x1 plane under an orthographic camera, which clips the
           video to a 1-unit window — hand it a plane matching the screen so the hole covers the full frame */}
       <Html transform occlude="blending" geometry={<planeGeometry args={[screenWidth, screenHeight]} />} distanceFactor={400} position={[0, 0, .042]} scale={screenWidth / 640} zIndexRange={[4, 0]} style={{ pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
-        <div className={`wall-video${revealed ? ' revealed' : ''}${highlightFrame === frameId ? ' highlighted' : ''}`} style={{ width: 640, height: divHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto' }}
-          onPointerDown={(event) => { event.stopPropagation(); if (event.pointerType === 'touch') reveal() }}>
+        <div className={`wall-video${highlightFrame === frameId ? ' highlighted' : ''}`} style={{ width: 640, height: divHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto' }}
+          onPointerDown={(event) => event.stopPropagation()} onClick={() => { if (mode !== 'edit') openVideoPanel(frameId) }}>
           {/* controls=0 keeps YouTube's control bar from popping over the wall screen (it auto-shows on tab
               return); the expanded panel player keeps its controls */}
           <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra={!muted && userInteracted ? 'autoplay=1&playsinline=1&controls=0' : 'autoplay=1&playsinline=1&mute=1&controls=0'} frameStyle={crop ? { top: -crop, height: `calc(100% + ${crop * 2}px)` } : undefined} />
-          {mode !== 'edit' && <button type="button" className="wall-expand" aria-label="크게 보기" onClick={() => openVideoPanel(frameId)}>⤢</button>}
+
         </div>
       </Html>
     </group>
