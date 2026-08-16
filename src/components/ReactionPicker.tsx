@@ -12,8 +12,8 @@ const OPEN_EVENT = 'reaction-picker'
 export const openReactionPicker = (request: PickerRequest) => window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: request }))
 
 const LIFT = 66      // how far above the press point the icons sit
-const SPREAD = 52    // how far left/right of it
-const SNAP = 70      // pointer within this distance activates an icon
+const SPREAD = 28    // how far left/right of it — the two sit almost shoulder to shoulder
+const SNAP = 52      // pointer within this distance activates an icon (kept under the gap so the two stay distinct)
 const PULL = .3      // share of the gap the active icon leans toward the pointer
 
 export default function ReactionPicker() {
