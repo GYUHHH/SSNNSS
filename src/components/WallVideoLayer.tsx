@@ -69,16 +69,16 @@ export default function WallVideoLayer() {
       .map((entry) => watchPlaylistOrder(entry.id, entry.link.slice(3).split('@')[0]))
     return () => stops.forEach((stop) => stop())
   }, [playingFrames, videoLinks])
-  // The visitor's first click/tap anywhere doubles as audio activation, once: frames with NO saved audio
-  // choice get their sound turned on (and remembered); frames the user explicitly muted stay silent.
-  // Pref-true frames blocked by autoplay policy retry on their own gesture listener in requestSound.
+  // The visitor's first click/tap anywhere doubles as audio activation, once: frames with no saved choice OR
+  // an explicit sound-on choice retry here. A browser-blocked sound-on frame is temporarily marked muted in UI,
+  // so excluding it would lose the only user-gesture retry. Explicit false remains silent.
   const latest = useRef({ playingFrames, mutedFrames, setFrameMuted })
   latest.current = { playingFrames, mutedFrames, setFrameMuted }
   useEffect(() => {
     const onFirstClick = () => {
       const prefs = loadAudioPrefs()
       for (const id of latest.current.playingFrames) {
-        if (prefs[id] === undefined && latest.current.mutedFrames.includes(id)) {
+        if (prefs[id] !== false && latest.current.mutedFrames.includes(id)) {
           // remember the choice, then let requestSound apply it — it waits out players that are not ready
           // yet and verifies the volume actually landed, instead of firing one possibly-lost command
           latest.current.setFrameMuted(id, false)
