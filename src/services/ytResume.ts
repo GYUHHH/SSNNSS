@@ -10,6 +10,9 @@ export const videoResume: Record<string, number> = persisted?.time ?? {}
 // which video of a playlist was on screen — YouTube ignores index= on /embed/videoseries,
 // so resuming must go through /embed/{videoId}?list= with the actual video id
 export const playlistVideoResume: Record<string, string> = persisted?.video ?? {}
+// last known player state per frame (1 playing, 2 paused, 3 buffering) — read when the tab hides so a
+// visibility return restores exactly what was happening, instead of blindly commanding playback
+export const framePlayerStates: Record<string, number> = {}
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 const persist = () => {
   if (saveTimer) return
@@ -25,6 +28,7 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
       const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
       const currentTime = data?.info?.currentTime
       if (typeof currentTime === 'number') { videoResume[frameId] = currentTime; persist() }
+      if (typeof data?.info?.playerState === 'number') framePlayerStates[frameId] = data.info.playerState
       const currentVideo = data?.info?.videoData?.video_id
       if (typeof currentVideo === 'string' && currentVideo && currentVideo !== 'videoseries') { playlistVideoResume[frameId] = currentVideo; persist() }
     } catch { /* not a youtube message */ }
