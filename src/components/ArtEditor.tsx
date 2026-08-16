@@ -143,41 +143,15 @@ export function ClipPreview({ id }: { id: string }) {
 
 // Site-side play order editor for a playlist frame: rows (thumbnail, title, drag handle) reordered by
 // pointer-dragging the handle — pointer events cover mouse and touch alike, so mobile drags work without a
-// separate long-press path. Every drop saves immediately; playback picks the new order up from the NEXT video
-// (the current one keeps playing untouched). The id list itself arrives from playback sync (watchPlaylistOrder).
+// separate long-press path. The grabbed row rides along under the pointer while the others slide out of the
+// way with a transition; the new order commits (and saves) on release. Playback picks the change up from the
+// NEXT video, and the id list itself arrives from playback sync (watchPlaylistOrder).
 const titleCache: Record<string, string> = {}
-function OrderRow({ videoId, index, count, onMove }: { videoId: string; index: number; count: number; onMove: (from: number, to: number) => void }) {
-  const [title, setTitle] = useState(titleCache[videoId] ?? '')
-  const row = useRef<HTMLLIElement>(null)
-  useEffect(() => {
-    if (titleCache[videoId]) { setTitle(titleCache[videoId]); return }
-    let live = true
-    fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`)
-      .then((response) => response.json())
-      .then((data) => { if (live && data?.title) { titleCache[videoId] = data.title; setTitle(data.title) } })
-      .catch(() => { /* fall back to the id */ })
-    return () => { live = false }
-  }, [videoId])
-  const startDrag = (event: React.PointerEvent) => {
-    event.preventDefault()
-    const handle = event.currentTarget as HTMLElement
-    handle.setPointerCapture(event.pointerId)
-    const rowHeight = row.current?.offsetHeight || 48
-    const startY = event.clientY
-    let at = index
-    const onMovePointer = (move: PointerEvent) => {
-      const target = Math.min(count - 1, Math.max(0, index + Math.round((move.clientY - startY) / rowHeight)))
-      if (target !== at) { onMove(at, target); at = target }
-    }
-    const onUp = () => { handle.removeEventListener('pointermove', onMovePointer); handle.removeEventListener('pointerup', onUp); handle.removeEventListener('pointercancel', onUp) }
-    handle.addEventListener('pointermove', onMovePointer)
-    handle.addEventListener('pointerup', onUp)
-    handle.addEventListener('pointercancel', onUp)
-  }
-  return <li ref={row} className="order-row">
-    <img src={`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`} alt="" />
+function OrderRow({ videoId, title, dragging, shift, onHandleDown }: { videoId: string; title: string; dragging: boolean; shift: number; onHandleDown: (event: React.PointerEvent) => void }) {
+  return <li className={dragging ? 'order-row dragging' : 'order-row'} style={{ transform: shift ? `translateY(${shift}px)` : undefined }}>
+    <img src={`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`} alt="" draggable={false} />
     <span>{title || videoId}</span>
-    <button type="button" className="order-handle" aria-label="순서 이동" onPointerDown={startDrag}>≡</button>
+    <button type="button" className="order-handle" aria-label="순서 이동" onPointerDown={onHandleDown}>≡</button>
   </li>
 }
 
@@ -186,20 +160,60 @@ export function PlaylistOrderEditor({ id }: { id: string }) {
   const link = videoLinks[id]
   const playlistId = link?.startsWith('pl:') ? link.slice(3).split('@')[0] : null
   const [order, setOrder] = useState<string[]>(() => playlistId ? loadOrders()[playlistId] ?? [] : [])
+  const [titles, setTitles] = useState<Record<string, string>>({})
+  const [drag, setDrag] = useState<{ index: number; delta: number } | null>(null)
+  const rowStep = useRef(48)
   useEffect(() => {
     if (!playlistId) return
     setOrder(loadOrders()[playlistId] ?? [])
     return onOrderChange((changed) => { if (changed === playlistId) setOrder(loadOrders()[playlistId] ?? []) })
   }, [playlistId])
+  useEffect(() => {
+    order.forEach((videoId) => {
+      if (titleCache[videoId] !== undefined) return
+      titleCache[videoId] = ''
+      fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`)
+        .then((response) => response.json())
+        .then((data) => { if (data?.title) { titleCache[videoId] = data.title; setTitles((known) => ({ ...known, [videoId]: data.title })) } })
+        .catch(() => { /* fall back to the id */ })
+    })
+  }, [order])
   if (!playlistId) return null
-  if (!order.length) return <p className="order-empty">재생이 시작되면 목록을 불러와요.</p>
-  const move = (from: number, to: number) => {
-    const next = [...order]
-    next.splice(to, 0, ...next.splice(from, 1))
-    setOrder(next)
-    saveOrder(playlistId, next)
+  if (!order.length) return null
+  const target = drag ? Math.min(order.length - 1, Math.max(0, drag.index + Math.round(drag.delta / rowStep.current))) : null
+  const startDrag = (index: number) => (event: React.PointerEvent) => {
+    event.preventDefault()
+    const handle = event.currentTarget as HTMLElement
+    handle.setPointerCapture(event.pointerId)
+    const row = handle.closest('li')
+    rowStep.current = (row?.offsetHeight ?? 42) + 6
+    const startY = event.clientY
+    setDrag({ index, delta: 0 })
+    const onMove = (move: PointerEvent) => setDrag({ index, delta: move.clientY - startY })
+    const onUp = (up: PointerEvent) => {
+      handle.removeEventListener('pointermove', onMove); handle.removeEventListener('pointerup', onUp); handle.removeEventListener('pointercancel', onUp)
+      const to = Math.min(order.length - 1, Math.max(0, index + Math.round((up.clientY - startY) / rowStep.current)))
+      if (to !== index) {
+        const next = [...order]
+        next.splice(to, 0, ...next.splice(index, 1))
+        setOrder(next)
+        saveOrder(playlistId, next)
+      }
+      setDrag(null)
+    }
+    handle.addEventListener('pointermove', onMove)
+    handle.addEventListener('pointerup', onUp)
+    handle.addEventListener('pointercancel', onUp)
   }
   return <ul className="order-list" aria-label="재생 순서">
-    {order.map((videoId, index) => <OrderRow key={videoId} videoId={videoId} index={index} count={order.length} onMove={move} />)}
+    {order.map((videoId, index) => {
+      const dragging = drag?.index === index
+      let shift = 0
+      if (drag && target !== null && !dragging) {
+        if (index > drag.index && index <= target) shift = -rowStep.current
+        else if (index < drag.index && index >= target) shift = rowStep.current
+      }
+      return <OrderRow key={videoId} videoId={videoId} title={titles[videoId] ?? titleCache[videoId] ?? ''} dragging={dragging} shift={dragging ? drag.delta : shift} onHandleDown={startDrag(index)} />
+    })}
   </ul>
 }
