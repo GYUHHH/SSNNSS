@@ -4,7 +4,7 @@ import { ClipPreview, DrawingEditor, PhotoPickButton, PlaylistOrderEditor, Video
 import { isVisiting, myVisitorId, requireHandle } from '../services/social'
 
 // which artwork panel a furniture type opens (null → none)
-export const artworkKindOf = (type: string) => type === 'photo' || type.startsWith('photo-frame') ? 'frame' : type === 'poster' || type.startsWith('wall-art') ? 'poster' : type.startsWith('video-frame') ? 'video' : type === 'guestbook' ? 'guestbook' : type === 'whiteboard' ? 'poster' : null
+export const artworkKindOf = (type: string) => type === 'photo' || type === 'easel-photo' || type.startsWith('photo-frame') ? 'frame' : type === 'poster' || type.startsWith('wall-art') ? 'poster' : type.startsWith('video-frame') ? 'video' : type === 'guestbook' ? 'guestbook' : type === 'whiteboard' ? 'poster' : null
 
 // side panel on the right — the room slides left while it is open; tall artwork scrolls instead of cropping
 export default function ArtworkOverlay() {
@@ -28,7 +28,7 @@ export default function ArtworkOverlay() {
   const art = artworks[selectedObject]
   const [width, height] = frame
     ? item?.type === 'photo' ? [464, 336] : [400, 400]
-    : item?.type === 'poster' ? [360, 555] : item?.type === 'whiteboard' ? [420, 300] : [360, Math.round(360 * (item?.footprint.depth ?? 3) / (item?.footprint.width ?? 2))]
+    : item?.type === 'poster' ? [360, 555] : item?.type === 'whiteboard' ? [420, 300] : item?.type === 'easel-photo' ? [360, 460] : [360, Math.round(360 * (item?.footprint.depth ?? 3) / (item?.footprint.width ?? 2))]
   return <>
     <header><strong>{item?.name ?? (frame ? '사진' : '포스터')}</strong><button className="close-ui" type="button" aria-label="닫기" onClick={clearSelection}>×</button></header>
     {drawing
