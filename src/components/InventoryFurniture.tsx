@@ -10,7 +10,7 @@ import MusicPanel from './MusicPanel'
 import { type FurnitureItem, useOptionalRoomStore, useRoomStore } from '../store'
 import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
-import { getVideo } from '../services/mediaStore'
+import { getVideo, loadClipUrls } from '../services/mediaStore'
 import { publicBase } from '../services/publicBase'
 import MirrorGlass from './MirrorGlass'
 import { Swing } from './motion'
@@ -563,12 +563,13 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
       poster.colorSpace = SRGBColorSpace
       setTexture(poster)
     }).catch(() => { /* thumbnail unavailable */ })
-    else if (version) getVideo(id).then((blob) => {
-      if (!live || !blob) return
-      url = URL.createObjectURL(blob)
-      start(url)
+    else getVideo(id).then((blob) => {
+      if (!live) return
+      if (blob) { url = URL.createObjectURL(blob); start(url); return }
+      // no local copy (a visitor, or another device) — stream the uploaded clip from storage
+      const remote = loadClipUrls()[id]
+      start(remote ?? `${publicBase}video/sample.webm`)
     })
-    else start(`${publicBase}video/sample.webm`)
     return () => {
       live = false
       element?.pause()

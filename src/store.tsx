@@ -3,9 +3,9 @@ import { createSlot, deleteSlot, loadArtworks, loadProfile, saveProfile, type Pr
 import { bookshelfCapY, bookshelfTiers, canPlaceItem, cellsFor, clampGrid, floorSurface, GRID_COUNT, gridToWorld, isOwnedSurfaceId, nearestWallId, normalizedCells, ownerIdOf, resolveSurface, setBookshelfTopOffset, withResolution, type Footprint, type GridPosition, type PlacementItem, type PlacementResolution, type PlacementSurface, type SurfaceId, type SurfaceKind, type WallId, worldToGrid } from './services/roomGrid'
 import { characterPosition } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
-import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveVideoLinks, encodeTarget, youTubeTarget } from './services/mediaStore'
+import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic } from './services/music'
-import { addRemoteComment, currentRoomHandle, fetchGuestbook, fetchVisitCounts, isVisiting, readStored, recordVisit, removeRemoteComment, schedulePublish, type RemoteGuestComment } from './services/social'
+import { addRemoteComment, currentRoomHandle, fetchGuestbook, fetchVisitCounts, isVisiting, readStored, recordVisit, removeRemoteComment, schedulePublish, uploadMedia, type RemoteGuestComment } from './services/social'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor })
 
@@ -493,8 +493,9 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     return true
   }
   const setVideoClip = (id: string, file: File | null) => {
-    if (!file) { deleteVideo(id); setVideoFrames(({ [id]: _removed, ...rest }) => rest); return }
+    if (!file) { deleteVideo(id); saveClipUrl(id, null); setVideoFrames(({ [id]: _removed, ...rest }) => rest); return }
     putVideo(id, file).then(() => setVideoFrames((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 })))
+    void uploadMedia(`clips/${crypto.randomUUID()}`, file).then((url) => { if (url) saveClipUrl(id, url) })
   }
   // with a handle the guestbook is server-backed (visitors can write); without one it stays local as before
   const addGuestComment = (id: string, name: string, text: string) => {

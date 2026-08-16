@@ -9,7 +9,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const headers = { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' }
 const escape = encodeURIComponent
 
-const SYNC_KEYS = ['my-room-slots-v1', 'my-room-video-links-v1', 'my-room-artwork-v1', 'my-room-profile-v1', 'my-room-books-v1', 'my-room-guestbook-v1', 'my-room-playlist-order-v1', 'my-room-interactions-v1', 'my-room-time-v1', 'my-room-music-v1']
+const SYNC_KEYS = ['my-room-slots-v1', 'my-room-video-links-v1', 'my-room-artwork-v1', 'my-room-profile-v1', 'my-room-books-v1', 'my-room-guestbook-v1', 'my-room-playlist-order-v1', 'my-room-interactions-v1', 'my-room-time-v1', 'my-room-music-v1', 'my-room-clip-urls-v1']
 
 export const visitHandle = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('room') : null
 let visitData: Record<string, string> | null = null
@@ -68,6 +68,19 @@ export const schedulePublish = () => {
 }
 
 export const myVisitorId = () => visitorId()
+
+// uploaded media (music files, video clips) go to the public storage bucket so visitors can stream them
+export async function uploadMedia(path: string, file: Blob): Promise<string | null> {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/storage/v1/object/media/${path}`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': file.type || 'application/octet-stream' },
+      body: file,
+    })
+    if (!response.ok) return null
+    return `${SUPABASE_URL}/storage/v1/object/public/media/${path}`
+  } catch { return null }
+}
 
 // Guestbook lives on the server as soon as the room has a handle: visitors can write, and deletion is allowed
 // to the room owner (device secret) or the comment's own author (visitor id), enforced inside the SQL function.

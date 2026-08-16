@@ -38,6 +38,22 @@ export function saveVideoLinks(links: Record<string, string>) {
   try { localStorage.setItem(linkKey, JSON.stringify(links)); schedulePublish() } catch { /* unavailable */ }
 }
 
+// uploaded clips also live in the storage bucket; this map (frame id -> public url) syncs with the room so
+// visitors stream what the owner uploaded, while the owner keeps playing the faster local IndexedDB copy
+const clipUrlKey = 'my-room-clip-urls-v1'
+export function loadClipUrls(): Record<string, string> {
+  try { const raw = readStored(clipUrlKey); return raw ? JSON.parse(raw) as Record<string, string> : {} } catch { return {} }
+}
+export function saveClipUrl(id: string, url: string | null) {
+  if (isVisiting()) return
+  try {
+    const urls = loadClipUrls()
+    if (url) urls[id] = url; else delete urls[id]
+    localStorage.setItem(clipUrlKey, JSON.stringify(urls))
+    schedulePublish()
+  } catch { /* unavailable */ }
+}
+
 // accepts watch, youtu.be, shorts and embed forms, or a bare id
 export function youTubeId(input: string): string | null {
   const text = input.trim()

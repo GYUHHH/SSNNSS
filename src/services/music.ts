@@ -3,9 +3,9 @@
 // (ids, titles, order) lives in localStorage. Playback advances down the playlist and wraps.
 import { publicBase } from './publicBase'
 import { getVideo, putVideo } from './mediaStore'
-import { isVisiting, readStored, schedulePublish } from './social'
+import { isVisiting, readStored, schedulePublish, uploadMedia } from './social'
 
-export type MusicTrack = { id: string; title: string; artist: string }
+export type MusicTrack = { id: string; title: string; artist: string; url?: string }
 
 const REGISTRY_KEY = 'my-room-music-v1'
 const BUILTIN: Record<string, string> = { lany: `${publicBase}music/a-star-we-never-named.mp3` }
@@ -28,6 +28,10 @@ export async function addTrackFile(file: File): Promise<string> {
   const split = base.split(' - ')
   const track: MusicTrack = split.length > 1 ? { id, title: split.slice(1).join(' - ').trim(), artist: split[0].trim() } : { id, title: base, artist: '' }
   saveTracks([...loadTracks(), track])
+  // the storage copy lets visitors stream the song; the local copy stays the owner's fast path
+  void uploadMedia(`music/${id}`, file).then((url) => {
+    if (url) saveTracks(loadTracks().map((entry) => entry.id === id ? { ...entry, url } : entry))
+  })
   return id
 }
 
@@ -64,8 +68,9 @@ const resolveUrl = async (id: string): Promise<string | null> => {
   if (BUILTIN[id]) return BUILTIN[id]
   if (urlCache[id]) return urlCache[id]
   const blob = await getVideo(`music-${id}`)
-  if (!blob) return null
-  return urlCache[id] = URL.createObjectURL(blob)
+  if (blob) return urlCache[id] = URL.createObjectURL(blob)
+  // no local copy — stream the uploaded file from storage (visitors, other devices)
+  return loadTracks().find((track) => track.id === id)?.url ?? null
 }
 
 export async function playTrack(id: string) {
