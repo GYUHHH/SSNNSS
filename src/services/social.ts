@@ -9,6 +9,15 @@ import { createClient } from '@supabase/supabase-js'
 const SUPABASE_URL = 'https://pxjavljsalibpnxdrxel.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4amF2bGpzYWxpYnBueGRyeGVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4NjAxNTgsImV4cCI6MjEwMjQzNjE1OH0.quIFdlk11b7F-YIeHO3TsEhS2RzgxDtntqdh2vHyUfE'
 const headers = { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' }
+// writes carry the logged-in user's token when there is one, so auth.uid() is visible server-side:
+// room saves bind ownership to the account, and guestbook/likes rows get an unforgeable user id
+const authHeaders = async (): Promise<Record<string, string>> => {
+  try {
+    const { data } = await supabaseClient().auth.getSession()
+    const token = data.session?.access_token
+    return token ? { ...headers, Authorization: `Bearer ${token}` } : headers
+  } catch { return headers }
+}
 const escape = encodeURIComponent
 
 const SYNC_KEYS = ['my-room-slots-v1', 'my-room-video-links-v1', 'my-room-artwork-v1', 'my-room-profile-v1', 'my-room-books-v1', 'my-room-guestbook-v1', 'my-room-playlist-order-v1', 'my-room-interactions-v1', 'my-room-time-v1', 'my-room-music-v1', 'my-room-clip-urls-v1']
@@ -60,7 +69,7 @@ export async function publishRoom() {
   const data: Record<string, string> = {}
   for (const key of SYNC_KEYS) { try { const value = localStorage.getItem(key); if (value) data[key] = value } catch { /* skip */ } }
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/rpc/save_room`, { method: 'POST', headers, body: JSON.stringify({ p_handle: handle, p_secret: roomSecret(), p_data: data }) })
+    await fetch(`${SUPABASE_URL}/rest/v1/rpc/save_room`, { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ p_handle: handle, p_secret: roomSecret(), p_data: data }) })
   } catch { /* offline — the next change tries again */ }
 }
 
@@ -88,13 +97,13 @@ export async function uploadMedia(path: string, file: Blob): Promise<string | nu
 
 // Guestbook lives on the server as soon as the room has a handle: visitors can write, and deletion is allowed
 // to the room owner (device secret) or the comment's own author (visitor id), enforced inside the SQL function.
-export type RemoteGuestComment = { id: string; item_id: string; name: string; text: string; visitor: string; created_at: string }
+export type RemoteGuestComment = { id: string; item_id: string; name: string; text: string; visitor: string; user_id?: string | null; created_at: string }
 
 export async function fetchGuestbook(): Promise<RemoteGuestComment[] | null> {
   const room = currentRoomHandle()
   if (!room) return null
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/guestbook?room=eq.${escape(room)}&select=id,item_id,name,text,visitor,created_at&order=created_at.desc`, { headers })
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/guestbook?room=eq.${escape(room)}&select=id,item_id,name,text,visitor,user_id,created_at&order=created_at.desc`, { headers })
     const rows = await response.json()
     return Array.isArray(rows) ? rows : null
   } catch { return null }
@@ -106,7 +115,7 @@ export async function addRemoteComment(itemId: string, name: string, text: strin
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/guestbook`, {
       method: 'POST',
-      headers: { ...headers, Prefer: 'return=representation' },
+      headers: { ...await authHeaders(), Prefer: 'return=representation' },
       body: JSON.stringify({ room, item_id: itemId, name, text, visitor: visitorId() }),
     })
     const rows = await response.json()
@@ -116,7 +125,7 @@ export async function addRemoteComment(itemId: string, name: string, text: strin
 
 export async function removeRemoteComment(commentId: string) {
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/rpc/delete_guest_comment`, { method: 'POST', headers, body: JSON.stringify({ p_id: commentId, p_secret: roomSecret(), p_visitor: visitorId() }) })
+    await fetch(`${SUPABASE_URL}/rest/v1/rpc/delete_guest_comment`, { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ p_id: commentId, p_secret: roomSecret(), p_visitor: visitorId() }) })
   } catch { /* offline */ }
 }
 
@@ -196,7 +205,7 @@ export async function toggleLike(itemId: string): Promise<{ count: number; liked
   try {
     const insert = await fetch(`${SUPABASE_URL}/rest/v1/likes`, {
       method: 'POST',
-      headers: { ...headers, Prefer: 'resolution=ignore-duplicates,return=representation' },
+      headers: { ...await authHeaders(), Prefer: 'resolution=ignore-duplicates,return=representation' },
       body: JSON.stringify({ room, item_id: itemId, visitor }),
     })
     const rows = await insert.json().catch(() => [])

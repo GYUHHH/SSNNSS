@@ -54,7 +54,7 @@ function Guestbook({ id, onClose }: { id: string; onClose: () => void }) {
     <div className="guest-list">
       {comments.length === 0 && <p className="entry-empty">댓글 없음</p>}
       {comments.map((comment) => <article key={comment.id} className="guest-note">
-        <header><strong>{comment.name}</strong><time>{comment.createdAt.slice(0, 10)}</time>{(!isVisiting() || comment.visitor === myVisitorId()) && <button type="button" aria-label="삭제" onClick={() => removeGuestComment(id, comment.id)}>×</button>}</header>
+        <header><strong>{comment.name}{comment.verified && ' ✓'}</strong><time>{comment.createdAt.slice(0, 10)}</time>{(!isVisiting() || comment.visitor === myVisitorId()) && <button type="button" aria-label="삭제" onClick={() => removeGuestComment(id, comment.id)}>×</button>}</header>
         <p>{comment.text}</p>
       </article>)}
     </div>

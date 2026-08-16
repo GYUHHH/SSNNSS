@@ -7,7 +7,7 @@ import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveV
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic } from './services/music'
 import { addRemoteComment, currentRoomHandle, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, readStored, recordVisit, refreshVisit, removeRemoteComment, schedulePublish, subscribeRealtime, uploadMedia, type RemoteGuestComment } from './services/social'
 
-const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor })
+const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id })
 
 export type SelectedObject = string | null
 export type FurnitureId = string
@@ -220,7 +220,7 @@ export type TimeOfDay = 'day' | 'evening' | 'night'
 // decor, lights, toggles, plain props — must leave the character exactly as it is. Whitelist on purpose: new
 // furniture is inert until it earns a pose here.
 export const POSED_TYPES = new Set(['bed', 'sofa', 'chair', 'desk', 'bookshelf', 'rocking-chair', 'beanbag', 'cup', 'plant', 'cabinet', 'side-table', 'coffee-table', 'wardrobe', 'hanger', 'mirror', 'rug', 'bin', 'glass-shelf'])
-export type GuestComment = { id: string; name: string; text: string; createdAt: string; visitor?: string }
+export type GuestComment = { id: string; name: string; text: string; createdAt: string; visitor?: string; verified?: boolean }
 const toPlacement = ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, allowedSurfaces, styleId, removed, updatedAt }: FurnitureItem): FurniturePlacement => ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, resolution: resolutionFor({ allowedSurfaces }), styleId, removed, updatedAt })
 // every catalogue piece exists exactly once for now; a future account would supply real per-user counts
 const OWNED_PER_TYPE = 1
