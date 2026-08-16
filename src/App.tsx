@@ -6,8 +6,6 @@ import InventoryPanel from './components/InventoryPanel'
 import ProfileCard from './components/ProfileCard'
 import YouTubePlayer from './components/YouTubePlayer'
 import SoundHub from './components/SoundHub'
-import LoginGate from './components/LoginGate'
-import HandleSetup from './components/HandleSetup'
 import Room from './components/Room'
 import StylePanel from './components/StylePanel'
 import { MAX_ROOMS, RoomProvider, useRoomStore } from './store'
@@ -16,7 +14,7 @@ import { isVisiting } from './services/social'
 import { thumbnailFor } from './services/thumbnails'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 66
+const BUILD = 67
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget } = useRoomStore()
@@ -64,8 +62,6 @@ function Interface() {
     {confirmingReset && <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setConfirmingReset(false)}><section className="reset-confirm"><p>모든 가구를 처음 위치로 되돌릴까요?</p><div><button type="button" onClick={() => setConfirmingReset(false)}>취소</button><button type="button" onClick={() => { resetLayout(); setConfirmingReset(false) }}>초기화</button></div></section></div>}
     <YouTubePlayer />
     <SoundHub />
-    <LoginGate />
-    <HandleSetup />
     <ProfileCard />
     <aside className={artOpen ? 'art-panel open' : 'art-panel'} aria-hidden={!artOpen}><BookShelfPanel /><DiaryDialog /><ArtworkOverlay /></aside>
   </main>
