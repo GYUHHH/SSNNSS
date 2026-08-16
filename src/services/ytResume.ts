@@ -13,6 +13,9 @@ export const playlistVideoResume: Record<string, string> = persisted?.video ?? {
 // last known player state per frame (1 playing, 2 paused, 3 buffering) — read when the tab hides so a
 // visibility return restores exactly what was happening, instead of blindly commanding playback
 export const framePlayerStates: Record<string, number> = {}
+// the player's ACTUAL mute state, broadcast so the UI can mirror reality instead of trusting intent
+const muteStateListeners = new Set<(frameId: string, muted: boolean) => void>()
+export const onFrameMuteState = (listener: (frameId: string, muted: boolean) => void) => { muteStateListeners.add(listener); return () => { muteStateListeners.delete(listener) } }
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 const persist = () => {
   if (saveTimer) return
@@ -29,6 +32,7 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
       const currentTime = data?.info?.currentTime
       if (typeof currentTime === 'number') { videoResume[frameId] = currentTime; persist() }
       if (typeof data?.info?.playerState === 'number') framePlayerStates[frameId] = data.info.playerState
+      if (typeof data?.info?.muted === 'boolean') muteStateListeners.forEach((listener) => listener(frameId, data.info.muted))
       const currentVideo = data?.info?.videoData?.video_id
       if (typeof currentVideo === 'string' && currentVideo && currentVideo !== 'videoseries') { playlistVideoResume[frameId] = currentVideo; persist() }
     } catch { /* not a youtube message */ }

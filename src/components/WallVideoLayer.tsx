@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Group } from 'three'
 import { loadAudioPrefs, useRoomStore } from '../store'
 import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
-import { embedSrc, trackIframe, requestSound, playlistVideoResume, watchPlaylistOrder, playFrame, framePlayerStates } from '../services/ytResume'
+import { embedSrc, trackIframe, requestSound, playlistVideoResume, watchPlaylistOrder, playFrame, framePlayerStates, onFrameMuteState } from '../services/ytResume'
 
 // The playing iframes live here, OUTSIDE the furniture tree: entering edit mode swaps every piece into a
 // different wrapper, which would unmount an iframe rendered inside it and reload the video. This layer stays
@@ -107,6 +107,11 @@ export default function WallVideoLayer() {
   // Mobile browsers pause media while the screen is off and the embeds do not resume by themselves.
   // The state right before hiding is snapshotted, and on return ONLY frames that were actually playing get
   // nudged back — a video the user paused stays paused, and no commands go to players that need none.
+  // the UI's mute flags mirror what the player actually reports — if an unmute attempt silently fails,
+  // the speaker icon says muted instead of lying (preferences are not touched by this sync)
+  useEffect(() => onFrameMuteState((id, actualMuted) => {
+    if (latest.current.playingFrames.includes(id) && latest.current.mutedFrames.includes(id) !== actualMuted) latest.current.setFrameMuted(id, actualMuted, false)
+  }), [])
   const playingBeforeHide = useRef<string[]>([])
   useEffect(() => {
     // mobile only: desktop browsers keep background tabs playing, so PC gets no intervention at all
