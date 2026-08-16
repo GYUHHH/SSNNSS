@@ -251,9 +251,14 @@ export async function sendOtpCode(email: string): Promise<boolean> {
   const { error } = await supabaseClient().auth.signInWithOtp({ email })
   return !error
 }
+// A first-time address is confirmed with a signup token while a returning one gets a plain email token, and
+// the two are not interchangeable — so the code is offered as both rather than guessing which kind it is.
 export async function verifyOtpCode(email: string, code: string): Promise<boolean> {
-  const { error } = await supabaseClient().auth.verifyOtp({ email, token: code, type: 'email' })
-  return !error
+  for (const type of ['email', 'signup'] as const) {
+    const { error } = await supabaseClient().auth.verifyOtp({ email, token: code, type })
+    if (!error) return true
+  }
+  return false
 }
 
 // Signup finishes by claiming a unique id: the personal room is published under it and bound to the account.
