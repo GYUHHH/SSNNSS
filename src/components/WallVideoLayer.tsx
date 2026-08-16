@@ -77,8 +77,9 @@ export default function WallVideoLayer() {
   // Focus guard: if a wall iframe holds focus when the tab is left, the browser re-focuses it on return and
   // the YouTube player mistakes that for user activity, waking its control overlay. Whenever focus lands on a
   // wall iframe (window 'blur' fires the moment it does, and also on real tab-leave) it is released right away,
-  // so a tab return has no focus to restore and the overlay stays asleep. Clicks inside the video still work —
-  // their effect lands before the focus is given back.
+  // so a tab return has no focus to restore and the overlay stays asleep. The wall iframe itself is also
+  // pointer-transparent; only our explicit controls accept input, so returning with the cursor over it cannot
+  // synthesize hover activity inside YouTube. The expanded panel player remains fully interactive.
   useEffect(() => {
     const releaseWallIframeFocus = () => setTimeout(() => {
       const active = document.activeElement
