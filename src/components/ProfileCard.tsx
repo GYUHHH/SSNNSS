@@ -30,16 +30,20 @@ export default function ProfileCard() {
   return <div className="profile-overlay" onMouseDown={(event) => event.currentTarget === event.target && closeProfile()}>
     <section className="profile-card" aria-label="프로필">
       <input className="profile-handle" aria-label="아이디" value={profile.handle ?? ''} placeholder="ID" disabled={isVisiting()} onChange={(event) => setProfileHandle(event.target.value)} />
-      <button className="profile-photo" type="button" onClick={() => inputRef.current?.click()} aria-label="프로필 사진 바꾸기">
-        {profile.photo ? <img src={profile.photo} alt="프로필 사진" /> : <span>사진</span>}
-      </button>
-      <div className="profile-info">
-        <p className="profile-visits">Total <b>{remoteVisits?.total ?? profile.total}</b> <i>|</i> Today <b>{remoteVisits?.today ?? profile.today}</b></p>
-        <p className="profile-friends">친구 <b>{profile.friends}</b></p>
+      <div className="profile-main">
+        <button className="profile-photo" type="button" onClick={() => inputRef.current?.click()} aria-label="프로필 사진 바꾸기">
+          {profile.photo ? <img src={profile.photo} alt="프로필 사진" /> : <span>사진</span>}
+        </button>
+        <div className="profile-info">
+          <p className="profile-visits">Total <b>{remoteVisits?.total ?? profile.total}</b> <i>|</i> Today <b>{remoteVisits?.today ?? profile.today}</b></p>
+          <p className="profile-friends">친구 <b>{profile.friends}</b></p>
+        </div>
       </div>
       <input ref={inputRef} type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) pick(file); event.target.value = '' }} />
-      {!isVisiting() && shareUrl() && <button type="button" className="profile-share" onClick={() => { void navigator.clipboard?.writeText(shareUrl()!) }}>{shareUrl()}</button>}
-      {sessionEmail && <button type="button" className="profile-session" onClick={() => { void signOut() }}>{sessionEmail} · 로그아웃</button>}
+      {(sessionEmail || (!isVisiting() && shareUrl())) && <div className="profile-foot">
+        {sessionEmail && <button type="button" onClick={() => { void signOut() }}>{sessionEmail} · 로그아웃</button>}
+        {!isVisiting() && shareUrl() && <button type="button" onClick={() => { void navigator.clipboard?.writeText(shareUrl()!) }}>{shareUrl()}</button>}
+      </div>}
     </section>
   </div>
 }

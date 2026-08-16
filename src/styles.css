@@ -39,8 +39,6 @@ input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-
 .build-tag { position: fixed; top: 8px; right: 10px; z-index: 30; font-size: 11px; color: #b3b3af; pointer-events: none; }
 .like-burst { position: fixed; z-index: 40; transform: translate(-50%, -50%); color: #e0455e; font-size: 24px; font-weight: 700; pointer-events: none; animation: like-rise .95s ease-out forwards; text-shadow: 0 1px 6px rgb(0 0 0 / 20%); }
 @keyframes like-rise { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.6); } 20% { opacity: 1; transform: translate(-50%, -60%) scale(1.15); } 100% { opacity: 0; transform: translate(-50%, -190%) scale(1); } }
-.profile-share { position: absolute; bottom: 10px; right: 16px; max-width: 70%; border: 0; background: transparent; color: #9a9a95; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
-.profile-session { position: absolute; bottom: 10px; left: 16px; max-width: 55%; border: 0; background: transparent; color: #9a9a95; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .login-card { position: relative; width: min(300px, 88vw); padding: 22px; border-radius: 14px; background: #ffffff; box-shadow: 0 14px 34px rgb(0 0 0 / 18%); display: grid; gap: 14px; }
 .login-card strong { font-size: 15px; color: #3a3a38; }
 .login-form { display: grid; gap: 8px; }
@@ -376,7 +374,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .style-swatches button, .style-swatches button.active { outline: 0; box-shadow: none; }
 .style-swatches button.active { box-shadow: inset 0 0 0 3px rgb(255 255 255 / 85%); }
 .profile-overlay { position: fixed; z-index: 8; inset: 0; display: grid; place-items: center; background: rgb(38 30 24 / 28%); padding: 16px; }
-.profile-card { position: relative; display: flex; align-items: center; gap: 20px; width: min(360px, 92vw); padding: 22px 24px; border-radius: 20px; background: #ffffff; box-shadow: 0 20px 44px rgb(52 40 30 / 26%); }
+.profile-card { position: relative; display: grid; gap: 12px; width: min(360px, 92vw); padding: 22px 24px; border-radius: 20px; background: #ffffff; box-shadow: 0 20px 44px rgb(52 40 30 / 26%); }
+.profile-main { display: flex; align-items: center; gap: 20px; }
+.profile-foot { display: grid; gap: 2px; justify-items: end; }
+.profile-foot button { max-width: 100%; border: 0; background: transparent; color: #9a9a95; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; padding: 0; }
 .profile-handle { position: absolute; top: 12px; right: 16px; width: 110px; border: 0; background: transparent; color: #403f3d; font-size: 13px; text-align: right; outline: none; }
 .profile-photo { flex-shrink: 0; width: 94px; height: 94px; padding: 0; border: 0; border-radius: 50%; overflow: hidden; background: #e9e9e6; color: #84847e; font-size: 12px; cursor: pointer; }
 .profile-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
