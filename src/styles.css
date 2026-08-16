@@ -46,6 +46,16 @@ input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-
 .login-form input.taken { background: #fbeaea; }
 .login-form button { padding: 10px 0; border: 0; border-radius: 8px; color: #ffffff; background: #3a3a38; cursor: pointer; font-size: 13px; }
 .login-sent { margin: 0; color: #75756f; font-size: 13px; }
+.reaction-badge { width: 14px; height: 14px; padding: 0; border: 0; border-radius: 50%; background: #c1121f; cursor: pointer; box-shadow: 0 1px 4px rgb(0 0 0 / 30%); }
+.reaction-card { position: relative; width: min(300px, 88vw); max-height: 60vh; overflow-y: auto; padding: 20px; border-radius: 14px; background: #ffffff; box-shadow: 0 14px 34px rgb(0 0 0 / 18%); display: grid; gap: 10px; }
+.reaction-card strong { font-size: 14px; color: #3a3a38; }
+.reaction-likes { margin: 0; color: #c1121f; font-size: 14px; font-weight: 700; }
+.reaction-comments { display: grid; gap: 8px; }
+.reaction-comments article { padding: 8px 10px; border-radius: 8px; background: #f7f7f5; }
+.reaction-comments header { display: flex; justify-content: space-between; gap: 8px; }
+.reaction-comments b { font-size: 12px; color: #3a3a38; }
+.reaction-comments time { font-size: 10px; color: #9a9a95; }
+.reaction-comments p { margin: 4px 0 0; font-size: 12px; color: #55554f; }
 /* on small screens the full-width inventory sheet would hide the room while placing — collapse it to just
    the placement bar during a preview; it comes back as soon as the piece is placed or cancelled */
 @media (max-width: 719px), (max-height: 520px) and (pointer: coarse) {

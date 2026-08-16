@@ -147,6 +147,17 @@ export async function removeRemoteComment(commentId: string) {
   } catch { /* offline */ }
 }
 
+// every like in the room, for the reaction badges (self-likes are filtered by the caller)
+export async function fetchAllLikes(): Promise<Array<{ item_id: string; visitor: string }> | null> {
+  const room = currentRoomHandle()
+  if (!room) return null
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/likes?room=eq.${escape(room)}&select=item_id,visitor`, { headers })
+    const rows = await response.json()
+    return Array.isArray(rows) ? rows : null
+  } catch { return null }
+}
+
 // One visit row per visitor per day; the profile numbers read the real counts
 export async function recordVisit() {
   if (!isVisiting()) return
@@ -234,12 +245,13 @@ export function adoptRoomData(bundle: Record<string, string>) {
   } catch { /* storage may be unavailable */ }
 }
 
-export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void, onRoomData: () => void): () => void {
+export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void, onRoomData: () => void, onLikes?: () => void): () => void {
   const room = currentRoomHandle()
   if (!room) return () => { /* nothing to unsubscribe */ }
   const channel = supabaseClient().channel(`room-${room}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'guestbook', filter: `room=eq.${room}` }, onGuestbook)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'visits', filter: `room=eq.${room}` }, onVisits)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'likes', filter: `room=eq.${room}` }, () => onLikes?.())
   if (isVisiting()) channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `handle=eq.${room}` }, onRoomData)
   channel.subscribe()
   return () => { void channel.unsubscribe() }
