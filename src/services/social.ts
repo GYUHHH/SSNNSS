@@ -22,7 +22,24 @@ const escape = encodeURIComponent
 
 const SYNC_KEYS = ['my-room-slots-v1', 'my-room-video-links-v1', 'my-room-artwork-v1', 'my-room-profile-v1', 'my-room-books-v1', 'my-room-guestbook-v1', 'my-room-playlist-order-v1', 'my-room-interactions-v1', 'my-room-time-v1', 'my-room-music-v1', 'my-room-clip-urls-v1']
 
-export const visitHandle = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('room') : null
+// Room addresses are simple paths: (domain)/(id). GitHub Pages has no SPA fallback, so 404.html bounces
+// unknown paths back here as ?p=<id> and the address bar is restored. Legacy ?room= links keep working.
+const BASE = import.meta.env.BASE_URL
+const parseHandle = (): string | null => {
+  if (typeof location === 'undefined') return null
+  const params = new URLSearchParams(location.search)
+  const bounced = params.get('p')
+  if (bounced !== null) {
+    const clean = bounced.replace(/^\/+|\/+$/g, '')
+    history.replaceState(null, '', `${BASE}${clean}`)
+    return clean || null
+  }
+  const legacy = params.get('room')
+  if (legacy) return legacy
+  const segment = location.pathname.startsWith(BASE) ? decodeURIComponent(location.pathname.slice(BASE.length).split('/')[0] ?? '') : ''
+  return segment && segment !== 'index.html' ? segment : null
+}
+export const visitHandle = parseHandle()
 let visitData: Record<string, string> | null = null
 export const isVisiting = () => visitHandle !== null && visitHandle !== ownHandle()
 
@@ -59,8 +76,9 @@ export const currentRoomHandle = () => (isVisiting() ? visitHandle : ownHandle()
 export const myHandle = () => ownHandle()
 export const shareUrl = () => {
   const handle = ownHandle()
-  return handle ? `${location.origin}${location.pathname}?room=${escape(handle)}` : null
+  return handle ? `${location.origin}${BASE}${escape(handle)}` : null
 }
+export const roomPath = (handle: string) => `${BASE}${escape(handle)}`
 
 export async function publishRoom() {
   if (isVisiting()) return
@@ -178,6 +196,16 @@ export const onAuthChange = (listener: (email: string | null) => void) => {
   return () => data.subscription.unsubscribe()
 }
 export async function signOut() { await supabaseClient().auth.signOut() }
+
+// signup by emailed one-time code (the email template must print {{ .Token }})
+export async function sendOtpCode(email: string): Promise<boolean> {
+  const { error } = await supabaseClient().auth.signInWithOtp({ email })
+  return !error
+}
+export async function verifyOtpCode(email: string, code: string): Promise<boolean> {
+  const { error } = await supabaseClient().auth.verifyOtp({ email, token: code, type: 'email' })
+  return !error
+}
 
 // Signup finishes by claiming a unique id: the personal room is published under it and bound to the account.
 // A fresh device on an existing account adopts the server copy instead of publishing its empty local room.
