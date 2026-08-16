@@ -40,10 +40,17 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
         muteStateListeners.forEach((listener) => listener(frameId, data.info.muted))
       }
       const currentVideo = data?.info?.videoData?.video_id
-      if (typeof currentVideo === 'string' && currentVideo && currentVideo !== 'videoseries') { playlistVideoResume[frameId] = currentVideo; persist() }
+      if (typeof currentVideo === 'string' && currentVideo && currentVideo !== 'videoseries') {
+        // a new video can bring its own captions back on, so drop them again whenever the track changes
+        if (playlistVideoResume[frameId] !== currentVideo) captionsCleared.delete(frameId)
+        playlistVideoResume[frameId] = currentVideo
+        persist()
+      }
+      // the player's first message IS its ready signal — commands sent earlier are dropped
+      if (!captionsCleared.has(frameId)) { captionsCleared.add(frameId); unloadCaptions(frameId) }
     } catch { /* not a youtube message */ }
   }
-  const hello = () => iframe.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: frameId }), '*')
+  const hello = () => { captionsCleared.delete(frameId); iframe.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: frameId }), '*') }
   window.addEventListener('message', onMessage)
   iframe.addEventListener('load', hello)
   hello()
@@ -57,6 +64,12 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
 
 const command = (frameId: string, func: string, args: unknown[] = []) =>
   activeIframes[frameId]?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
+
+// Subtitles off for good. cc_load_policy=0 is only the embed's default and loses to a viewer whose YouTube
+// account turns captions on everywhere, so the caption module itself is unloaded once the player is ready.
+// Both names are sent because the module is 'captions' on some players and 'cc' on others.
+const captionsCleared = new Set<string>()
+const unloadCaptions = (frameId: string) => { command(frameId, 'unloadModule', ['captions']); command(frameId, 'unloadModule', ['cc']) }
 
 // a mute=1 embed can come up with its volume at 0, so unmuting alone stays silent — always restore volume too
 export const unmuteFrame = (frameId: string) => { command(frameId, 'unMute'); command(frameId, 'setVolume', [70]) }
@@ -179,7 +192,10 @@ const playlistEmbedSrc = (playlistId: string, startVideo: string | undefined, ur
 
 export const embedSrc = (stored: string, frameId: string, extra: string) => {
   const start = Math.max(0, Math.floor(videoResume[frameId] ?? 0))
-  const params = typeof location === 'undefined' ? extra : `${extra}&origin=${encodeURIComponent(location.origin)}`
+  // captions stay off: cc_load_policy=0 covers the embed default, and unloadCaptions (below) handles the
+  // viewer whose YouTube account forces subtitles on, which the URL parameter alone does not override
+  const base = `cc_load_policy=0&${extra}`
+  const params = typeof location === 'undefined' ? base : `${base}&origin=${encodeURIComponent(location.origin)}`
   if (!stored.startsWith('pl:')) return videoEmbedSrc(stored, start, params)
   const [playlistId, startVideo, index] = stored.slice(3).split('@')
   return playlistEmbedSrc(playlistId, startVideo || undefined, index ? Number(index) : undefined, frameId, start, params)
