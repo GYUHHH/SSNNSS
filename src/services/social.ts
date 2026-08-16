@@ -67,6 +67,70 @@ export const schedulePublish = () => {
   publishTimer = setTimeout(() => { void publishRoom() }, 2500)
 }
 
+export const myVisitorId = () => visitorId()
+
+// Guestbook lives on the server as soon as the room has a handle: visitors can write, and deletion is allowed
+// to the room owner (device secret) or the comment's own author (visitor id), enforced inside the SQL function.
+export type RemoteGuestComment = { id: string; item_id: string; name: string; text: string; visitor: string; created_at: string }
+
+export async function fetchGuestbook(): Promise<RemoteGuestComment[] | null> {
+  const room = currentRoomHandle()
+  if (!room) return null
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/guestbook?room=eq.${escape(room)}&select=id,item_id,name,text,visitor,created_at&order=created_at.desc`, { headers })
+    const rows = await response.json()
+    return Array.isArray(rows) ? rows : null
+  } catch { return null }
+}
+
+export async function addRemoteComment(itemId: string, name: string, text: string): Promise<RemoteGuestComment | null> {
+  const room = currentRoomHandle()
+  if (!room) return null
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/guestbook`, {
+      method: 'POST',
+      headers: { ...headers, Prefer: 'return=representation' },
+      body: JSON.stringify({ room, item_id: itemId, name, text, visitor: visitorId() }),
+    })
+    const rows = await response.json()
+    return Array.isArray(rows) ? rows[0] ?? null : null
+  } catch { return null }
+}
+
+export async function removeRemoteComment(commentId: string) {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/rpc/delete_guest_comment`, { method: 'POST', headers, body: JSON.stringify({ p_id: commentId, p_secret: roomSecret(), p_visitor: visitorId() }) })
+  } catch { /* offline */ }
+}
+
+// One visit row per visitor per day; the profile numbers read the real counts
+export async function recordVisit() {
+  if (!isVisiting()) return
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/visits`, { method: 'POST', headers: { ...headers, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ room: visitHandle, visitor: visitorId() }) })
+  } catch { /* offline */ }
+}
+
+const countRows = async (query: string): Promise<number | null> => {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/${query}`, { method: 'HEAD', headers: { ...headers, Prefer: 'count=exact' } })
+    const range = response.headers.get('content-range')
+    const total = range?.split('/')[1]
+    return total && total !== '*' ? Number(total) : null
+  } catch { return null }
+}
+
+export async function fetchVisitCounts(): Promise<{ total: number; today: number } | null> {
+  const room = currentRoomHandle()
+  if (!room) return null
+  const today = new Date().toISOString().slice(0, 10)
+  const [total, todayCount] = await Promise.all([
+    countRows(`visits?room=eq.${escape(room)}&select=visitor`),
+    countRows(`visits?room=eq.${escape(room)}&day=eq.${today}&select=visitor`),
+  ])
+  return total === null ? null : { total, today: todayCount ?? 0 }
+}
+
 export async function toggleLike(itemId: string): Promise<{ count: number; liked: boolean } | null> {
   const room = currentRoomHandle()
   if (!room) return null

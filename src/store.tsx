@@ -5,7 +5,9 @@ import { characterPosition } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
 import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveVideoLinks, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic } from './services/music'
-import { isVisiting, readStored, schedulePublish } from './services/social'
+import { addRemoteComment, currentRoomHandle, fetchGuestbook, fetchVisitCounts, isVisiting, readStored, recordVisit, removeRemoteComment, schedulePublish, type RemoteGuestComment } from './services/social'
+
+const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor })
 
 export type SelectedObject = string | null
 export type FurnitureId = string
@@ -206,7 +208,7 @@ const same = (a: FurnitureItem[], b: FurnitureItem[]) => JSON.stringify(a, (key,
 export type StyleTarget = { kind: 'wall'; wallId: WallId } | { kind: 'floor' } | { kind: 'furniture'; id: FurnitureId }
 
 type RoomStore = {
-  selectedObject: SelectedObject; characterState: CharacterState; computerOn: boolean; toggledOn: Set<string>; cupHeld: boolean; artworks: Record<string, string>; setArtwork: (id: string, dataURL: string | null) => void; rooms: Array<{ id: string; name: string }>; activeRoomId: string; openRoom: (id: string) => void; createRoom: () => void; removeRoom: (id: string) => void; availableCount: (type: string) => number; profile: Profile; profileOpen: boolean; openProfile: () => void; closeProfile: () => void; setProfilePhoto: (photo: string | null) => void; setProfileHandle: (handle: string) => void; videoFrames: Record<string, number>; setVideoClip: (id: string, file: File | null) => void; videoLinks: Record<string, string>; setVideoLink: (id: string, url: string | null) => boolean; playingFrames: string[]; stopFrame: (id: string) => void; mutedFrames: string[]; setFrameMuted: (id: string, muted: boolean, persist?: boolean) => void; highlightFrame: string | null; setHighlightFrame: (id: string | null) => void; openVideoPanel: (id: string) => void; guestbook: Record<string, GuestComment[]>; addGuestComment: (id: string, name: string, text: string) => void; removeGuestComment: (id: string, commentId: string) => void; timeOfDay: TimeOfDay; setTimeOfDay: (time: TimeOfDay) => void; books: Book[]; openBookId: string | null; bookshelfOpen: boolean
+  selectedObject: SelectedObject; characterState: CharacterState; computerOn: boolean; toggledOn: Set<string>; cupHeld: boolean; artworks: Record<string, string>; setArtwork: (id: string, dataURL: string | null) => void; rooms: Array<{ id: string; name: string }>; activeRoomId: string; openRoom: (id: string) => void; createRoom: () => void; removeRoom: (id: string) => void; availableCount: (type: string) => number; profile: Profile; profileOpen: boolean; openProfile: () => void; closeProfile: () => void; setProfilePhoto: (photo: string | null) => void; setProfileHandle: (handle: string) => void; videoFrames: Record<string, number>; setVideoClip: (id: string, file: File | null) => void; videoLinks: Record<string, string>; setVideoLink: (id: string, url: string | null) => boolean; playingFrames: string[]; stopFrame: (id: string) => void; mutedFrames: string[]; setFrameMuted: (id: string, muted: boolean, persist?: boolean) => void; highlightFrame: string | null; setHighlightFrame: (id: string | null) => void; openVideoPanel: (id: string) => void; guestbook: Record<string, GuestComment[]>; addGuestComment: (id: string, name: string, text: string) => void; removeGuestComment: (id: string, commentId: string) => void; remoteVisits: { total: number; today: number } | null; timeOfDay: TimeOfDay; setTimeOfDay: (time: TimeOfDay) => void; books: Book[]; openBookId: string | null; bookshelfOpen: boolean
   mode: RoomMode; furniture: FurnitureItem[]; selectedFurnitureId: FurnitureId | null; selectedPlacementValid: boolean; movingFurnitureId: FurnitureId | null; preview: FurnitureItem | null; previewValid: boolean; previewDragging: boolean
   wallStyle: RoomStyle; floorStyle: string | undefined; styleTarget: StyleTarget | null; debugAnchors: boolean; moveNotice: boolean; floorTarget: [number, number, number] | null; musicTrack: string | null; setMusicTrack: (id: string | null) => void; musicVolume: number; setMusicVolume: (value: number) => void
   selectObject: (object: Exclude<SelectedObject, null>) => void; clearSelection: () => void; finishCharacterAction: (state: Exclude<CharacterState, 'walking'>) => void; moveCharacterTo: (position: [number, number, number]) => void; settleFloorMove: (reached: boolean) => void; openBook: (id: string) => void; closeBook: () => void; addBook: (title: string, visibility: Visibility) => void; deleteBook: (id: string) => void; updateBookVisibility: (id: string, visibility: Visibility) => void; setBookShelf: (id: string, shelf: number) => void; addEntry: (bookId: string, entry: EntryDraft) => void; deleteEntry: (bookId: string, entryId: string) => void; addEntryComment: (bookId: string, entryId: string, name: string, text: string) => void; removeEntryComment: (bookId: string, entryId: string, commentId: string) => void; toggleDebugAnchors: () => void
@@ -218,7 +220,7 @@ export type TimeOfDay = 'day' | 'evening' | 'night'
 // decor, lights, toggles, plain props — must leave the character exactly as it is. Whitelist on purpose: new
 // furniture is inert until it earns a pose here.
 export const POSED_TYPES = new Set(['bed', 'sofa', 'chair', 'desk', 'bookshelf', 'rocking-chair', 'beanbag', 'cup', 'plant', 'cabinet', 'side-table', 'coffee-table', 'wardrobe', 'hanger', 'mirror', 'rug', 'bin', 'glass-shelf'])
-export type GuestComment = { id: string; name: string; text: string; createdAt: string }
+export type GuestComment = { id: string; name: string; text: string; createdAt: string; visitor?: string }
 const toPlacement = ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, allowedSurfaces, styleId, removed, updatedAt }: FurnitureItem): FurniturePlacement => ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, resolution: resolutionFor({ allowedSurfaces }), styleId, removed, updatedAt })
 // every catalogue piece exists exactly once for now; a future account would supply real per-user counts
 const OWNED_PER_TYPE = 1
@@ -494,8 +496,28 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     if (!file) { deleteVideo(id); setVideoFrames(({ [id]: _removed, ...rest }) => rest); return }
     putVideo(id, file).then(() => setVideoFrames((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 })))
   }
-  const addGuestComment = (id: string, name: string, text: string) => setGuestbook((prev) => ({ ...prev, [id]: [{ id: `gc-${Date.now()}`, name: name.trim() || '익명', text, createdAt: new Date().toISOString() }, ...(prev[id] ?? [])] }))
-  const removeGuestComment = (id: string, commentId: string) => setGuestbook((prev) => ({ ...prev, [id]: (prev[id] ?? []).filter((comment) => comment.id !== commentId) }))
+  // with a handle the guestbook is server-backed (visitors can write); without one it stays local as before
+  const addGuestComment = (id: string, name: string, text: string) => {
+    const cleanName = name.trim() || '익명'
+    setGuestbook((prev) => ({ ...prev, [id]: [{ id: `gc-${Date.now()}`, name: cleanName, text, createdAt: new Date().toISOString() }, ...(prev[id] ?? [])] }))
+    if (currentRoomHandle()) void addRemoteComment(id, cleanName, text).then((row) => { if (row) setGuestbook((prev) => ({ ...prev, [id]: [remoteToComment(row), ...(prev[id] ?? []).filter((comment) => !comment.id.startsWith('gc-'))] })) })
+  }
+  const removeGuestComment = (id: string, commentId: string) => {
+    setGuestbook((prev) => ({ ...prev, [id]: (prev[id] ?? []).filter((comment) => comment.id !== commentId) }))
+    if (currentRoomHandle() && !commentId.startsWith('gc-')) void removeRemoteComment(commentId)
+  }
+  // server-backed guestbook + real visit counts arrive once per load
+  const [remoteVisits, setRemoteVisits] = useState<{ total: number; today: number } | null>(null)
+  useEffect(() => {
+    void recordVisit()
+    void fetchGuestbook().then((rows) => {
+      if (!rows) return
+      const grouped: Record<string, GuestComment[]> = {}
+      rows.forEach((row) => { (grouped[row.item_id] ??= []).push(remoteToComment(row)) })
+      setGuestbook(grouped)
+    })
+    void fetchVisitCounts().then((counts) => { if (counts) setRemoteVisits(counts) })
+  }, [])
   // you own one of each, wherever it stands — a piece placed in another room is not available in this one
   const availableCount = (type: string) => Math.max(0, ownedCountOf(type) - furniture.filter((item) => item.type === type && !item.removed).length - (placedElsewhere[type] ?? 0))
   const openRoom = (id: string) => {
@@ -529,7 +551,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }
   const setTimeOfDay = (time: TimeOfDay) => { setTimeOfDayState(time); if (isVisiting()) return; try { localStorage.setItem('my-room-time-v1', time); schedulePublish() } catch { /* unavailable */ } }
   const setArtwork = (id: string, dataURL: string | null) => setArtworks((prev) => { const next = { ...prev }; if (dataURL) next[id] = dataURL; else delete next[id]; return next })
-  return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, profile, profileOpen, openProfile: () => setProfileOpen(true), closeProfile: () => setProfileOpen(false), setProfilePhoto, setProfileHandle, videoFrames, setVideoClip, videoLinks, setVideoLink, playingFrames, stopFrame: (id: string) => setPlayingFrames((prev) => prev.filter((value) => value !== id)), mutedFrames, setFrameMuted, highlightFrame, setHighlightFrame, openVideoPanel: (id: string) => { setFrameMuted(id, false); setStyleTarget(null); setSelectedObject(id) }, rooms, activeRoomId, openRoom, createRoom, removeRoom, availableCount, guestbook, addGuestComment, removeGuestComment, timeOfDay, setTimeOfDay, books, openBookId, bookshelfOpen, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, selectObject, clearSelection, finishCharacterAction: setCharacterState, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject('bookshelf'); setBookshelfOpen(true) }, addBook, deleteBook, updateBookVisibility, setBookShelf, addEntry, deleteEntry, addEntryComment, removeEntryComment, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, closeStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
+  return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, profile, profileOpen, openProfile: () => setProfileOpen(true), closeProfile: () => setProfileOpen(false), setProfilePhoto, setProfileHandle, videoFrames, setVideoClip, videoLinks, setVideoLink, playingFrames, stopFrame: (id: string) => setPlayingFrames((prev) => prev.filter((value) => value !== id)), mutedFrames, setFrameMuted, highlightFrame, setHighlightFrame, openVideoPanel: (id: string) => { setFrameMuted(id, false); setStyleTarget(null); setSelectedObject(id) }, rooms, activeRoomId, openRoom, createRoom, removeRoom, availableCount, guestbook, addGuestComment, removeGuestComment, remoteVisits, timeOfDay, setTimeOfDay, books, openBookId, bookshelfOpen, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, selectObject, clearSelection, finishCharacterAction: setCharacterState, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject('bookshelf'); setBookshelfOpen(true) }, addBook, deleteBook, updateBookVisibility, setBookShelf, addEntry, deleteEntry, addEntryComment, removeEntryComment, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, closeStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
 }
 export function useRoomStore() { const store = useContext(RoomContext); if (!store) throw new Error('RoomProvider is required'); return store }
 // for trees rendered outside the provider (e.g. the offscreen thumbnail canvas)

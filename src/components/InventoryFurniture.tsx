@@ -611,8 +611,9 @@ function drawProfileBoard(canvas: HTMLCanvasElement, total: number, today: numbe
 }
 
 function ProfileBoardFace() {
-  const profile = useOptionalRoomStore()?.profile
-  const total = profile?.total ?? 0, today = profile?.today ?? 0, friends = profile?.friends ?? 0
+  const store = useOptionalRoomStore()
+  const profile = store?.profile
+  const total = store?.remoteVisits?.total ?? profile?.total ?? 0, today = store?.remoteVisits?.today ?? profile?.today ?? 0, friends = profile?.friends ?? 0
   const photo = profile?.photo
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas'); canvas.width = 320; canvas.height = 128

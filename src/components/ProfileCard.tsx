@@ -3,7 +3,7 @@ import { useRoomStore } from '../store'
 import { isVisiting, shareUrl } from '../services/social'
 
 export default function ProfileCard() {
-  const { profileOpen, closeProfile, profile, setProfilePhoto, setProfileHandle } = useRoomStore()
+  const { profileOpen, closeProfile, profile, setProfilePhoto, setProfileHandle, remoteVisits } = useRoomStore()
   const inputRef = useRef<HTMLInputElement>(null)
   if (!profileOpen) return null
   const pick = (file: File) => {
@@ -28,7 +28,7 @@ export default function ProfileCard() {
         {profile.photo ? <img src={profile.photo} alt="프로필 사진" /> : <span>사진</span>}
       </button>
       <div className="profile-info">
-        <p className="profile-visits">Total <b>{profile.total}</b> <i>|</i> Today <b>{profile.today}</b></p>
+        <p className="profile-visits">Total <b>{remoteVisits?.total ?? profile.total}</b> <i>|</i> Today <b>{remoteVisits?.today ?? profile.today}</b></p>
         <p className="profile-friends">친구 <b>{profile.friends}</b></p>
       </div>
       <input ref={inputRef} type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) pick(file); event.target.value = '' }} />
