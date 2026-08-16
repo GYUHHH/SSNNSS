@@ -5,7 +5,7 @@ import { characterPosition } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
 import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic } from './services/music'
-import { addRemoteComment, currentRoomHandle, fetchGuestbook, fetchVisitCounts, isVisiting, readStored, recordVisit, removeRemoteComment, schedulePublish, uploadMedia, type RemoteGuestComment } from './services/social'
+import { addRemoteComment, currentRoomHandle, fetchGuestbook, fetchVisitCounts, isVisiting, readStored, recordVisit, refreshVisit, removeRemoteComment, schedulePublish, subscribeRealtime, uploadMedia, type RemoteGuestComment } from './services/social'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor })
 
@@ -510,14 +510,19 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   // server-backed guestbook + real visit counts arrive once per load
   const [remoteVisits, setRemoteVisits] = useState<{ total: number; today: number } | null>(null)
   useEffect(() => {
-    void recordVisit()
-    void fetchGuestbook().then((rows) => {
+    const loadRemoteGuestbook = () => void fetchGuestbook().then((rows) => {
       if (!rows) return
       const grouped: Record<string, GuestComment[]> = {}
       rows.forEach((row) => { (grouped[row.item_id] ??= []).push(remoteToComment(row)) })
       setGuestbook(grouped)
     })
-    void fetchVisitCounts().then((counts) => { if (counts) setRemoteVisits(counts) })
+    const loadRemoteVisits = () => void fetchVisitCounts().then((counts) => { if (counts) setRemoteVisits(counts) })
+    void recordVisit()
+    loadRemoteGuestbook()
+    loadRemoteVisits()
+    // live events keep everything current without a refresh: new comments and visits re-pull their views,
+    // and a room-data change while visiting re-fetches the snapshot (main remounts the app from it)
+    return subscribeRealtime(loadRemoteGuestbook, loadRemoteVisits, () => { void refreshVisit() })
   }, [])
   // you own one of each, wherever it stands — a piece placed in another room is not available in this one
   const availableCount = (type: string) => Math.max(0, ownedCountOf(type) - furniture.filter((item) => item.type === type && !item.removed).length - (placedElsewhere[type] ?? 0))

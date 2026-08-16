@@ -1,4 +1,6 @@
-// Supabase-backed social layer, plain fetch against PostgREST (no SDK dependency).
+import { createClient } from '@supabase/supabase-js'
+
+// Supabase-backed social layer: plain fetch against PostgREST, plus the SDK's realtime channel for live updates.
 // - The owner's room state (a bundle of my-room-* localStorage values) is published under their profile
 //   handle, guarded by a per-device secret checked inside the save_room SQL function.
 // - Visiting ?room=<handle> loads that bundle read-only: the intercepted storage reads serve it instead of
@@ -142,6 +144,30 @@ export async function fetchVisitCounts(): Promise<{ total: number; today: number
     countRows(`visits?room=eq.${escape(room)}&day=eq.${today}&select=visitor`),
   ])
   return total === null ? null : { total, today: todayCount ?? 0 }
+}
+
+// Realtime: server-side events push straight into the open page — no refresh needed. Guestbook writes and
+// visits refresh their views in place; a room-data update while visiting reloads the visited snapshot and
+// remounts the app so the whole room reflects the owner's latest state.
+let realtime: ReturnType<typeof createClient> | null = null
+export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void, onRoomData: () => void): () => void {
+  const room = currentRoomHandle()
+  if (!room) return () => { /* nothing to unsubscribe */ }
+  realtime ??= createClient(SUPABASE_URL, SUPABASE_KEY)
+  const channel = realtime.channel(`room-${room}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'guestbook', filter: `room=eq.${room}` }, onGuestbook)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'visits', filter: `room=eq.${room}` }, onVisits)
+  if (isVisiting()) channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `handle=eq.${room}` }, onRoomData)
+  channel.subscribe()
+  return () => { void channel.unsubscribe() }
+}
+
+// visiting: pull the fresh bundle, then let main remount the app so every piece re-initializes from it
+const roomRefreshListeners = new Set<() => void>()
+export const onRoomRefresh = (listener: () => void) => { roomRefreshListeners.add(listener); return () => { roomRefreshListeners.delete(listener) } }
+export async function refreshVisit() {
+  await initVisit()
+  roomRefreshListeners.forEach((listener) => listener())
 }
 
 export async function toggleLike(itemId: string): Promise<{ count: number; liked: boolean } | null> {
