@@ -3,12 +3,18 @@ import { useFrame } from '@react-three/fiber'
 import { useRef, useState } from 'react'
 import { Box3, Vector3 } from 'three'
 import { useRoomStore } from '../store'
-import { myVisitorId } from '../services/social'
+import { isVisiting, myVisitorId } from '../services/social'
 
-// A red dot at the top-right of any object that has reactions from OTHER people (likes or guestbook
-// comments); clicking it opens the reaction popup. The dot anchors to the item's live bounding box, so it
-// follows moves, rotations, and hover lifts.
-function Badge({ id, count }: { id: string; count: number }) {
+// A red dot at the top-right of any object that has NEW reactions from other people (likes or guestbook
+// comments) — owner-only; visitors never see them. Clicking opens the reaction popup and marks the current
+// reactions as seen, so the dot disappears until something new arrives. The dot anchors to the item's live
+// bounding box, so it follows moves, rotations, and hover lifts.
+const SEEN_KEY = 'my-room-reactions-seen-v1'
+const loadSeen = (): Record<string, number> => {
+  try { const saved = JSON.parse(localStorage.getItem(SEEN_KEY) ?? 'null'); if (saved && typeof saved === 'object') return saved } catch { /* unavailable */ }
+  return {}
+}
+function Badge({ id, count, onSeen }: { id: string; count: number; onSeen: () => void }) {
   const { setReactionTarget, mode } = useRoomStore()
   const [anchor, setAnchor] = useState<[number, number, number] | null>(null)
   const throttle = useRef(0)
@@ -30,17 +36,24 @@ function Badge({ id, count }: { id: string; count: number }) {
   })
   if (!anchor || mode === 'edit') return null
   return <Html position={anchor} center zIndexRange={[5, 0]}>
-    <button type="button" className="reaction-badge" aria-label={`반응 ${count}개`} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); setReactionTarget(id) }} />
+    <button type="button" className="reaction-badge" aria-label={`반응 ${count}개`} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onSeen(); setReactionTarget(id) }} />
   </Html>
 }
 
 export default function ReactionBadges() {
   const { furniture, othersLikes, guestbook } = useRoomStore()
+  const [seen, setSeen] = useState<Record<string, number>>(() => loadSeen())
+  if (isVisiting()) return null
   const mine = myVisitorId()
+  const markSeen = (id: string, count: number) => {
+    const next = { ...seen, [id]: count }
+    setSeen(next)
+    try { localStorage.setItem(SEEN_KEY, JSON.stringify(next)) } catch { /* unavailable */ }
+  }
   return <>{furniture.filter((item) => !item.removed).map((item) => {
     const likeCount = othersLikes[item.id] ?? 0
     const commentCount = (guestbook[item.id] ?? []).filter((comment) => comment.visitor && comment.visitor !== mine).length
     const count = likeCount + commentCount
-    return count > 0 ? <Badge key={item.id} id={item.id} count={count} /> : null
+    return count > (seen[item.id] ?? 0) ? <Badge key={item.id} id={item.id} count={count} onSeen={() => markSeen(item.id, count)} /> : null
   })}</>
 }
