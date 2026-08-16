@@ -59,12 +59,14 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
     handle.addEventListener('pointercancel', onUp)
   }
   return <div className="mini-player">
-    <div className="mini-now">
-      <span className="mini-art">♪</span>
-      <span className="mini-meta">
-        <b ref={titleBox} className={slide ? 'sliding' : ''} style={slide ? { '--slide': `-${slide}px` } as React.CSSProperties : undefined}><span>{shown?.title ?? ''}</span></b>
-        <small>{shown?.artist ?? ''}</small>
-      </span>
+    <div className="mini-meta">
+      <b ref={titleBox} className={slide ? 'sliding' : ''} style={slide ? { '--slide': `-${slide}px` } as React.CSSProperties : undefined}><span>{shown?.title ?? ''}</span></b>
+      <small>{shown?.artist ?? ''}</small>
+    </div>
+    <div className="mini-progress">
+      <small>{clock(state.time)}</small>
+      <input type="range" min={0} max={state.duration || 1} step={0.1} value={Math.min(state.time, state.duration || 1)} aria-label="재생 위치" onChange={(event) => seekMusic(Number(event.target.value))} />
+      <small>-{clock(Math.max(0, state.duration - state.time))}</small>
     </div>
     <div className="mini-controls">
       <button type="button" aria-label="이전 곡" onClick={() => step(-1)}>
@@ -78,11 +80,6 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
       <button type="button" aria-label="다음 곡" onClick={() => step(1)}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2zM4 5v14l10.5-7z" /></svg>
       </button>
-    </div>
-    <div className="mini-progress">
-      <small>{clock(state.time)}</small>
-      <input type="range" min={0} max={state.duration || 1} step={0.1} value={Math.min(state.time, state.duration || 1)} aria-label="재생 위치" onChange={(event) => seekMusic(Number(event.target.value))} />
-      <small>{clock(state.duration)}</small>
     </div>
     <div className="mini-volume">
       <button type="button" aria-label={state.muted ? '음소거 해제' : '음소거'} onClick={toggleMusicMute}>
