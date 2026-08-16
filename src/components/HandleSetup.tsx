@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useRoomStore } from '../store'
-import { currentUserEmail, handleTaken, isVisiting, onAuthChange, publishRoom, roomPath, sendOtpCode, verifyOtpCode } from '../services/social'
+import { adoptRoomData, currentUserEmail, handleTaken, isVisiting, onAuthChange, ownedRoom, publishRoom, roomPath, sendOtpCode, verifyOtpCode } from '../services/social'
 
 // First-time onboarding: email → emailed 6-digit code → pick a unique id. Claiming publishes the personal
 // room, binds it to the account, and moves to its address (domain)/(id).
@@ -17,11 +17,28 @@ export default function HandleSetup() {
   const [value, setValue] = useState('')
   const [taken, setTaken] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [roomChecked, setRoomChecked] = useState(false)
   useEffect(() => {
     void currentUserEmail().then((current) => { setSession(current); setChecked(true) })
     return onAuthChange(setSession)
   }, [])
-  if (isVisiting() || profile.handle || dismissed || !checked) return null
+  // Signing in on a fresh device must land back in the room this account already owns — otherwise the id
+  // step would ask for a new one and reject the old id as taken. Adopt the server copy and go to its address.
+  // profile.handle guard is load-bearing: without it a device that already holds the handle would
+  // location.replace onto the address it is already on, reloading forever
+  useEffect(() => {
+    if (!session || profile.handle || isVisiting()) return
+    let live = true
+    void ownedRoom().then((room) => {
+      if (!live) return
+      if (!room) { setRoomChecked(true); return }
+      adoptRoomData(room.data)
+      location.replace(roomPath(room.handle))
+    })
+    return () => { live = false }
+  }, [session, profile.handle])
+  // while the owned-room lookup is in flight the id step must stay hidden, or it flashes before the redirect
+  if (isVisiting() || profile.handle || dismissed || !checked || (session && !roomChecked)) return null
   const clean = value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20)
   const valid = /^[a-z0-9_]{3,20}$/.test(clean)
   const sendCode = async () => {
