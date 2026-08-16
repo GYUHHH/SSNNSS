@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useRoomStore } from '../store'
-import { currentUserEmail, handleTaken, isVisiting, onAuthChange, publishRoom, roomPath, sendMagicLink } from '../services/social'
+import { currentUserEmail, handleTaken, isVisiting, onAuthChange, publishRoom, roomPath, sendOtpCode, verifyOtpCode } from '../services/social'
 
-// First-time onboarding: email → magic link (clicking it returns here logged in) → pick a unique id.
-// Claiming publishes the personal room, binds it to the account, and moves to its address (domain)/(id).
+// First-time onboarding: email → emailed 6-digit code → pick a unique id. Claiming publishes the personal
+// room, binds it to the account, and moves to its address (domain)/(id).
 export default function HandleSetup() {
   const { setProfileHandle, profile } = useRoomStore()
   const [session, setSession] = useState<string | null>(null)
   const [checked, setChecked] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const [email, setEmail] = useState('')
-  const [linkSent, setLinkSent] = useState(false)
+  const [codeSent, setCodeSent] = useState(false)
   const [sendFailed, setSendFailed] = useState(false)
+  const [code, setCode] = useState('')
+  const [codeBad, setCodeBad] = useState(false)
   const [value, setValue] = useState('')
   const [taken, setTaken] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -22,12 +24,19 @@ export default function HandleSetup() {
   if (isVisiting() || profile.handle || dismissed || !checked) return null
   const clean = value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20)
   const valid = /^[a-z0-9_]{3,20}$/.test(clean)
-  const sendLink = async () => {
+  const sendCode = async () => {
     if (!email.includes('@') || busy) return
     setBusy(true)
-    const ok = await sendMagicLink(email)
-    setLinkSent(ok)
+    const ok = await sendOtpCode(email)
+    setCodeSent(ok)
     setSendFailed(!ok)
+    setBusy(false)
+  }
+  const confirmCode = async () => {
+    if (code.trim().length < 6 || busy) return
+    setBusy(true)
+    const ok = await verifyOtpCode(email, code.trim())
+    setCodeBad(!ok)
     setBusy(false)
   }
   const claim = async () => {
@@ -43,12 +52,14 @@ export default function HandleSetup() {
       <button className="close-ui" type="button" aria-label="닫기" onClick={() => setDismissed(true)}>×</button>
       {!session && <>
         <strong>가입</strong>
-        {linkSent
-          ? <p className="login-sent">{email}</p>
-          : <div className="login-form">
-            <input type="email" value={email} placeholder="이메일" onChange={(event) => setEmail(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void sendLink() }} />
-            <button type="button" disabled={!email.includes('@') || busy} onClick={() => void sendLink()}>{sendFailed ? '잠시 후 다시 시도' : '메일로 로그인 링크 받기'}</button>
-          </div>}
+        <div className="login-form">
+          <input type="email" value={email} placeholder="이메일" disabled={codeSent} onChange={(event) => setEmail(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void sendCode() }} />
+          {!codeSent && <button type="button" disabled={!email.includes('@') || busy} onClick={() => void sendCode()}>{sendFailed ? '잠시 후 다시 시도' : '인증번호 받기'}</button>}
+          {codeSent && <>
+            <input type="text" inputMode="numeric" value={code} className={codeBad ? 'taken' : ''} placeholder="인증번호" onChange={(event) => { setCode(event.target.value); setCodeBad(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void confirmCode() }} />
+            <button type="button" disabled={code.trim().length < 6 || busy} onClick={() => void confirmCode()}>{codeBad ? '번호가 달라요' : '확인'}</button>
+          </>}
+        </div>
       </>}
       {session && <>
         <strong>아이디 설정</strong>
