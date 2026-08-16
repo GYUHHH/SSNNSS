@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
-import { useRoomStore } from '../store'
 import { addTrackFile, loadTracks, musicState, onMusicUpdate, pauseMusic, resumeMusic, saveTracks, seekMusic, toggleMusicMute, type MusicTrack } from '../services/music'
+
+// store values arrive as props: this panel lives inside a drei <Html> portal, which renders in its own React
+// root where the room context does not exist
+export type MusicPanelProps = { musicTrack: string | null; setMusicTrack: (id: string | null) => void; musicVolume: number; setMusicVolume: (value: number) => void }
 
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`
 
 // Compact mini player: now-playing header, prev/play/next, seekable progress, mute + volume, and a playlist
 // drawer whose rows switch tracks on click and reorder by dragging the handle (pointer events, so touch too).
-export default function MusicPanel() {
-  const { musicTrack, setMusicTrack, musicVolume, setMusicVolume } = useRoomStore()
+export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, setMusicVolume }: MusicPanelProps) {
   const [, setTick] = useState(0)
   const [listOpen, setListOpen] = useState(false)
   const [tracks, setTracks] = useState<MusicTrack[]>(() => loadTracks())

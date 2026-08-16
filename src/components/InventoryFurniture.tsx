@@ -528,7 +528,9 @@ function MusicControls({ id, y }: { id: string; y: number }) {
   const store = useOptionalRoomStore()
   if (!store || store.mode !== 'normal' || store.selectedObject !== id) return null
   return <Html position={[0, y, 0]} center zIndexRange={[4, 0]}>
-    <div onPointerDown={(event) => event.stopPropagation()}><MusicPanel /></div>
+    <div onPointerDown={(event) => event.stopPropagation()}>
+      <MusicPanel musicTrack={store.musicTrack} setMusicTrack={store.setMusicTrack} musicVolume={store.musicVolume} setMusicVolume={store.setMusicVolume} />
+    </div>
   </Html>
 }
 
