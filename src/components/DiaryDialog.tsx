@@ -1,12 +1,13 @@
 import { type ChangeEvent, type FormEvent, useRef, useState } from 'react'
 import { type Book, type Entry, type EntryDraft, type Visibility, useRoomStore } from '../store'
-import { currentRoomHandle, roomPath, toggleLike } from '../services/social'
+import { currentRoomHandle, isVisiting, roomPath, toggleLike } from '../services/social'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-const HeartIcon = ({ filled }: { filled: boolean }) => <svg viewBox="0 0 24 24" width="22" height="22" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20.4 3.9 12.6a4.9 4.9 0 0 1 0-7 4.9 4.9 0 0 1 7 0l1.1 1.1 1.1-1.1a4.9 4.9 0 0 1 7 0 4.9 4.9 0 0 1 0 7Z" /></svg>
-const CommentIcon = () => <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.5 9.5 0 0 1-3.4-.6L3 21l1.8-5a8.2 8.2 0 0 1-.8-3.5 8.4 8.4 0 0 1 8.5-8.4 8.4 8.4 0 0 1 8.5 8.4Z" /></svg>
-const ShareIcon = () => <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21.5 3.5 2.5 10.2l7.6 2.9 2.9 7.6Z" /><path d="M10.1 13.1 21.5 3.5" /></svg>
+const HeartIcon = ({ filled }: { filled: boolean }) => <svg viewBox="0 0 24 24" width="27" height="27" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20.4 3.9 12.6a4.9 4.9 0 0 1 0-7 4.9 4.9 0 0 1 7 0l1.1 1.1 1.1-1.1a4.9 4.9 0 0 1 7 0 4.9 4.9 0 0 1 0 7Z" /></svg>
+const CommentIcon = () => <svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.5 9.5 0 0 1-3.4-.6L3 21l1.8-5a8.2 8.2 0 0 1-.8-3.5 8.4 8.4 0 0 1 8.5-8.4 8.4 8.4 0 0 1 8.5 8.4Z" /></svg>
+const EditIcon = () => <svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16.4 3.6a2.3 2.3 0 0 1 3.2 3.2L7.5 18.9l-4.2 1 1-4.2Z" /><path d="M14.6 5.4l4 4" /></svg>
+const ShareIcon = () => <svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21.5 3.5 2.5 10.2l7.6 2.9 2.9 7.6Z" /><path d="M10.1 13.1 21.5 3.5" /></svg>
 const assetUrl = (source: string) => source.startsWith('/') ? `${location.hostname.endsWith('.github.io') ? `${import.meta.env.BASE_URL}public/` : import.meta.env.BASE_URL}${source.slice(1)}` : source
 
 export default function DiaryDialog() {
@@ -14,29 +15,30 @@ export default function DiaryDialog() {
   const book = books.find((item) => item.id === openBookId)
   const [writing, setWriting] = useState(false)
   if (!book) return null
+  // a private record is the owner's alone — a visitor never sees it listed
+  const visible = isVisiting() ? book.entries.filter((entry) => entry.visibility === 'public') : book.entries
   return <>
     <section className="diary" aria-label={book.title}>
       <button className="close-ui" type="button" aria-label="닫기" onClick={closeBook}>×</button>
-      <header className="diary-head"><div><span>기록장</span><h2>{book.title}</h2></div><div className="diary-head-actions">{!writing && <button type="button" onClick={() => setWriting(true)}>새 기록 작성</button>}<label>책 공개 설정 <select value={book.visibility} onChange={(event) => updateBookVisibility(book.id, event.target.value as Visibility)}><option value="private">비공개</option><option value="public">공개</option></select></label></div></header>
-      {writing ? <EntryForm book={book} onSave={(draft) => { addEntry(book.id, draft); setWriting(false) }} /> : <EntryList bookId={book.id} entries={book.entries} />}
+      <header className="diary-head"><div className="diary-title">{writing && <button className="diary-back" type="button" aria-label="뒤로" onClick={() => setWriting(false)}>←</button>}<div><span>기록장</span><h2>{book.title}</h2></div></div>{!isVisiting() && <div className="diary-head-actions">{!writing && <button type="button" onClick={() => setWriting(true)}>새 기록 작성</button>}<label>책 공개 설정 <select value={book.visibility} onChange={(event) => updateBookVisibility(book.id, event.target.value as Visibility)}><option value="private">비공개</option><option value="public">공개</option></select></label></div>}</header>
+      {writing ? <EntryForm book={book} onSave={(draft) => { addEntry(book.id, draft); setWriting(false) }} /> : <EntryList bookId={book.id} entries={visible} />}
     </section>
   </>
 }
 
 function EntryList({ bookId, entries }: { bookId: string; entries: Entry[] }) {
-  const { deleteEntry } = useRoomStore()
-  const [deleting, setDeleting] = useState<string | null>(null)
   return <>
     <div className="entry-list">
       {entries.length === 0 && <p className="entry-empty">아직 기록이 없어요.</p>}
-      {[...entries].reverse().map((entry) => <EntryItem key={entry.id} bookId={bookId} entry={entry} deleting={deleting === entry.id} onDelete={() => setDeleting(entry.id)} onCancel={() => setDeleting(null)} onConfirm={() => { deleteEntry(bookId, entry.id); setDeleting(null) }} />)}
+      {[...entries].reverse().map((entry) => <EntryItem key={entry.id} bookId={bookId} entry={entry} />)}
     </div>
   </>
 }
 
 // One record: photo full-bleed, then the like / comment / share row, then its comments.
-function EntryItem({ bookId, entry, deleting, onDelete, onCancel, onConfirm }: { bookId: string; entry: Entry; deleting: boolean; onDelete: () => void; onCancel: () => void; onConfirm: () => void }) {
+function EntryItem({ bookId, entry }: { bookId: string; entry: Entry }) {
   const { likeTotals, myLikes } = useRoomStore()
+  const [editing, setEditing] = useState(false)
   // the server is authoritative, but its answer arrives after the click — hold it locally so the heart reacts at once
   const [pressed, setPressed] = useState<{ count: number; liked: boolean } | null>(null)
   const [shared, setShared] = useState(false)
@@ -50,18 +52,48 @@ function EntryItem({ bookId, entry, deleting, onDelete, onCancel, onConfirm }: {
     setTimeout(() => setShared(false), 1400)
   }
   return <article className="entry-item">
-    <div className="entry-item-head"><time>{entry.date}</time><button type="button" onClick={onDelete}>삭제</button></div>
-    {deleting && <div className="delete-confirm entry-delete-confirm"><span>이 기록을 삭제할까요?</span><button type="button" onClick={onCancel}>취소</button><button type="button" onClick={onConfirm}>삭제</button></div>}
     {entry.images[0] && <img src={assetUrl(entry.images[0])} alt="기록 사진" />}
     <div className="entry-actions">
       <button type="button" className={likes.liked ? 'liked' : ''} aria-label="좋아요" onClick={() => void toggleLike(entry.id).then((result) => result && setPressed(result))}><HeartIcon filled={likes.liked} />{likes.count > 0 && <span>{likes.count}</span>}</button>
       <button type="button" aria-label="댓글" onClick={() => commentInput.current?.focus()}><CommentIcon />{(entry.comments ?? []).length > 0 && <span>{(entry.comments ?? []).length}</span>}</button>
       <button type="button" className={shared ? 'shared' : ''} aria-label="공유" onClick={share}><ShareIcon /></button>
+      {!isVisiting() && <button type="button" className="entry-edit" aria-label="수정" onClick={() => setEditing(true)}><EditIcon /></button>}
     </div>
     {entry.content && <p>{entry.content}</p>}
-    <small>{entry.visibility === 'public' ? '공개 기록' : '비공개 기록'}</small>
+    {!isVisiting() && <small>{entry.visibility === 'public' ? '공개 기록' : '비공개 기록'}</small>}
     <EntryComments bookId={bookId} entry={entry} inputRef={commentInput} />
+    {editing && <EntryEditor bookId={bookId} entry={entry} onClose={() => setEditing(false)} />}
   </article>
+}
+
+// The pencil's popup: swap the photo, rewrite the words, flip who can see it — or delete the record outright.
+function EntryEditor({ bookId, entry, onClose }: { bookId: string; entry: Entry; onClose: () => void }) {
+  const { updateEntry, deleteEntry } = useRoomStore()
+  const [content, setContent] = useState(entry.content)
+  const [images, setImages] = useState<string[]>(entry.images)
+  const [visibility, setVisibility] = useState<Visibility>(entry.visibility)
+  const [confirming, setConfirming] = useState(false)
+  const pick = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = [...(event.target.files ?? [])]
+    Promise.all(files.map((file) => new Promise<string>((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.readAsDataURL(file) }))).then((sources) => setImages(sources))
+    event.target.value = ''
+  }
+  const save = (event: FormEvent) => { event.preventDefault(); updateEntry(bookId, entry.id, { content, images, visibility }); onClose() }
+  return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && onClose()}>
+    <form className="entry-editor" onSubmit={save}>
+      <button className="close-ui" type="button" aria-label="닫기" onClick={onClose}>×</button>
+      <strong>기록 수정</strong>
+      {images[0] && <img src={assetUrl(images[0])} alt="기록 사진" />}
+      <label className="entry-editor-file">사진 바꾸기<input type="file" accept="image/*" onChange={pick} /></label>
+      <textarea value={content} onChange={(event) => setContent(event.target.value)} placeholder="내용" />
+      <fieldset><legend>공개 설정</legend><label><input type="radio" checked={visibility === 'public'} onChange={() => setVisibility('public')} /> 공개</label><label><input type="radio" checked={visibility === 'private'} onChange={() => setVisibility('private')} /> 비공개</label></fieldset>
+      <div className="entry-editor-foot">
+        <button type="button" className="entry-editor-delete" onClick={() => setConfirming(true)}>삭제</button>
+        <button type="submit">저장</button>
+      </div>
+      {confirming && <div className="delete-confirm"><span>이 기록을 삭제할까요?</span><button type="button" onClick={() => setConfirming(false)}>취소</button><button type="button" onClick={() => { deleteEntry(bookId, entry.id); onClose() }}>삭제</button></div>}
+    </form>
+  </div>
 }
 
 function EntryComments({ bookId, entry, inputRef }: { bookId: string; entry: Entry; inputRef: React.RefObject<HTMLTextAreaElement | null> }) {

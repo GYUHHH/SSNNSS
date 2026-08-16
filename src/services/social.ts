@@ -290,8 +290,17 @@ export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void,
 // visiting: pull the fresh bundle, then let main remount the app so every piece re-initializes from it
 const roomRefreshListeners = new Set<() => void>()
 export const onRoomRefresh = (listener: () => void) => { roomRefreshListeners.add(listener); return () => { roomRefreshListeners.delete(listener) } }
+// A remount is only worth it when the ROOM itself changed. The guestbook rides its own live channel, so a
+// visitor writing a comment used to trigger the owner's republish and bounce the whole app a few seconds
+// later — that looked exactly like a spontaneous page refresh. Guestbook-only changes are ignored here.
+const withoutGuestbook = (bundle: Record<string, string> | null) => {
+  const { 'my-room-guestbook-v1': _guestbook, ...rest } = bundle ?? {}
+  return JSON.stringify(rest)
+}
 export async function refreshVisit() {
+  const before = withoutGuestbook(visitData)
   await initVisit()
+  if (withoutGuestbook(visitData) === before) return
   roomRefreshListeners.forEach((listener) => listener())
 }
 
