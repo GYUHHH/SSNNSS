@@ -74,10 +74,6 @@ const ownHandle = (): string | null => {
 export const currentRoomHandle = () => (isVisiting() ? visitHandle : ownHandle())
 // the writer's OWN id, even while visiting someone else's room (reads the local profile directly)
 export const myHandle = () => ownHandle()
-export const shareUrl = () => {
-  const handle = ownHandle()
-  return handle ? `${location.origin}${BASE}${escape(handle)}` : null
-}
 export const roomPath = (handle: string) => `${BASE}${escape(handle)}`
 
 export async function publishRoom() {
