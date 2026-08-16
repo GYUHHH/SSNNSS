@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Group } from 'three'
 import { loadAudioPrefs, useRoomStore } from '../store'
 import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
-import { embedSrc, trackIframe, requestSound, playlistVideoResume, watchPlaylistOrder } from '../services/ytResume'
+import { embedSrc, trackIframe, requestSound, playlistVideoResume, watchPlaylistOrder, playFrame } from '../services/ytResume'
 
 // The playing iframes live here, OUTSIDE the furniture tree: entering edit mode swaps every piece into a
 // different wrapper, which would unmount an iframe rendered inside it and reload the video. This layer stays
@@ -103,6 +103,18 @@ export default function WallVideoLayer() {
     window.addEventListener('blur', releaseWallIframeFocus)
     window.addEventListener('focus', releaseWallIframeFocus)
     return () => { window.removeEventListener('blur', releaseWallIframeFocus); window.removeEventListener('focus', releaseWallIframeFocus) }
+  }, [])
+  // Mobile browsers pause media while the screen is off and the embeds do not resume by themselves —
+  // nudge every playing frame back into playback the moment the page becomes visible again.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      const nudge = () => latest.current.playingFrames.forEach((id) => playFrame(id))
+      nudge()
+      setTimeout(nudge, 1200)
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [])
   return <>{playingFrames.map((id) => <WallVideo key={id} frameId={id} />)}</>
 }

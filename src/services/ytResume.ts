@@ -47,6 +47,7 @@ const command = (frameId: string, func: string, args: unknown[] = []) =>
 // a mute=1 embed can come up with its volume at 0, so unmuting alone stays silent — always restore volume too
 export const unmuteFrame = (frameId: string) => { command(frameId, 'unMute'); command(frameId, 'setVolume', [70]) }
 export const muteFrame = (frameId: string) => command(frameId, 'mute')
+export const playFrame = (frameId: string) => command(frameId, 'playVideo')
 
 
 // Autoplay always wins: every wall embed starts muted (never blocked), then this lifts the mute for frames the
