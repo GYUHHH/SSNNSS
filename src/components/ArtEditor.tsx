@@ -10,7 +10,8 @@ const COLORS = ['#3f3a33', '#b96b52', '#d9a441', '#8a9c82', '#607b93', '#a06a8c'
 // artwork saved for this furniture id, as a three texture for the wall/frame plane (null → default look)
 export function useArtTexture(id: string): Texture | null {
   const src = useOptionalRoomStore()?.artworks[id]
-  const texture = useMemo(() => { if (!src) return null; const t = new TextureLoader().load(src); t.colorSpace = SRGBColorSpace; return t }, [src])
+  const [, setLoadedAt] = useState(0)
+  const texture = useMemo(() => { if (!src) return null; const t = new TextureLoader().load(src, () => setLoadedAt((value) => value + 1)); t.colorSpace = SRGBColorSpace; return t }, [src])
   useEffect(() => () => { texture?.dispose() }, [texture])
   return texture
 }
