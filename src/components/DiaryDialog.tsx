@@ -1,7 +1,12 @@
 import { type ChangeEvent, type FormEvent, useRef, useState } from 'react'
 import { type Book, type Entry, type EntryDraft, type Visibility, useRoomStore } from '../store'
+import { currentRoomHandle, roomPath, toggleLike } from '../services/social'
 
 const today = () => new Date().toISOString().slice(0, 10)
+
+const HeartIcon = ({ filled }: { filled: boolean }) => <svg viewBox="0 0 24 24" width="22" height="22" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20.4 3.9 12.6a4.9 4.9 0 0 1 0-7 4.9 4.9 0 0 1 7 0l1.1 1.1 1.1-1.1a4.9 4.9 0 0 1 7 0 4.9 4.9 0 0 1 0 7Z" /></svg>
+const CommentIcon = () => <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.5 9.5 0 0 1-3.4-.6L3 21l1.8-5a8.2 8.2 0 0 1-.8-3.5 8.4 8.4 0 0 1 8.5-8.4 8.4 8.4 0 0 1 8.5 8.4Z" /></svg>
+const ShareIcon = () => <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21.5 3.5 2.5 10.2l7.6 2.9 2.9 7.6Z" /><path d="M10.1 13.1 21.5 3.5" /></svg>
 const assetUrl = (source: string) => source.startsWith('/') ? `${location.hostname.endsWith('.github.io') ? `${import.meta.env.BASE_URL}public/` : import.meta.env.BASE_URL}${source.slice(1)}` : source
 
 export default function DiaryDialog() {
@@ -24,34 +29,58 @@ function EntryList({ bookId, entries }: { bookId: string; entries: Entry[] }) {
   return <>
     <div className="entry-list">
       {entries.length === 0 && <p className="entry-empty">아직 기록이 없어요.</p>}
-      {[...entries].reverse().map((entry) => <article key={entry.id} className="entry-item">
-        <div className="entry-item-head"><time>{entry.date}</time><button type="button" onClick={() => setDeleting(entry.id)}>삭제</button></div>
-        {deleting === entry.id && <div className="delete-confirm entry-delete-confirm"><span>‘{entry.title}’ 삭제할까요?</span><button type="button" onClick={() => setDeleting(null)}>취소</button><button type="button" onClick={() => { deleteEntry(bookId, entry.id); setDeleting(null) }}>삭제</button></div>}
-        <h3>{entry.title}</h3>
-        {entry.images[0] && <img src={assetUrl(entry.images[0])} alt="기록 사진" />}
-        {entry.content && <p>{entry.content}</p>}
-        <small>{entry.visibility === 'public' ? '공개 기록' : '비공개 기록'}</small>
-        <EntryComments bookId={bookId} entry={entry} />
-      </article>)}
+      {[...entries].reverse().map((entry) => <EntryItem key={entry.id} bookId={bookId} entry={entry} deleting={deleting === entry.id} onDelete={() => setDeleting(entry.id)} onCancel={() => setDeleting(null)} onConfirm={() => { deleteEntry(bookId, entry.id); setDeleting(null) }} />)}
     </div>
   </>
 }
 
-function EntryComments({ bookId, entry }: { bookId: string; entry: Entry }) {
+// One record: photo full-bleed, then the like / comment / share row, then its comments.
+function EntryItem({ bookId, entry, deleting, onDelete, onCancel, onConfirm }: { bookId: string; entry: Entry; deleting: boolean; onDelete: () => void; onCancel: () => void; onConfirm: () => void }) {
+  const { likeTotals, myLikes } = useRoomStore()
+  // the server is authoritative, but its answer arrives after the click — hold it locally so the heart reacts at once
+  const [pressed, setPressed] = useState<{ count: number; liked: boolean } | null>(null)
+  const [shared, setShared] = useState(false)
+  const commentInput = useRef<HTMLTextAreaElement>(null)
+  const likes = pressed ?? { count: likeTotals[entry.id] ?? 0, liked: myLikes.includes(entry.id) }
+  const share = () => {
+    const handle = currentRoomHandle()
+    if (!handle) return
+    void navigator.clipboard?.writeText(`${location.origin}${roomPath(handle)}`)
+    setShared(true)
+    setTimeout(() => setShared(false), 1400)
+  }
+  return <article className="entry-item">
+    <div className="entry-item-head"><time>{entry.date}</time><button type="button" onClick={onDelete}>삭제</button></div>
+    {deleting && <div className="delete-confirm entry-delete-confirm"><span>이 기록을 삭제할까요?</span><button type="button" onClick={onCancel}>취소</button><button type="button" onClick={onConfirm}>삭제</button></div>}
+    {entry.images[0] && <img src={assetUrl(entry.images[0])} alt="기록 사진" />}
+    <div className="entry-actions">
+      <button type="button" className={likes.liked ? 'liked' : ''} aria-label="좋아요" onClick={() => void toggleLike(entry.id).then((result) => result && setPressed(result))}><HeartIcon filled={likes.liked} />{likes.count > 0 && <span>{likes.count}</span>}</button>
+      <button type="button" aria-label="댓글" onClick={() => commentInput.current?.focus()}><CommentIcon />{(entry.comments ?? []).length > 0 && <span>{(entry.comments ?? []).length}</span>}</button>
+      <button type="button" className={shared ? 'shared' : ''} aria-label="공유" onClick={share}><ShareIcon /></button>
+    </div>
+    {entry.content && <p>{entry.content}</p>}
+    <small>{entry.visibility === 'public' ? '공개 기록' : '비공개 기록'}</small>
+    <EntryComments bookId={bookId} entry={entry} inputRef={commentInput} />
+  </article>
+}
+
+function EntryComments({ bookId, entry, inputRef }: { bookId: string; entry: Entry; inputRef: React.RefObject<HTMLTextAreaElement | null> }) {
   const { addEntryComment, removeEntryComment } = useRoomStore()
-  const [name, setName] = useState('')
   const [text, setText] = useState('')
-  const submit = (event: FormEvent) => { event.preventDefault(); if (!text.trim()) return; addEntryComment(bookId, entry.id, name, text.trim()); setText('') }
-  return <section className="entry-comments" aria-label={`${entry.title} 댓글`}>
-    <form className="entry-comment-form" onSubmit={submit}><input maxLength={12} value={name} onChange={(event) => setName(event.target.value)} placeholder="이름 (비우면 익명)" /><textarea maxLength={200} value={text} onChange={(event) => setText(event.target.value)} placeholder="댓글" /><button type="submit">댓글 쓰기</button></form>
+  // grow with the text; CSS caps the height at three lines and takes over with a scrollbar
+  const fit = (element: HTMLTextAreaElement | null) => { if (!element) return; element.style.height = 'auto'; element.style.height = `${element.scrollHeight}px` }
+  const submit = (event: FormEvent) => { event.preventDefault(); if (!text.trim()) return; addEntryComment(bookId, entry.id, '', text.trim()); setText(''); if (inputRef.current) inputRef.current.style.height = 'auto' }
+  return <section className="entry-comments" aria-label="댓글">
+    <form className="entry-comment-form" onSubmit={submit}>
+      <textarea ref={inputRef} rows={1} maxLength={200} value={text} onChange={(event) => { setText(event.target.value); fit(event.currentTarget) }} placeholder="댓글" />
+      <button type="submit">전송</button>
+    </form>
     <div className="entry-comment-list">{(entry.comments ?? []).map((comment) => <article key={comment.id} className="entry-comment"><header><strong>{comment.name}</strong><time>{comment.createdAt.slice(0, 10)}</time><button type="button" aria-label="댓글 삭제" onClick={() => removeEntryComment(bookId, entry.id, comment.id)}>×</button></header><p>{comment.text}</p></article>)}</div>
   </section>
 }
 
 function EntryForm({ book, onSave }: { book: Book; onSave: (entry: EntryDraft) => void }) {
-  const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
-  const [date, setDate] = useState(today)
   const [visibility, setVisibility] = useState<Visibility>(book.visibility)
   const [images, setImages] = useState<string[]>([])
   const [editing, setEditing] = useState<string | null>(null)
@@ -60,10 +89,9 @@ function EntryForm({ book, onSave }: { book: Book; onSave: (entry: EntryDraft) =
     Promise.all(files.map((file) => new Promise<string>((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.readAsDataURL(file) }))).then((sources) => setImages((current) => [...current, ...sources]))
     event.target.value = ''
   }
-  const submit = (event: FormEvent) => { event.preventDefault(); if (!title.trim()) return; onSave({ title: title.trim(), content, date, images, visibility }) }
+  // a record is its photo and its words now — no title, and the date is simply the day it was written
+  const submit = (event: FormEvent) => { event.preventDefault(); if (!content.trim() && images.length === 0) return; onSave({ title: '', content, date: today(), images, visibility }) }
   return <form className="entry-form" onSubmit={submit}>
-    <label>날짜<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
-    <label>제목<input value={title} onChange={(event) => setTitle(event.target.value)} /></label>
     <label>사진<input type="file" accept="image/*" multiple onChange={addImages} /></label>
     {images.length > 0 && <div className="draft-images">{images.map((image, index) => <button key={image} type="button" onClick={() => setEditing(image)}><img src={image} alt={`추가한 사진 ${index + 1}`} /></button>)}</div>}
     <label>내용<textarea value={content} onChange={(event) => setContent(event.target.value)} /></label>
