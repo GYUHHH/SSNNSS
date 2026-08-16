@@ -9,11 +9,8 @@ import { isVisiting, myVisitorId } from '../services/social'
 // comments) — owner-only; visitors never see them. Clicking opens the reaction popup and marks the current
 // reactions as seen, so the dot disappears until something new arrives. The dot anchors to the item's live
 // bounding box, so it follows moves, rotations, and hover lifts.
-const SEEN_KEY = 'my-room-reactions-seen-v1'
-const loadSeen = (): Record<string, number> => {
-  try { const saved = JSON.parse(localStorage.getItem(SEEN_KEY) ?? 'null'); if (saved && typeof saved === 'object') return saved } catch { /* unavailable */ }
-  return {}
-}
+// seen-state lives in memory only (nothing written to storage); a reload starts the badges fresh
+const seenCounts: Record<string, number> = {}
 function Badge({ id, count, onSeen }: { id: string; count: number; onSeen: () => void }) {
   const { setReactionTarget, mode } = useRoomStore()
   const [anchor, setAnchor] = useState<[number, number, number] | null>(null)
@@ -42,13 +39,12 @@ function Badge({ id, count, onSeen }: { id: string; count: number; onSeen: () =>
 
 export default function ReactionBadges() {
   const { furniture, othersLikes, guestbook } = useRoomStore()
-  const [seen, setSeen] = useState<Record<string, number>>(() => loadSeen())
+  const [seen, setSeen] = useState<Record<string, number>>(seenCounts)
   if (isVisiting()) return null
   const mine = myVisitorId()
   const markSeen = (id: string, count: number) => {
-    const next = { ...seen, [id]: count }
-    setSeen(next)
-    try { localStorage.setItem(SEEN_KEY, JSON.stringify(next)) } catch { /* unavailable */ }
+    seenCounts[id] = count
+    setSeen({ ...seenCounts })
   }
   return <>{furniture.filter((item) => !item.removed).map((item) => {
     const likeCount = othersLikes[item.id] ?? 0
