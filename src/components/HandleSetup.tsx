@@ -11,6 +11,7 @@ export default function HandleSetup() {
   const [dismissed, setDismissed] = useState(false)
   const [email, setEmail] = useState('')
   const [linkSent, setLinkSent] = useState(false)
+  const [sendFailed, setSendFailed] = useState(false)
   const [value, setValue] = useState('')
   const [taken, setTaken] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -24,7 +25,9 @@ export default function HandleSetup() {
   const sendLink = async () => {
     if (!email.includes('@') || busy) return
     setBusy(true)
-    setLinkSent(await sendMagicLink(email))
+    const ok = await sendMagicLink(email)
+    setLinkSent(ok)
+    setSendFailed(!ok)
     setBusy(false)
   }
   const claim = async () => {
@@ -44,7 +47,7 @@ export default function HandleSetup() {
           ? <p className="login-sent">{email}</p>
           : <div className="login-form">
             <input type="email" value={email} placeholder="이메일" onChange={(event) => setEmail(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void sendLink() }} />
-            <button type="button" disabled={!email.includes('@') || busy} onClick={() => void sendLink()}>메일로 로그인 링크 받기</button>
+            <button type="button" disabled={!email.includes('@') || busy} onClick={() => void sendLink()}>{sendFailed ? '잠시 후 다시 시도' : '메일로 로그인 링크 받기'}</button>
           </div>}
       </>}
       {session && <>
