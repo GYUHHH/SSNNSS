@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { SRGBColorSpace, type Texture, TextureLoader } from 'three'
 import { useOptionalRoomStore, useRoomStore } from '../store'
 import { getVideo } from '../services/mediaStore'
+import { loadOrders, onOrderChange, saveOrder } from '../services/playlistOrder'
 
 const PAPER = '#f6efe2'
 const COLORS = ['#3f3a33', '#b96b52', '#d9a441', '#8a9c82', '#607b93', '#a06a8c', '#e8b4a0', '#f3ead9']
@@ -137,4 +138,67 @@ export function ClipPreview({ id }: { id: string }) {
   }, [id, version])
   if (!url) return null
   return <video className="clip-preview" src={url} autoPlay muted loop playsInline controls />
+}
+
+// Site-side play order editor for a playlist frame: rows (thumbnail, title, drag handle) reordered by
+// pointer-dragging the handle — pointer events cover mouse and touch alike, so mobile drags work without a
+// separate long-press path. Every drop saves immediately; playback picks the new order up from the NEXT video
+// (the current one keeps playing untouched). The id list itself arrives from playback sync (watchPlaylistOrder).
+const titleCache: Record<string, string> = {}
+function OrderRow({ videoId, index, count, onMove }: { videoId: string; index: number; count: number; onMove: (from: number, to: number) => void }) {
+  const [title, setTitle] = useState(titleCache[videoId] ?? '')
+  const row = useRef<HTMLLIElement>(null)
+  useEffect(() => {
+    if (titleCache[videoId]) { setTitle(titleCache[videoId]); return }
+    let live = true
+    fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`)
+      .then((response) => response.json())
+      .then((data) => { if (live && data?.title) { titleCache[videoId] = data.title; setTitle(data.title) } })
+      .catch(() => { /* fall back to the id */ })
+    return () => { live = false }
+  }, [videoId])
+  const startDrag = (event: React.PointerEvent) => {
+    event.preventDefault()
+    const handle = event.currentTarget as HTMLElement
+    handle.setPointerCapture(event.pointerId)
+    const rowHeight = row.current?.offsetHeight || 48
+    const startY = event.clientY
+    let at = index
+    const onMovePointer = (move: PointerEvent) => {
+      const target = Math.min(count - 1, Math.max(0, index + Math.round((move.clientY - startY) / rowHeight)))
+      if (target !== at) { onMove(at, target); at = target }
+    }
+    const onUp = () => { handle.removeEventListener('pointermove', onMovePointer); handle.removeEventListener('pointerup', onUp); handle.removeEventListener('pointercancel', onUp) }
+    handle.addEventListener('pointermove', onMovePointer)
+    handle.addEventListener('pointerup', onUp)
+    handle.addEventListener('pointercancel', onUp)
+  }
+  return <li ref={row} className="order-row">
+    <img src={`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`} alt="" />
+    <span>{title || videoId}</span>
+    <button type="button" className="order-handle" aria-label="순서 이동" onPointerDown={startDrag}>≡</button>
+  </li>
+}
+
+export function PlaylistOrderEditor({ id }: { id: string }) {
+  const { videoLinks } = useRoomStore()
+  const link = videoLinks[id]
+  const playlistId = link?.startsWith('pl:') ? link.slice(3).split('@')[0] : null
+  const [order, setOrder] = useState<string[]>(() => playlistId ? loadOrders()[playlistId] ?? [] : [])
+  useEffect(() => {
+    if (!playlistId) return
+    setOrder(loadOrders()[playlistId] ?? [])
+    return onOrderChange((changed) => { if (changed === playlistId) setOrder(loadOrders()[playlistId] ?? []) })
+  }, [playlistId])
+  if (!playlistId) return null
+  if (!order.length) return <p className="order-empty">재생이 시작되면 목록을 불러와요.</p>
+  const move = (from: number, to: number) => {
+    const next = [...order]
+    next.splice(to, 0, ...next.splice(from, 1))
+    setOrder(next)
+    saveOrder(playlistId, next)
+  }
+  return <ul className="order-list" aria-label="재생 순서">
+    {order.map((videoId, index) => <OrderRow key={videoId} videoId={videoId} index={index} count={order.length} onMove={move} />)}
+  </ul>
 }

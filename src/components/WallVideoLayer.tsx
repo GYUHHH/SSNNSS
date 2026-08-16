@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Group } from 'three'
 import { loadAudioPrefs, useRoomStore } from '../store'
 import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
-import { embedSrc, trackIframe, muteFrame, unmuteFrame, requestSound, playlistVideoResume } from '../services/ytResume'
+import { embedSrc, trackIframe, muteFrame, unmuteFrame, requestSound, playlistVideoResume, watchPlaylistOrder } from '../services/ytResume'
 
 // The playing iframes live here, OUTSIDE the furniture tree: entering edit mode swaps every piece into a
 // different wrapper, which would unmount an iframe rendered inside it and reload the video. This layer stays
@@ -59,7 +59,16 @@ export function videoAspect(id: string): Promise<number | null> {
 }
 
 export default function WallVideoLayer() {
-  const { playingFrames, mutedFrames, setFrameMuted } = useRoomStore()
+  const { playingFrames, mutedFrames, setFrameMuted, videoLinks } = useRoomStore()
+  // one order-keeper per playing playlist frame, alive across wall<->panel switches (it follows whichever
+  // iframe is currently registered for the frame), enforcing the site's custom order and syncing the id list
+  useEffect(() => {
+    const stops = playingFrames
+      .map((id) => ({ id, link: videoLinks[id] }))
+      .filter((entry) => entry.link?.startsWith('pl:'))
+      .map((entry) => watchPlaylistOrder(entry.id, entry.link.slice(3).split('@')[0]))
+    return () => stops.forEach((stop) => stop())
+  }, [playingFrames, videoLinks])
   // The visitor's first click/tap anywhere doubles as audio activation, once: frames with NO saved audio
   // choice get their sound turned on (and remembered); frames the user explicitly muted stay silent.
   // Pref-true frames blocked by autoplay policy retry on their own gesture listener in requestSound.

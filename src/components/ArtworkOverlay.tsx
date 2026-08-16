@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useRoomStore } from '../store'
-import { ClipPreview, DrawingEditor, PhotoPickButton, VideoLinkInput, VideoPickButton } from './ArtEditor'
+import { ClipPreview, DrawingEditor, PhotoPickButton, PlaylistOrderEditor, VideoLinkInput, VideoPickButton } from './ArtEditor'
 
 // which artwork panel a furniture type opens (null → none)
 export const artworkKindOf = (type: string) => type === 'photo' || type.startsWith('photo-frame') ? 'frame' : type === 'poster' || type.startsWith('wall-art') ? 'poster' : type.startsWith('video-frame') ? 'video' : type === 'guestbook' ? 'guestbook' : type === 'whiteboard' ? 'poster' : null
@@ -20,6 +20,7 @@ export default function ArtworkOverlay() {
     {videoLinks[selectedObject] && <DockSpace />}
     <ClipPreview id={selectedObject} />
     <VideoLinkInput id={selectedObject} />
+    <PlaylistOrderEditor id={selectedObject} />
     <div className="art-actions"><VideoPickButton id={selectedObject} /></div>
   </>
   const frame = kind === 'frame'

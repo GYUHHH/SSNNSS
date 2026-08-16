@@ -1,3 +1,5 @@
+import { syncOrder } from './playlistOrder'
+
 // The wall player and the panel player are different iframes, so moving between them starts a fresh embed.
 // YouTube's iframe API broadcasts currentTime while playing (after a "listening" handshake); we remember the
 // last position per frame and hand it to the next embed as its start point, so the switch resumes instead of
@@ -92,6 +94,40 @@ export function requestSound(frameId: string, onBlocked: () => void, onSound?: (
   ask()
   // on timeout: if the unmute itself took hold, sound state is whatever it is — only report blocked when it never did
   const timer = setTimeout(() => { if (!settled) { cleanup(); if (!awaitingGesture && lastMuted !== false) onBlocked() } }, 60000)
+}
+
+// Enforce the site's own play order for a playlist frame. The playlist embed still advances by itself in
+// YouTube's order — the moment the incoming video matches YouTube's natural next but differs from OUR next,
+// it is redirected with playVideoAt. Deliberate jumps (panel clicks to an arbitrary video) don't match the
+// natural-next signature and are respected. The live id list from the player also keeps the stored order in
+// sync (new videos append, deleted ones drop). Never reloads the iframe or touches the current video.
+export function watchPlaylistOrder(frameId: string, playlistId: string): () => void {
+  let liveIds: string[] = []
+  let order: string[] = []
+  let current: string | undefined
+  const onMessage = (event: MessageEvent) => {
+    if (event.source !== activeIframes[frameId]?.contentWindow) return
+    try {
+      const info = (typeof event.data === 'string' ? JSON.parse(event.data) : event.data)?.info
+      if (Array.isArray(info?.playlist) && info.playlist.length && info.playlist.join() !== liveIds.join()) {
+        liveIds = info.playlist
+        order = syncOrder(playlistId, liveIds)
+      }
+      const video = info?.videoData?.video_id
+      if (typeof video !== 'string' || !video || video === 'videoseries' || video === current) return
+      const previous = current
+      current = video
+      if (!previous || !order.length || !liveIds.length) return
+      const naturalNext = liveIds[(liveIds.indexOf(previous) + 1) % liveIds.length]
+      const ourNext = order[(order.indexOf(previous) + 1) % order.length]
+      if (video === naturalNext && video !== ourNext && liveIds.includes(ourNext)) {
+        current = ourNext
+        command(frameId, 'playVideoAt', [liveIds.indexOf(ourNext)])
+      }
+    } catch { /* not a youtube message */ }
+  }
+  window.addEventListener('message', onMessage)
+  return () => window.removeEventListener('message', onMessage)
 }
 
 // playlist state control over the iframe API, addressed by frame id
