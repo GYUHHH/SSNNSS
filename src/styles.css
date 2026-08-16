@@ -376,6 +376,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .entry-actions { display: flex; align-items: center; gap: 18px; margin: 4px 0 10px; }
 .entry-actions button { display: flex; align-items: center; gap: 7px; padding: 0; border: 0; background: transparent; color: var(--ui-text); font-size: 15px; font-weight: 600; cursor: pointer; }
 .entry-actions button.liked { color: var(--ui-red); }
+.entry-actions button.pop svg { animation: heart-pop .32s ease; }
+@keyframes heart-pop { 0% { transform: scale(1) } 40% { transform: scale(1.32) } 70% { transform: scale(.92) } 100% { transform: scale(1) } }
 .entry-actions button.shared { color: var(--ui-blue); }
 .entry-actions .entry-edit { margin-left: auto; }
 .entry-item-head button { color: var(--ui-red); font-weight: 600; }

@@ -40,8 +40,17 @@ function EntryItem({ bookId, entry }: { bookId: string; entry: Entry }) {
   // the server is authoritative, but its answer arrives after the click — hold it locally so the heart reacts at once
   const [pressed, setPressed] = useState<{ count: number; liked: boolean } | null>(null)
   const [shared, setShared] = useState(false)
+  const [pop, setPop] = useState(false)
   const commentInput = useRef<HTMLTextAreaElement>(null)
   const likes = pressed ?? { count: likeTotals[entry.id] ?? 0, liked: myLikes.includes(entry.id) }
+  // optimistic: paint the new state now, ask the server after, and put it back if the server disagrees
+  const like = () => {
+    if (!requireHandle()) return
+    const before = likes
+    setPressed({ count: Math.max(0, before.count + (before.liked ? -1 : 1)), liked: !before.liked })
+    setPop(true)
+    void toggleLike(entry.id).then((result) => setPressed(result ?? before))
+  }
   const share = () => {
     const handle = currentRoomHandle()
     if (!handle) return
@@ -52,7 +61,7 @@ function EntryItem({ bookId, entry }: { bookId: string; entry: Entry }) {
   return <article className="entry-item">
     {entry.images[0] && <img src={assetUrl(entry.images[0])} alt="기록 사진" />}
     <div className="entry-actions">
-      <button type="button" className={likes.liked ? 'liked' : ''} aria-label="좋아요" onClick={() => { if (!requireHandle()) return; void toggleLike(entry.id).then((result) => result && setPressed(result)) }}><HeartIcon filled={likes.liked} />{likes.count > 0 && <span>{likes.count}</span>}</button>
+      <button type="button" className={`${likes.liked ? 'liked' : ''}${pop ? ' pop' : ''}`} aria-label="좋아요" onAnimationEnd={() => setPop(false)} onClick={like}><HeartIcon filled={likes.liked} />{likes.count > 0 && <span>{likes.count}</span>}</button>
       <button type="button" aria-label="댓글" onClick={() => commentInput.current?.focus()}><CommentIcon />{(guestbook[entry.id] ?? []).length > 0 && <span>{(guestbook[entry.id] ?? []).length}</span>}</button>
       <button type="button" className={shared ? 'shared' : ''} aria-label="공유" onClick={share}><ShareIcon /></button>
       {!isVisiting() && <button type="button" className="entry-edit" aria-label="수정" onClick={() => setEditing(true)}><EditIcon /></button>}
