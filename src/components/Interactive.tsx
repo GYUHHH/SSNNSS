@@ -10,6 +10,9 @@ import { isOwnedSurfaceId, ownerIdOf } from '../services/roomGrid'
 // reads it every frame, so no re-render is needed and pointer over/out ordering races are settled by `by`.
 const hoverShared = { group: null as string | null, by: null as string | null }
 
+// lets UI outside the canvas (the sound list) hover a piece exactly like the pointer would
+export const setExternalHover = (id: string | null) => { hoverShared.group = id; hoverShared.by = id ? `external:${id}` : null }
+
 type Props = {
   id: Exclude<SelectedObject, null>
   position: [number, number, number]
