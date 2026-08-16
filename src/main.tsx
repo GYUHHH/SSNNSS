@@ -3,14 +3,11 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import './styles.css'
 
-import { initOwnSync, initVisit, onRoomRefresh } from './services/social'
+import { initOwnSync, initVisit } from './services/social'
 
 // Server first: a visited room's data — or the owner's own published room — must be in hand before the
-// store initializes from storage. A live room-data update while visiting remounts the app from the fresh
-// snapshot.
+// store initializes from storage. Later live updates are read into state by the store itself, so the app
+// mounts exactly once and a room change never looks like a page refresh.
 void Promise.allSettled([initVisit(), initOwnSync()]).finally(() => {
-  const root = createRoot(document.getElementById('root')!)
-  const mount = () => root.render(<StrictMode><App key={Date.now()} /></StrictMode>)
-  onRoomRefresh(mount)
-  mount()
+  createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>)
 })

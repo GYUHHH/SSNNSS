@@ -5,7 +5,7 @@ import { characterPosition } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
 import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic } from './services/music'
-import { addRemoteComment, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myVisitorId, readStored, recordVisit, refreshVisit, removeRemoteComment, schedulePublish, subscribeRealtime, uploadMedia, type RemoteGuestComment } from './services/social'
+import { onRoomRefresh, addRemoteComment, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myVisitorId, readStored, recordVisit, refreshVisit, removeRemoteComment, schedulePublish, subscribeRealtime, uploadMedia, type RemoteGuestComment } from './services/social'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id })
 
@@ -248,6 +248,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const rooms0 = useRef(typeof window === 'undefined' ? { active: 'room-1', slots: [{ id: 'room-1', name: '나의 방' }] } : loadSlots()).current
   const [rooms, setRooms] = useState<Array<{ id: string; name: string }>>(() => rooms0.slots.map(({ id, name }) => ({ id, name })))
   const [activeRoomId, setActiveRoomId] = useState(rooms0.active)
+  const activeRoomIdRef = useRef(rooms0.active)
+  useEffect(() => { activeRoomIdRef.current = activeRoomId }, [activeRoomId])
   const [placedElsewhere, setPlacedElsewhere] = useState<Record<string, number>>(() => (typeof window === 'undefined' ? {} : placedInOtherSlots(rooms0.active)))
   const [mode, setMode] = useState<RoomMode>('normal'); const [furniture, setFurniture] = useState<FurnitureItem[]>(() => hydrateFurniture(typeof window === 'undefined' ? null : slotItems(rooms0.active))); const [selectedFurnitureId, setSelectedFurnitureId] = useState<FurnitureId | null>(null); const [history, setHistory] = useState<FurnitureItem[][]>([]); const [dragOrigin, setDragOrigin] = useState<FurnitureItem[] | null>(null); const [movingFurnitureId, setMovingFurnitureId] = useState<FurnitureId | null>(null); const [preview, setPreview] = useState<FurnitureItem | null>(null); const [previewValid, setPreviewValid] = useState(false); const [previewDragging, setPreviewDragging] = useState(false)
   const [wallStyle, setWallStyleState] = useState<RoomStyle>(() => (typeof window === 'undefined' ? {} : slotStyle(rooms0.active) ?? {})); const [floorStyle, setFloorStyleState] = useState<string | undefined>(() => (typeof window === 'undefined' ? undefined : slotStyle(rooms0.active)?.floor)); const [styleTarget, setStyleTarget] = useState<StyleTarget | null>(null)
@@ -529,6 +531,30 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const [likeTotals, setLikeTotals] = useState<Record<string, number>>({})
   const [myLikes, setMyLikes] = useState<string[]>([])
   const [reactionTarget, setReactionTarget] = useState<string | null>(null)
+  // A live room-data change used to remount the whole app, which read to the visitor as a spontaneous page
+  // refresh. Instead the fresh bundle is read straight back into state: the scene keeps its camera, any open
+  // panel stays open, and only the parts that actually changed re-render.
+  const rehydrate = () => {
+    const slots = loadSlots()
+    const active = slots.slots.some((slot) => slot.id === activeRoomIdRef.current) ? activeRoomIdRef.current : slots.active
+    setRooms(slots.slots.map(({ id, name }) => ({ id, name })))
+    setActiveRoomId(active)
+    setFurniture(hydrateFurniture(slotItems(active)))
+    const style = slotStyle(active) ?? {}
+    setWallStyleState(style)
+    setFloorStyleState(style.floor)
+    setBooks(hydrateBooks())
+    setArtworks(loadArtworks() ?? {})
+    setVideoLinks(loadVideoLinks())
+    setGuestbook(loadGuestbook<Record<string, GuestComment[]>>() ?? {})
+    setProfile((current) => ({ ...current, ...(loadProfile() ?? {}) }))
+    const time = readStored('my-room-time-v1')
+    setTimeOfDayState(time === 'evening' || time === 'night' ? time : 'day')
+    const interactions = loadInteractions()
+    setToggledOn(new Set(interactions.toggles))
+    setComputerOn(interactions.computerOn)
+    setCupHeld(interactions.cupHeld)
+  }
   useEffect(() => {
     const loadRemoteGuestbook = () => void fetchGuestbook().then((rows) => {
       if (!rows) return
@@ -552,8 +578,10 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     loadRemoteVisits()
     loadRemoteLikes()
     // live events keep everything current without a refresh: new comments and visits re-pull their views,
-    // and a room-data change while visiting re-fetches the snapshot (main remounts the app from it)
-    return subscribeRealtime(loadRemoteGuestbook, loadRemoteVisits, () => { void refreshVisit() }, loadRemoteLikes)
+    // and a room-data change while visiting re-fetches the snapshot and re-reads it into state in place
+    const stopRealtime = subscribeRealtime(loadRemoteGuestbook, loadRemoteVisits, () => { void refreshVisit() }, loadRemoteLikes)
+    const stopRefresh = onRoomRefresh(rehydrate)
+    return () => { stopRealtime(); stopRefresh() }
   }, [])
   // you own one of each, wherever it stands — a piece placed in another room is not available in this one
   const availableCount = (type: string) => Math.max(0, ownedCountOf(type) - furniture.filter((item) => item.type === type && !item.removed).length - (placedElsewhere[type] ?? 0))
