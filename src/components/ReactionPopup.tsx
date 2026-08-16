@@ -3,12 +3,15 @@ import { myVisitorId } from '../services/social'
 
 // The badge's popup: everything other people left on this object — like count and their comments.
 export default function ReactionPopup() {
-  const { reactionTarget, setReactionTarget, furniture, othersLikes, guestbook } = useRoomStore()
+  const { reactionTarget, setReactionTarget, furniture, othersLikes, guestbook, reactionIdsFor } = useRoomStore()
   if (!reactionTarget) return null
   const item = furniture.find((entry) => entry.id === reactionTarget)
   const mine = myVisitorId()
-  const likeCount = othersLikes[reactionTarget] ?? 0
-  const comments = (guestbook[reactionTarget] ?? []).filter((comment) => comment.visitor && comment.visitor !== mine)
+  // a bookshelf carries its records' reactions too — same set of ids the dot counted
+  const ids = reactionIdsFor(reactionTarget)
+  const likeCount = ids.reduce((total, id) => total + (othersLikes[id] ?? 0), 0)
+  const comments = ids.flatMap((id) => (guestbook[id] ?? []).filter((comment) => comment.visitor && comment.visitor !== mine))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setReactionTarget(null)}>
     <section className="reaction-card" aria-label="반응">
       <button className="close-ui" type="button" aria-label="닫기" onClick={() => setReactionTarget(null)}>×</button>
