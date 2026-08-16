@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRoomStore } from '../store'
 import { muteFrame, unmuteFrame } from '../services/ytResume'
 
@@ -16,6 +16,14 @@ function SpeakerIcon({ muted, size }: { muted: boolean; size: number }) {
 export default function SoundHub() {
   const { playingFrames, mutedFrames, setFrameMuted, furniture, setHighlightFrame, mode } = useRoomStore()
   const [open, setOpen] = useState(false)
+  const hub = useRef<HTMLDivElement>(null)
+  // clicking anywhere outside the hub closes the list
+  useEffect(() => {
+    if (!open) return
+    const onOutside = (event: PointerEvent) => { if (!hub.current?.contains(event.target as Node)) setOpen(false) }
+    window.addEventListener('pointerdown', onOutside)
+    return () => window.removeEventListener('pointerdown', onOutside)
+  }, [open])
   const frames = playingFrames.map((id) => furniture.find((item) => item.id === id && !item.removed)).flatMap((item) => item ? [item] : [])
   if (!frames.length || mode === 'edit') return null
   const anySound = frames.some((item) => !mutedFrames.includes(item.id))
@@ -23,7 +31,7 @@ export default function SoundHub() {
     if (muted) unmuteFrame(id); else muteFrame(id)
     setFrameMuted(id, !muted)
   }
-  return <div className="sound-hub">
+  return <div ref={hub} className="sound-hub">
     {open && <ul className="sound-hub-list" aria-label="영상 소리">
       {frames.map((item, index) => {
         const muted = mutedFrames.includes(item.id)
@@ -37,7 +45,7 @@ export default function SoundHub() {
       })}
     </ul>}
     <button type="button" className="sound-hub-main" aria-label="소리 설정" onClick={() => { setOpen((value) => !value); setHighlightFrame(null) }}>
-      <SpeakerIcon muted={!anySound} size={30} />
+      <SpeakerIcon muted={!anySound} size={22} />
     </button>
   </div>
 }
