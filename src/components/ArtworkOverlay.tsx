@@ -42,14 +42,12 @@ export default function ArtworkOverlay() {
 
 function Guestbook({ id, onClose }: { id: string; onClose: () => void }) {
   const { guestbook, addGuestComment, removeGuestComment } = useRoomStore()
-  const [name, setName] = useState('')
   const [text, setText] = useState('')
   const comments = guestbook[id] ?? []
-  const submit = () => { if (!text.trim()) return; addGuestComment(id, name, text.trim()); setText('') }
+  const submit = () => { if (!text.trim()) return; addGuestComment(id, text.trim()); setText('') }
   return <>
     <header><strong>방명록</strong><button className="close-ui" type="button" aria-label="닫기" onClick={onClose}>×</button></header>
     <div className="guest-form">
-      <input type="text" maxLength={12} value={name} onChange={(event) => setName(event.target.value)} placeholder="이름 (비우면 익명)" />
       <textarea maxLength={200} value={text} onChange={(event) => setText(event.target.value)} placeholder="한마디 남겨주세요" onKeyDown={(event) => { if (event.nativeEvent.isComposing) return; if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() } }} />
       <button type="button" onClick={submit}>남기기</button>
     </div>

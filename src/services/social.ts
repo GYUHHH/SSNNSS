@@ -46,6 +46,8 @@ const ownHandle = (): string | null => {
   try { return JSON.parse(localStorage.getItem('my-room-profile-v1') ?? 'null')?.handle ?? null } catch { return null }
 }
 export const currentRoomHandle = () => (isVisiting() ? visitHandle : ownHandle())
+// the writer's OWN id, even while visiting someone else's room (reads the local profile directly)
+export const myHandle = () => ownHandle()
 export const shareUrl = () => {
   const handle = ownHandle()
   return handle ? `${location.origin}${location.pathname}?room=${escape(handle)}` : null
