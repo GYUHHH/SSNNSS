@@ -69,25 +69,30 @@ export default function WallVideoLayer() {
       .map((entry) => watchPlaylistOrder(entry.id, entry.link.slice(3).split('@')[0]))
     return () => stops.forEach((stop) => stop())
   }, [playingFrames, videoLinks])
-  // The visitor's first click/tap anywhere doubles as audio activation, once: frames with no saved choice OR
-  // an explicit sound-on choice retry here. A browser-blocked sound-on frame is temporarily marked muted in UI,
-  // so excluding it would lose the only user-gesture retry. Explicit false remains silent.
+  // The first click/tap anywhere unlocks sound. Capture it before the canvas consumes a mobile gesture; retry
+  // every frame that is not deliberately muted, even if the autoplay-blocked UI state has not landed yet.
   const latest = useRef({ playingFrames, mutedFrames, setFrameMuted })
   latest.current = { playingFrames, mutedFrames, setFrameMuted }
   useEffect(() => {
-    const onFirstClick = () => {
+    let used = false
+    const onFirstGesture = () => {
+      if (used) return
+      used = true
       const prefs = loadAudioPrefs()
       for (const id of latest.current.playingFrames) {
-        if (prefs[id] !== false && latest.current.mutedFrames.includes(id)) {
-          // remember the choice, then let requestSound apply it — it waits out players that are not ready
-          // yet and verifies the volume actually landed, instead of firing one possibly-lost command
+        if (prefs[id] !== false) {
           latest.current.setFrameMuted(id, false)
           requestSound(id, () => latest.current.setFrameMuted(id, true, false))
+          playFrame(id)
         }
       }
     }
-    window.addEventListener('pointerdown', onFirstClick, { once: true })
-    return () => window.removeEventListener('pointerdown', onFirstClick)
+    window.addEventListener('pointerdown', onFirstGesture, { capture: true })
+    window.addEventListener('touchstart', onFirstGesture, { capture: true, passive: true })
+    return () => {
+      window.removeEventListener('pointerdown', onFirstGesture, true)
+      window.removeEventListener('touchstart', onFirstGesture, true)
+    }
   }, [])
   // Focus guard: if a wall iframe holds focus when the tab is left, the browser re-focuses it on return and
   // the YouTube player mistakes that for user activity, waking its control overlay. Whenever focus lands on a
