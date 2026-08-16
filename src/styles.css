@@ -403,7 +403,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .sound-hub-list button { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 170px; padding: 8px 10px; border: 0; border-radius: 5px; color: #3a3a38; background: transparent; cursor: pointer; font-size: 13px; }
 .sound-hub-list button:hover { background: #f2f2f2; }
 .sound-hub-list button.muted { color: #9a9a95; }
-.mini-player { width: 236px; padding: 14px; border-radius: 14px; background: #ffffff; box-shadow: 0 8px 22px rgb(0 0 0 / 14%); }
+.mini-player { width: 208px; padding: 14px; border-radius: 14px; background: #ffffff; box-shadow: 0 8px 22px rgb(0 0 0 / 14%); }
 .mini-now { display: flex; align-items: center; gap: 10px; }
 .mini-art { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 9px; background: #ededea; color: #84847e; font-size: 19px; flex: 0 0 auto; }
 .mini-meta { display: grid; min-width: 0; }
