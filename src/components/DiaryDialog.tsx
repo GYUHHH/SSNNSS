@@ -15,13 +15,11 @@ export default function DiaryDialog() {
   const book = books.find((item) => item.id === openBookId)
   const [writing, setWriting] = useState(false)
   if (!book) return null
-  // a private record is the owner's alone — a visitor never sees it listed
-  const visible = isVisiting() ? book.entries.filter((entry) => entry.visibility === 'public') : book.entries
   return <>
     <section className="diary" aria-label={book.title}>
       <button className="close-ui" type="button" aria-label="닫기" onClick={closeBook}>×</button>
       <header className="diary-head"><div className="diary-title">{writing && <button className="diary-back" type="button" aria-label="뒤로" onClick={() => setWriting(false)}>←</button>}<div><span>기록장</span><h2>{book.title}</h2></div></div>{!isVisiting() && <div className="diary-head-actions">{!writing && <button type="button" onClick={() => setWriting(true)}>새 기록 작성</button>}<label>책 공개 설정 <select value={book.visibility} onChange={(event) => updateBookVisibility(book.id, event.target.value as Visibility)}><option value="private">비공개</option><option value="public">공개</option></select></label></div>}</header>
-      {writing ? <EntryForm book={book} onSave={(draft) => { addEntry(book.id, draft); setWriting(false) }} /> : <EntryList bookId={book.id} entries={visible} />}
+      {writing ? <EntryForm book={book} onSave={(draft) => { addEntry(book.id, draft); setWriting(false) }} /> : <EntryList bookId={book.id} entries={book.entries} />}
     </section>
   </>
 }
