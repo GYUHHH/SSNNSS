@@ -20,9 +20,9 @@ export default function ArtworkOverlay() {
     <header><strong>{item?.name ?? '영상 액자'}</strong><button className="close-ui" type="button" aria-label="닫기" onClick={clearSelection}>×</button></header>
     {videoLinks[selectedObject] && <DockSpace />}
     <ClipPreview id={selectedObject} />
-    <VideoLinkInput id={selectedObject} />
+    {!isVisiting() && <><VideoLinkInput id={selectedObject} />
     <PlaylistOrderEditor id={selectedObject} />
-    <div className="art-actions"><VideoPickButton id={selectedObject} /></div>
+    <div className="art-actions"><VideoPickButton id={selectedObject} /></div></>}
   </>
   const frame = kind === 'frame'
   const art = artworks[selectedObject]
@@ -35,7 +35,7 @@ export default function ArtworkOverlay() {
       ? <DrawingEditor id={selectedObject} width={width} height={height} onClose={() => setDrawing(false)} />
       : <>
         {art ? <img className="art-view" src={art} alt={frame ? '사진' : '그림'} /> : <div className={frame ? 'art-view sea' : 'art-view poster-art'} />}
-        <div className="art-meta"><p>{frame ? (art ? '나의 사진' : item?.type === 'photo' ? '여름의 바다' : '빈 액자') : art ? '나의 그림' : item?.type === 'poster' ? 'SONDÉ' : '빈 포스터'}</p><div className="art-actions">{frame ? <PhotoPickButton id={selectedObject} width={width} height={height} /> : <button type="button" onClick={() => setDrawing(true)}>그림 그리기</button>}</div></div>
+        <div className="art-meta"><p>{frame ? (art ? '나의 사진' : item?.type === 'photo' ? '여름의 바다' : '빈 액자') : art ? '나의 그림' : item?.type === 'poster' ? 'SONDÉ' : '빈 포스터'}</p>{!isVisiting() && <div className="art-actions">{frame ? <PhotoPickButton id={selectedObject} width={width} height={height} /> : <button type="button" onClick={() => setDrawing(true)}>그림 그리기</button>}</div>}</div>
       </>}
   </>
 }

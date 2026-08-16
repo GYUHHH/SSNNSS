@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { isVisiting } from '../services/social'
 import { addTrackFile, loadTracks, musicState, onMusicUpdate, pauseMusic, resumeMusic, saveTracks, seekMusic, toggleMusicMute, type MusicTrack } from '../services/music'
 
 // store values arrive as props: this panel lives inside a drei <Html> portal, which renders in its own React
@@ -108,7 +109,7 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
           </li>
         })}
       </ul>
-      <button type="button" className="mini-add" onClick={() => fileInput.current?.click()}>+ 파일</button>
+      {!isVisiting() && <button type="button" className="mini-add" onClick={() => fileInput.current?.click()}>+ 파일</button>}
       <input ref={fileInput} type="file" accept="audio/*" multiple hidden onChange={(event) => { if (event.target.files?.length) void addFiles(event.target.files); event.target.value = '' }} />
     </>}
   </div>

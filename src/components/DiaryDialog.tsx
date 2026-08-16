@@ -101,11 +101,11 @@ function EntryComments({ bookId, entry, inputRef }: { bookId: string; entry: Ent
   const fit = (element: HTMLTextAreaElement | null) => { if (!element) return; element.style.height = 'auto'; element.style.height = `${element.scrollHeight}px` }
   const submit = (event: FormEvent) => { event.preventDefault(); if (!text.trim()) return; addEntryComment(bookId, entry.id, '', text.trim()); setText(''); if (inputRef.current) inputRef.current.style.height = 'auto' }
   return <section className="entry-comments" aria-label="댓글">
-    <form className="entry-comment-form" onSubmit={submit}>
+    {!isVisiting() && <form className="entry-comment-form" onSubmit={submit}>
       <textarea ref={inputRef} rows={1} maxLength={200} value={text} onChange={(event) => { setText(event.target.value); fit(event.currentTarget) }} placeholder="댓글" />
       <button type="submit">전송</button>
-    </form>
-    <div className="entry-comment-list">{(entry.comments ?? []).map((comment) => <article key={comment.id} className="entry-comment"><header><strong>{comment.name}</strong><time>{comment.createdAt.slice(0, 10)}</time><button type="button" aria-label="댓글 삭제" onClick={() => removeEntryComment(bookId, entry.id, comment.id)}>×</button></header><p>{comment.text}</p></article>)}</div>
+    </form>}
+    <div className="entry-comment-list">{(entry.comments ?? []).map((comment) => <article key={comment.id} className="entry-comment"><header><strong>{comment.name}</strong><time>{comment.createdAt.slice(0, 10)}</time>{!isVisiting() && <button type="button" aria-label="댓글 삭제" onClick={() => removeEntryComment(bookId, entry.id, comment.id)}>×</button>}</header><p>{comment.text}</p></article>)}</div>
   </section>
 }
 

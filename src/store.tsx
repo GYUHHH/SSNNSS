@@ -478,8 +478,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const addEntry: RoomStore['addEntry'] = (bookId, entry) => { const createdAt = new Date().toISOString(); setBooks((items) => items.map((book) => book.id === bookId ? { ...book, updatedAt: createdAt, entries: [...book.entries, { ...entry, id: `entry-${Date.now()}`, bookId, createdAt, updatedAt: createdAt, comments: [] }] } : book)) }
   const updateEntry = (bookId: string, entryId: string, patch: Partial<Pick<Entry, 'content' | 'images' | 'visibility'>>) => setBooks((items) => items.map((book) => book.id === bookId ? { ...book, updatedAt: new Date().toISOString(), entries: book.entries.map((entry) => entry.id === entryId ? { ...entry, ...patch, updatedAt: new Date().toISOString() } : entry) } : book))
   const deleteEntry = (bookId: string, entryId: string) => setBooks((items) => items.map((book) => book.id === bookId ? { ...book, updatedAt: new Date().toISOString(), entries: book.entries.filter((entry) => entry.id !== entryId) } : book))
-  const addEntryComment = (bookId: string, entryId: string, name: string, text: string) => setBooks((items) => items.map((book) => book.id === bookId ? { ...book, updatedAt: new Date().toISOString(), entries: book.entries.map((entry) => entry.id === entryId ? { ...entry, comments: [...(entry.comments ?? []), { id: `comment-${Date.now()}`, name: name.trim() || myHandle() || '', text, createdAt: new Date().toISOString() }] } : entry) } : book))
-  const removeEntryComment = (bookId: string, entryId: string, commentId: string) => setBooks((items) => items.map((book) => book.id === bookId ? { ...book, entries: book.entries.map((entry) => entry.id === entryId ? { ...entry, comments: (entry.comments ?? []).filter((comment) => comment.id !== commentId) } : entry) } : book))
+  const addEntryComment = (bookId: string, entryId: string, name: string, text: string) => isVisiting() ? undefined : setBooks((items) => items.map((book) => book.id === bookId ? { ...book, updatedAt: new Date().toISOString(), entries: book.entries.map((entry) => entry.id === entryId ? { ...entry, comments: [...(entry.comments ?? []), { id: `comment-${Date.now()}`, name: name.trim() || myHandle() || '', text, createdAt: new Date().toISOString() }] } : entry) } : book))
+  const removeEntryComment = (bookId: string, entryId: string, commentId: string) => isVisiting() ? undefined : setBooks((items) => items.map((book) => book.id === bookId ? { ...book, entries: book.entries.map((entry) => entry.id === entryId ? { ...entry, comments: (entry.comments ?? []).filter((comment) => comment.id !== commentId) } : entry) } : book))
   const openStyleTarget = (target: StyleTarget) => setStyleTarget(target)
   const closeStyleTarget = () => setStyleTarget(null)
   const setWallStyle = (wallId: WallId, presetId: string) => setWallStyleState((current) => { const next = { ...current, [wallId]: presetId }; saveSlotStyle(activeRoomId, { ...next, floor: floorStyle }); return next })
@@ -499,15 +499,17 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   useEffect(() => { saveGuestbook(guestbook) }, [guestbook])
   // the number is a version stamp: bumping it remounts the screen so a replaced clip actually reloads
   useEffect(() => { listVideoIds().then((ids) => { if (ids?.length) setVideoFrames(Object.fromEntries(ids.map((id) => [id, 1]))) }) }, [])
-  const setProfilePhoto = (photo: string | null) => setProfile((current) => { const next = { ...current, photo: photo ?? undefined }; saveProfile(next); return next })
+  const setProfilePhoto = (photo: string | null) => isVisiting() ? undefined : setProfile((current) => { const next = { ...current, photo: photo ?? undefined }; saveProfile(next); return next })
   const setProfileHandle = (handle: string) => setProfile((current) => { const next = { ...current, handle: handle.trim() || undefined }; saveProfile(next); return next })
   const setVideoLink = (id: string, url: string | null) => {
+    if (isVisiting()) return false
     const target = url ? youTubeTarget(url) : null
     if (url && !target) return false
     setVideoLinks((prev) => { const next = { ...prev }; if (target) next[id] = encodeTarget(target); else delete next[id]; saveVideoLinks(next); return next })
     return true
   }
   const setVideoClip = (id: string, file: File | null) => {
+    if (isVisiting()) return
     if (!file) { deleteVideo(id); saveClipUrl(id, null); setVideoFrames(({ [id]: _removed, ...rest }) => rest); return }
     putVideo(id, file).then(() => setVideoFrames((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 })))
     void uploadMedia(`clips/${crypto.randomUUID()}`, file).then((url) => { if (url) saveClipUrl(id, url) })
@@ -621,7 +623,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     else setPlacedElsewhere(placedInOtherSlots(activeRoomId))
   }
   const setTimeOfDay = (time: TimeOfDay) => { setTimeOfDayState(time); if (isVisiting()) return; try { localStorage.setItem('my-room-time-v1', time); schedulePublish() } catch { /* unavailable */ } }
-  const setArtwork = (id: string, dataURL: string | null) => setArtworks((prev) => { const next = { ...prev }; if (dataURL) next[id] = dataURL; else delete next[id]; return next })
+  const setArtwork = (id: string, dataURL: string | null) => isVisiting() ? undefined : setArtworks((prev) => { const next = { ...prev }; if (dataURL) next[id] = dataURL; else delete next[id]; return next })
   return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, profile, profileOpen, openProfile: () => setProfileOpen(true), closeProfile: () => setProfileOpen(false), setProfilePhoto, setProfileHandle, videoFrames, setVideoClip, videoLinks, setVideoLink, playingFrames, stopFrame: (id: string) => setPlayingFrames((prev) => prev.filter((value) => value !== id)), mutedFrames, setFrameMuted, highlightFrame, setHighlightFrame, openVideoPanel: (id: string) => { setFrameMuted(id, false); setStyleTarget(null); setSelectedObject(id) }, rooms, activeRoomId, openRoom, createRoom, removeRoom, availableCount, guestbook, addGuestComment, removeGuestComment, remoteVisits, othersLikes, likeTotals, myLikes, reactionTarget, setReactionTarget, timeOfDay, setTimeOfDay, books: visibleBooks, openBookId, bookshelfOpen, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, selectObject, clearSelection, finishCharacterAction: setCharacterState, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject('bookshelf'); setBookshelfOpen(true) }, addBook, deleteBook, updateBookVisibility, setBookShelf, addEntry, deleteEntry, updateEntry, addEntryComment, removeEntryComment, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, closeStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
 }
 export function useRoomStore() { const store = useContext(RoomContext); if (!store) throw new Error('RoomProvider is required'); return store }

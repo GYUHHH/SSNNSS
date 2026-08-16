@@ -107,6 +107,8 @@ export const markReactionSeen = (id: string, count: number) => { seenReactions[i
 
 // uploaded media (music files, video clips) go to the public storage bucket so visitors can stream them
 export async function uploadMedia(path: string, file: Blob): Promise<string | null> {
+  // a visitor's upload would land in the room owner's bucket — nothing they do may write there
+  if (isVisiting()) return null
   try {
     const response = await fetch(`${SUPABASE_URL}/storage/v1/object/media/${path}`, {
       method: 'POST',

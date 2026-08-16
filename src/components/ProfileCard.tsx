@@ -24,9 +24,11 @@ export default function ProfileCard() {
   return <div className="profile-overlay" onMouseDown={(event) => event.currentTarget === event.target && closeProfile()}>
     <section className="profile-card" aria-label="프로필">
       <div className="profile-main">
-        <button className="profile-photo" type="button" onClick={() => inputRef.current?.click()} aria-label="프로필 사진 바꾸기">
-          {profile.photo ? <img src={profile.photo} alt="프로필 사진" /> : <span>사진</span>}
-        </button>
+        {isVisiting()
+          ? <div className="profile-photo">{profile.photo ? <img src={profile.photo} alt="프로필 사진" /> : <span>사진</span>}</div>
+          : <button className="profile-photo" type="button" onClick={() => inputRef.current?.click()} aria-label="프로필 사진 바꾸기">
+            {profile.photo ? <img src={profile.photo} alt="프로필 사진" /> : <span>사진</span>}
+          </button>}
         <div className="profile-info">
           <input className="profile-handle" aria-label="아이디" value={profile.handle ?? ''} placeholder="ID" disabled={isVisiting()} onChange={(event) => setProfileHandle(event.target.value)} />
           <p className="profile-visits">Total <b>{remoteVisits?.total ?? profile.total}</b> <i>|</i> Today <b>{remoteVisits?.today ?? profile.today}</b></p>

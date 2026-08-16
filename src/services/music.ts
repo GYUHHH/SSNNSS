@@ -22,6 +22,7 @@ export const saveTracks = (tracks: MusicTrack[]) => {
 
 // "Artist - Title.mp3" file names split into both fields; anything else is all title
 export async function addTrackFile(file: File): Promise<string> {
+  if (isVisiting()) return ''
   const id = `m${Date.now()}${Math.floor(Math.random() * 1000)}`
   await putVideo(`music-${id}`, file)
   const base = file.name.replace(/\.[^.]+$/, '')
