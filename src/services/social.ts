@@ -106,7 +106,8 @@ export const myVisitorId = () => visitorId()
 const SEEN_KEY = 'my-room-reactions-seen-v1'
 let seenReactions: Record<string, number> = {}
 export const getSeenReactions = () => seenReactions
-export const markReactionSeen = (id: string, count: number) => { seenReactions[id] = count; schedulePublish() }
+// publish immediately — a debounce here loses the mark when the owner refreshes right after looking
+export const markReactionSeen = (id: string, count: number) => { seenReactions[id] = count; void publishRoom() }
 
 // uploaded media (music files, video clips) go to the public storage bucket so visitors can stream them
 export async function uploadMedia(path: string, file: Blob): Promise<string | null> {
