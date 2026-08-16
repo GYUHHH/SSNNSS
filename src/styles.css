@@ -37,6 +37,12 @@ input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-
 .order-handle { border: 0; background: transparent; color: #84847e; font-size: 18px; cursor: grab; touch-action: none; padding: 8px 6px; }
 .canvas-host { width: 100%; height: 100%; }
 .build-tag { position: fixed; top: 8px; right: 10px; z-index: 30; font-size: 11px; color: #b3b3af; pointer-events: none; }
+/* the two reactions that rise out of a long press: pop in, then lean toward the pointer when it comes close */
+/* fill-mode is backwards, never both: with both, the finished animation keeps owning `transform` and the
+   magnetic offset written inline would never take effect. Size and colour ride the same inline transform. */
+.reaction-pick { position: fixed; z-index: 40; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; color: #3a3a38; background: #fff; box-shadow: 0 6px 18px rgb(0 0 0 / 22%); pointer-events: none; animation: reaction-pop .26s cubic-bezier(.2, 1.5, .4, 1) backwards; transition: transform .16s cubic-bezier(.2, 1.4, .4, 1), color .16s ease; }
+.reaction-pick.on { color: var(--ui-red); }
+@keyframes reaction-pop { 0% { opacity: 0; transform: translate(-50%, calc(-50% + 14px)) scale(0) } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1) } }
 .like-burst { position: fixed; z-index: 40; transform: translate(-50%, -50%); color: #e0455e; font-size: 24px; font-weight: 700; pointer-events: none; animation: like-rise .95s ease-out forwards; text-shadow: 0 1px 6px rgb(0 0 0 / 20%); }
 @keyframes like-rise { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.6); } 20% { opacity: 1; transform: translate(-50%, -60%) scale(1.15); } 100% { opacity: 0; transform: translate(-50%, -190%) scale(1); } }
 .login-card { position: relative; width: min(300px, 88vw); padding: 22px; border-radius: 14px; background: #ffffff; box-shadow: 0 14px 34px rgb(0 0 0 / 18%); display: grid; gap: 14px; }

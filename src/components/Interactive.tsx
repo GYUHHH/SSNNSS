@@ -4,7 +4,8 @@ import { type ReactNode, useLayoutEffect, useRef, useState } from 'react'
 import type { Group } from 'three'
 import { type SelectedObject, useRoomStore } from '../store'
 import { isOwnedSurfaceId, ownerIdOf } from '../services/roomGrid'
-import { requireHandle, toggleLike } from '../services/social'
+import { isVisiting, toggleLike } from '../services/social'
+import { openReactionPicker } from './ReactionPicker'
 
 // hover is shared per GROUP (a surface owner + everything sitting on it), so pointing at a desk lifts the desk,
 // computer and mug together instead of one piece popping out alone. Mutable module state on purpose: useFrame
@@ -15,7 +16,7 @@ const hoverShared = { group: null as string | null, by: null as string | null }
 export const setExternalHover = (id: string | null) => { hoverShared.group = id; hoverShared.by = id ? `external:${id}` : null }
 
 // Instagram-style double-tap like: a heart with the fresh count floats up from the tap point
-const likeBurst = (x: number, y: number, label: string) => {
+export const likeBurst = (x: number, y: number, label: string) => {
   const el = document.createElement('div')
   el.className = 'like-burst'
   el.textContent = label
@@ -40,7 +41,7 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
   const press = useRef<{ x: number; y: number; pointerId: number; target: { hasPointerCapture: (pointerId: number) => boolean; releasePointerCapture: (pointerId: number) => void } } | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressed = useRef(false)
-  const { selectObject, enterEditFurniture, furniture, likeTotals, myLikes, pendingReactions, markReactionsSeen, setReactionTarget } = useRoomStore()
+  const { selectObject, enterEditFurniture, furniture, pendingReactions, markReactionsSeen, setReactionTarget } = useRoomStore()
   const item = furniture.find((value) => value.id === id)
   const hoverGroup = item && isOwnedSurfaceId(item.surfaceId) ? ownerIdOf(item.surfaceId) : id
   useCursor(hovered)
@@ -61,5 +62,5 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
     group.current.scale.setScalar(group.current.scale.x + (scale - group.current.scale.x) * Math.min(1, delta * 12))
   })
 
-  return <group ref={group} position={position} rotation={rotation} scale={baseScale} onPointerOver={(event) => { event.stopPropagation(); hoverShared.group = hoverGroup; hoverShared.by = id; setHovered(true) }} onPointerOut={() => { if (hoverShared.by === id) { hoverShared.group = null; hoverShared.by = null } setHovered(false) }} onPointerDown={(event) => { event.stopPropagation(); longPressed.current = false; const target = event.target as unknown as { setPointerCapture: (pointerId: number) => void; hasPointerCapture: (pointerId: number) => boolean; releasePointerCapture: (pointerId: number) => void }; target.setPointerCapture(event.pointerId); press.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId, target }; timer.current = setTimeout(() => { const held = press.current; if (!held) return; if (held.target.hasPointerCapture(held.pointerId)) held.target.releasePointerCapture(held.pointerId); longPressed.current = true; timer.current = null; enterEditFurniture(id) }, 550) }} onPointerMove={(event) => { if (!press.current) return; if (Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 9 && timer.current) cancelPress() }} onPointerUp={(event) => { const target = event.target as unknown as { hasPointerCapture: (pointerId: number) => boolean; releasePointerCapture: (pointerId: number) => void }; cancelPress(); if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId) }} onPointerCancel={cancelPress} onClick={(event) => { event.stopPropagation(); if (longPressed.current) { longPressed.current = false; return }; if (pendingReactions[id]) { markReactionsSeen(id); setReactionTarget(id); return }; selectObject(id) }} onDoubleClick={(event) => { event.stopPropagation(); if (!requireHandle()) return; const { clientX, clientY } = event; const liked = !myLikes.includes(id); const count = Math.max(0, (likeTotals[id] ?? 0) + (liked ? 1 : -1)); const burst = likeBurst(clientX, clientY, `${liked ? '♥' : '♡'} ${count}`); void toggleLike(id).then((result) => { if (result && (result.liked !== liked || result.count !== count)) burst(`${result.liked ? '♥' : '♡'} ${result.count}`) }) }}>{children}</group>
+  return <group ref={group} position={position} rotation={rotation} scale={baseScale} onPointerOver={(event) => { event.stopPropagation(); hoverShared.group = hoverGroup; hoverShared.by = id; setHovered(true) }} onPointerOut={() => { if (hoverShared.by === id) { hoverShared.group = null; hoverShared.by = null } setHovered(false) }} onPointerDown={(event) => { event.stopPropagation(); longPressed.current = false; const target = event.target as unknown as { setPointerCapture: (pointerId: number) => void; hasPointerCapture: (pointerId: number) => boolean; releasePointerCapture: (pointerId: number) => void }; target.setPointerCapture(event.pointerId); press.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId, target }; timer.current = setTimeout(() => { const held = press.current; if (!held) return; if (held.target.hasPointerCapture(held.pointerId)) held.target.releasePointerCapture(held.pointerId); longPressed.current = true; timer.current = null; if (isVisiting()) openReactionPicker({ id, x: held.x, y: held.y }); else enterEditFurniture(id) }, 500) }} onPointerMove={(event) => { if (!press.current) return; if (Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 9 && timer.current) cancelPress() }} onPointerUp={(event) => { const target = event.target as unknown as { hasPointerCapture: (pointerId: number) => boolean; releasePointerCapture: (pointerId: number) => void }; cancelPress(); if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId) }} onPointerCancel={cancelPress} onClick={(event) => { event.stopPropagation(); if (longPressed.current) { longPressed.current = false; return }; if (pendingReactions[id]) { markReactionsSeen(id); setReactionTarget(id); return }; selectObject(id) }}>{children}</group>
 }

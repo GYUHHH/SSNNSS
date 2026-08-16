@@ -1,11 +1,10 @@
 import { type ChangeEvent, type FormEvent, useRef, useState } from 'react'
 import { type Book, type Entry, type EntryDraft, type Visibility, useRoomStore } from '../store'
+import { HeartIcon, CommentIcon } from './ReactionIcons'
 import { currentRoomHandle, isVisiting, myVisitorId, requireHandle, roomPath, toggleLike, uploadMedia } from '../services/social'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-const HeartIcon = ({ filled }: { filled: boolean }) => <svg viewBox="0 0 24 24" width="27" height="27" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20.4 3.9 12.6a4.9 4.9 0 0 1 0-7 4.9 4.9 0 0 1 7 0l1.1 1.1 1.1-1.1a4.9 4.9 0 0 1 7 0 4.9 4.9 0 0 1 0 7Z" /></svg>
-const CommentIcon = () => <svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.5 9.5 0 0 1-3.4-.6L3 21l1.8-5a8.2 8.2 0 0 1-.8-3.5 8.4 8.4 0 0 1 8.5-8.4 8.4 8.4 0 0 1 8.5 8.4Z" /></svg>
 const EditIcon = () => <svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16.4 3.6a2.3 2.3 0 0 1 3.2 3.2L7.5 18.9l-4.2 1 1-4.2Z" /><path d="M14.6 5.4l4 4" /></svg>
 const ShareIcon = () => <svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21.5 3.5 2.5 10.2l7.6 2.9 2.9 7.6Z" /><path d="M10.1 13.1 21.5 3.5" /></svg>
 const assetUrl = (source: string) => source.startsWith('/') ? `${location.hostname.endsWith('.github.io') ? `${import.meta.env.BASE_URL}public/` : import.meta.env.BASE_URL}${source.slice(1)}` : source
