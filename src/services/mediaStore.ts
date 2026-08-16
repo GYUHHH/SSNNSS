@@ -1,3 +1,5 @@
+import { isVisiting, readStored, schedulePublish } from './social'
+
 // Video clips are far too big for localStorage (a few MB blows the whole quota and would take the room layout
 // down with it), so they live in IndexedDB as blobs keyed by the frame's furniture id.
 const dbName = 'my-room-media'
@@ -29,10 +31,11 @@ export const listVideoIds = async () => (await run<IDBValidKey[]>('readonly', (s
 // youtube links are tiny, so they stay in localStorage next to the rest of the room
 const linkKey = 'my-room-video-links-v1'
 export function loadVideoLinks(): Record<string, string> {
-  try { const raw = localStorage.getItem(linkKey); return raw ? JSON.parse(raw) as Record<string, string> : {} } catch { return {} }
+  try { const raw = readStored(linkKey); return raw ? JSON.parse(raw) as Record<string, string> : {} } catch { return {} }
 }
 export function saveVideoLinks(links: Record<string, string>) {
-  try { localStorage.setItem(linkKey, JSON.stringify(links)) } catch { /* unavailable */ }
+  if (isVisiting()) return
+  try { localStorage.setItem(linkKey, JSON.stringify(links)); schedulePublish() } catch { /* unavailable */ }
 }
 
 // accepts watch, youtu.be, shorts and embed forms, or a bare id

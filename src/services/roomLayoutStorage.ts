@@ -1,3 +1,5 @@
+import { isVisiting, readStored, schedulePublish } from './social'
+
 export type FurniturePlacement = { id: string; type: string; position?: [number, number, number]; rotation: [number, number, number]; scale: number; surfaceId?: string; gridX?: number; gridZ?: number; gridY?: number; wallId?: 'leftWall' | 'rightWall'; footprint?: { width: number; depth: number }; resolution?: 'base' | 'subgrid2'; styleId?: string; removed?: boolean; updatedAt: string }
 export type RoomStyle = { leftWall?: string; rightWall?: string; floor?: string }
 
@@ -5,7 +7,7 @@ const key = 'my-room-layout-v1'
 
 const readBlob = (): { version: number; items: FurniturePlacement[]; style?: RoomStyle } | null => {
   try {
-    const saved = localStorage.getItem(key); if (!saved) return null
+    const saved = readStored(key); if (!saved) return null
     const parsed = JSON.parse(saved) as FurniturePlacement[] | { version: number; items: FurniturePlacement[]; style?: RoomStyle }
     return Array.isArray(parsed) ? { version: 0, items: parsed } : parsed
   } catch { return null }
@@ -17,10 +19,11 @@ type SlotsBlob = { version: number; active: string; slots: RoomSlot[] }
 const slotsKey = 'my-room-slots-v1'
 
 const readSlots = (): SlotsBlob | null => {
-  try { const raw = localStorage.getItem(slotsKey); return raw ? JSON.parse(raw) as SlotsBlob : null } catch { return null }
+  try { const raw = readStored(slotsKey); return raw ? JSON.parse(raw) as SlotsBlob : null } catch { return null }
 }
 const writeSlots = (blob: SlotsBlob) => {
-  try { localStorage.setItem(slotsKey, JSON.stringify(blob)) } catch { /* localStorage may be unavailable */ }
+  if (isVisiting()) return
+  try { localStorage.setItem(slotsKey, JSON.stringify(blob)); schedulePublish() } catch { /* localStorage may be unavailable */ }
 }
 
 // first run promotes the single saved room into slot one — the old key is left untouched as a fallback copy
@@ -78,36 +81,40 @@ export function placedInOtherSlots(activeId: string): Record<string, number> {
 // user-made artwork (poster drawings, frame photos) keyed by furniture id, stored as data URLs
 const artworkKey = 'my-room-artwork-v1'
 export function loadArtworks(): Record<string, string> | null {
-  try { const raw = localStorage.getItem(artworkKey); return raw ? JSON.parse(raw) as Record<string, string> : null } catch { return null }
+  try { const raw = readStored(artworkKey); return raw ? JSON.parse(raw) as Record<string, string> : null } catch { return null }
 }
 export function saveArtworks(artworks: Record<string, string>) {
-  try { localStorage.setItem(artworkKey, JSON.stringify(artworks)) } catch { /* quota exceeded or unavailable */ }
+  if (isVisiting()) return
+  try { localStorage.setItem(artworkKey, JSON.stringify(artworks)); schedulePublish() } catch { /* quota exceeded or unavailable */ }
 }
 
 // diary books/entries live under their own key so the layout blob stays small and the two never clobber each other
 const booksKey = 'my-room-books-v1'
 export function loadBooks<T>(): T | null {
-  try { const raw = localStorage.getItem(booksKey); return raw ? JSON.parse(raw) as T : null } catch { return null }
+  try { const raw = readStored(booksKey); return raw ? JSON.parse(raw) as T : null } catch { return null }
 }
 export function saveBooks(books: unknown) {
-  try { localStorage.setItem(booksKey, JSON.stringify(books)) } catch { /* quota exceeded or unavailable */ }
+  if (isVisiting()) return
+  try { localStorage.setItem(booksKey, JSON.stringify(books)); schedulePublish() } catch { /* quota exceeded or unavailable */ }
 }
 
 // guestbook comments per wall-board furniture id
 const guestbookKey = 'my-room-guestbook-v1'
 export function loadGuestbook<T>(): T | null {
-  try { const raw = localStorage.getItem(guestbookKey); return raw ? JSON.parse(raw) as T : null } catch { return null }
+  try { const raw = readStored(guestbookKey); return raw ? JSON.parse(raw) as T : null } catch { return null }
 }
 export function saveGuestbook(guestbook: unknown) {
-  try { localStorage.setItem(guestbookKey, JSON.stringify(guestbook)) } catch { /* quota exceeded or unavailable */ }
+  if (isVisiting()) return
+  try { localStorage.setItem(guestbookKey, JSON.stringify(guestbook)); schedulePublish() } catch { /* quota exceeded or unavailable */ }
 }
 
 // visitor counts and the profile photo — counted locally until there is a server to ask
 export type Profile = { photo?: string; handle?: string; total: number; today: number; lastVisit: string; friends: number }
 const profileKey = 'my-room-profile-v1'
 export function loadProfile(): Profile | null {
-  try { const raw = localStorage.getItem(profileKey); return raw ? JSON.parse(raw) as Profile : null } catch { return null }
+  try { const raw = readStored(profileKey); return raw ? JSON.parse(raw) as Profile : null } catch { return null }
 }
 export function saveProfile(profile: Profile) {
-  try { localStorage.setItem(profileKey, JSON.stringify(profile)) } catch { /* unavailable */ }
+  if (isVisiting()) return
+  try { localStorage.setItem(profileKey, JSON.stringify(profile)); schedulePublish() } catch { /* unavailable */ }
 }

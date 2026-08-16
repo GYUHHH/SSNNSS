@@ -1,3 +1,5 @@
+import { isVisiting, readStored, schedulePublish } from './social'
+
 // Our-site-only play order for YouTube playlists. The playlist on YouTube stays untouched and remains the
 // source of truth for WHICH videos exist; the stored order here is the source of truth for the SEQUENCE the
 // wall player uses. Orders are keyed by playlist id and synced against the live id list on every playback:
@@ -5,12 +7,12 @@
 const STORAGE_KEY = 'my-room-playlist-order-v1'
 
 export const loadOrders = (): Record<string, string[]> => {
-  try { const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null'); if (saved && typeof saved === 'object') return saved } catch { /* storage may be unavailable */ }
+  try { const saved = JSON.parse(readStored(STORAGE_KEY) ?? 'null'); if (saved && typeof saved === 'object') return saved } catch { /* storage may be unavailable */ }
   return {}
 }
 
 export const saveOrder = (playlistId: string, order: string[]) => {
-  try { const orders = loadOrders(); orders[playlistId] = order; localStorage.setItem(STORAGE_KEY, JSON.stringify(orders)) } catch { /* storage may be unavailable */ }
+  if (!isVisiting()) try { const orders = loadOrders(); orders[playlistId] = order; localStorage.setItem(STORAGE_KEY, JSON.stringify(orders)); schedulePublish() } catch { /* storage may be unavailable */ }
   listeners.forEach((listener) => listener(playlistId))
 }
 

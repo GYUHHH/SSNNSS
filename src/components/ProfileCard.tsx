@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useRoomStore } from '../store'
+import { isVisiting, shareUrl } from '../services/social'
 
 export default function ProfileCard() {
   const { profileOpen, closeProfile, profile, setProfilePhoto, setProfileHandle } = useRoomStore()
@@ -22,7 +23,7 @@ export default function ProfileCard() {
   }
   return <div className="profile-overlay" onMouseDown={(event) => event.currentTarget === event.target && closeProfile()}>
     <section className="profile-card" aria-label="프로필">
-      <input className="profile-handle" aria-label="아이디" value={profile.handle ?? ''} placeholder="ID" onChange={(event) => setProfileHandle(event.target.value)} />
+      <input className="profile-handle" aria-label="아이디" value={profile.handle ?? ''} placeholder="ID" disabled={isVisiting()} onChange={(event) => setProfileHandle(event.target.value)} />
       <button className="profile-photo" type="button" onClick={() => inputRef.current?.click()} aria-label="프로필 사진 바꾸기">
         {profile.photo ? <img src={profile.photo} alt="프로필 사진" /> : <span>사진</span>}
       </button>
@@ -31,6 +32,7 @@ export default function ProfileCard() {
         <p className="profile-friends">친구 <b>{profile.friends}</b></p>
       </div>
       <input ref={inputRef} type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) pick(file); event.target.value = '' }} />
+      {!isVisiting() && shareUrl() && <button type="button" className="profile-share" onClick={() => { void navigator.clipboard?.writeText(shareUrl()!) }}>{shareUrl()}</button>}
     </section>
   </div>
 }

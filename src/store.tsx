@@ -5,6 +5,7 @@ import { characterPosition } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
 import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveVideoLinks, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic } from './services/music'
+import { isVisiting } from './services/social'
 
 export type SelectedObject = string | null
 export type FurnitureId = string
@@ -321,7 +322,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   // called by Character when the floor walk finishes (or turns out to be unreachable)
   const settleFloorMove = (reached: boolean) => { setFloorTarget(null); setCharacterState('idle'); if (!reached) showMoveNotice() }
   const selectFurniture = (id: FurnitureId) => setSelectedFurnitureId(id)
-  const enterEditFurniture = (id: FurnitureId) => { const target = furniture.find((item) => item.id === id); setSelectedObject(null); setCupHeld(false); setBookshelfOpen(false); setOpenBookId(null); setPreview(null); setPreviewDragging(false); setSelectedFurnitureId(id); setDragOrigin(target?.movable ? furniture : null); setMovingFurnitureId(target?.movable ? id : null); setMode('edit') }
+  const enterEditFurniture = (id: FurnitureId) => { if (isVisiting()) return; const target = furniture.find((item) => item.id === id); setSelectedObject(null); setCupHeld(false); setBookshelfOpen(false); setOpenBookId(null); setPreview(null); setPreviewDragging(false); setSelectedFurnitureId(id); setDragOrigin(target?.movable ? furniture : null); setMovingFurnitureId(target?.movable ? id : null); setMode('edit') }
   const beginMove = (id: FurnitureId) => { pendingMove.current = null; setSelectedFurnitureId(id); setDragOrigin(furniture); setMovingFurnitureId(id) }
   const movedFurniture = (moving: FurnitureItem, position: [number, number, number], targetSurfaceId?: SurfaceId) => {
     let surfaceId: SurfaceId
@@ -452,7 +453,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   // leaving edit mode mid-drag (완료 button, Escape, clicking empty space) must settle the drag the same way a
   // pointerUp would — validate the final spot and snap back to the origin if it overlaps — instead of
   // silently keeping whatever position the item was hovering at
-  const toggleEditMode = () => { endMove(); pendingMove.current = null; setMode((value) => value === 'normal' ? 'edit' : 'normal'); setPreview(null); setPreviewDragging(false); setDragOrigin(null); setMovingFurnitureId(null); setSelectedObject(null); setBookshelfOpen(false); setOpenBookId(null); setSelectedFurnitureId(null) }
+  const toggleEditMode = () => { if (isVisiting()) return; endMove(); pendingMove.current = null; setMode((value) => value === 'normal' ? 'edit' : 'normal'); setPreview(null); setPreviewDragging(false); setDragOrigin(null); setMovingFurnitureId(null); setSelectedObject(null); setBookshelfOpen(false); setOpenBookId(null); setSelectedFurnitureId(null) }
   const openBook = (id: string) => { setSelectedObject('book'); setBookshelfOpen(false); setOpenBookId(id) }
   const addBook = (title: string, visibility: Visibility) => { const id = `book-${Date.now()}`; const createdAt = new Date().toISOString(); setBooks((items) => [...items, { id, title, coverColor: ['#718475', '#b96b52', '#607b93', '#b18a4c'][items.length % 4], description: '새 기록장', visibility, createdAt, updatedAt: createdAt, entries: [] }]) }
   const deleteBook = (id: string) => { setBooks((items) => items.filter((book) => book.id !== id)); if (openBookId === id) { setOpenBookId(null); setBookshelfOpen(true) } }
