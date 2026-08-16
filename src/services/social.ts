@@ -136,6 +136,16 @@ export async function uploadMedia(path: string, file: Blob): Promise<string | nu
   } catch { return null }
 }
 
+// A photo pasted straight into storage as a data URL eats the whole 5MB localStorage budget in one go, and
+// once that budget is gone EVERY save silently fails. Photos go to the bucket; only the short URL is kept.
+export async function uploadDataUrl(prefix: string, dataUrl: string): Promise<string | null> {
+  if (!dataUrl.startsWith('data:')) return dataUrl
+  try {
+    const blob = await (await fetch(dataUrl)).blob()
+    return await uploadMedia(`${prefix}/${crypto.randomUUID()}`, blob)
+  } catch { return null }
+}
+
 // Guestbook lives on the server as soon as the room has a handle: visitors can write, and deletion is allowed
 // to the room owner (device secret) or the comment's own author (visitor id), enforced inside the SQL function.
 export type RemoteGuestComment = { id: string; item_id: string; name: string; text: string; visitor: string; user_id?: string | null; created_at: string }

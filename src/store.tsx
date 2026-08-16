@@ -5,7 +5,7 @@ import { characterPosition } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
 import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic } from './services/music'
-import { onRoomRefresh, addRemoteComment, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myVisitorId, readStored, recordVisit, refreshVisit, removeRemoteComment, schedulePublish, subscribeRealtime, uploadMedia, type RemoteGuestComment } from './services/social'
+import { onRoomRefresh, uploadDataUrl, addRemoteComment, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myVisitorId, readStored, recordVisit, refreshVisit, removeRemoteComment, schedulePublish, subscribeRealtime, uploadMedia, type RemoteGuestComment } from './services/social'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id })
 
@@ -555,6 +555,28 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     setComputerOn(interactions.computerOn)
     setCupHeld(interactions.cupHeld)
   }
+  // One-time rescue: photos saved as data URLs sit inside the room bundle and can swallow the entire 5MB
+  // localStorage budget — after which every save silently fails. Move them to the bucket and keep the URL.
+  useEffect(() => {
+    if (isVisiting()) return
+    let live = true
+    void (async () => {
+      const current = loadBooks<Book[]>() ?? []
+      let changed = false
+      for (const book of current) {
+        for (const entry of book.entries ?? []) {
+          const images = entry.images ?? []
+          for (let i = 0; i < images.length; i++) {
+            if (!images[i].startsWith('data:')) continue
+            const url = await uploadDataUrl('records', images[i])
+            if (url) { images[i] = url; changed = true }
+          }
+        }
+      }
+      if (changed && live) { saveBooks(current); setBooks(current.map((book) => ({ ...book }))) }
+    })()
+    return () => { live = false }
+  }, [])
   useEffect(() => {
     const loadRemoteGuestbook = () => void fetchGuestbook().then((rows) => {
       if (!rows) return

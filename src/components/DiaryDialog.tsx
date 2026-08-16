@@ -1,6 +1,6 @@
 import { type ChangeEvent, type FormEvent, useRef, useState } from 'react'
 import { type Book, type Entry, type EntryDraft, type Visibility, useRoomStore } from '../store'
-import { currentRoomHandle, isVisiting, myVisitorId, requireHandle, roomPath, toggleLike } from '../services/social'
+import { currentRoomHandle, isVisiting, myVisitorId, requireHandle, roomPath, toggleLike, uploadMedia } from '../services/social'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -72,8 +72,8 @@ function EntryEditor({ bookId, entry, onClose }: { bookId: string; entry: Entry;
   const [visibility, setVisibility] = useState<Visibility>(entry.visibility)
   const [confirming, setConfirming] = useState(false)
   const pick = (event: ChangeEvent<HTMLInputElement>) => {
-    const files = [...(event.target.files ?? [])]
-    Promise.all(files.map((file) => new Promise<string>((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.readAsDataURL(file) }))).then((sources) => setImages(sources))
+    const file = event.target.files?.[0]
+    if (file) void uploadMedia(`records/${crypto.randomUUID()}`, file).then((url) => { if (url) setImages([url]) })
     event.target.value = ''
   }
   const save = (event: FormEvent) => { event.preventDefault(); updateEntry(bookId, entry.id, { content, images, visibility }); onClose() }
@@ -118,7 +118,9 @@ function EntryForm({ book, onSave }: { book: Book; onSave: (entry: EntryDraft) =
   const [editing, setEditing] = useState<string | null>(null)
   const addImages = (event: ChangeEvent<HTMLInputElement>) => {
     const files = [...(event.target.files ?? [])]
-    Promise.all(files.map((file) => new Promise<string>((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.readAsDataURL(file) }))).then((sources) => setImages((current) => [...current, ...sources]))
+    // upload first, keep the URL — a data URL here would be megabytes inside the room's saved data
+    Promise.all(files.map((file) => uploadMedia(`records/${crypto.randomUUID()}`, file).then((url) => url ?? '')))
+      .then((sources) => setImages((current) => [...current, ...sources.filter(Boolean)]))
     event.target.value = ''
   }
   // a record is its photo and its words now — no title, and the date is simply the day it was written
