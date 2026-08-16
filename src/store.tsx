@@ -55,14 +55,15 @@ const wallItem = (id: FurnitureId, name: string, type: string, wallId: WallId, g
 const surfaceItem = (id: FurnitureId, name: string, type: string, ownerSurfaceId: SurfaceId, gridX: number, gridY: number, footprint: Footprint, allowedSurfaces: SurfaceKind[], context: FurnitureItem[]): FurnitureItem => placeOnSurface(context, { id, name, type, surfaceId: ownerSurfaceId, gridX, gridY, gridZ: 0, footprint, position: [0, 0, 0], rotation: [0, 0, 0], scale: 1, category: 'surfaceItem', movable: true, interactable: true, size: [footprint.width, footprint.depth], allowedSurfaces, updatedAt: now }, ownerSurfaceId, { gridX, gridY })
 
 const bedItem = floorItem('bed', '침대', 'bed', 1, 6, { width: 2, depth: 3 })
-const deskItem = floorItem('desk', '책상', 'desk', 1, 1, { width: 2, depth: 1 })
-const chairItem = floorItem('chair', '의자', 'chair', 1, 2, { width: 1, depth: 1 })
+const deskItem = floorItem('desk', '책상', 'desk', 4, 4, { width: 2, depth: 1 })
+const chairItem = floorItem('chair', '의자', 'chair', 4, 5, { width: 1, depth: 1 })
 chairItem.rotation = [0, Math.PI, 0]
 // desk's own tabletop is a small 4x2 grid (see roomGrid's OWNED_SURFACES) — footprints below are sized to roughly
 // match each item's real mesh dimensions so FittedMesh's auto-scale doesn't shrink/blow them up
 const computerItem = surfaceItem('computer', '컴퓨터', 'computer', 'desk:top', 0, 0, { width: 2, depth: 1 }, ['floor', 'tabletop'], [deskItem])
 const sofaItem = floorItem('sofa', '소파', 'sofa', 6, 6, { width: 3, depth: 1 })
-const bookshelfItem = floorItem('bookshelf', '책장', 'bookshelf', 7, 0, { width: 2, depth: 1 })
+// the default bookshelf stands against the left wall (under the wall decor), turned to face into the room
+const bookshelfItem = placeOnSurface([], { ...floorItem('bookshelf', '책장', 'bookshelf', 0, 4, { width: 2, depth: 1 }), rotation: [0, Math.PI / 2, 0] }, 'floor', { gridX: 0, gridY: 4 }, [0, Math.PI / 2, 0])
 // decor footprints AND their floor grid coords are in SUBCELL units (2 subcells = 1 base cell) — see resolutionFor
 const plantItem = floorItem('plant', '화분', 'plant', 0, 8, { width: 1, depth: 1 })
 const lampItem = floorItem('lamp', '스탠드 조명', 'lamp', 0, 6, { width: 1, depth: 1 })
@@ -73,7 +74,16 @@ const cupItem = surfaceItem('cup', '머그컵', 'cup', 'desk:top', 3, 0, { width
 const clockItem = wallItem('clock', '벽 시계', 'clock', 'leftWall', 1, 6, { width: 2, depth: 2 })
 const posterItem = wallItem('poster', '포스터', 'poster', 'leftWall', 4, 3, { width: 2, depth: 3 })
 const photoItem = wallItem('photo', '사진', 'photo', 'leftWall', 7, 1, { width: 1, depth: 1 })
-export const initialFurniture: FurnitureItem[] = [bedItem, deskItem, chairItem, computerItem, sofaItem, bookshelfItem, plantItem, lampItem, cabinetItem, rugItem, binItem, cupItem, clockItem, posterItem, photoItem]
+// default wall decor — ids start with `inventory-` because InventoryFurniture only renders that prefix
+const profileBoardItem = wallItem('inventory-profile-default', '내 프로필', 'profile-board', 'leftWall', 2, 4, { width: 2, depth: 3 })
+const guestbookWallItem = wallItem('inventory-guestbook-default', '방명록', 'guestbook', 'leftWall', 5, 5, { width: 1, depth: 1 })
+const cdPlayerItem = wallItem('inventory-cd-default', 'CD 플레이어', 'cd-player', 'leftWall', 7, 5, { width: 1, depth: 1 })
+// the default room places only desk+chair (center), profile/guestbook/cd on the wall, and the bookshelf
+// beneath them — every other piece starts in storage, ready to be placed from the 가구함
+export const initialFurniture: FurnitureItem[] = [
+  deskItem, chairItem, bookshelfItem, profileBoardItem, guestbookWallItem, cdPlayerItem,
+  ...[bedItem, computerItem, sofaItem, plantItem, lampItem, cabinetItem, rugItem, binItem, cupItem, clockItem, posterItem, photoItem].map((item) => ({ ...item, removed: true })),
+]
 
 export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surfaceId' | 'gridX' | 'gridY' | 'gridZ' | 'wallId' | 'rotation' | 'updatedAt'>> = [
   { type: 'side-table', name: '사이드 테이블', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor'] },
@@ -130,7 +140,7 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
 export const currentUser = { id: 'me', name: '나' }
 
 const initialBooks: Book[] = [
-  { id: 'daily-2026', title: '2026년 일기', coverColor: '#718475', description: '하루의 기록', visibility: 'private', createdAt: now, updatedAt: now, entries: [{ id: 'entry-1', bookId: 'daily-2026', title: '비가 오기 전의 오후', content: '창문을 열어두고 책을 읽었다.', images: [], date: '2026-08-12', visibility: 'private', createdAt: now, updatedAt: now, comments: [] }] }, { id: 'travel', title: '여행 기록', coverColor: '#b96b52', description: '기억하고 싶은 장면', visibility: 'public', createdAt: now, updatedAt: now, entries: [] }, { id: 'ideas', title: '아이디어', coverColor: '#607b93', description: '생각의 조각', visibility: 'private', createdAt: now, updatedAt: now, entries: [] },
+  { id: 'daily-2026', title: '2026년 일기', coverColor: '#718475', description: '하루의 기록', visibility: 'private', createdAt: now, updatedAt: now, entries: [{ id: 'entry-1', bookId: 'daily-2026', title: '비가 오기 전의 오후', content: '창문을 열어두고 책을 읽었다.', images: [], date: '2026-08-12', visibility: 'private', createdAt: now, updatedAt: now, comments: [] }] },
 ]
 
 const hydrateBooks = () => (loadBooks<Book[]>() ?? initialBooks).map((book) => ({ ...book, entries: book.entries.map((entry) => ({ ...entry, comments: entry.comments ?? [] })) }))
@@ -171,12 +181,14 @@ const migratedGrid = (resolution: PlacementResolution, surface: PlacementSurface
   return worldToGrid(withResolution(surface, resolution), value.position ?? fallbackPosition, footprint, rotationY)
 }
 const hydrateFurniture = (saved: FurniturePlacement[] | null) => {
-  if (!saved) return initialFurniture
+  // a fresh user's slot exists but is empty — both cases mean "no layout yet", so hand out the default room
+  if (!saved || saved.length === 0) return initialFurniture
   // restored items are pushed here as they're produced, so a later item (e.g. "computer") can resolve a surface
   // hosted by an earlier one (e.g. "desk:top") — initialFurniture is already ordered owner-before-occupant
   const resolved: FurnitureItem[] = []
   const restore = (base: FurnitureItem, value?: FurniturePlacement): FurnitureItem => {
-    if (!value) return base
+    // an item the save has never seen (a default added after the save was made) goes to storage, not the room
+    if (!value) return { ...base, removed: true }
     const rotation = value.rotation ?? base.rotation
     if (!isGridPlaced(base)) return { ...base, ...value, id: base.id, rotation, footprint: base.footprint }
     const surfaceId = value.surfaceId ?? base.surfaceId

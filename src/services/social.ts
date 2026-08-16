@@ -86,6 +86,7 @@ export async function publishRoom() {
   if (!handle) return
   const data: Record<string, string> = {}
   for (const key of SYNC_KEYS) { try { const value = localStorage.getItem(key); if (value) data[key] = value } catch { /* skip */ } }
+  if (Object.keys(seenReactions).length) data[SEEN_KEY] = JSON.stringify(seenReactions)
   try {
     await fetch(`${SUPABASE_URL}/rest/v1/rpc/save_room`, { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ p_handle: handle, p_secret: roomSecret(), p_data: data }) })
   } catch { /* offline — the next change tries again */ }
@@ -99,6 +100,13 @@ export const schedulePublish = () => {
 }
 
 export const myVisitorId = () => visitorId()
+
+// which reactions the owner has already opened, keyed by item id — lives ONLY in the server bundle
+// (the owner asked for nothing in localStorage), loaded at boot and pushed up with every publish
+const SEEN_KEY = 'my-room-reactions-seen-v1'
+let seenReactions: Record<string, number> = {}
+export const getSeenReactions = () => seenReactions
+export const markReactionSeen = (id: string, count: number) => { seenReactions[id] = count; schedulePublish() }
 
 // uploaded media (music files, video clips) go to the public storage bucket so visitors can stream them
 export async function uploadMedia(path: string, file: Blob): Promise<string | null> {
@@ -246,7 +254,10 @@ export async function handleTaken(handle: string): Promise<boolean> {
 
 export function adoptRoomData(bundle: Record<string, string>) {
   try {
-    for (const [key, value] of Object.entries(bundle)) if (key.startsWith('my-room-')) localStorage.setItem(key, value)
+    for (const [key, value] of Object.entries(bundle)) {
+      if (key === SEEN_KEY) { try { seenReactions = JSON.parse(value) ?? {} } catch { /* keep empty */ } continue }
+      if (key.startsWith('my-room-')) localStorage.setItem(key, value)
+    }
   } catch { /* storage may be unavailable */ }
 }
 
@@ -263,6 +274,8 @@ export async function initOwnSync() {
     const bundle = rows?.[0]?.data
     if (bundle && typeof bundle === 'object') adoptRoomData(bundle)
   } catch { /* offline — start from the local cache */ }
+  // the root URL is the plain default site — an owner's room lives at its own address, so land there
+  if (visitHandle === null) history.replaceState(null, '', roomPath(handle))
 }
 
 export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void, onRoomData: () => void, onLikes?: () => void): () => void {
