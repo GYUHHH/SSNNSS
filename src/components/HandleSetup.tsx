@@ -1,30 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRoomStore } from '../store'
-import { adoptRoomData, currentUserEmail, handleTaken, isVisiting, myHandle, onAuthChange, ownedRoom, publishRoom } from '../services/social'
+import { handleTaken, isVisiting, publishRoom } from '../services/social'
 
-// The id-claiming step after signup: a logged-in account with no id picks one here (uniqueness checked),
-// and the personal room publishes under it, bound to the account. If the account already owns a room —
-// a fresh device — the server copy is adopted locally instead, so nothing gets overwritten.
+// First entry asks for an id right away: once claimed (uniqueness checked) the personal room publishes
+// under it and gets its share address. Dismissible — it returns on the next visit until an id is set.
 export default function HandleSetup() {
   const { setProfileHandle, profile } = useRoomStore()
-  const [needed, setNeeded] = useState(false)
   const [value, setValue] = useState('')
   const [taken, setTaken] = useState(false)
   const [busy, setBusy] = useState(false)
-  useEffect(() => {
-    let live = true
-    const evaluate = async (email: string | null) => {
-      if (!email || isVisiting() || myHandle()) { if (live) setNeeded(false); return }
-      const existing = await ownedRoom()
-      if (!live) return
-      if (existing) { adoptRoomData(existing.data); location.reload(); return }
-      setNeeded(true)
-    }
-    void currentUserEmail().then(evaluate)
-    const stop = onAuthChange((email) => { void evaluate(email) })
-    return () => { live = false; stop() }
-  }, [])
-  if (!needed || profile.handle) return null
+  const [dismissed, setDismissed] = useState(false)
+  if (isVisiting() || profile.handle || dismissed) return null
   const clean = value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20)
   const valid = /^[a-z0-9_]{3,20}$/.test(clean)
   const claim = async () => {
@@ -34,10 +20,10 @@ export default function HandleSetup() {
     setProfileHandle(clean)
     await publishRoom()
     setBusy(false)
-    setNeeded(false)
   }
-  return <div className="overlay">
+  return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setDismissed(true)}>
     <section className="login-card" aria-label="아이디 설정">
+      <button className="close-ui" type="button" aria-label="닫기" onClick={() => setDismissed(true)}>×</button>
       <strong>아이디 설정</strong>
       <div className="login-form">
         <input type="text" value={clean} className={taken ? 'taken' : ''} placeholder="영문 소문자, 숫자, _" onChange={(event) => { setValue(event.target.value); setTaken(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void claim() }} />
