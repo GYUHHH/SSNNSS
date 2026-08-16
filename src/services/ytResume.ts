@@ -1,4 +1,4 @@
-import { syncOrder } from './playlistOrder'
+import { loadOrders, onOrderChange, syncOrder } from './playlistOrder'
 
 // The wall player and the panel player are different iframes, so moving between them starts a fresh embed.
 // YouTube's iframe API broadcasts currentTime while playing (after a "listening" handshake); we remember the
@@ -115,7 +115,10 @@ export function requestSound(frameId: string, onBlocked: () => void, onSound?: (
 // sync (new videos append, deleted ones drop). Never reloads the iframe or touches the current video.
 export function watchPlaylistOrder(frameId: string, playlistId: string): () => void {
   let liveIds: string[] = []
-  let order: string[] = []
+  // start from the saved order and follow every reorder immediately — waiting for the player's next playlist
+  // message would leave this watcher enforcing a stale order after the user rearranges the list
+  let order: string[] = loadOrders()[playlistId] ?? []
+  const stopOrderSync = onOrderChange((changed) => { if (changed === playlistId) order = loadOrders()[playlistId] ?? [] })
   let current: string | undefined
   const onMessage = (event: MessageEvent) => {
     if (event.source !== activeIframes[frameId]?.contentWindow) return
@@ -139,7 +142,7 @@ export function watchPlaylistOrder(frameId: string, playlistId: string): () => v
     } catch { /* not a youtube message */ }
   }
   window.addEventListener('message', onMessage)
-  return () => window.removeEventListener('message', onMessage)
+  return () => { window.removeEventListener('message', onMessage); stopOrderSync() }
 }
 
 // playlist state control over the iframe API, addressed by frame id
