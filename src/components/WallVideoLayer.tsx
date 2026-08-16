@@ -15,6 +15,12 @@ import { embedSrc, trackIframe, muteFrame, unmuteFrame, requestSound, playlistVi
 // thumbnail (it 404s for normal videos), and everything else is measured by reading the letterbox bars inside
 // the 480x360 hqdefault thumbnail (pure-black rows/columns around the content). The measured ratio is only
 // trusted when it lands near a common aspect — anything odd resolves to null so the caller skips cropping.
+// Once the visitor has clicked anywhere, the page holds a sticky activation and embeds may autoplay WITH
+// sound — so remounts (e.g. returning from the expanded panel) of an unmuted frame skip the muted start
+// entirely instead of racing the browser's short post-click grace window with an unmute command.
+let userInteracted = false
+if (typeof window !== 'undefined') window.addEventListener('pointerdown', () => { userInteracted = true }, { once: true })
+
 const aspectCache: Record<string, Promise<number | null>> = {}
 export function videoAspect(id: string): Promise<number | null> {
   return aspectCache[id] ??= new Promise((resolve) => {
@@ -136,7 +142,7 @@ function WallVideo({ frameId }: { frameId: string }) {
         <div className="wall-video" style={{ width: 640, height: divHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto' }} onPointerDown={(event) => event.stopPropagation()}>
           {/* controls=0 keeps YouTube's control bar from popping over the wall screen (it auto-shows on tab
               return); the expanded panel player keeps its controls */}
-          <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra="autoplay=1&playsinline=1&mute=1&controls=0" frameStyle={crop ? { top: -crop, height: `calc(100% + ${crop * 2}px)` } : undefined} />
+          <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra={!muted && userInteracted ? 'autoplay=1&playsinline=1&controls=0' : 'autoplay=1&playsinline=1&mute=1&controls=0'} frameStyle={crop ? { top: -crop, height: `calc(100% + ${crop * 2}px)` } : undefined} />
           {mode !== 'edit' && <div className="wall-video-actions">
             <button type="button" aria-label="크게 보기" onClick={() => openVideoPanel(frameId)}>⤢</button>
             <button type="button" aria-label={muted ? '소리 켜기' : '소리 끄기'} onClick={() => { if (muted) unmuteFrame(frameId); else muteFrame(frameId); setFrameMuted(frameId, !muted) }}>
