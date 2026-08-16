@@ -16,7 +16,18 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
   const [drag, setDrag] = useState<{ index: number; delta: number } | null>(null)
   const rowStep = useRef(40)
   const fileInput = useRef<HTMLInputElement>(null)
+  // long titles slide back and forth instead of growing the fixed-size panel
+  const titleBox = useRef<HTMLElement>(null)
+  const [slide, setSlide] = useState(0)
+
   useEffect(() => onMusicUpdate(() => { setTick((value) => value + 1); setTracks(loadTracks()) }), [])
+  const state0 = musicState()
+  const shownTitle = (tracks.find((track) => track.id === (musicTrack ?? state0.id)) ?? tracks[0])?.title ?? ''
+  useEffect(() => {
+    const box = titleBox.current
+    if (!box) return
+    setSlide(Math.max(0, box.scrollWidth - box.clientWidth))
+  }, [shownTitle])
   const state = musicState()
   const shown = tracks.find((track) => track.id === (musicTrack ?? state.id)) ?? tracks[0]
   const shownIndex = shown ? tracks.findIndex((track) => track.id === shown.id) : 0
@@ -50,7 +61,10 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
   return <div className="mini-player">
     <div className="mini-now">
       <span className="mini-art">♪</span>
-      <span className="mini-meta"><b>{shown?.title ?? ''}</b><small>{shown?.artist ?? ''}</small></span>
+      <span className="mini-meta">
+        <b ref={titleBox} className={slide ? 'sliding' : ''} style={slide ? { '--slide': `-${slide}px` } as React.CSSProperties : undefined}><span>{shown?.title ?? ''}</span></b>
+        <small>{shown?.artist ?? ''}</small>
+      </span>
     </div>
     <div className="mini-controls">
       <button type="button" aria-label="이전 곡" onClick={() => step(-1)}>
