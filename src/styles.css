@@ -40,6 +40,13 @@ input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-
 .like-burst { position: fixed; z-index: 40; transform: translate(-50%, -50%); color: #e0455e; font-size: 24px; font-weight: 700; pointer-events: none; animation: like-rise .95s ease-out forwards; text-shadow: 0 1px 6px rgb(0 0 0 / 20%); }
 @keyframes like-rise { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.6); } 20% { opacity: 1; transform: translate(-50%, -60%) scale(1.15); } 100% { opacity: 0; transform: translate(-50%, -190%) scale(1); } }
 .profile-share { position: absolute; bottom: 10px; right: 16px; max-width: 70%; border: 0; background: transparent; color: #9a9a95; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.profile-session { position: absolute; bottom: 10px; left: 16px; max-width: 55%; border: 0; background: transparent; color: #9a9a95; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.login-card { position: relative; width: min(300px, 88vw); padding: 22px; border-radius: 14px; background: #ffffff; box-shadow: 0 14px 34px rgb(0 0 0 / 18%); display: grid; gap: 14px; }
+.login-card strong { font-size: 15px; color: #3a3a38; }
+.login-form { display: grid; gap: 8px; }
+.login-form input { padding: 10px 12px; border: 0; border-radius: 8px; background: #f2f2f0; color: #3a3a38; font-size: 13px; outline: none; }
+.login-form button { padding: 10px 0; border: 0; border-radius: 8px; color: #ffffff; background: #3a3a38; cursor: pointer; font-size: 13px; }
+.login-sent { margin: 0; color: #75756f; font-size: 13px; }
 /* on small screens the full-width inventory sheet would hide the room while placing — collapse it to just
    the placement bar during a preview; it comes back as soon as the piece is placed or cancelled */
 @media (max-width: 719px), (max-height: 520px) and (pointer: coarse) {

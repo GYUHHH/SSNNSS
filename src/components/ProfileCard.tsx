@@ -1,10 +1,16 @@
 import { useRef } from 'react'
 import { useRoomStore } from '../store'
-import { isVisiting, shareUrl } from '../services/social'
+import { currentUserEmail, isVisiting, onAuthChange, shareUrl, signOut } from '../services/social'
+import { useEffect, useState } from 'react'
 
 export default function ProfileCard() {
   const { profileOpen, closeProfile, profile, setProfilePhoto, setProfileHandle, remoteVisits } = useRoomStore()
   const inputRef = useRef<HTMLInputElement>(null)
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null)
+  useEffect(() => {
+    void currentUserEmail().then(setSessionEmail)
+    return onAuthChange(setSessionEmail)
+  }, [])
   if (!profileOpen) return null
   const pick = (file: File) => {
     const image = new Image()
@@ -33,6 +39,7 @@ export default function ProfileCard() {
       </div>
       <input ref={inputRef} type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) pick(file); event.target.value = '' }} />
       {!isVisiting() && shareUrl() && <button type="button" className="profile-share" onClick={() => { void navigator.clipboard?.writeText(shareUrl()!) }}>{shareUrl()}</button>}
+      {sessionEmail && <button type="button" className="profile-session" onClick={() => { void signOut() }}>{sessionEmail} · 로그아웃</button>}
     </section>
   </div>
 }

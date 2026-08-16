@@ -151,12 +151,29 @@ export async function fetchVisitCounts(): Promise<{ total: number; today: number
 // Realtime: server-side events push straight into the open page — no refresh needed. Guestbook writes and
 // visits refresh their views in place; a room-data update while visiting reloads the visited snapshot and
 // remounts the app so the whole room reflects the owner's latest state.
-let realtime: ReturnType<typeof createClient> | null = null
+let sharedClient: ReturnType<typeof createClient> | null = null
+// one SDK client for auth (magic-link sessions, persisted automatically) and realtime channels
+export const supabaseClient = () => (sharedClient ??= createClient(SUPABASE_URL, SUPABASE_KEY))
+
+export async function sendMagicLink(email: string): Promise<boolean> {
+  const redirect = `${location.origin}${location.pathname}${location.search}`
+  const { error } = await supabaseClient().auth.signInWithOtp({ email, options: { emailRedirectTo: redirect } })
+  return !error
+}
+export async function currentUserEmail(): Promise<string | null> {
+  const { data } = await supabaseClient().auth.getSession()
+  return data.session?.user.email ?? null
+}
+export const onAuthChange = (listener: (email: string | null) => void) => {
+  const { data } = supabaseClient().auth.onAuthStateChange((_event, session) => listener(session?.user.email ?? null))
+  return () => data.subscription.unsubscribe()
+}
+export async function signOut() { await supabaseClient().auth.signOut() }
+
 export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void, onRoomData: () => void): () => void {
   const room = currentRoomHandle()
   if (!room) return () => { /* nothing to unsubscribe */ }
-  realtime ??= createClient(SUPABASE_URL, SUPABASE_KEY)
-  const channel = realtime.channel(`room-${room}`)
+  const channel = supabaseClient().channel(`room-${room}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'guestbook', filter: `room=eq.${room}` }, onGuestbook)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'visits', filter: `room=eq.${room}` }, onVisits)
   if (isVisiting()) channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `handle=eq.${room}` }, onRoomData)
