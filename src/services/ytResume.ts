@@ -46,27 +46,6 @@ const command = (frameId: string, func: string, args: unknown[] = []) =>
 export const unmuteFrame = (frameId: string) => { command(frameId, 'unMute'); command(frameId, 'setVolume', [70]) }
 export const muteFrame = (frameId: string) => command(frameId, 'mute')
 
-// A muted-autoplay player keeps flashing its overlay on tab returns until its mute state has actually been
-// toggled through the API once (observed via the mute button; a repeated no-op mute does not count). This runs
-// that toggle silently as soon as the player responds: volume pinned to 0 for the blink of the unmuted moment,
-// playback nudged in case the browser vetoed the unmute with a pause, ending exactly where it started — muted.
-export function primePlayer(frameId: string) {
-  const iframe = activeIframes[frameId]
-  if (!iframe) return
-  let done = false
-  const cycle = () => { command(frameId, 'setVolume', [0]); command(frameId, 'unMute'); command(frameId, 'mute'); command(frameId, 'playVideo') }
-  const cleanup = () => { window.removeEventListener('message', onMessage); clearTimeout(timer) }
-  const onMessage = (event: MessageEvent) => {
-    if (done || event.source !== iframe.contentWindow) return
-    try {
-      const info = (typeof event.data === 'string' ? JSON.parse(event.data) : event.data)?.info
-      if (typeof info?.muted === 'boolean') { done = true; cycle(); cleanup() }
-    } catch { /* not a youtube message */ }
-  }
-  window.addEventListener('message', onMessage)
-  cycle()
-  const timer = setTimeout(() => { if (!done) cleanup() }, 30000)
-}
 
 // Autoplay always wins: every wall embed starts muted (never blocked), then this lifts the mute for frames the
 // user unmuted before. Commands sent before the player is ready are lost, so nothing is finalized up front:

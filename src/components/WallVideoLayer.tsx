@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Group } from 'three'
 import { loadAudioPrefs, useRoomStore } from '../store'
 import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
-import { embedSrc, trackIframe, muteFrame, unmuteFrame, requestSound, playlistVideoResume, primePlayer } from '../services/ytResume'
+import { embedSrc, trackIframe, muteFrame, unmuteFrame, requestSound, playlistVideoResume } from '../services/ytResume'
 
 // The playing iframes live here, OUTSIDE the furniture tree: entering edit mode swaps every piece into a
 // different wrapper, which would unmount an iframe rendered inside it and reload the video. This layer stays
@@ -104,11 +104,6 @@ function WallVideo({ frameId }: { frameId: string }) {
   useEffect(() => {
     if (active && !muted) requestSound(frameId, () => setFrameMuted(frameId, true, false), () => setFrameMuted(frameId, false, false))
   }, [active, frameId])  // eslint-disable-line react-hooks/exhaustive-deps -- re-run per frame mount, not per toggle
-  // Untouched muted players flash their overlay on tab returns until their mute state has been toggled via
-  // the API once — primePlayer performs that toggle silently right after the player answers.
-  useEffect(() => {
-    if (active && muted) primePlayer(frameId)
-  }, [active, frameId])  // eslint-disable-line react-hooks/exhaustive-deps -- prime once per mount, not per toggle
   // Crop only as much as the video's own letterbox allows: YouTube's edge overlays hide inside the black bars
   // of wide videos, but 4:3/portrait videos fill the iframe, so cutting a fixed band would eat real content.
   // The aspect comes from videoAspect() below (thumbnail probing — oEmbed reports 16:9 for everything);
