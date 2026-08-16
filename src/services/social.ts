@@ -245,6 +245,21 @@ export function adoptRoomData(bundle: Record<string, string>) {
   } catch { /* storage may be unavailable */ }
 }
 
+// The server is the source of truth: the owner's boot pulls the published bundle down BEFORE the app
+// initializes, so every session starts from what the server holds. Local storage is just the working cache
+// that the debounced publish keeps pushing back up.
+export async function initOwnSync() {
+  if (isVisiting()) return
+  const handle = ownHandle()
+  if (!handle) return
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${escape(handle)}&select=data`, { headers })
+    const rows = await response.json()
+    const bundle = rows?.[0]?.data
+    if (bundle && typeof bundle === 'object') adoptRoomData(bundle)
+  } catch { /* offline — start from the local cache */ }
+}
+
 export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void, onRoomData: () => void, onLikes?: () => void): () => void {
   const room = currentRoomHandle()
   if (!room) return () => { /* nothing to unsubscribe */ }
