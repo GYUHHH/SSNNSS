@@ -5,7 +5,7 @@ import { characterPosition } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
 import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveVideoLinks, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic } from './services/music'
-import { isVisiting } from './services/social'
+import { isVisiting, readStored, schedulePublish } from './services/social'
 
 export type SelectedObject = string | null
 export type FurnitureId = string
@@ -150,7 +150,7 @@ export const loadAudioPrefs = (): Record<string, boolean> => {
 // lamp/appliance on-off states and the other small interactions survive a reload as-is
 const loadInteractions = (): { toggles: string[]; computerOn: boolean; cupHeld: boolean } => {
   try {
-    const saved = JSON.parse(localStorage.getItem('my-room-interactions-v1') ?? '')
+    const saved = JSON.parse(readStored('my-room-interactions-v1') ?? '')
     return { toggles: Array.isArray(saved?.toggles) ? saved.toggles : ['lamp'], computerOn: !!saved?.computerOn, cupHeld: !!saved?.cupHeld }
   } catch { return { toggles: ['lamp'], computerOn: false, cupHeld: false } }
 }
@@ -230,7 +230,7 @@ export const MAX_ROOMS = 3
 const RoomContext = createContext<RoomStore | null>(null)
 
 export function RoomProvider({ children }: { children: ReactNode }) {
-  const [selectedObject, setSelectedObject] = useState<SelectedObject>(null); const [characterState, setCharacterState] = useState<CharacterState>('idle'); const [computerOn, setComputerOn] = useState(() => loadInteractions().computerOn); const [toggledOn, setToggledOn] = useState<Set<string>>(() => new Set(loadInteractions().toggles)); const [artworks, setArtworks] = useState<Record<string, string>>(() => (typeof window === 'undefined' ? {} : loadArtworks() ?? {})); const [guestbook, setGuestbook] = useState<Record<string, GuestComment[]>>(() => (typeof window === 'undefined' ? {} : loadGuestbook<Record<string, GuestComment[]>>() ?? {})); const [timeOfDay, setTimeOfDayState] = useState<TimeOfDay>(() => { try { const saved = localStorage.getItem('my-room-time-v1'); return saved === 'evening' || saved === 'night' ? saved : 'day' } catch { return 'day' } }); const [cupHeld, setCupHeld] = useState(() => loadInteractions().cupHeld); const [books, setBooks] = useState<Book[]>(() => (typeof window === 'undefined' ? initialBooks : hydrateBooks())); const [openBookId, setOpenBookId] = useState<string | null>(null); const [bookshelfOpen, setBookshelfOpen] = useState(false)
+  const [selectedObject, setSelectedObject] = useState<SelectedObject>(null); const [characterState, setCharacterState] = useState<CharacterState>('idle'); const [computerOn, setComputerOn] = useState(() => loadInteractions().computerOn); const [toggledOn, setToggledOn] = useState<Set<string>>(() => new Set(loadInteractions().toggles)); const [artworks, setArtworks] = useState<Record<string, string>>(() => (typeof window === 'undefined' ? {} : loadArtworks() ?? {})); const [guestbook, setGuestbook] = useState<Record<string, GuestComment[]>>(() => (typeof window === 'undefined' ? {} : loadGuestbook<Record<string, GuestComment[]>>() ?? {})); const [timeOfDay, setTimeOfDayState] = useState<TimeOfDay>(() => { try { const saved = readStored('my-room-time-v1'); return saved === 'evening' || saved === 'night' ? saved : 'day' } catch { return 'day' } }); const [cupHeld, setCupHeld] = useState(() => loadInteractions().cupHeld); const [books, setBooks] = useState<Book[]>(() => (typeof window === 'undefined' ? initialBooks : hydrateBooks())); const [openBookId, setOpenBookId] = useState<string | null>(null); const [bookshelfOpen, setBookshelfOpen] = useState(false)
   const rooms0 = useRef(typeof window === 'undefined' ? { active: 'room-1', slots: [{ id: 'room-1', name: '나의 방' }] } : loadSlots()).current
   const [rooms, setRooms] = useState<Array<{ id: string; name: string }>>(() => rooms0.slots.map(({ id, name }) => ({ id, name })))
   const [activeRoomId, setActiveRoomId] = useState(rooms0.active)
@@ -285,7 +285,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }, [moveNotice])
   // diary content persists like the layout does — saved after every change (add book/entry, visibility toggle)
   useEffect(() => { saveBooks(books) }, [books])
-  useEffect(() => { try { localStorage.setItem('my-room-interactions-v1', JSON.stringify({ toggles: [...toggledOn], computerOn, cupHeld })) } catch { /* storage may be unavailable */ } }, [toggledOn, computerOn, cupHeld])
+  useEffect(() => { if (isVisiting()) return; try { localStorage.setItem('my-room-interactions-v1', JSON.stringify({ toggles: [...toggledOn], computerOn, cupHeld })); schedulePublish() } catch { /* storage may be unavailable */ } }, [toggledOn, computerOn, cupHeld])
   // items resolved onto a furniture-hosted surface (a mug on the desk) don't carry their own live world position —
   // it's recomputed here from the owner's CURRENT position/rotation every time `furniture` changes, so moving or
   // rotating the desk carries everything on it along for free, with no per-item cascade-update code anywhere else
@@ -527,7 +527,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     if (id === activeRoomId) openRoom(rest[0].id)
     else setPlacedElsewhere(placedInOtherSlots(activeRoomId))
   }
-  const setTimeOfDay = (time: TimeOfDay) => { setTimeOfDayState(time); try { localStorage.setItem('my-room-time-v1', time) } catch { /* unavailable */ } }
+  const setTimeOfDay = (time: TimeOfDay) => { setTimeOfDayState(time); if (isVisiting()) return; try { localStorage.setItem('my-room-time-v1', time); schedulePublish() } catch { /* unavailable */ } }
   const setArtwork = (id: string, dataURL: string | null) => setArtworks((prev) => { const next = { ...prev }; if (dataURL) next[id] = dataURL; else delete next[id]; return next })
   return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, profile, profileOpen, openProfile: () => setProfileOpen(true), closeProfile: () => setProfileOpen(false), setProfilePhoto, setProfileHandle, videoFrames, setVideoClip, videoLinks, setVideoLink, playingFrames, stopFrame: (id: string) => setPlayingFrames((prev) => prev.filter((value) => value !== id)), mutedFrames, setFrameMuted, highlightFrame, setHighlightFrame, openVideoPanel: (id: string) => { setFrameMuted(id, false); setStyleTarget(null); setSelectedObject(id) }, rooms, activeRoomId, openRoom, createRoom, removeRoom, availableCount, guestbook, addGuestComment, removeGuestComment, timeOfDay, setTimeOfDay, books, openBookId, bookshelfOpen, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, selectObject, clearSelection, finishCharacterAction: setCharacterState, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject('bookshelf'); setBookshelfOpen(true) }, addBook, deleteBook, updateBookVisibility, setBookShelf, addEntry, deleteEntry, addEntryComment, removeEntryComment, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, closeStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
 }

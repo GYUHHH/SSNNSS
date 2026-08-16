@@ -3,6 +3,7 @@
 // (ids, titles, order) lives in localStorage. Playback advances down the playlist and wraps.
 import { publicBase } from './publicBase'
 import { getVideo, putVideo } from './mediaStore'
+import { isVisiting, readStored, schedulePublish } from './social'
 
 export type MusicTrack = { id: string; title: string; artist: string }
 
@@ -11,11 +12,11 @@ const BUILTIN: Record<string, string> = { lany: `${publicBase}music/a-star-we-ne
 const SEED: MusicTrack[] = [{ id: 'lany', title: 'A Star We Never Named', artist: 'LANY' }]
 
 export const loadTracks = (): MusicTrack[] => {
-  try { const saved = JSON.parse(localStorage.getItem(REGISTRY_KEY) ?? 'null'); if (Array.isArray(saved) && saved.length) return saved } catch { /* storage may be unavailable */ }
+  try { const saved = JSON.parse(readStored(REGISTRY_KEY) ?? 'null'); if (Array.isArray(saved) && saved.length) return saved } catch { /* storage may be unavailable */ }
   return SEED
 }
 export const saveTracks = (tracks: MusicTrack[]) => {
-  try { localStorage.setItem(REGISTRY_KEY, JSON.stringify(tracks)) } catch { /* storage may be unavailable */ }
+  if (!isVisiting()) try { localStorage.setItem(REGISTRY_KEY, JSON.stringify(tracks)); schedulePublish() } catch { /* storage may be unavailable */ }
   notify()
 }
 
