@@ -5,7 +5,8 @@ const STORAGE_KEY = 'my-room-character-v1'
 const savedPosition = (() => {
   try { const value = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? ''); return Array.isArray(value) && value.length === 3 ? value as [number, number, number] : null } catch { return null }
 })()
-export const characterPosition: [number, number, number] = savedPosition ?? [0.1, 0, -0.2]
+// a fresh room starts the character on the open front corner, facing out toward the viewer
+export const characterPosition: [number, number, number] = savedPosition ?? [2.8, 0, 2.8]
 
 // remembered across reloads, written at most once a second while the character moves
 let saveTimer: ReturnType<typeof setTimeout> | undefined
