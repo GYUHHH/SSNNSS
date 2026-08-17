@@ -21,6 +21,8 @@ export default function HandleSetup() {
   const [busy, setBusy] = useState(false)
   const [roomChecked, setRoomChecked] = useState(false)
   const [requested, setRequested] = useState(false)
+  // which button was pressed on the first screen — the flow after it is identical either way
+  const [intent, setIntent] = useState<'login' | 'signup' | null>(null)
   useEffect(() => {
     const onNeed = () => { setRequested(true); setDismissed(false) }
     window.addEventListener('need-id', onNeed)
@@ -71,14 +73,22 @@ export default function HandleSetup() {
     setBusy(true)
     if (await handleTaken(clean)) { setTaken(true); setBusy(false); return }
     if (isVisiting()) claimHandleLocally(clean)
-    else { setProfileHandle(clean); await publishRoom() }
+    else setProfileHandle(clean)
+    await publishRoom()
     location.replace(roomPath(clean))
   }
   return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setDismissed(true)}>
     <section className="login-card" aria-label="가입">
       <button className="close-ui" type="button" aria-label="닫기" onClick={() => setDismissed(true)}>×</button>
-      {!session && <>
-        <strong>가입</strong>
+      {!session && !intent && <>
+        <strong>시작하기</strong>
+        <div className="login-form">
+          <button type="button" onClick={() => setIntent('login')}>로그인</button>
+          <button type="button" className="ghost" onClick={() => setIntent('signup')}>가입하기</button>
+        </div>
+      </>}
+      {!session && intent && <>
+        <strong>{intent === 'login' ? '로그인' : '가입하기'}</strong>
         <div className="login-form">
           <input type="email" value={email} placeholder="이메일" disabled={codeSent} onChange={(event) => setEmail(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void sendCode() }} />
           {!codeSent && <button type="button" disabled={!email.includes('@') || busy} onClick={() => void sendCode()}>{sendFailed ? '잠시 후 다시 시도' : '인증번호 받기'}</button>}

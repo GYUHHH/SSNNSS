@@ -77,7 +77,6 @@ export const myHandle = () => ownHandle()
 export const roomPath = (handle: string) => `${BASE}${escape(handle)}`
 
 export async function publishRoom() {
-  if (isVisiting()) return
   const handle = ownHandle()
   if (!handle) return
   const data: Record<string, string> = {}
