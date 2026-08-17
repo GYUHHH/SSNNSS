@@ -59,20 +59,24 @@ function Scene() {
 }
 
 const ROOM_SIZE = 7
+const ROOM_ROW_DISTANCE = ROOM_SIZE * 1.65
 const LOBBY = '__lobby__'
-type RoomSlot = { handle: string; q: number; r: number; position: [number, number, number] }
-const NEIGHBORS = [[1, 0], [-1, 0], [0, 1], [-1, 1], [0, -1], [1, -1]] as const
-const hexDistance = (a: RoomSlot, b: RoomSlot) => Math.max(Math.abs(a.q - b.q), Math.abs(a.r - b.r), Math.abs((a.q + a.r) - (b.q + b.r)))
+type RoomSlot = { handle: string; column: number; row: number; position: [number, number, number] }
+const neighbourCells = (column: number, row: number): Array<[number, number]> => {
+  const right = Math.abs(row % 2)
+  return [[column - 1, row], [column + 1, row], [column - 1 + right, row - 1], [column + right, row - 1], [column - 1 + right, row + 1], [column + right, row + 1]]
+}
+const axial = (slot: Pick<RoomSlot, 'column' | 'row'>) => ({ q: slot.column - (slot.row - Math.abs(slot.row % 2)) / 2, r: slot.row })
+const hexDistance = (a: RoomSlot, b: RoomSlot) => { const aa = axial(a); const bb = axial(b); const q = aa.q - bb.q; const r = aa.r - bb.r; return Math.max(Math.abs(q), Math.abs(r), Math.abs(q + r)) }
 
-// Breadth-first slots keep every new room attached to the existing cluster. q+r/2 is the world-space form
-// of an odd-row half-width offset, while a full ROOM_SIZE between rows keeps square floor footprints touching.
+// Screen rows run along world [+X, -Z] under the fixed isometric camera; screen depth runs along [+X, +Z].
+// ROOM_ROW_DISTANCE includes the projected wall height, so complete room silhouettes meet instead of occluding.
 const roomSlots = (handles: string[]): RoomSlot[] => {
   const cells: Array<[number, number]> = [[0, 0]]
   const seen = new Set(['0:0'])
   for (let index = 0; index < cells.length && cells.length < handles.length; index += 1) {
-    const [q, r] = cells[index]
-    for (const [dq, dr] of NEIGHBORS) {
-      const cell: [number, number] = [q + dq, r + dr]
+    const [column, row] = cells[index]
+    for (const cell of neighbourCells(column, row)) {
       const key = `${cell[0]}:${cell[1]}`
       if (seen.has(key)) continue
       seen.add(key); cells.push(cell)
@@ -80,8 +84,10 @@ const roomSlots = (handles: string[]): RoomSlot[] => {
     }
   }
   return handles.map((handle, index) => {
-    const [q, r] = cells[index]
-    return { handle, q, r, position: [(q + r / 2) * ROOM_SIZE, 0, r * ROOM_SIZE] }
+    const [column, row] = cells[index]
+    const staggeredColumn = column + Math.abs(row % 2) / 2
+    const rowOffset = row * ROOM_ROW_DISTANCE
+    return { handle, column, row, position: [staggeredColumn * ROOM_SIZE + rowOffset, 0, -staggeredColumn * ROOM_SIZE + rowOffset] }
   })
 }
 if (import.meta.env.DEV) {
