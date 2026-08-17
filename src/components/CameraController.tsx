@@ -1,13 +1,16 @@
 import { OrbitControls } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
-import { MathUtils, OrthographicCamera, TOUCH, Vector3 } from 'three'
+import { MathUtils, MOUSE, OrthographicCamera, TOUCH, Vector3 } from 'three'
 import { useRoomStore } from '../store'
 
 const DESKTOP_DETAIL_MIN_ZOOM = 42
 const MOBILE_DETAIL_MIN_ZOOM = 30
-const DESKTOP_EXPLORE_MIN_ZOOM = 10
-const MOBILE_EXPLORE_MIN_ZOOM = 8
+// How far out the explorer goes. A room is 200px wide at zoom 20.2, and the cluster spans three rooms across, so
+// desktop stops with the whole ring on screen at a readable size rather than shrinking it to a thumbnail. A phone
+// has far less width for the same three rooms, so it is allowed to pull back further before it stops.
+const DESKTOP_EXPLORE_MIN_ZOOM = 20
+const MOBILE_EXPLORE_MIN_ZOOM = 13
 const MAX_ZOOM = 220
 
 type FocusRoom = { position: [number, number, number]; token: number }
@@ -27,6 +30,9 @@ export default function CameraController({ focusRoom }: { focusRoom?: FocusRoom 
   // fully zoomed out is the room explorer, not a room: swinging the camera there just skews the tiled
   // neighbours, so rotation is locked until the user zooms back in
   const [atMinZoom, setAtMinZoom] = useState(false)
+  // the frame loop can run before React has committed, and pushing a setState every frame from useFrame both warns
+  // and churns — so the flag is only published when it actually flips
+  const wasAtMinZoom = useRef(false)
   const compactScreen = size.width < 720 || (size.height < 520 && window.matchMedia('(pointer: coarse)').matches)
   const detailMinZoom = compactScreen ? MOBILE_DETAIL_MIN_ZOOM : DESKTOP_DETAIL_MIN_ZOOM
   const minZoom = mode === 'edit' ? detailMinZoom : compactScreen ? MOBILE_EXPLORE_MIN_ZOOM : DESKTOP_EXPLORE_MIN_ZOOM
@@ -112,12 +118,16 @@ export default function CameraController({ focusRoom }: { focusRoom?: FocusRoom 
 
   useFrame((_, delta) => {
     const camera2d = camera as OrthographicCamera
-    setAtMinZoom(zoomTarget.current <= minZoom + .01)
+    const fullyOut = zoomTarget.current <= minZoom + .01
+    if (fullyOut !== wasAtMinZoom.current) { wasAtMinZoom.current = fullyOut; setAtMinZoom(fullyOut) }
     const next = MathUtils.damp(camera2d.zoom, zoomTarget.current, 7, delta)
     if (Math.abs(next - camera2d.zoom) >= .001) { camera2d.zoom = next; camera2d.updateProjectionMatrix() }
     const orbit = controls.current
     if (!orbit) return
     const target = orbit.target
+    // Fully zoomed out the user is browsing, so panning owns the target: follow wherever they drag instead of
+    // damping back to the focused room, and keep the goal in step so zooming back in stays where they left off.
+    if (fullyOut) { targetGoal.current.copy(target); orbit.update(); return }
     const nextTarget = new Vector3(
       MathUtils.damp(target.x, targetGoal.current.x, 6, delta),
       MathUtils.damp(target.y, targetGoal.current.y, 6, delta),
@@ -132,9 +142,12 @@ export default function CameraController({ focusRoom }: { focusRoom?: FocusRoom 
     ref={controls as never}
     enableRotate={mode === 'normal' && !dragZooming && !atMinZoom}
     target={[0, 3.5, 0]}
-    enablePan={false}
+    // fully zoomed out the view is the explorer, so a drag roams the cluster instead of swinging it
+    enablePan={atMinZoom}
+    screenSpacePanning
     enableZoom={false}
-    touches={{ ONE: TOUCH.ROTATE, TWO: TOUCH.DOLLY_PAN }}
+    mouseButtons={{ LEFT: atMinZoom ? MOUSE.PAN : MOUSE.ROTATE, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.PAN }}
+    touches={{ ONE: atMinZoom ? TOUCH.PAN : TOUCH.ROTATE, TWO: TOUCH.DOLLY_PAN }}
     enableDamping
     dampingFactor={0.08}
     rotateSpeed={0.55}

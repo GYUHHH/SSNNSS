@@ -65,7 +65,7 @@ const VACANT = '__vacant-'
 // one room plus a full ring of six neighbours
 const CLUSTER_SIZE = 7
 
-// A room lives at plan-grid cell (a, b) — world (a·7, storey·7, b·7) — and its storey is exactly −(a + b).
+// A room lives at plan-grid cell (a, b) — world (a·CELL, storey·CELL, b·CELL) — and its storey is exactly −(a + b).
 // Measured under the 45° isometric camera (x === z): one room projects to a 200×200px box, a step of 7 along the
 // screen-horizontal axis is 100px, and a storey of 7 in Y is 133.3px up. So a cell lands at screen
 // (100·(a − b), 166.6·(a + b)) and every ring cell is edge- or corner-adjacent in plan — seen from directly above
@@ -73,7 +73,13 @@ const CLUSTER_SIZE = 7
 // The MINUS on the storey is what puts the stack in the right order. Depth toward this camera grows with a + b, so
 // tying the storey to +(a + b) lifted the upper rooms TOWARD the viewer and they covered the rooms below them.
 // Negating it sends whatever stacks upward back behind, and brings whatever stacks downward to the front.
-const cellPosition = (a: number, b: number): [number, number, number] => [a * ROOM_SIZE, -(a + b) * ROOM_SIZE, b * ROOM_SIZE]
+// A room's slabs sit OUTSIDE its 7×7 grid: the floor is a 0.22-thick box under y = 0 (Floor.tsx) and each wall is
+// 0.22 thick outside x = -3.5 / z = -3.5 (Walls.tsx puts it at -3.61, so its outer face is -3.72). A complete room
+// therefore measures 7.22 on every axis, and spacing cells by the grid alone made those slabs overlap outright.
+// Adding the slab thickness is what makes neighbours meet exactly instead of sharing space and z-fighting.
+const SLAB = 0.22
+const CELL = ROOM_SIZE + SLAB
+const cellPosition = (a: number, b: number): [number, number, number] => [a * CELL, -(a + b) * CELL, b * CELL]
 // the six screen directions that leave a room fully visible: two level steps sideways, two a storey up, two down.
 // Straight up/down the screen (a + b = ±2) is deliberately left out — that cell hides directly behind this one.
 const RING = [[1, -1], [-1, 1], [1, 0], [0, 1], [0, -1], [-1, 0]] as const
@@ -114,8 +120,8 @@ if (import.meta.env.DEV) {
   // Stacking order, read straight off cellPosition so any future edit to it has to keep this true: a room drawn
   // higher on screen must be FURTHER from the camera, otherwise it covers the room below instead of stacking behind
   // it. Both are the measured projection of this camera — screen y counts downward, nearness counts toward the lens.
-  const screenY = ([x, y, z]: [number, number, number]) => (33.3 * (x + z) - 133.3 * y) / ROOM_SIZE
-  const nearness = ([x, y, z]: [number, number, number]) => (2 * x + y + 2 * z) / ROOM_SIZE
+  const screenY = ([x, y, z]: [number, number, number]) => (33.3 * (x + z) - 133.3 * y) / CELL
+  const nearness = ([x, y, z]: [number, number, number]) => (2 * x + y + 2 * z) / CELL
   if (check.some((slot) => Math.sign(Math.round(screenY(slot.position))) !== Math.sign(Math.round(nearness(slot.position))))) throw new Error('Rooms stacked upward must sit behind, and rooms stacked downward in front')
 }
 
@@ -141,6 +147,8 @@ function RoomContainer({ slot, distance, open }: { slot: RoomSlot; distance: num
   const recollectIn = useRef(0)
   const [bundle, setBundle] = useState<Record<string, string> | null>(null)
   const requested = useRef(false)
+  const mounted = useRef(true)
+  useEffect(() => () => { mounted.current = false }, [])
   const collect = () => {
     materials.current = []
     group.current?.traverse((object) => {
@@ -166,7 +174,7 @@ function RoomContainer({ slot, distance, open }: { slot: RoomSlot; distance: num
     // its real layout is fetched the first time the zoom-out actually reveals it, not on page load
     if (!requested.current && opacity.current > .02 && isEnterable(slot.handle)) {
       requested.current = true
-      void fetchRoomBundle(slot.handle).then((found) => { if (found) setBundle(found) })
+      void fetchRoomBundle(slot.handle).then((found) => { if (found && mounted.current) setBundle(found) })
     }
   })
   return <group ref={group} position={slot.position} visible={false}
