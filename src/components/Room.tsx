@@ -5,6 +5,7 @@ import { useRoomStore } from '../store'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
 import CameraController from './CameraController'
+import Neighbourhood from './Neighbourhood'
 import Character from './Character'
 import Chair from './Chair'
 import Computer from './Computer'
@@ -51,7 +52,7 @@ function Scene() {
     <ambientLight intensity={light.ambient} color={light.ambientColor} />
     <directionalLight castShadow position={[4, 8, 5]} intensity={light.dir} color={light.dirColor} shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
     <Suspense fallback={null}>
-      <Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><InventoryPreview /><SurfaceDropZones /><Character /><CameraController /><DebugAnchors /><WallVideoLayer /><ReactionBadges />
+      <Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><InventoryPreview /><SurfaceDropZones /><Character /><CameraController /><DebugAnchors /><WallVideoLayer /><ReactionBadges /><Neighbourhood />
       <ContactShadows position={[0, 0.018, 0]} opacity={0.38} scale={9} blur={2.4} far={2.2} resolution={1024} />
     </Suspense>
   </Canvas></div>
