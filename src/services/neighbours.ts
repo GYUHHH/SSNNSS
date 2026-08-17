@@ -7,10 +7,14 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 export type Neighbour = { handle: string; cell: [number, number] }
 
-// rooms tile edge to edge, so the offsets are whole room widths: the ring around the centre first, then out
+// A honeycomb ring, not a square grid. Seen from the isometric camera the floor is a diamond, so the four
+// axis neighbours land on its four edges (the two lower ones included) and the two diagonals sit straight
+// above and below — together they close a six-room ring around the centre, every edge meeting an edge.
+// The two remaining diagonals are deliberately left out: they would stick out sideways and break the ring.
 const RING: Array<[number, number]> = [
-  [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1],
-  [2, 0], [0, 2], [-2, 0], [0, -2], [2, 1], [1, 2], [-2, 1], [-1, 2], [2, -1], [1, -2], [-2, -1], [-1, -2],
+  [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, -1],
+  [2, 1], [1, 2], [2, 2], [-2, -1], [-1, -2], [-2, -2],
+  [2, 0], [0, 2], [-2, 0], [0, -2],
 ]
 
 let cache: Neighbour[] | null = null
