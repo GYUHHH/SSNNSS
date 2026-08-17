@@ -336,9 +336,12 @@ export function adoptRoomData(bundle: Record<string, string>) {
 // The server is the source of truth: a confirmed missing owner bundle clears its local cache instead of
 // reviving a room the owner already deleted from Supabase. A network failure only falls back to the base view.
 export async function initOwnSync() {
-  if (isVisiting()) return
   const handle = ownHandle()
   if (!handle) return
+  // the bare address belongs to whoever already holds an id on this device — treating them as a passer-by is
+  // what made every save a no-op, since the plain root is read-only by design
+  if (plainRoot) { visitHandle = handle; plainRoot = false; history.replaceState(null, '', roomPath(handle)) }
+  else if (isVisiting()) return
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${escape(handle)}&select=data`, { headers })
     const rows = await response.json()

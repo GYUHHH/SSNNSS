@@ -110,7 +110,7 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
         })}
       </ul>
       {!isVisiting() && <button type="button" className="mini-add" onClick={() => fileInput.current?.click()}>+ 파일</button>}
-      <input ref={fileInput} type="file" accept="audio/*" multiple hidden onChange={(event) => { if (event.target.files?.length) void addFiles(event.target.files); event.target.value = '' }} />
+      <input ref={fileInput} type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.oga,.flac,.opus,.weba" multiple hidden onChange={(event) => { if (event.target.files?.length) void addFiles(event.target.files); event.target.value = '' }} />
     </>}
   </div>
 }
