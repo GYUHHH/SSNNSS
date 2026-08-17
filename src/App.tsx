@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import ArtworkOverlay, { artworkKindOf } from './components/ArtworkOverlay'
 import BookShelfPanel from './components/BookShelfPanel'
 import DiaryDialog from './components/DiaryDialog'
@@ -8,6 +8,7 @@ import YouTubePlayer from './components/YouTubePlayer'
 import SoundHub from './components/SoundHub'
 import HandleSetup from './components/HandleSetup'
 import ReactionPopup from './components/ReactionPopup'
+import PanelHistory from './components/PanelHistory'
 import ReactionPicker from './components/ReactionPicker'
 import ItemComments from './components/ItemComments'
 import Room from './components/Room'
@@ -18,7 +19,7 @@ import { isPlainRoot, isVisiting, myHandle } from './services/social'
 import { thumbnailFor } from './services/thumbnails'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 126
+const BUILD = 127
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget } = useRoomStore()
@@ -51,6 +52,41 @@ function Interface() {
   const cardControls = selectedObject === 'clock'
   const time = new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit' }).format(new Date())
   const artOpen = (!!selectedItem && !!artworkKindOf(selectedItem.type)) || bookshelfOpen || !!openBookId
+  const sheet = useRef<HTMLElement>(null)
+  const drag = useRef<{ y: number; at: number; travel: number } | null>(null)
+  // 0 = closed, 1 = fully open. The scene reads the same number, so dragging the sheet drags the room with it.
+  const setProgress = (value: number) => document.documentElement.style.setProperty('--sheet', String(value))
+  useEffect(() => { setProgress(artOpen ? 1 : 0) }, [artOpen])
+  const isSheet = () => window.matchMedia('(max-width: 719px)').matches
+  const sheetDown = (event: React.PointerEvent) => {
+    if (!artOpen || !isSheet()) return
+    const panel = sheet.current
+    // let an inner scroll keep the gesture unless it is already at the very top
+    if (!panel || panel.scrollTop > 0) return
+    drag.current = { y: event.clientY, at: performance.now(), travel: 0 }
+  }
+  const sheetMove = (event: React.PointerEvent) => {
+    const held = drag.current
+    if (!held || !sheet.current) return
+    const travel = Math.max(0, event.clientY - held.y)
+    held.travel = travel
+    const height = sheet.current.offsetHeight || 1
+    sheet.current.style.transition = 'none'
+    sheet.current.style.transform = `translateY(${travel}px)`
+    setProgress(Math.max(0, 1 - travel / height))
+  }
+  const sheetUp = (event: React.PointerEvent) => {
+    const held = drag.current
+    drag.current = null
+    if (!held || !sheet.current) return
+    sheet.current.style.transition = ''
+    sheet.current.style.transform = ''
+    const height = sheet.current.offsetHeight || 1
+    const speed = held.travel / Math.max(1, performance.now() - held.at)
+    if (held.travel > height * .3 || speed > .6) { setProgress(0); clearSelection() }
+    else setProgress(1)
+    event.stopPropagation()
+  }
   return <main className={artOpen ? 'app art-open' : 'app'}>
     <div className="scene" onContextMenu={(event) => event.preventDefault()}><Room /></div>
     <span className="build-tag" aria-hidden="true">{BUILD}</span>
@@ -73,11 +109,16 @@ function Interface() {
     <YouTubePlayer />
     <SoundHub />
     <HandleSetup />
+    <PanelHistory />
     <ReactionPopup />
     <ReactionPicker />
     <ItemComments />
     <ProfileCard />
-    <aside className={artOpen ? 'art-panel open' : 'art-panel'} aria-hidden={!artOpen}><BookShelfPanel /><DiaryDialog /><ArtworkOverlay /></aside>
+    <aside ref={sheet} className={artOpen ? 'art-panel open' : 'art-panel'} aria-hidden={!artOpen}
+      onPointerDown={sheetDown} onPointerMove={sheetMove} onPointerUp={sheetUp} onPointerCancel={sheetUp}>
+      <span className="sheet-handle" aria-hidden="true" />
+      <BookShelfPanel /><DiaryDialog /><ArtworkOverlay />
+    </aside>
   </main>
 }
 
