@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { Group, Vector3 } from 'three'
 import { baseFloorCells, useRoomStore } from '../store'
-import { characterPosition, persistCharacterPosition } from '../services/characterTracker'
+import { characterPosition, characterTeleport, persistCharacterPosition } from '../services/characterTracker'
 import { resolveInteraction, stateForInteraction } from '../services/interactionAnchors'
 import { cellsFor, findPath, floorSurface, gridToWorld, type GridPosition, worldToGrid } from '../services/roomGrid'
 
@@ -44,6 +44,11 @@ export default function Character() {
 
   useFrame((_, delta) => {
     if (!actor.current) return
+    // an owner's move arriving over the wire lands as an instant snap, not a walk
+    if (characterTeleport.position) {
+      actor.current.position.set(characterTeleport.position[0], 0, characterTeleport.position[2])
+      characterTeleport.position = null
+    }
     characterPosition[0] = actor.current.position.x; characterPosition[2] = actor.current.position.z; persistCharacterPosition()
     clock.current += delta
     const walking = characterState === 'walking'

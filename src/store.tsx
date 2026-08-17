@@ -1,7 +1,7 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { createSlot, deleteSlot, loadArtworks, loadProfile, saveProfile, type Profile, loadBooks, loadGuestbook, loadSlots, placedInOtherSlots, saveArtworks, saveBooks, saveGuestbook, saveSlotItems, saveSlotStyle, setActiveSlot, slotItems, slotStyle, type FurniturePlacement, type RoomStyle } from './services/roomLayoutStorage'
 import { bookshelfCapY, bookshelfTiers, canPlaceItem, cellsFor, clampGrid, floorSurface, GRID_COUNT, gridToWorld, isOwnedSurfaceId, nearestWallId, normalizedCells, ownerIdOf, resolveSurface, setBookshelfTopOffset, withResolution, type Footprint, type GridPosition, type PlacementItem, type PlacementResolution, type PlacementSurface, type SurfaceId, type SurfaceKind, type WallId, worldToGrid } from './services/roomGrid'
-import { characterPosition } from './services/characterTracker'
+import { adoptCharacterPosition, characterPosition } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
 import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic } from './services/music'
@@ -558,6 +558,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     setProfile((current) => ({ ...current, ...(loadProfile() ?? {}) }))
     const time = readStored('my-room-time-v1')
     setTimeOfDayState(time === 'evening' || time === 'night' ? time : 'day')
+    adoptCharacterPosition()
     const interactions = loadInteractions()
     setToggledOn(new Set(interactions.toggles))
     setComputerOn(interactions.computerOn)

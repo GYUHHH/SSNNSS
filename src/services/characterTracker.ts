@@ -19,3 +19,13 @@ export const persistCharacterPosition = () => {
 // set by the store when the user clicks an empty floor cell; Character's useFrame applies it as an INSTANT
 // position snap (no walking) on the next frame and clears it
 export const characterTeleport: { position: [number, number, number] | null } = { position: null }
+
+// a live room update carries a new spot for the character — take it and let the next frame snap there
+export const adoptCharacterPosition = () => {
+  try {
+    const value = JSON.parse(readStored(STORAGE_KEY) ?? '')
+    if (!Array.isArray(value) || value.length !== 3) return
+    if (Math.hypot(value[0] - characterPosition[0], value[2] - characterPosition[2]) < .01) return
+    characterTeleport.position = value as [number, number, number]
+  } catch { /* nothing stored */ }
+}
