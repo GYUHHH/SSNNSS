@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { Group, Vector3 } from 'three'
 import { baseFloorCells, useRoomStore } from '../store'
 import { characterPosition, characterTeleport, persistCharacterPosition } from '../services/characterTracker'
+import { broadcastCharacter, isVisiting } from '../services/social'
 import { resolveInteraction, stateForInteraction } from '../services/interactionAnchors'
 import { cellsFor, findPath, floorSurface, gridToWorld, type GridPosition, worldToGrid } from '../services/roomGrid'
 
@@ -28,6 +29,9 @@ export default function Character() {
   const { selectedObject, characterState, finishCharacterAction, cupHeld, selectObject, furniture, debugAnchors, moveNotice, floorTarget, settleFloorMove } = useRoomStore()
   const route = useRef<Vector3[]>([]); const routeIndex = useRef(0); const routeKey = useRef<string | null>(null)
   const interactionStart = useRef<{ key: string | null; position: [number, number, number] }>({ key: null, position: [start.x, 0, start.z] })
+  // throttle for the live position broadcast, and the last spot actually sent
+  const live = useRef(0)
+  const sent = useRef<[number, number]>([start.x, start.z])
   const clock = useRef(0)
   useCursor(hovered)
   // set once: the group's position is driven imperatively from here on, never via a reactive JSX prop (which would re-snap it to `start` on every unrelated re-render)
@@ -50,6 +54,12 @@ export default function Character() {
       characterTeleport.position = null
     }
     characterPosition[0] = actor.current.position.x; characterPosition[2] = actor.current.position.z; persistCharacterPosition()
+    live.current -= delta
+    if (!isVisiting() && live.current <= 0 && Math.hypot(actor.current.position.x - sent.current[0], actor.current.position.z - sent.current[1]) > .02) {
+      live.current = .08
+      sent.current = [actor.current.position.x, actor.current.position.z]
+      broadcastCharacter([actor.current.position.x, 0, actor.current.position.z])
+    }
     clock.current += delta
     const walking = characterState === 'walking'
     if (interactionStart.current.key !== selectedObject) interactionStart.current = { key: selectedObject, position: [actor.current.position.x, 0, actor.current.position.z] }

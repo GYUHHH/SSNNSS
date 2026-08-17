@@ -1,7 +1,7 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { createSlot, deleteSlot, loadArtworks, loadProfile, saveProfile, type Profile, loadBooks, loadGuestbook, loadSlots, placedInOtherSlots, saveArtworks, saveBooks, saveGuestbook, saveSlotItems, saveSlotStyle, setActiveSlot, slotItems, slotStyle, type FurniturePlacement, type RoomStyle } from './services/roomLayoutStorage'
 import { bookshelfCapY, bookshelfTiers, canPlaceItem, cellsFor, clampGrid, floorSurface, GRID_COUNT, gridToWorld, isOwnedSurfaceId, nearestWallId, normalizedCells, ownerIdOf, resolveSurface, setBookshelfTopOffset, withResolution, type Footprint, type GridPosition, type PlacementItem, type PlacementResolution, type PlacementSurface, type SurfaceId, type SurfaceKind, type WallId, worldToGrid } from './services/roomGrid'
-import { adoptCharacterPosition, characterPosition } from './services/characterTracker'
+import { adoptCharacterPosition, characterPosition, characterTeleport } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
 import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic } from './services/music'
@@ -610,7 +610,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     loadRemoteLikes()
     // live events keep everything current without a refresh: new comments and visits re-pull their views,
     // and a room-data change while visiting re-fetches the snapshot and re-reads it into state in place
-    const stopRealtime = subscribeRealtime(loadRemoteGuestbook, loadRemoteVisits, () => { void refreshVisit() }, loadRemoteLikes)
+    const stopRealtime = subscribeRealtime(loadRemoteGuestbook, loadRemoteVisits, () => { void refreshVisit() }, loadRemoteLikes, (position) => { characterTeleport.position = position })
     const stopRefresh = onRoomRefresh(rehydrate)
     return () => { stopRealtime(); stopRefresh() }
   }, [])
