@@ -29,7 +29,8 @@ function Badge({ id, count }: { id: string; count: number }) {
   })
   const open = () => { markReactionsSeen(id); setReactionTarget(id) }
   if (mode === 'edit') return null
-  return <group ref={holder}>
+  // hidden until the first frame has placed it on its object — otherwise it flashes at the room's origin
+  return <group ref={holder} visible={false}>
     <Html center zIndexRange={[5, 0]}>
       <button
         type="button"

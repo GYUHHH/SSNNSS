@@ -76,7 +76,7 @@ input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-
 .canvas-host canvas { pointer-events: none; }
 .speech-bubble { position: relative; width: max-content; max-width: 190px; padding: 9px 11px; border: 1px solid #a3a39e; border-radius: 5px; color: #3e3731; background: #ffffff; font-size: 12px; white-space: nowrap; }
 .speech-bubble::after { content: ""; position: absolute; bottom: -6px; left: 22px; width: 10px; height: 10px; border-right: 1px solid #a3a39e; border-bottom: 1px solid #a3a39e; background: #ffffff; transform: rotate(45deg); }
-.overlay { position: fixed; z-index: 5; inset: 0; display: grid; place-items: center; background: rgb(57 48 41 / 34%); }
+.overlay { position: fixed; z-index: 60; inset: 0; display: grid; place-items: center; background: rgb(57 48 41 / 34%); }
 .bookshelf-panel, .diary, .artwork { position: relative; border: 1px solid #b3b3ae; border-radius: 7px; background: #ffffff; }
 .bookshelf-panel { width: min(390px, calc(100vw - 32px)); padding: 28px 22px 22px; }.bookshelf-panel h2 { margin: 0 0 15px; font-size: 21px; letter-spacing: -.06em; }
 .close-ui { position: absolute; top: 10px; right: 11px; border: 0; color: #4f443a; background: transparent; font-size: 23px; line-height: 1; cursor: pointer; }
