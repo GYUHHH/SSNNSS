@@ -39,12 +39,13 @@ const parseHandle = (): string | null => {
   const segment = location.pathname.startsWith(BASE) ? decodeURIComponent(location.pathname.slice(BASE.length).split('/')[0] ?? '') : ''
   return segment && segment !== 'index.html' ? segment : null
 }
-// mutable: an address with no room behind it is dropped during initVisit, so the site falls back to itself
-// instead of dressing up a default room as somebody's and counting a visit to a room that does not exist
+// The base address is always the anonymous default room. A personal room is only read from an explicit handle.
 let visitHandle = parseHandle()
+let plainRoot = visitHandle === null
 export const visitedHandle = () => visitHandle
+export const isPlainRoot = () => plainRoot
 let visitData: Record<string, string> | null = null
-export const isVisiting = () => visitHandle !== null && visitHandle !== ownHandle()
+export const isVisiting = () => plainRoot || (visitHandle !== null && visitHandle !== ownHandle())
 
 // storage reads for room content route through here: a visit serves the fetched bundle exclusively
 export const readStored = (key: string): string | null => {
@@ -53,14 +54,14 @@ export const readStored = (key: string): string | null => {
 }
 
 export async function initVisit() {
-  if (!isVisiting()) return
+  if (!visitHandle || !isVisiting()) return
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${escape(visitHandle!)}&select=data`, { headers })
     const rows = await response.json()
     const data = Array.isArray(rows) ? rows[0]?.data : null
-    if (!response.ok || !data || typeof data !== 'object' || Array.isArray(data)) { visitHandle = null; visitData = null; history.replaceState(null, '', BASE); return }
+    if (!response.ok || !data || typeof data !== 'object' || Array.isArray(data)) { visitHandle = null; plainRoot = true; visitData = null; history.replaceState(null, '', BASE); return }
     visitData = data
-  } catch { visitHandle = null; visitData = null; history.replaceState(null, '', BASE) }
+  } catch { visitHandle = null; plainRoot = true; visitData = null; history.replaceState(null, '', BASE) }
 }
 
 const persistentId = (key: string) => {
@@ -78,7 +79,7 @@ const ownHandle = (): string | null => {
 }
 export const currentRoomHandle = () => (isVisiting() ? visitHandle : ownHandle())
 // the writer's OWN id, even while visiting someone else's room (reads the local profile directly)
-export const myHandle = () => ownHandle()
+export const myHandle = () => plainRoot ? null : ownHandle()
 export const roomPath = (handle: string) => `${BASE}${escape(handle)}`
 
 export async function publishRoom() {
@@ -211,7 +212,7 @@ export async function fetchAllLikes(): Promise<Array<{ item_id: string; visitor:
 
 // One visit row per visitor per day; the profile numbers read the real counts
 export async function recordVisit() {
-  if (!isVisiting()) return
+  if (!visitHandle || !isVisiting()) return
   try {
     await fetch(`${SUPABASE_URL}/rest/v1/visits`, { method: 'POST', headers: { ...headers, Prefer: 'resolution=ignore-duplicates' }, body: JSON.stringify({ room: visitHandle, visitor: visitorId() }) })
   } catch { /* offline */ }

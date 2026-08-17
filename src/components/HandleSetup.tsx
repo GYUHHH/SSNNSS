@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useRoomStore } from '../store'
-import { adoptRoomData, claimHandleLocally, currentUserEmail, handleTaken, isVisiting, myHandle, onAuthChange, ownedRoom, publishRoom, roomPath, sendOtpCode, verifyOtpCode } from '../services/social'
+import { adoptRoomData, claimHandleLocally, currentUserEmail, handleTaken, isPlainRoot, isVisiting, myHandle, onAuthChange, ownedRoom, publishRoom, roomPath, sendOtpCode, verifyOtpCode } from '../services/social'
 
 // First-time onboarding: email → emailed 6-digit code → pick a unique id. Claiming publishes the personal
 // room, binds it to the account, and moves to its address (domain)/(id).
@@ -44,6 +44,7 @@ export default function HandleSetup() {
   // The `mine` guard is load-bearing: without it a device that already holds the handle would
   // location.replace onto the address it is already on, reloading forever.
   useEffect(() => {
+    if (isPlainRoot()) { setRoomChecked(true); return }
     if (!session || mine) return
     let live = true
     void ownedRoom().then((room) => {
