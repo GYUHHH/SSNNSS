@@ -17,6 +17,11 @@ export const isCompactScreen = (width: number, height: number) => width < 720 ||
 // the floor the explorer bottoms out at — the neighbour fade bands are anchored to it so raising one moves the other
 export const exploreMinZoom = (width: number, height: number) => isCompactScreen(width, height) ? MOBILE_EXPLORE_MIN_ZOOM : DESKTOP_EXPLORE_MIN_ZOOM
 
+// The straight-on view a room is entered at, derived from the default rig: the camera sits at (10, 8.5, 10) looking
+// at (0, 3.5, 0), so the offset is (10, 5, 10) with radius 15 — azimuth atan2(10, 10) and polar acos(5 / 15).
+const DEFAULT_AZIMUTH = Math.PI / 4
+const DEFAULT_POLAR = Math.acos(1 / 3)
+
 type FocusRoom = { position: [number, number, number]; token: number }
 type ControlsRef = { target: Vector3; update: () => void; getAzimuthalAngle: () => number; setAzimuthalAngle: (value: number) => void; getPolarAngle: () => number; setPolarAngle: (value: number) => void }
 
@@ -25,6 +30,8 @@ export default function CameraController({ focusRoom }: { focusRoom?: FocusRoom 
   const { mode } = useRoomStore()
   const zoomTarget = useRef(59)
   const targetGoal = useRef(new Vector3(0, 3.5, 0))
+  // set while gliding back to the straight-on view after a room is entered, then cleared so the user owns the angle
+  const angleGoal = useRef<{ azimuth: number; polar: number } | null>(null)
   const touchStart = useRef<{ x: number; y: number; time: number } | null>(null)
   const pinchDistance = useRef(0)
   const lastTap = useRef({ time: 0, x: 0, y: 0 })
@@ -52,6 +59,8 @@ export default function CameraController({ focusRoom }: { focusRoom?: FocusRoom 
     if (!focusRoom) return
     targetGoal.current.set(focusRoom.position[0], focusRoom.position[1] + 3.5, focusRoom.position[2])
     zoomTarget.current = baseZoom
+    // whatever the explorer was left rotated or panned to, entering a room lands dead-centre on the 45° view
+    angleGoal.current = { azimuth: DEFAULT_AZIMUTH, polar: DEFAULT_POLAR }
   }, [baseZoom, focusRoom?.token])
 
   useEffect(() => { zoomTarget.current = Math.max(zoomTarget.current, minZoom) }, [minZoom])
@@ -128,6 +137,15 @@ export default function CameraController({ focusRoom }: { focusRoom?: FocusRoom 
     if (Math.abs(next - camera2d.zoom) >= .001) { camera2d.zoom = next; camera2d.updateProjectionMatrix() }
     const orbit = controls.current
     if (!orbit) return
+    // glide the swing back to the straight-on view when a room has just been entered, then hand the angle back
+    const angle = angleGoal.current
+    if (angle) {
+      const azimuth = MathUtils.damp(orbit.getAzimuthalAngle(), angle.azimuth, 6, delta)
+      const polar = MathUtils.damp(orbit.getPolarAngle(), angle.polar, 6, delta)
+      orbit.setAzimuthalAngle(azimuth)
+      orbit.setPolarAngle(polar)
+      if (Math.abs(azimuth - angle.azimuth) < .0005 && Math.abs(polar - angle.polar) < .0005) angleGoal.current = null
+    }
     const target = orbit.target
     // Fully zoomed out the user is browsing, so panning owns the target: follow wherever they drag instead of
     // damping back to the focused room, and keep the goal in step so zooming back in stays where they left off.
