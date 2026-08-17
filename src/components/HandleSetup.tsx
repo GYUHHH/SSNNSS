@@ -29,7 +29,7 @@ export default function HandleSetup() {
     setEmail(''); setCode(''); setCodeSent(false); setCodeBad(false); setSendFailed(false); setValue(''); setTaken(false)
   }
   useEffect(() => {
-    const onNeed = () => { setRequested(true); setDismissed(false) }
+    const onNeed = (event: Event) => { const wanted = (event as CustomEvent<'login' | 'signup' | undefined>).detail; setRequested(true); setDismissed(false); if (wanted) setIntent(wanted) }
     window.addEventListener('need-id', onNeed)
     return () => window.removeEventListener('need-id', onNeed)
   }, [])

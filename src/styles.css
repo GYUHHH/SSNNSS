@@ -455,6 +455,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .wall-video-shield.top { left: 0; right: 0; top: 0; bottom: 82px; }
 .wall-video-shield.rest { left: 0; right: 210px; bottom: 0; height: 82px; }
 .wall-video { cursor: pointer; }
+/* sits under the room, clear of the sound button below it */
+.entry-buttons { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 6; display: flex; gap: 8px; }
+.entry-buttons button { border: 1px solid var(--ui-line); border-radius: 8px; padding: 9px 18px; color: var(--ui-text); background: var(--ui-bg); cursor: pointer; font-size: 13px; }
+.entry-buttons button:last-child { border-color: var(--ui-blue); color: #fff; background: var(--ui-blue); }
 .sound-hub { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 6; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .sound-hub-main { display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 50%; color: #fff; background: rgb(20 20 20 / 78%); cursor: pointer; }
 .sound-hub-list { display: grid; gap: 6px; margin: 0; padding: 8px; list-style: none; border: 1px solid #dbdbdb; border-radius: 8px; background: #ffffff; }

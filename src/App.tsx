@@ -14,11 +14,11 @@ import Room from './components/Room'
 import StylePanel from './components/StylePanel'
 import { MAX_ROOMS, RoomProvider, useRoomStore } from './store'
 import { customizableTypes } from './services/styles'
-import { isVisiting, myHandle } from './services/social'
+import { isPlainRoot, isVisiting, myHandle } from './services/social'
 import { thumbnailFor } from './services/thumbnails'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 122
+const BUILD = 123
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget } = useRoomStore()
@@ -59,6 +59,11 @@ function Interface() {
       {cardControls && <section className="object-card"><span>{time}</span></section>}
       <StylePanel />
     </aside>
+    {/* the plain site's way in — the same card the rest of the app opens, just reachable without waiting for it */}
+    {mode === 'normal' && isPlainRoot() && <nav className="entry-buttons" aria-label="시작하기">
+      <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('need-id', { detail: 'login' }))}>로그인</button>
+      <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('need-id', { detail: 'signup' }))}>가입하기</button>
+    </nav>}
     {mode === 'normal' && <>{!isVisiting() && <div className="room-controls"><button className="inventory-button" type="button" onClick={() => { setInventoryOpen(true); toggleEditMode() }}>가구함</button></div>}{!isVisiting() && <nav className="room-slots" aria-label="내 방 목록">{rooms.map((room) => <span key={room.id} className={room.id === activeRoomId ? 'room-chip active' : 'room-chip'}><button type="button" onClick={() => room.id !== activeRoomId && openRoom(room.id)}>{room.name}</button>{rooms.length > 1 && <button type="button" className="remove-room" aria-label={`${room.name} 삭제`} onClick={() => setConfirmingRoom(room.id)}>×</button>}</span>)}{rooms.length < MAX_ROOMS && <button type="button" className="add-room" onClick={createRoom} aria-label="새 방 만들기">+</button>}</nav>}{!isVisiting() && <nav className="time-controls" aria-label="시간대">{([['day', '낮'], ['evening', '저녁'], ['night', '밤']] as const).map(([key, label]) => <button key={key} type="button" className={timeOfDay === key ? 'active' : ''} onClick={() => setTimeOfDay(key)}>{label}</button>)}</nav>}</>}
     {mode === 'edit' && movingFurnitureId && <div className={`storage-drop-zone${dragPointer?.overStorage ? ' active' : ''}`} data-storage-dropzone>보관함</div>}
     {movingFurnitureId && dragPointer?.overStorage && dragThumbnail && <img className="drag-thumbnail" src={dragThumbnail} alt="" style={{ left: dragPointer.x, top: dragPointer.y }} />}
