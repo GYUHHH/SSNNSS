@@ -14,11 +14,11 @@ import Room from './components/Room'
 import StylePanel from './components/StylePanel'
 import { MAX_ROOMS, RoomProvider, useRoomStore } from './store'
 import { customizableTypes } from './services/styles'
-import { isVisiting } from './services/social'
+import { isVisiting, myHandle } from './services/social'
 import { thumbnailFor } from './services/thumbnails'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 102
+const BUILD = 103
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget } = useRoomStore()
@@ -54,6 +54,7 @@ function Interface() {
   return <main className={artOpen ? 'app art-open' : 'app'}>
     <div className="scene" onContextMenu={(event) => event.preventDefault()}><Room /></div>
     <span className="build-tag" aria-hidden="true">{BUILD}</span>
+    {myHandle() && <span className="me-tag">{myHandle()}</span>}
     <aside className="room-ui">
       {cardControls && <section className="object-card"><span>{time}</span></section>}
       <StylePanel />

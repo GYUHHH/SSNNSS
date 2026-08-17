@@ -23,6 +23,11 @@ export default function HandleSetup() {
   const [requested, setRequested] = useState(false)
   // which button was pressed on the first screen — the flow after it is identical either way
   const [intent, setIntent] = useState<'login' | 'signup' | null>(null)
+  const [already, setAlready] = useState(false)
+  const close = () => {
+    setDismissed(true); setRequested(false); setIntent(null); setAlready(false)
+    setEmail(''); setCode(''); setCodeSent(false); setCodeBad(false); setSendFailed(false); setValue(''); setTaken(false)
+  }
   useEffect(() => {
     const onNeed = () => { setRequested(true); setDismissed(false) }
     window.addEventListener('need-id', onNeed)
@@ -66,6 +71,7 @@ export default function HandleSetup() {
     setBusy(true)
     const ok = await verifyOtpCode(email, code.trim())
     setCodeBad(!ok)
+    if (ok && intent === 'signup' && await ownedRoom()) setAlready(true)
     setBusy(false)
   }
   const claim = async () => {
@@ -77,9 +83,9 @@ export default function HandleSetup() {
     await publishRoom()
     location.replace(roomPath(clean))
   }
-  return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setDismissed(true)}>
+  return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && close()}>
     <section className="login-card" aria-label="가입">
-      <button className="close-ui" type="button" aria-label="닫기" onClick={() => setDismissed(true)}>×</button>
+      <button className="close-ui" type="button" aria-label="닫기" onClick={close}>×</button>
       {!session && !intent && <>
         <strong>시작하기</strong>
         <div className="login-form">
@@ -87,7 +93,8 @@ export default function HandleSetup() {
           <button type="button" className="ghost" onClick={() => setIntent('signup')}>가입하기</button>
         </div>
       </>}
-      {!session && intent && <>
+      {!session && intent && already && <strong>이미 가입한 사용자입니다</strong>}
+      {!session && intent && !already && <>
         <strong>{intent === 'login' ? '로그인' : '가입하기'}</strong>
         <div className="login-form">
           <input type="email" value={email} placeholder="이메일" disabled={codeSent} onChange={(event) => setEmail(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void sendCode() }} />
