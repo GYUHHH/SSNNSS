@@ -1,10 +1,18 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRoomStore } from '../store'
-import { isVisiting, signOut } from '../services/social'
+import { currentUserEmail, isVisiting, onAuthChange, signOut } from '../services/social'
+
+// door-with-an-arrow: the usual sign-out glyph
+const SignOutIcon = () => <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" /><path d="M10 16l-4-4 4-4" /><path d="M6 12h9" /></svg>
 
 export default function ProfileCard() {
   const { profileOpen, closeProfile, profile, setProfilePhoto, setProfileHandle, remoteVisits } = useRoomStore()
   const inputRef = useRef<HTMLInputElement>(null)
+  const [signedIn, setSignedIn] = useState(false)
+  useEffect(() => {
+    void currentUserEmail().then((email) => setSignedIn(!!email))
+    return onAuthChange((email) => setSignedIn(!!email))
+  }, [])
   if (!profileOpen) return null
   const pick = (file: File) => {
     const image = new Image()
@@ -23,6 +31,7 @@ export default function ProfileCard() {
   }
   return <div className="profile-overlay" onMouseDown={(event) => event.currentTarget === event.target && closeProfile()}>
     <section className="profile-card" aria-label="프로필">
+      {signedIn && !isVisiting() && <button className="profile-signout" type="button" aria-label="로그아웃" onClick={() => { void signOut().then(() => location.replace(import.meta.env.BASE_URL)) }}><SignOutIcon /></button>}
       <div className="profile-main">
         {isVisiting()
           ? <div className="profile-photo">{profile.photo ? <img src={profile.photo} alt="프로필 사진" /> : <span>사진</span>}</div>
