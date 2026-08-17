@@ -318,8 +318,8 @@ export function adoptRoomData(bundle: Record<string, string>) {
   } catch { /* storage may be unavailable */ }
 }
 
-// The server is the source of truth: a missing or unreadable owner bundle clears its local cache instead of
-// reviving a room the owner already deleted from Supabase.
+// The server is the source of truth: a confirmed missing owner bundle clears its local cache instead of
+// reviving a room the owner already deleted from Supabase. A network failure only falls back to the base view.
 export async function initOwnSync() {
   if (isVisiting()) return
   const handle = ownHandle()
@@ -330,7 +330,7 @@ export async function initOwnSync() {
     const bundle = Array.isArray(rows) ? rows[0]?.data : null
     if (!response.ok || !bundle || typeof bundle !== 'object' || Array.isArray(bundle)) { clearRoomCache(); resetToPlainRoot(); return }
     adoptRoomData(bundle)
-  } catch { clearRoomCache(); resetToPlainRoot() }
+  } catch { resetToPlainRoot() }
 }
 
 // The character moves continuously, so its position rides a broadcast on the room's channel instead of the
