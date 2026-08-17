@@ -45,14 +45,14 @@ export function FittedMesh({ item, children }: { item: FurnitureItem; children: 
 }
 
 function EditableFurniture({ id, children }: { id: FurnitureId; children: ReactNode }) {
-  const { furniture, selectedFurnitureId, movingFurnitureId, selectFurniture, beginMove } = useRoomStore()
+  const { readOnly, furniture, selectedFurnitureId, movingFurnitureId, selectFurniture, beginMove } = useRoomStore()
   const item = furniture.find((value) => value.id === id)!
   const selected = selectedFurnitureId === id
   const surface = resolveSurface(furniture, item.surfaceId)
   const [width, height] = surface ? fitMeshToFootprint(withResolution(surface, resolutionFor(item)), item.footprint) : [0, 0]
   return <group position={item.position} rotation={item.category === 'wallItem' ? [0, 0, 0] : item.rotation} scale={item.scale}
-    onPointerDown={(event) => { event.stopPropagation(); selectFurniture(id); beginMove(id) }}
-    onClick={(event) => event.stopPropagation()}>
+    onPointerDown={(event) => { if (readOnly) return; event.stopPropagation(); selectFurniture(id); beginMove(id) }}
+    onClick={(event) => { if (!readOnly) event.stopPropagation() }}>
     {children}
     {selected && movingFurnitureId !== id && item.category !== 'wallItem' && <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}><ringGeometry args={[Math.max(width, height) * .22, Math.max(width, height) * .3, 28]} /><meshBasicMaterial color="#fff2a5" transparent opacity={0.9} /></mesh>}
   </group>

@@ -26,7 +26,7 @@ export default function Character() {
   const armLeft = useRef<Group>(null); const armRight = useRef<Group>(null)
   const torso = useRef<Group>(null); const head = useRef<Group>(null)
   const [hovered, setHovered] = useState(false)
-  const { selectedObject, characterState, finishCharacterAction, cupHeld, selectObject, furniture, debugAnchors, moveNotice, floorTarget, settleFloorMove } = useRoomStore()
+  const { readOnly, selectedObject, characterState, finishCharacterAction, cupHeld, selectObject, furniture, debugAnchors, moveNotice, floorTarget, settleFloorMove } = useRoomStore()
   const route = useRef<Vector3[]>([]); const routeIndex = useRef(0); const routeKey = useRef<string | null>(null)
   const interactionStart = useRef<{ key: string | null; position: [number, number, number] }>({ key: null, position: [start.x, 0, start.z] })
   // throttle for the live position broadcast, and the last spot actually sent
@@ -149,7 +149,7 @@ export default function Character() {
     if (torso.current) torso.current.scale.y = characterState === 'sleeping' ? 1 + Math.sin(clock.current * 2.2) * 0.02 : 1
   })
 
-  return <group ref={actor} scale={0.85} rotation={[0, Math.PI / 4, 0]} onPointerOver={(event) => { event.stopPropagation(); setHovered(true) }} onPointerOut={() => setHovered(false)} onClick={(event) => { event.stopPropagation(); selectObject('character') }}>
+  return <group ref={actor} scale={0.85} rotation={[0, Math.PI / 4, 0]} onPointerOver={(event) => { if (readOnly) return; event.stopPropagation(); setHovered(true) }} onPointerOut={() => setHovered(false)} onClick={(event) => { if (readOnly) return; event.stopPropagation(); selectObject('character') }}>
     <group position={[0, pose.y, 0]} rotation={pose.rotation} scale={hovered ? 1.03 : 1}>
       <group ref={torso}>
         <mesh position={[0, 1.15, 0]}><cylinderGeometry args={[.08, .09, .16, 8]} /><meshStandardMaterial color="#dfa27f" roughness={.85} /></mesh>

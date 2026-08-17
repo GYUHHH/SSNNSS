@@ -132,11 +132,11 @@ if (import.meta.env.DEV) {
   if (check.some((slot) => Math.sign(Math.round(screenY(slot.position))) !== Math.sign(Math.round(nearness(slot.position))))) throw new Error('Rooms stacked upward must sit behind, and rooms stacked downward in front')
 }
 
-// Switching raycasting off for a whole subtree is one lever that covers every handler inside it, and it is needed
-// twice. A neighbour room must never react to a click — Floor, Interactive, Furniture and Character all
-// stopPropagation, so a live handler in there swallows the very click that is meant to select the room, leaving
-// bare wall as the only way in. And the room you are standing in has to go inert while the explorer is open, so a
-// click picks a room instead of poking the furniture underneath.
+// The room you are standing in goes inert while the explorer is open, so browsing cannot walk its character or open
+// its panels. Switching raycasting off for the whole subtree covers every handler inside it in one place. It suits
+// the live room precisely because nothing there needs to be clickable — a NEIGHBOUR must stay hittable, or the
+// click that selects it has nothing to land on, so read-only rooms hold their handlers back instead (see Floor,
+// Interactive, Furniture and Character: each one bails before stopPropagation when the store is readOnly).
 const NO_RAYCAST = () => {}
 function Inert({ off, children }: { off: (zoom: number, width: number, height: number) => boolean; children: ReactNode }) {
   const group = useRef<Group>(null)
@@ -159,7 +159,6 @@ function Inert({ off, children }: { off: (zoom: number, width: number, height: n
   })
   return <group ref={group}>{children}</group>
 }
-const ALWAYS = () => true
 
 function RoomRoot() {
   return <>
@@ -225,7 +224,7 @@ function RoomContainer({ slot, distance, open }: { slot: RoomSlot; distance: num
     onClick={(event) => { if (opacity.current < .65 || pressWandered(event)) return; event.stopPropagation(); document.body.style.cursor = ''; open() }}>
     {/* its own boundary: a neighbour's font or texture must never suspend the live room out of view */}
     <Suspense fallback={null}>
-      <NeighbourRoomProvider bundle={bundle}><Inert off={ALWAYS}><NeighbourRoom /></Inert></NeighbourRoomProvider>
+      <NeighbourRoomProvider bundle={bundle}><NeighbourRoom /></NeighbourRoomProvider>
     </Suspense>
   </group>
 }

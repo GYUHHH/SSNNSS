@@ -19,7 +19,7 @@ function TileGrout() {
 }
 
 export default function Floor() {
-  const { mode, furniture, selectedFurnitureId, movingFurnitureId, preview, previewDragging, floorStyle, moveFurniture, placeFurnitureAt, movePreview, moveCharacterTo } = useRoomStore()
+  const { readOnly, mode, furniture, selectedFurnitureId, movingFurnitureId, preview, previewDragging, floorStyle, moveFurniture, placeFurnitureAt, movePreview, moveCharacterTo } = useRoomStore()
   const selected = furniture.find((item) => item.id === selectedFurnitureId)
   const style = floorStyleOf(floorStyle)
   const moveTo = (point: { x: number; y: number; z: number }) => {
@@ -28,9 +28,9 @@ export default function Floor() {
   }
   return <>
     <mesh receiveShadow position={[0, -0.11, 0]}
-      onPointerDown={(event) => { if (mode === 'edit') event.stopPropagation() }}
-      onPointerMove={(event) => { if (movingFurnitureId === selected?.id || (previewDragging && preview?.allowedSurfaces.includes('floor'))) { event.stopPropagation(); moveTo(event.point) } }}
-      onClick={(event) => { event.stopPropagation(); if (mode === 'normal') moveCharacterTo([event.point.x, 0, event.point.z]); else if (selected?.movable && selected.allowedSurfaces.includes('floor') && !movingFurnitureId) placeFurnitureAt(selected.id, [event.point.x, 0, event.point.z], 'floor') }}
+      onPointerDown={(event) => { if (!readOnly && mode === 'edit') event.stopPropagation() }}
+      onPointerMove={(event) => { if (readOnly) return; if (movingFurnitureId === selected?.id || (previewDragging && preview?.allowedSurfaces.includes('floor'))) { event.stopPropagation(); moveTo(event.point) } }}
+      onClick={(event) => { if (readOnly) return; event.stopPropagation(); if (mode === 'normal') moveCharacterTo([event.point.x, 0, event.point.z]); else if (selected?.movable && selected.allowedSurfaces.includes('floor') && !movingFurnitureId) placeFurnitureAt(selected.id, [event.point.x, 0, event.point.z], 'floor') }}
     ><boxGeometry args={[floorSurface.width, 0.22, floorSurface.height]} /><meshStandardMaterial color={style.color} roughness={style.roughness} /></mesh>
     {style.pattern === 'grout' && <TileGrout />}
     {mode === 'edit' && (() => {
