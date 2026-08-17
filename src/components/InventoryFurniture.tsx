@@ -13,7 +13,6 @@ import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
 import { PRETENDARD_WOFF } from '../services/fonts'
 import { getVideo, loadClipUrls } from '../services/mediaStore'
-import { publicBase } from '../services/publicBase'
 import MirrorGlass from './MirrorGlass'
 import { Swing } from './motion'
 
@@ -572,12 +571,15 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
       poster.colorSpace = SRGBColorSpace
       setTexture(poster)
     }).catch(() => { /* thumbnail unavailable */ })
-    else getVideo(id).then((blob) => {
+    // a neighbour room in the explorer has no clips of its own to read, and the local ones belong to the viewer,
+    // not to that room — so its frames stay empty rather than borrowing whatever this browser happens to hold
+    else if (!store?.readOnly) getVideo(id).then((blob) => {
       if (!live) return
       if (blob) { url = URL.createObjectURL(blob); start(url); return }
-      // no local copy (a visitor, or another device) — stream the uploaded clip from storage
+      // no local copy (a visitor, or another device) — stream the uploaded clip from storage. Nothing uploaded
+      // means an empty frame: it stays on the dark screen below instead of playing filler.
       const remote = loadClipUrls()[id]
-      start(remote ?? `${publicBase}video/sample.webm`)
+      if (remote) start(remote)
     })
     return () => {
       live = false

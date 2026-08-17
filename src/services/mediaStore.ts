@@ -1,4 +1,4 @@
-import { isVisiting, readStored, schedulePublish } from './social'
+import { isReadingBundle, isVisiting, readStored, schedulePublish } from './social'
 
 // Video clips are far too big for localStorage (a few MB blows the whole quota and would take the room layout
 // down with it), so they live in IndexedDB as blobs keyed by the frame's furniture id.
@@ -34,7 +34,7 @@ export function loadVideoLinks(): Record<string, string> {
   try { const raw = readStored(linkKey); return raw ? JSON.parse(raw) as Record<string, string> : {} } catch { return {} }
 }
 export function saveVideoLinks(links: Record<string, string>) {
-  if (isVisiting()) return
+  if (isVisiting() || isReadingBundle()) return
   try { localStorage.setItem(linkKey, JSON.stringify(links)); schedulePublish() } catch { /* unavailable */ }
 }
 
@@ -45,7 +45,7 @@ export function loadClipUrls(): Record<string, string> {
   try { const raw = readStored(clipUrlKey); return raw ? JSON.parse(raw) as Record<string, string> : {} } catch { return {} }
 }
 export function saveClipUrl(id: string, url: string | null) {
-  if (isVisiting()) return
+  if (isVisiting() || isReadingBundle()) return
   try {
     const urls = loadClipUrls()
     if (url) urls[id] = url; else delete urls[id]
