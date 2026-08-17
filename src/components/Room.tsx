@@ -155,7 +155,9 @@ function RoomContainer({ slot, distance, open }: { slot: RoomSlot; distance: num
   const [bundle, setBundle] = useState<Record<string, string> | null>(null)
   const requested = useRef(false)
   const mounted = useRef(true)
-  useEffect(() => () => { mounted.current = false }, [])
+  // set on the way in as well as cleared on the way out: StrictMode mounts, unmounts and remounts, and a
+  // clear-only flag stays false through the remount, which silently blocked every bundle from ever landing
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
   const collect = () => {
     materials.current = []
     group.current?.traverse((object) => {
@@ -216,7 +218,20 @@ function RoomWorld() {
     window.addEventListener('pointerdown', down, true)
     return () => window.removeEventListener('pointerdown', down, true)
   }, [])
-  const slots = useMemo(() => roomSlots(handles), [handles])
+  // Re-based so the room being viewed always sits at the world origin. Everything inside a room — the placement
+  // grid, the character's pathfinding, every worldToGrid call — is written in room-local coordinates against
+  // surfaces at the origin, so entering an offset neighbour put every click outside the 10x10 grid and the room
+  // stopped responding. Translating the whole cluster instead keeps the neighbours' relative layout identical.
+  const slots = useMemo(() => {
+    const raw = roomSlots(handles)
+    const origin = raw.find((slot) => slot.handle === activeHandle) ?? raw[0]
+    if (!origin || (origin.a === 0 && origin.b === 0)) return raw
+    return raw.map((slot) => {
+      const a = slot.a - origin.a
+      const b = slot.b - origin.b
+      return { ...slot, a, b, position: cellPosition(a, b) }
+    })
+  }, [handles, activeHandle])
   const active = slots.find((slot) => slot.handle === activeHandle) ?? slots[0]
   const open = async (slot: RoomSlot) => {
     if (opening.current || !isEnterable(slot.handle)) return
@@ -225,7 +240,8 @@ function RoomWorld() {
     opening.current = false
     if (!entered) return
     setActiveHandle(slot.handle)
-    setFocusRoom({ position: slot.position, token: performance.now() })
+    // the cluster re-bases onto the room just entered, so the view always settles on the origin
+    setFocusRoom({ position: [0, 0, 0], token: performance.now() })
   }
   return <>
     {slots.filter((slot) => slot.handle !== active.handle).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} open={() => void open(slot)} />)}
