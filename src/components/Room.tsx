@@ -111,6 +111,13 @@ const withVacancies = (handles: string[]) => handles.length >= CLUSTER_SIZE ? ha
   : [...handles, ...Array.from({ length: CLUSTER_SIZE - handles.length }, (_, index) => `${VACANT}${index}`)]
 const isEnterable = (handle: string) => handle !== LOBBY && !handle.startsWith(VACANT)
 
+// Fully zoomed out a drag pans the explorer, and the browser still fires a click when the press ends — which would
+// drop the user into whichever room happened to be under the pointer. So a room only counts as picked if the press
+// that produced the click stayed put. One tracker for the whole cluster on purpose: the press belongs to the
+// gesture, not to a room, and a per-room ref would miss a drag that started somewhere else and ended on this one.
+let pressAt: { x: number; y: number } | null = null
+const pressWandered = (event: { clientX: number; clientY: number }) => !!pressAt && Math.hypot(event.clientX - pressAt.x, event.clientY - pressAt.y) > 6
+
 if (import.meta.env.DEV) {
   const check = roomSlots(['0', '1', '2', '3', '4', '5', '6'])
   if (new Set(check.map((slot) => slot.position.join(':'))).size !== 7 || check.slice(1).some((slot) => ringDistance(slot, check[0]) !== 1)) throw new Error('Room cluster slots must form six unique neighbours')
@@ -184,7 +191,7 @@ function RoomContainer({ slot, distance, open }: { slot: RoomSlot; distance: num
   return <group ref={group} position={slot.position} visible={false}
     onPointerOver={(event) => { if (opacity.current < .65) return; event.stopPropagation(); document.body.style.cursor = 'pointer' }}
     onPointerOut={() => { document.body.style.cursor = '' }}
-    onClick={(event) => { if (opacity.current < .65) return; event.stopPropagation(); document.body.style.cursor = ''; open() }}>
+    onClick={(event) => { if (opacity.current < .65 || pressWandered(event)) return; event.stopPropagation(); document.body.style.cursor = ''; open() }}>
     {/* its own boundary: a neighbour's font or texture must never suspend the live room out of view */}
     <Suspense fallback={null}>
       <NeighbourRoomProvider bundle={bundle}><NeighbourRoom /></NeighbourRoomProvider>
@@ -203,6 +210,12 @@ function RoomWorld() {
     void fetchRoomDirectory().then((found) => { if (live) setHandles(withVacancies([initialHandle, ...found.filter((handle) => handle !== initialHandle)])) })
     return () => { live = false }
   }, [initialHandle])
+  // capture so the press is recorded before OrbitControls or a room handler sees the gesture
+  useEffect(() => {
+    const down = (event: PointerEvent) => { pressAt = { x: event.clientX, y: event.clientY } }
+    window.addEventListener('pointerdown', down, true)
+    return () => window.removeEventListener('pointerdown', down, true)
+  }, [])
   const slots = useMemo(() => roomSlots(handles), [handles])
   const active = slots.find((slot) => slot.handle === activeHandle) ?? slots[0]
   const open = async (slot: RoomSlot) => {
