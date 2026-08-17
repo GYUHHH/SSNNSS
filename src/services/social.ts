@@ -386,18 +386,6 @@ export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void,
   return () => { if (liveChannel === channel) liveChannel = null; void channel.unsubscribe() }
 }
 
-// Walking into a neighbour's room from the browsing view: swap the address and the data in place. No reload,
-// so the camera keeps its position and the move reads as flying into the room rather than loading a page.
-export async function enterRoom(handle: string) {
-  if (handle === currentRoomHandle()) return
-  visitHandle = handle
-  plainRoot = false
-  visitData = null
-  history.replaceState(null, '', roomPath(handle))
-  await initVisit()
-  roomRefreshListeners.forEach((listener) => listener())
-}
-
 // visiting: pull the fresh bundle, then let main remount the app so every piece re-initializes from it
 const roomRefreshListeners = new Set<() => void>()
 export const onRoomRefresh = (listener: () => void) => { roomRefreshListeners.add(listener); return () => { roomRefreshListeners.delete(listener) } }

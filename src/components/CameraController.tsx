@@ -4,9 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import { MathUtils, OrthographicCamera, TOUCH } from 'three'
 import { useRoomStore } from '../store'
 
-// far enough out to see the neighbouring rooms; the single-room view still starts at its usual framing
-const DESKTOP_MIN_ZOOM = 16
-const MOBILE_MIN_ZOOM = 12
+const DESKTOP_MIN_ZOOM = 42
+const MOBILE_MIN_ZOOM = 30
 const MAX_ZOOM = 220
 
 export default function CameraController() {
@@ -24,7 +23,7 @@ export default function CameraController() {
 
   useEffect(() => {
     const camera2d = camera as OrthographicCamera
-    const baseZoom = compactScreen ? 30 : 59
+    const baseZoom = compactScreen ? MOBILE_MIN_ZOOM : 59
     camera2d.zoom = zoomTarget.current = baseZoom
     camera2d.updateProjectionMatrix()
   }, [camera, compactScreen, size.width])
