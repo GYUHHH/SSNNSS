@@ -566,7 +566,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     setArtworks(loadArtworks() ?? {})
     setVideoLinks(loadVideoLinks())
     setGuestbook(loadGuestbook<Record<string, GuestComment[]>>() ?? {})
-    setProfile((current) => ({ ...current, ...(loadProfile() ?? {}) }))
+    // replaced, never merged: a room whose profile has no photo would otherwise keep showing the last one's
+    setProfile({ total: 0, today: 0, lastVisit: '', friends: 0, ...(loadProfile() ?? {}) })
     const time = readStored('my-room-time-v1')
     setTimeOfDayState(time === 'evening' || time === 'night' ? time : 'day')
     adoptCharacterPosition()
@@ -615,6 +616,12 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       setLikeTotals(totals)
       setMyLikes(rows.filter((row) => row.visitor === mine).map((row) => row.item_id))
     })
+    // Clear first, then fetch. Every loader above bails on an empty response, so a room with no visits, likes or
+    // comments of its own would otherwise go on showing the numbers of the room left behind.
+    setRemoteVisits(null)
+    setOthersLikes({})
+    setLikeTotals({})
+    setMyLikes([])
     void recordVisit()
     loadRemoteGuestbook()
     loadRemoteVisits()

@@ -3,7 +3,7 @@ import { Canvas, events, useFrame } from '@react-three/fiber'
 import { type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { type Group, type Material, MathUtils, type Mesh } from 'three'
 import { NeighbourRoomProvider, useRoomStore } from '../store'
-import { currentRoomHandle, enterRoom, fetchRoomBundle, fetchRoomDirectory } from '../services/social'
+import { currentRoomHandle, enterRoom, fetchRoomBundle, fetchRoomDirectory, myHandle } from '../services/social'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
 import CameraController, { exploreMinZoom } from './CameraController'
@@ -231,16 +231,27 @@ function RoomContainer({ slot, distance, open }: { slot: RoomSlot; distance: num
 
 function RoomWorld() {
   const { mode } = useRoomStore()
-  const initialHandle = useRef(currentRoomHandle() ?? LOBBY).current
-  const [handles, setHandles] = useState(() => withVacancies([initialHandle]))
-  const [activeHandle, setActiveHandle] = useState(initialHandle)
+  // The cluster is centred on the signed-in user's OWN room — it is their neighbourhood, so their room is the hub
+  // the others ring around, whichever room they happen to be looking at. Signed out there is no own room, so the
+  // room in the address (or the lobby) takes the middle instead.
+  const hubHandle = useRef(myHandle() ?? currentRoomHandle() ?? LOBBY).current
+  const [handles, setHandles] = useState(() => withVacancies([hubHandle]))
+  // what is being VIEWED, which is not the hub while visiting someone else
+  const [activeHandle, setActiveHandle] = useState(() => currentRoomHandle() ?? hubHandle)
   const [focusRoom, setFocusRoom] = useState<{ position: [number, number, number]; token: number }>({ position: [0, 0, 0], token: 0 })
   const opening = useRef(false)
   useEffect(() => {
     let live = true
-    void fetchRoomDirectory().then((found) => { if (live) setHandles(withVacancies([initialHandle, ...found.filter((handle) => handle !== initialHandle)])) })
+    void fetchRoomDirectory().then((found) => {
+      if (!live) return
+      const rest = found.filter((handle) => handle !== hubHandle)
+      // the room actually being viewed needs a cell of its own even if the directory misses it
+      const viewed = currentRoomHandle()
+      if (viewed && viewed !== hubHandle && !rest.includes(viewed)) rest.unshift(viewed)
+      setHandles(withVacancies([hubHandle, ...rest]))
+    })
     return () => { live = false }
-  }, [initialHandle])
+  }, [hubHandle])
   // capture so the press is recorded before OrbitControls or a room handler sees the gesture
   useEffect(() => {
     const down = (event: PointerEvent) => { pressAt = { x: event.clientX, y: event.clientY } }
