@@ -1,6 +1,6 @@
 import { ContactShadows, OrthographicCamera } from '@react-three/drei'
 import { Canvas, events, useFrame } from '@react-three/fiber'
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { type Group, type Material, MathUtils, type Mesh } from 'three'
 import { NeighbourRoomProvider, useRoomStore } from '../store'
 import { currentRoomHandle, enterRoom, fetchRoomBundle, fetchRoomDirectory } from '../services/social'
@@ -132,6 +132,35 @@ if (import.meta.env.DEV) {
   if (check.some((slot) => Math.sign(Math.round(screenY(slot.position))) !== Math.sign(Math.round(nearness(slot.position))))) throw new Error('Rooms stacked upward must sit behind, and rooms stacked downward in front')
 }
 
+// Switching raycasting off for a whole subtree is one lever that covers every handler inside it, and it is needed
+// twice. A neighbour room must never react to a click — Floor, Interactive, Furniture and Character all
+// stopPropagation, so a live handler in there swallows the very click that is meant to select the room, leaving
+// bare wall as the only way in. And the room you are standing in has to go inert while the explorer is open, so a
+// click picks a room instead of poking the furniture underneath.
+const NO_RAYCAST = () => {}
+function Inert({ off, children }: { off: (zoom: number, width: number, height: number) => boolean; children: ReactNode }) {
+  const group = useRef<Group>(null)
+  const applied = useRef<boolean | null>(null)
+  const refreshIn = useRef(0)
+  useFrame(({ camera, size }, delta) => {
+    const disabled = off(camera.zoom, size.width, size.height)
+    refreshIn.current -= delta
+    // meshes keep arriving after the first pass — a room's bundle lands, a suspended font resolves — and they
+    // would come in hittable, so while disabled the subtree is swept again a couple of times a second
+    if (disabled === applied.current && refreshIn.current > 0) return
+    refreshIn.current = .4
+    applied.current = disabled
+    group.current?.traverse((object) => {
+      const mesh = object as Mesh
+      if (!mesh.isMesh) return
+      if (disabled) mesh.raycast = NO_RAYCAST
+      else delete (mesh as Partial<Mesh>).raycast
+    })
+  })
+  return <group ref={group}>{children}</group>
+}
+const ALWAYS = () => true
+
 function RoomRoot() {
   return <>
     <Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><InventoryPreview /><SurfaceDropZones /><Character /><DebugAnchors /><WallVideoLayer /><ReactionBadges />
@@ -196,12 +225,13 @@ function RoomContainer({ slot, distance, open }: { slot: RoomSlot; distance: num
     onClick={(event) => { if (opacity.current < .65 || pressWandered(event)) return; event.stopPropagation(); document.body.style.cursor = ''; open() }}>
     {/* its own boundary: a neighbour's font or texture must never suspend the live room out of view */}
     <Suspense fallback={null}>
-      <NeighbourRoomProvider bundle={bundle}><NeighbourRoom /></NeighbourRoomProvider>
+      <NeighbourRoomProvider bundle={bundle}><Inert off={ALWAYS}><NeighbourRoom /></Inert></NeighbourRoomProvider>
     </Suspense>
   </group>
 }
 
 function RoomWorld() {
+  const { mode } = useRoomStore()
   const initialHandle = useRef(currentRoomHandle() ?? LOBBY).current
   const [handles, setHandles] = useState(() => withVacancies([initialHandle]))
   const [activeHandle, setActiveHandle] = useState(initialHandle)
@@ -233,6 +263,8 @@ function RoomWorld() {
     })
   }, [handles, activeHandle])
   const active = slots.find((slot) => slot.handle === activeHandle) ?? slots[0]
+  // the room underneath the explorer is scenery until it is entered: fully zoomed out, a click selects a room
+  const exploring = (zoom: number, width: number, height: number) => mode === 'normal' && zoom <= exploreMinZoom(width, height) + .5
   const open = async (slot: RoomSlot) => {
     if (opening.current || !isEnterable(slot.handle)) return
     opening.current = true
@@ -245,7 +277,7 @@ function RoomWorld() {
   }
   return <>
     {slots.filter((slot) => slot.handle !== active.handle).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} open={() => void open(slot)} />)}
-    <group position={active.position}><RoomRoot /></group>
+    <group position={active.position}><Inert off={exploring}><RoomRoot /></Inert></group>
     <CameraController focusRoom={focusRoom} />
   </>
 }
