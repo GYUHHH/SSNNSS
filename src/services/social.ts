@@ -39,7 +39,10 @@ const parseHandle = (): string | null => {
   const segment = location.pathname.startsWith(BASE) ? decodeURIComponent(location.pathname.slice(BASE.length).split('/')[0] ?? '') : ''
   return segment && segment !== 'index.html' ? segment : null
 }
-export const visitHandle = parseHandle()
+// mutable: an address with no room behind it is dropped during initVisit, so the site falls back to itself
+// instead of dressing up a default room as somebody's and counting a visit to a room that does not exist
+let visitHandle = parseHandle()
+export const visitedHandle = () => visitHandle
 let visitData: Record<string, string> | null = null
 export const isVisiting = () => visitHandle !== null && visitHandle !== ownHandle()
 
@@ -54,7 +57,8 @@ export async function initVisit() {
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${escape(visitHandle!)}&select=data`, { headers })
     const rows = await response.json()
-    visitData = rows?.[0]?.data ?? {}
+    if (!Array.isArray(rows) || rows.length === 0) { visitHandle = null; history.replaceState(null, '', BASE); return }
+    visitData = rows[0].data ?? {}
   } catch { visitData = {} }
 }
 
