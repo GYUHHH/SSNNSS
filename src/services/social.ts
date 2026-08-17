@@ -46,6 +46,10 @@ export const visitedHandle = () => visitHandle
 export const isPlainRoot = () => plainRoot
 let visitData: Record<string, string> | null = null
 export const isVisiting = () => plainRoot || (visitHandle !== null && visitHandle !== ownHandle())
+const resetToPlainRoot = () => { visitHandle = null; plainRoot = true; visitData = null; history.replaceState(null, '', BASE) }
+const clearRoomCache = () => {
+  try { for (let index = localStorage.length - 1; index >= 0; index--) { const key = localStorage.key(index); if (key?.startsWith('my-room-')) localStorage.removeItem(key) } } catch { /* storage may be unavailable */ }
+}
 
 // storage reads for room content route through here: a visit serves the fetched bundle exclusively
 export const readStored = (key: string): string | null => {
@@ -59,9 +63,9 @@ export async function initVisit() {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${escape(visitHandle!)}&select=data`, { headers })
     const rows = await response.json()
     const data = Array.isArray(rows) ? rows[0]?.data : null
-    if (!response.ok || !data || typeof data !== 'object' || Array.isArray(data)) { visitHandle = null; plainRoot = true; visitData = null; history.replaceState(null, '', BASE); return }
+    if (!response.ok || !data || typeof data !== 'object' || Array.isArray(data)) { resetToPlainRoot(); return }
     visitData = data
-  } catch { visitHandle = null; plainRoot = true; visitData = null; history.replaceState(null, '', BASE) }
+  } catch { resetToPlainRoot() }
 }
 
 const persistentId = (key: string) => {
@@ -261,7 +265,7 @@ export const onAuthChange = (listener: (email: string | null) => void) => {
 export async function signOut() {
   await publishRoom()
   await supabaseClient().auth.signOut()
-  try { for (let index = localStorage.length - 1; index >= 0; index--) { const key = localStorage.key(index); if (key?.startsWith('my-room-')) localStorage.removeItem(key) } } catch { /* storage may be unavailable */ }
+  clearRoomCache()
 }
 
 // Google OAuth: full-page redirect out and back, session persisted by the SDK
@@ -314,9 +318,8 @@ export function adoptRoomData(bundle: Record<string, string>) {
   } catch { /* storage may be unavailable */ }
 }
 
-// The server is the source of truth: the owner's boot pulls the published bundle down BEFORE the app
-// initializes, so every session starts from what the server holds. Local storage is just the working cache
-// that the debounced publish keeps pushing back up.
+// The server is the source of truth: a missing or unreadable owner bundle clears its local cache instead of
+// reviving a room the owner already deleted from Supabase.
 export async function initOwnSync() {
   if (isVisiting()) return
   const handle = ownHandle()
@@ -324,9 +327,10 @@ export async function initOwnSync() {
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${escape(handle)}&select=data`, { headers })
     const rows = await response.json()
-    const bundle = rows?.[0]?.data
-    if (bundle && typeof bundle === 'object') adoptRoomData(bundle)
-  } catch { /* offline — start from the local cache */ }
+    const bundle = Array.isArray(rows) ? rows[0]?.data : null
+    if (!response.ok || !bundle || typeof bundle !== 'object' || Array.isArray(bundle)) { clearRoomCache(); resetToPlainRoot(); return }
+    adoptRoomData(bundle)
+  } catch { clearRoomCache(); resetToPlainRoot() }
 }
 
 // The character moves continuously, so its position rides a broadcast on the room's channel instead of the
