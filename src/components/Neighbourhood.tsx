@@ -34,6 +34,7 @@ export default function Neighbourhood() {
   const [neighbours, setNeighbours] = useState<Neighbour[]>([])
   const holder = useRef<Group>(null)
   const shown = useRef(0)
+  const [active, setActive] = useState(false)
   useEffect(() => { void loadNeighbours().then(setNeighbours) }, [])
   useFrame(({ camera }) => {
     const group = holder.current
@@ -41,8 +42,10 @@ export default function Neighbourhood() {
     const wanted = progressFor((camera as OrthographicCamera).zoom)
     shown.current = MathUtils.damp(shown.current, wanted, 6, 1 / 60)
     const value = shown.current
-    group.visible = value > 0.01
-    if (!group.visible) return
+    const wanted2 = value > 0.01
+    if (wanted2 !== active) setActive(wanted2)
+    group.visible = wanted2
+    if (!wanted2) return
     // rooms rise into place rather than popping: they scale up and fade together
     group.scale.setScalar(0.88 + value * 0.12)
     group.traverse((node) => {
@@ -54,5 +57,5 @@ export default function Neighbourhood() {
   })
   const onEnter = (handle: string) => { forgetNeighbours(); void enterRoom(handle).then(() => void loadNeighbours().then(setNeighbours)) }
   if (neighbours.length === 0) return null
-  return <group ref={holder} visible={false}>{neighbours.map((neighbour) => <RoomCube key={neighbour.handle} neighbour={neighbour} onEnter={onEnter} />)}</group>
+  return <group ref={holder} visible={false}>{active && neighbours.map((neighbour) => <RoomCube key={neighbour.handle} neighbour={neighbour} onEnter={onEnter} />)}</group>
 }
