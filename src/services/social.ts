@@ -268,9 +268,24 @@ export async function signOut() {
   clearRoomCache()
 }
 
+// Password sign-in is the everyday door: emailed codes are rate-limited per project, so they are used once
+// at signup to prove the address and never again.
+export async function signInWithPassword(email: string, password: string): Promise<boolean> {
+  const { error } = await supabaseClient().auth.signInWithPassword({ email, password })
+  return !error
+}
+// runs while the just-verified session is open, which is what lets the account set its own password
+export async function setPassword(password: string): Promise<boolean> {
+  const { error } = await supabaseClient().auth.updateUser({ password })
+  return !error
+}
+
 // Google OAuth: full-page redirect out and back, session persisted by the SDK
 export async function signInWithGoogle() {
   await supabaseClient().auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${location.origin}${BASE}` } })
+}
+export async function googleEnabled(): Promise<boolean> {
+  try { return !!(await fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers }).then((response) => response.json()))?.external?.google } catch { return false }
 }
 
 // signup by emailed one-time code (the email template must print {{ .Token }})

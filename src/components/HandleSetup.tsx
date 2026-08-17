@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useRoomStore } from '../store'
-import { adoptRoomData, claimHandleLocally, currentUserEmail, handleTaken, isPlainRoot, isVisiting, myHandle, onAuthChange, ownedRoom, publishRoom, roomPath, sendOtpCode, verifyOtpCode } from '../services/social'
+import { adoptRoomData, claimHandleLocally, currentUserEmail, googleEnabled, handleTaken, isPlainRoot, isVisiting, myHandle, onAuthChange, ownedRoom, publishRoom, roomPath, sendOtpCode, setPassword as setPassword_, signInWithGoogle, signInWithPassword, verifyOtpCode } from '../services/social'
 
 // First-time onboarding: email → emailed 6-digit code → pick a unique id. Claiming publishes the personal
 // room, binds it to the account, and moves to its address (domain)/(id).
@@ -24,9 +24,15 @@ export default function HandleSetup() {
   // which button was pressed on the first screen — the flow after it is identical either way
   const [intent, setIntent] = useState<'login' | 'signup' | null>(null)
   const [already, setAlready] = useState(false)
+  const [verified, setVerified] = useState(false)
+  const [password, setPassword] = useState('')
+  const [loginFailed, setLoginFailed] = useState(false)
+  const [google, setGoogle] = useState(false)
+  useEffect(() => { void googleEnabled().then(setGoogle) }, [])
   const close = () => {
     setDismissed(true); setRequested(false); setIntent(null); setAlready(false)
     setEmail(''); setCode(''); setCodeSent(false); setCodeBad(false); setSendFailed(false); setValue(''); setTaken(false)
+    setVerified(false); setPassword(''); setLoginFailed(false)
   }
   useEffect(() => {
     const onNeed = (event: Event) => { const wanted = (event as CustomEvent<'login' | 'signup' | undefined>).detail; setRequested(true); setDismissed(false); if (wanted) setIntent(wanted) }
@@ -57,7 +63,7 @@ export default function HandleSetup() {
   }, [session, mine])
   // while the owned-room lookup is in flight the id step must stay hidden, or it flashes before the redirect
   // inside someone else's room the card stays out of the way until an action actually needs an id
-  if (mine || dismissed || !checked || (session && !roomChecked)) return null
+  if (mine || dismissed || !checked || (session && !roomChecked && !verified)) return null
   if (isVisiting() && !requested) return null
   const clean = value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20)
   const valid = /^[a-z0-9_]{3,20}$/.test(clean)
@@ -74,7 +80,21 @@ export default function HandleSetup() {
     setBusy(true)
     const ok = await verifyOtpCode(email, code.trim())
     setCodeBad(!ok)
-    if (ok && intent === 'signup' && await ownedRoom()) setAlready(true)
+    if (ok) { if (await ownedRoom()) setAlready(true); else setVerified(true) }
+    setBusy(false)
+  }
+  const savePassword = async () => {
+    if (password.length < 6 || busy) return
+    setBusy(true)
+    await setPassword_(password)
+    setVerified(false)
+    setBusy(false)
+  }
+  const signIn = async () => {
+    if (!email.includes('@') || password.length < 6 || busy) return
+    setBusy(true)
+    const ok = await signInWithPassword(email, password)
+    setLoginFailed(!ok)
     setBusy(false)
   }
   const claim = async () => {
@@ -97,18 +117,37 @@ export default function HandleSetup() {
         </div>
       </>}
       {!session && intent && already && <strong>이미 가입한 사용자입니다</strong>}
-      {!session && intent && !already && <>
-        <strong>{intent === 'login' ? '로그인' : '가입하기'}</strong>
+      {!session && intent === 'login' && !already && <>
+        <strong>로그인</strong>
         <div className="login-form">
-          <input type="email" value={email} placeholder="이메일" disabled={codeSent} onChange={(event) => setEmail(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void sendCode() }} />
-          {!codeSent && <button type="button" disabled={!email.includes('@') || busy} onClick={() => void sendCode()}>{sendFailed ? '잠시 후 다시 시도' : '인증번호 받기'}</button>}
-          {codeSent && <>
-            <input type="text" inputMode="numeric" value={code} className={codeBad ? 'taken' : ''} placeholder="인증번호" onChange={(event) => { setCode(event.target.value); setCodeBad(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void confirmCode() }} />
-            <button type="button" disabled={code.trim().length < 6 || busy} onClick={() => void confirmCode()}>{codeBad ? '번호가 달라요' : '확인'}</button>
-          </>}
+          <input type="email" value={email} placeholder="이메일" onChange={(event) => { setEmail(event.target.value); setLoginFailed(false) }} />
+          <input type="password" value={password} className={loginFailed ? 'taken' : ''} placeholder="비밀번호" onChange={(event) => { setPassword(event.target.value); setLoginFailed(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void signIn() }} />
+          <button type="button" disabled={!email.includes('@') || password.length < 6 || busy} onClick={() => void signIn()}>{loginFailed ? '이메일 또는 비밀번호가 달라요' : '이메일로 로그인'}</button>
+          {google && <button type="button" className="ghost" onClick={() => void signInWithGoogle()}>Google로 로그인</button>}
         </div>
       </>}
-      {session && <>
+      {!session && intent === 'signup' && !already && <>
+        <strong>가입하기</strong>
+        <div className="login-form">
+          {verified
+            ? <>
+              <input type="password" value={password} placeholder="비밀번호 (6자 이상)" onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void savePassword() }} />
+              <button type="button" disabled={password.length < 6 || busy} onClick={() => void savePassword()}>비밀번호 저장</button>
+            </>
+            : <>
+              <input type="email" value={email} placeholder="이메일" disabled={codeSent} onChange={(event) => setEmail(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void sendCode() }} />
+              {!codeSent && <>
+                <button type="button" disabled={!email.includes('@') || busy} onClick={() => void sendCode()}>{sendFailed ? '잠시 후 다시 시도' : '인증번호 받기'}</button>
+                {google && <button type="button" className="ghost" onClick={() => void signInWithGoogle()}>Google로 가입하기</button>}
+              </>}
+              {codeSent && <>
+                <input type="text" inputMode="numeric" value={code} className={codeBad ? 'taken' : ''} placeholder="인증번호" onChange={(event) => { setCode(event.target.value); setCodeBad(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void confirmCode() }} />
+                <button type="button" disabled={code.trim().length < 6 || busy} onClick={() => void confirmCode()}>{codeBad ? '번호가 달라요' : '확인'}</button>
+              </>}
+            </>}
+        </div>
+      </>}
+      {session && !verified && <>
         <strong>아이디 설정</strong>
         <div className="login-form">
           <input type="text" value={clean} className={taken ? 'taken' : ''} placeholder="영문 소문자, 숫자, _" onChange={(event) => { setValue(event.target.value); setTaken(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void claim() }} />
