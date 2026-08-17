@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Group } from 'three'
 import { loadAudioPrefs, useRoomStore } from '../store'
 import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
-import { isVisiting, myVisitorId } from '../services/social'
+import { isVisiting } from '../services/social'
 import { openReactionPicker } from './ReactionPicker'
 import { embedSrc, trackIframe, requestSound, playlistVideoResume, watchPlaylistOrder, playFrame, framePlayerStates, onFrameMuteState } from '../services/ytResume'
 
@@ -139,7 +139,7 @@ export default function WallVideoLayer() {
 }
 
 function WallVideo({ frameId }: { frameId: string }) {
-  const { videoLinks, selectedObject, furniture, openVideoPanel, mode, mutedFrames, setFrameMuted, guestbook, markReactionsSeen, setCommentTarget } = useRoomStore()
+  const { videoLinks, selectedObject, furniture, openVideoPanel, mode, mutedFrames, setFrameMuted, openObject } = useRoomStore()
   const item = furniture.find((entry) => entry.id === frameId)
   const videoId = videoLinks[frameId]
   const muted = mutedFrames.includes(frameId)
@@ -172,7 +172,6 @@ function WallVideo({ frameId }: { frameId: string }) {
     })
     return () => { live = false }
   }, [active, videoId, frameId, divHeight])
-  const hasComments = (guestbook[frameId] ?? []).some((comment) => comment.visitor && comment.visitor !== myVisitorId())
   // the shields cover the screen, so without this a hold would only register on the frame's edge
   const holdTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const held = useRef(false)
@@ -199,7 +198,7 @@ function WallVideo({ frameId }: { frameId: string }) {
           {mode !== 'edit' && ['top', 'rest'].map((part) => <div key={part} className={`wall-video-shield ${part}`}
             onPointerDown={(event) => { event.stopPropagation(); startHold(event) }}
             onPointerUp={cancelHold} onPointerLeave={cancelHold} onPointerCancel={cancelHold}
-            onClick={() => { if (held.current) { held.current = false; return } if (hasComments) { markReactionsSeen(frameId); setCommentTarget(frameId); return } openVideoPanel(frameId) }} />)}
+            onClick={() => { if (held.current) { held.current = false; return } if (openObject(frameId)) return; openVideoPanel(frameId) }} />)}
         </div>
       </Html>
     </group>
