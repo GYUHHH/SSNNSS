@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { useRoomStore } from '../store'
-import { isVisiting } from '../services/social'
+import { isVisiting, signOut } from '../services/social'
 
 export default function ProfileCard() {
   const { profileOpen, closeProfile, profile, setProfilePhoto, setProfileHandle, remoteVisits } = useRoomStore()
@@ -36,6 +36,7 @@ export default function ProfileCard() {
         </div>
       </div>
       <input ref={inputRef} type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) pick(file); event.target.value = '' }} />
+      {!isVisiting() && <button className="profile-logout" type="button" onClick={() => void signOut().finally(() => location.replace(import.meta.env.BASE_URL))}>로그아웃</button>}
     </section>
   </div>
 }

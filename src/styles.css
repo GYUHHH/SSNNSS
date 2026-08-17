@@ -426,6 +426,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .profile-visits i { margin: 0 6px; color: #c3b6a6; font-style: normal; }
 .profile-friends { margin: 0; color: #54544f; font-size: 14px; }
 .profile-friends b { font-size: 17px; color: #3f3a33; margin-left: 4px; }
+.profile-logout { justify-self: end; padding: 2px 0; border: 0; color: #777671; background: transparent; font-size: 12px; cursor: pointer; }
 .video-link { display: grid; gap: 8px; margin-top: 12px; }
 .video-link iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 8px; background: #20262b; }
 .video-link button { border: 1px solid #c2c2be; border-radius: 4px; padding: 6px 10px; font-size: 12px; color: #403f3d; background: #ffffff; cursor: pointer; }

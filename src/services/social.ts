@@ -57,9 +57,10 @@ export async function initVisit() {
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${escape(visitHandle!)}&select=data`, { headers })
     const rows = await response.json()
-    if (!Array.isArray(rows) || rows.length === 0) { visitHandle = null; history.replaceState(null, '', BASE); return }
-    visitData = rows[0].data ?? {}
-  } catch { visitData = {} }
+    const data = Array.isArray(rows) ? rows[0]?.data : null
+    if (!response.ok || !data || typeof data !== 'object' || Array.isArray(data)) { visitHandle = null; visitData = null; history.replaceState(null, '', BASE); return }
+    visitData = data
+  } catch { visitHandle = null; visitData = null; history.replaceState(null, '', BASE) }
 }
 
 const persistentId = (key: string) => {
@@ -256,7 +257,11 @@ export const onAuthChange = (listener: (email: string | null) => void) => {
   const { data } = supabaseClient().auth.onAuthStateChange((_event, session) => listener(session?.user.email ?? null))
   return () => data.subscription.unsubscribe()
 }
-export async function signOut() { await supabaseClient().auth.signOut() }
+export async function signOut() {
+  await publishRoom()
+  await supabaseClient().auth.signOut()
+  try { for (let index = localStorage.length - 1; index >= 0; index--) { const key = localStorage.key(index); if (key?.startsWith('my-room-')) localStorage.removeItem(key) } } catch { /* storage may be unavailable */ }
+}
 
 // Google OAuth: full-page redirect out and back, session persisted by the SDK
 export async function signInWithGoogle() {
@@ -321,8 +326,6 @@ export async function initOwnSync() {
     const bundle = rows?.[0]?.data
     if (bundle && typeof bundle === 'object') adoptRoomData(bundle)
   } catch { /* offline — start from the local cache */ }
-  // the root URL is the plain default site — an owner's room lives at its own address, so land there
-  if (visitHandle === null) history.replaceState(null, '', roomPath(handle))
 }
 
 // The character moves continuously, so its position rides a broadcast on the room's channel instead of the
