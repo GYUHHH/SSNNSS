@@ -1,7 +1,9 @@
 import { ContactShadows, OrthographicCamera } from '@react-three/drei'
-import { Canvas, events } from '@react-three/fiber'
-import { Suspense, useRef } from 'react'
+import { Canvas, events, useFrame } from '@react-three/fiber'
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { type Group, type Material, MathUtils, type Mesh } from 'three'
 import { useRoomStore } from '../store'
+import { currentRoomHandle, enterRoom, fetchRoomDirectory } from '../services/social'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
 import CameraController from './CameraController'
@@ -51,10 +53,121 @@ function Scene() {
     <ambientLight intensity={light.ambient} color={light.ambientColor} />
     <directionalLight castShadow position={[4, 8, 5]} intensity={light.dir} color={light.dirColor} shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
     <Suspense fallback={null}>
-      <Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><InventoryPreview /><SurfaceDropZones /><Character /><CameraController /><DebugAnchors /><WallVideoLayer /><ReactionBadges />
-      <ContactShadows position={[0, 0.018, 0]} opacity={0.38} scale={9} blur={2.4} far={2.2} resolution={1024} />
+      <RoomWorld />
     </Suspense>
   </Canvas></div>
+}
+
+const ROOM_SIZE = 7
+const LOBBY = '__lobby__'
+type RoomSlot = { handle: string; q: number; r: number; position: [number, number, number] }
+const NEIGHBORS = [[1, 0], [-1, 0], [0, 1], [-1, 1], [0, -1], [1, -1]] as const
+const hexDistance = (a: RoomSlot, b: RoomSlot) => Math.max(Math.abs(a.q - b.q), Math.abs(a.r - b.r), Math.abs((a.q + a.r) - (b.q + b.r)))
+
+// Breadth-first slots keep every new room attached to the existing cluster. q+r/2 is the world-space form
+// of an odd-row half-width offset, while a full ROOM_SIZE between rows keeps square floor footprints touching.
+const roomSlots = (handles: string[]): RoomSlot[] => {
+  const cells: Array<[number, number]> = [[0, 0]]
+  const seen = new Set(['0:0'])
+  for (let index = 0; index < cells.length && cells.length < handles.length; index += 1) {
+    const [q, r] = cells[index]
+    for (const [dq, dr] of NEIGHBORS) {
+      const cell: [number, number] = [q + dq, r + dr]
+      const key = `${cell[0]}:${cell[1]}`
+      if (seen.has(key)) continue
+      seen.add(key); cells.push(cell)
+      if (cells.length === handles.length) break
+    }
+  }
+  return handles.map((handle, index) => {
+    const [q, r] = cells[index]
+    return { handle, q, r, position: [(q + r / 2) * ROOM_SIZE, 0, r * ROOM_SIZE] }
+  })
+}
+if (import.meta.env.DEV) {
+  const check = roomSlots(['0', '1', '2', '3', '4', '5', '6'])
+  if (new Set(check.map((slot) => slot.position.join(':'))).size !== 7 || check.slice(1).some((slot) => hexDistance(slot, check[0]) !== 1)) throw new Error('Room cluster slots must form six unique neighbours')
+}
+
+function RoomRoot() {
+  return <>
+    <Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><InventoryPreview /><SurfaceDropZones /><Character /><DebugAnchors /><WallVideoLayer /><ReactionBadges />
+    <ContactShadows position={[0, 0.018, 0]} opacity={0.38} scale={9} blur={2.4} far={2.2} resolution={1024} />
+  </>
+}
+
+function RoomContainer({ slot, distance, open }: { slot: RoomSlot; distance: number; open: () => void }) {
+  const { mode } = useRoomStore()
+  const group = useRef<Group>(null)
+  const opacity = useRef(0)
+  const materials = useRef<Material[]>([])
+  useLayoutEffect(() => {
+    materials.current = []
+    group.current?.traverse((object) => {
+      const mesh = object as Mesh
+      if (!mesh.isMesh) return
+      const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+      list.forEach((material) => { material.transparent = true; materials.current.push(material) })
+    })
+  }, [])
+  useFrame(({ camera }, delta) => {
+    if (!group.current) return
+    const threshold = distance <= 1 ? 36 : distance === 2 ? 23 : 16
+    const wanted = mode === 'normal' ? MathUtils.clamp((threshold - camera.zoom) / 5, 0, 1) : 0
+    opacity.current = MathUtils.damp(opacity.current, wanted, 7, delta)
+    group.current.visible = opacity.current > .01
+    group.current.scale.setScalar(.88 + opacity.current * .12)
+    materials.current.forEach((material) => { material.opacity = opacity.current })
+  })
+  return <group ref={group} position={slot.position} visible={false}
+    onPointerOver={(event) => { if (opacity.current < .65) return; event.stopPropagation(); document.body.style.cursor = 'pointer' }}
+    onPointerOut={() => { document.body.style.cursor = '' }}
+    onClick={(event) => { if (opacity.current < .65) return; event.stopPropagation(); document.body.style.cursor = ''; open() }}>
+    <mesh position={[0, -.11, 0]}><boxGeometry args={[7, .22, 7]} /><meshStandardMaterial color="#ddb06d" roughness={.9} /></mesh>
+    <mesh position={[-3.61, 3.5, 0]}><boxGeometry args={[.22, 7, 7.22]} /><meshStandardMaterial color="#ead9bd" roughness={.9} /></mesh>
+    <mesh position={[0, 3.5, -3.61]}><boxGeometry args={[7, 7, .22]} /><meshStandardMaterial color="#f1e2c9" roughness={.9} /></mesh>
+    <group position={[1.25, 0, -2.45]}>
+      <mesh position={[0, .9, 0]}><boxGeometry args={[2.1, .18, .8]} /><meshStandardMaterial color="#bd8455" /></mesh>
+      {[-.85, .85].map((x) => <mesh key={x} position={[x, .45, 0]}><boxGeometry args={[.16, .9, .16]} /><meshStandardMaterial color="#7d5338" /></mesh>)}
+    </group>
+    <group position={[-2.65, 0, -2.75]}>
+      <mesh position={[0, 1.15, 0]}><boxGeometry args={[1.05, 2.3, .48]} /><meshStandardMaterial color="#9c6a45" /></mesh>
+      {[-.55, .05, .65].map((y) => <mesh key={y} position={[0, 1.15 + y, .26]}><boxGeometry args={[.95, .1, .06]} /><meshStandardMaterial color="#d9b27a" /></mesh>)}
+    </group>
+    <group position={[0, 0, .55]}>
+      <mesh position={[0, .76, 0]}><capsuleGeometry args={[.16, .45, 4, 8]} /><meshStandardMaterial color="#8aa18b" /></mesh>
+      <mesh position={[0, 1.34, 0]}><sphereGeometry args={[.28, 12, 8]} /><meshStandardMaterial color="#8b5b3b" /></mesh>
+    </group>
+  </group>
+}
+
+function RoomWorld() {
+  const initialHandle = useRef(currentRoomHandle() ?? LOBBY).current
+  const [handles, setHandles] = useState([initialHandle])
+  const [activeHandle, setActiveHandle] = useState(initialHandle)
+  const [focusRoom, setFocusRoom] = useState<{ position: [number, number, number]; token: number }>({ position: [0, 0, 0], token: 0 })
+  const opening = useRef(false)
+  useEffect(() => {
+    let live = true
+    void fetchRoomDirectory().then((found) => { if (live) setHandles([initialHandle, ...found.filter((handle) => handle !== initialHandle)]) })
+    return () => { live = false }
+  }, [initialHandle])
+  const slots = useMemo(() => roomSlots(handles), [handles])
+  const active = slots.find((slot) => slot.handle === activeHandle) ?? slots[0]
+  const open = async (slot: RoomSlot) => {
+    if (opening.current || slot.handle === LOBBY) return
+    opening.current = true
+    const entered = await enterRoom(slot.handle)
+    opening.current = false
+    if (!entered) return
+    setActiveHandle(slot.handle)
+    setFocusRoom({ position: slot.position, token: performance.now() })
+  }
+  return <>
+    {slots.filter((slot) => slot.handle !== active.handle).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={hexDistance(slot, active)} open={() => void open(slot)} />)}
+    <group position={active.position}><RoomRoot /></group>
+    <CameraController focusRoom={focusRoom} />
+  </>
 }
 
 export default function Room() { return <Scene /> }

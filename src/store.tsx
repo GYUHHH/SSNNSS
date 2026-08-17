@@ -5,7 +5,7 @@ import { adoptCharacterPosition, characterPosition, characterTeleport } from './
 import { publicBase } from './services/publicBase'
 import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic } from './services/music'
-import { purgeReactions, getSeenReactions, markReactionSeen, onRoomRefresh, uploadDataUrl, addRemoteComment, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myVisitorId, readStored, recordVisit, refreshVisit, removeRemoteComment, schedulePublish, subscribeRealtime, uploadMedia, type RemoteGuestComment } from './services/social'
+import { purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myVisitorId, readStored, recordVisit, refreshVisit, removeRemoteComment, schedulePublish, subscribeRealtime, uploadMedia, type RemoteGuestComment } from './services/social'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id })
 
@@ -535,6 +535,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }
   // server-backed guestbook + real visit counts arrive once per load
   const [remoteVisits, setRemoteVisits] = useState<{ total: number; today: number } | null>(null)
+  const [roomSession, setRoomSession] = useState(0)
+  useEffect(() => onRoomNavigation(() => setRoomSession((value) => value + 1)), [])
   // likes from OTHER people, for the red reaction badges
   const [othersLikes, setOthersLikes] = useState<Record<string, number>>({})
   // full like counts (mine included) and which ones are mine — the diary's heart button shows both
@@ -619,7 +621,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     const stopRealtime = subscribeRealtime(loadRemoteGuestbook, loadRemoteVisits, () => { void refreshVisit() }, loadRemoteLikes, (position) => { characterTeleport.position = position })
     const stopRefresh = onRoomRefresh(rehydrate)
     return () => { stopRealtime(); stopRefresh() }
-  }, [])
+  }, [roomSession])
   // Visibility is a book-level gate: a private book takes its whole contents with it, and inside a public
   // book only the public records show. Filtered once here, where every reader gets its books, so no consumer
   // can forget — the 3D shelf's spines are clickable too.

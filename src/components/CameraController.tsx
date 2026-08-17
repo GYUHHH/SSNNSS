@@ -1,32 +1,47 @@
 import { OrbitControls } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
-import { MathUtils, OrthographicCamera, TOUCH } from 'three'
+import { MathUtils, OrthographicCamera, TOUCH, Vector3 } from 'three'
 import { useRoomStore } from '../store'
 
-const DESKTOP_MIN_ZOOM = 42
-const MOBILE_MIN_ZOOM = 30
+const DESKTOP_DETAIL_MIN_ZOOM = 42
+const MOBILE_DETAIL_MIN_ZOOM = 30
+const DESKTOP_EXPLORE_MIN_ZOOM = 10
+const MOBILE_EXPLORE_MIN_ZOOM = 8
 const MAX_ZOOM = 220
 
-export default function CameraController() {
+type FocusRoom = { position: [number, number, number]; token: number }
+type ControlsRef = { target: Vector3; update: () => void; getAzimuthalAngle: () => number; setAzimuthalAngle: (value: number) => void; getPolarAngle: () => number; setPolarAngle: (value: number) => void }
+
+export default function CameraController({ focusRoom }: { focusRoom?: FocusRoom }) {
   const { camera, gl, size } = useThree()
   const { mode } = useRoomStore()
   const zoomTarget = useRef(59)
+  const targetGoal = useRef(new Vector3(0, 3.5, 0))
   const touchStart = useRef<{ x: number; y: number; time: number } | null>(null)
   const pinchDistance = useRef(0)
   const lastTap = useRef({ time: 0, x: 0, y: 0 })
   const dragZoom = useRef<{ identifier: number; startY: number; startZoom: number; lastX: number; lastY: number } | null>(null)
-  const controls = useRef<{ getAzimuthalAngle: () => number; setAzimuthalAngle: (value: number) => void; getPolarAngle: () => number; setPolarAngle: (value: number) => void } | null>(null)
+  const controls = useRef<ControlsRef | null>(null)
   const [dragZooming, setDragZooming] = useState(false)
   const compactScreen = size.width < 720 || (size.height < 520 && window.matchMedia('(pointer: coarse)').matches)
-  const minZoom = compactScreen ? MOBILE_MIN_ZOOM : DESKTOP_MIN_ZOOM
+  const detailMinZoom = compactScreen ? MOBILE_DETAIL_MIN_ZOOM : DESKTOP_DETAIL_MIN_ZOOM
+  const minZoom = mode === 'edit' ? detailMinZoom : compactScreen ? MOBILE_EXPLORE_MIN_ZOOM : DESKTOP_EXPLORE_MIN_ZOOM
+  const baseZoom = compactScreen ? MOBILE_DETAIL_MIN_ZOOM : 59
 
   useEffect(() => {
     const camera2d = camera as OrthographicCamera
-    const baseZoom = compactScreen ? MOBILE_MIN_ZOOM : 59
     camera2d.zoom = zoomTarget.current = baseZoom
     camera2d.updateProjectionMatrix()
-  }, [camera, compactScreen, size.width])
+  }, [camera, compactScreen, baseZoom])
+
+  useEffect(() => {
+    if (!focusRoom) return
+    targetGoal.current.set(focusRoom.position[0], focusRoom.position[1] + 3.5, focusRoom.position[2])
+    zoomTarget.current = baseZoom
+  }, [baseZoom, focusRoom?.token])
+
+  useEffect(() => { zoomTarget.current = Math.max(zoomTarget.current, minZoom) }, [minZoom])
 
   useEffect(() => {
     // the canvas is pointer-transparent (clicks reach wall-video iframes behind it) — real pointer targets
@@ -95,9 +110,18 @@ export default function CameraController() {
   useFrame((_, delta) => {
     const camera2d = camera as OrthographicCamera
     const next = MathUtils.damp(camera2d.zoom, zoomTarget.current, 7, delta)
-    if (Math.abs(next - camera2d.zoom) < .001) return
-    camera2d.zoom = next
-    camera2d.updateProjectionMatrix()
+    if (Math.abs(next - camera2d.zoom) >= .001) { camera2d.zoom = next; camera2d.updateProjectionMatrix() }
+    const orbit = controls.current
+    if (!orbit) return
+    const target = orbit.target
+    const nextTarget = new Vector3(
+      MathUtils.damp(target.x, targetGoal.current.x, 6, delta),
+      MathUtils.damp(target.y, targetGoal.current.y, 6, delta),
+      MathUtils.damp(target.z, targetGoal.current.z, 6, delta),
+    )
+    camera.position.add(nextTarget.clone().sub(target))
+    target.copy(nextTarget)
+    orbit.update()
   })
 
   return <OrbitControls

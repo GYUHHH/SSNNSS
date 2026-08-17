@@ -45,6 +45,8 @@ let plainRoot = visitHandle === null
 export const visitedHandle = () => visitHandle
 export const isPlainRoot = () => plainRoot
 let visitData: Record<string, string> | null = null
+const roomNavigationListeners = new Set<() => void>()
+export const onRoomNavigation = (listener: () => void) => { roomNavigationListeners.add(listener); return () => { roomNavigationListeners.delete(listener) } }
 export const isVisiting = () => plainRoot || (visitHandle !== null && visitHandle !== ownHandle())
 const resetToPlainRoot = () => { visitHandle = null; plainRoot = true; visitData = null; history.replaceState(null, '', BASE) }
 const clearRoomCache = () => {
@@ -327,6 +329,34 @@ export async function ownedRoom(): Promise<{ handle: string; data: Record<string
     const rows = await response.json()
     return Array.isArray(rows) ? rows[0] ?? null : null
   } catch { return null }
+}
+
+// The explorer only needs public room ids. Loading every room bundle here would expose private-sized payloads
+// and make zooming out progressively slower, so the selected room alone is fetched when the user enters it.
+export async function fetchRoomDirectory(limit = 37): Promise<string[]> {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?select=handle&order=handle.asc&limit=${limit}`, { headers })
+    const rows = await response.json()
+    return response.ok && Array.isArray(rows) ? rows.map((row) => row?.handle).filter((handle): handle is string => typeof handle === 'string' && !!handle) : []
+  } catch { return [] }
+}
+
+// Changes the visited room without reloading the page. RoomProvider's existing rehydrate hook rereads the new
+// bundle, so the Canvas and camera stay mounted while furniture, media and interactions switch underneath it.
+export async function enterRoom(handle: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${escape(handle)}&select=data&limit=1`, { headers })
+    const rows = await response.json()
+    const data = Array.isArray(rows) ? rows[0]?.data : null
+    if (!response.ok || !data || typeof data !== 'object' || Array.isArray(data)) return false
+    visitHandle = handle
+    plainRoot = false
+    visitData = data
+    history.replaceState(null, '', roomPath(handle))
+    roomRefreshListeners.forEach((listener) => listener())
+    roomNavigationListeners.forEach((listener) => listener())
+    return true
+  } catch { return false }
 }
 
 export async function handleTaken(handle: string): Promise<boolean> {
