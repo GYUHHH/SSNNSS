@@ -163,6 +163,8 @@ div.art-view { aspect-ratio: 3 / 4; }
 .guest-form textarea { min-height: 64px; resize: vertical; }
 .guest-form button { justify-self: end; border: 1px solid #3a3a38; border-radius: 4px; padding: 7px 14px; font-size: 12px; color: #ffffff; background: #3a3a38; cursor: pointer; }
 .guest-list { display: grid; padding-top: 12px; }
+/* where a note was left, when it was not the guestbook itself */
+.guest-place { color: var(--ui-muted); font-size: 11px; font-style: normal; }
 .guest-note { padding: 12px 0; border-bottom: 1px solid #e0e0dd; text-align: left; }
 .guest-note header { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
 .guest-note header strong { font-size: 13px; }

@@ -40,10 +40,21 @@ export default function ArtworkOverlay() {
   </>
 }
 
+// The room's whole comment wall. Notes left straight on the guestbook and notes left on any object or record
+// all land here, newest first, each labelled with where it was written — otherwise a comment on a lamp is only
+// ever reachable through its red dot, and once that dot is cleared nobody can find it again.
 function Guestbook({ id, onClose }: { id: string; onClose: () => void }) {
-  const { guestbook, addGuestComment, removeGuestComment } = useRoomStore()
+  const { guestbook, addGuestComment, removeGuestComment, furniture, books } = useRoomStore()
   const [text, setText] = useState('')
-  const comments = guestbook[id] ?? []
+  const placeName = (target: string) => {
+    if (target === id) return null
+    const item = furniture.find((entry) => entry.id === target)
+    if (item) return item.name
+    return books.some((book) => book.entries.some((entry) => entry.id === target)) ? '기록' : null
+  }
+  const comments = Object.entries(guestbook)
+    .flatMap(([target, list]) => list.map((comment) => ({ comment, target, place: placeName(target) })))
+    .sort((a, b) => b.comment.createdAt.localeCompare(a.comment.createdAt))
   const submit = () => { if (!text.trim() || !requireHandle()) return; addGuestComment(id, text.trim()); setText('') }
   return <>
     <header><strong>방명록</strong><button className="close-ui" type="button" aria-label="닫기" onClick={onClose}>×</button></header>
@@ -53,8 +64,8 @@ function Guestbook({ id, onClose }: { id: string; onClose: () => void }) {
     </div>
     <div className="guest-list">
       {comments.length === 0 && <p className="entry-empty">댓글 없음</p>}
-      {comments.map((comment) => <article key={comment.id} className="guest-note">
-        <header><strong>{comment.name}{comment.verified && ' ✓'}</strong><time>{comment.createdAt.slice(0, 10)}</time>{(!isVisiting() || comment.visitor === myVisitorId()) && <button type="button" aria-label="삭제" onClick={() => removeGuestComment(id, comment.id)}>×</button>}</header>
+      {comments.map(({ comment, target, place }) => <article key={comment.id} className="guest-note">
+        <header><strong>{comment.name}{comment.verified && ' ✓'}</strong>{place && <em className="guest-place">{place}</em>}<time>{comment.createdAt.slice(0, 10)}</time>{(!isVisiting() || comment.visitor === myVisitorId()) && <button type="button" aria-label="삭제" onClick={() => removeGuestComment(target, comment.id)}>×</button>}</header>
         <p>{comment.text}</p>
       </article>)}
     </div>
