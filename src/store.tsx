@@ -679,6 +679,9 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }
   const removeRoom = (id: string) => {
     if (rooms.length <= 1) return
+    const gone = (slotItems(id) ?? []).filter((item) => !item.removed).map((item) => item.id)
+    void purgeReactions(gone)
+    dropReactions(gone)
     deleteSlot(id)
     const rest = rooms.filter((room) => room.id !== id)
     setRooms(rest)
