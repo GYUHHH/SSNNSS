@@ -4,7 +4,7 @@ import { type ReactNode, useLayoutEffect, useRef, useState } from 'react'
 import type { Group } from 'three'
 import { type SelectedObject, useRoomStore } from '../store'
 import { isOwnedSurfaceId, ownerIdOf } from '../services/roomGrid'
-import { isVisiting, toggleLike } from '../services/social'
+import { isVisiting } from '../services/social'
 import { openReactionPicker } from './ReactionPicker'
 
 // hover is shared per GROUP (a surface owner + everything sitting on it), so pointing at a desk lifts the desk,
@@ -14,18 +14,6 @@ const hoverShared = { group: null as string | null, by: null as string | null }
 
 // lets UI outside the canvas (the sound list) hover a piece exactly like the pointer would
 export const setExternalHover = (id: string | null) => { hoverShared.group = id; hoverShared.by = id ? `external:${id}` : null }
-
-// Instagram-style double-tap like: a heart with the fresh count floats up from the tap point
-export const likeBurst = (x: number, y: number, label: string) => {
-  const el = document.createElement('div')
-  el.className = 'like-burst'
-  el.textContent = label
-  el.style.left = `${x}px`
-  el.style.top = `${y}px`
-  document.body.append(el)
-  setTimeout(() => el.remove(), 950)
-  return (corrected: string) => { if (el.isConnected) el.textContent = corrected }
-}
 
 type Props = {
   id: Exclude<SelectedObject, null>

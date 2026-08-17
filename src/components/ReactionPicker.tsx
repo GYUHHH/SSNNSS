@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useRoomStore } from '../store'
 import { HeartIcon, CommentIcon } from './ReactionIcons'
-import { likeBurst } from './Interactive'
 import { requireHandle, toggleLike } from '../services/social'
 
 // Press and hold a piece of furniture and the two reactions rise out of the press point. The finger (or the
@@ -15,6 +14,19 @@ const LIFT = 66      // how far above the press point the icons sit
 const SPREAD = 28    // how far left/right of it — the two sit almost shoulder to shoulder
 const SNAP = 52      // pointer within this distance activates an icon (kept under the gap so the two stay distinct)
 const PULL = .3      // share of the gap the active icon leans toward the pointer
+
+// the heart that floats up from the release point; the returned function corrects the count once the server
+// answers, while the heart is still on screen
+const likeBurst = (x: number, y: number, label: string) => {
+  const el = document.createElement('div')
+  el.className = 'like-burst'
+  el.textContent = label
+  el.style.left = `${x}px`
+  el.style.top = `${y}px`
+  document.body.append(el)
+  setTimeout(() => el.remove(), 950)
+  return (corrected: string) => { if (el.isConnected) el.textContent = corrected }
+}
 
 export default function ReactionPicker() {
   const { setCommentTarget } = useRoomStore()
