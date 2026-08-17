@@ -37,12 +37,14 @@ export default function HandleSetup() {
     void currentUserEmail().then((current) => { setSession(current); setChecked(true) })
     return onAuthChange(setSession)
   }, [])
-  // Signing in on a fresh device must land back in the room this account already owns — otherwise the id
-  // step would ask for a new one and reject the old id as taken. Adopt the server copy and go to its address.
-  // profile.handle guard is load-bearing: without it a device that already holds the handle would
-  // location.replace onto the address it is already on, reloading forever
+  // Signing in must land back in the room this account already owns — otherwise the id step would ask for a
+  // new one and reject the old id as taken. Adopt the server copy and go to its address. This has to run while
+  // standing in someone else's room too: that is where people sign up, and without it the lookup never
+  // finishes, so the card would vanish after the code instead of asking for an id.
+  // The `mine` guard is load-bearing: without it a device that already holds the handle would
+  // location.replace onto the address it is already on, reloading forever.
   useEffect(() => {
-    if (!session || mine || isVisiting()) return
+    if (!session || mine) return
     let live = true
     void ownedRoom().then((room) => {
       if (!live) return
