@@ -50,8 +50,10 @@ export default function HandleSetup() {
   // The `mine` guard is load-bearing: without it a device that already holds the handle would
   // location.replace onto the address it is already on, reloading forever.
   useEffect(() => {
-    if (isPlainRoot()) { setRoomChecked(true); return }
-    if (!session || mine) return
+    // being signed in outranks the address: the plain root skips the lookup only for anonymous visitors, or a
+    // signed-in owner standing at / would be asked to invent an id while their room sits in the database
+    if (!session) { if (isPlainRoot()) setRoomChecked(true); return }
+    if (mine) return
     let live = true
     void ownedRoom().then((room) => {
       if (!live) return
