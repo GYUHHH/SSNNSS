@@ -6,7 +6,7 @@ import { NeighbourRoomProvider, useRoomStore } from '../store'
 import { currentRoomHandle, enterRoom, fetchRoomBundle, fetchRoomDirectory } from '../services/social'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
-import CameraController from './CameraController'
+import CameraController, { exploreMinZoom } from './CameraController'
 import Character from './Character'
 import Chair from './Chair'
 import Computer from './Computer'
@@ -159,9 +159,13 @@ function RoomContainer({ slot, distance, open }: { slot: RoomSlot; distance: num
     })
   }
   useLayoutEffect(collect, [bundle])
-  useFrame(({ camera }, delta) => {
+  useFrame(({ camera, size }, delta) => {
     if (!group.current) return
-    const threshold = distance <= 1 ? 36 : distance === 2 ? 23 : 16
+    // Bands are anchored to the zoom floor rather than fixed, so the whole cluster is up by the time zooming out
+    // has bottomed out. Fixed numbers had the ring fade in at zoom 36 and below, which went invisible the moment
+    // the desktop floor was raised past it. The fade spans 5 zoom units, so +12 above the floor is fully in by then.
+    const floor = exploreMinZoom(size.width, size.height)
+    const threshold = floor + (distance <= 1 ? 12 : distance === 2 ? 8 : 5)
     const wanted = mode === 'normal' ? MathUtils.clamp((threshold - camera.zoom) / 5, 0, 1) : 0
     opacity.current = MathUtils.damp(opacity.current, wanted, 7, delta)
     // meshes can still arrive after the layout effect ran (a suspended font resolves and mounts its text), so while

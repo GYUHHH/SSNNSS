@@ -9,9 +9,13 @@ const MOBILE_DETAIL_MIN_ZOOM = 30
 // How far out the explorer goes. A room is 200px wide at zoom 20.2, and the cluster spans three rooms across, so
 // desktop stops with the whole ring on screen at a readable size rather than shrinking it to a thumbnail. A phone
 // has far less width for the same three rooms, so it is allowed to pull back further before it stops.
-const DESKTOP_EXPLORE_MIN_ZOOM = 20
+const DESKTOP_EXPLORE_MIN_ZOOM = 40
 const MOBILE_EXPLORE_MIN_ZOOM = 13
 const MAX_ZOOM = 220
+
+export const isCompactScreen = (width: number, height: number) => width < 720 || (height < 520 && window.matchMedia('(pointer: coarse)').matches)
+// the floor the explorer bottoms out at — the neighbour fade bands are anchored to it so raising one moves the other
+export const exploreMinZoom = (width: number, height: number) => isCompactScreen(width, height) ? MOBILE_EXPLORE_MIN_ZOOM : DESKTOP_EXPLORE_MIN_ZOOM
 
 type FocusRoom = { position: [number, number, number]; token: number }
 type ControlsRef = { target: Vector3; update: () => void; getAzimuthalAngle: () => number; setAzimuthalAngle: (value: number) => void; getPolarAngle: () => number; setPolarAngle: (value: number) => void }
@@ -33,7 +37,7 @@ export default function CameraController({ focusRoom }: { focusRoom?: FocusRoom 
   // the frame loop can run before React has committed, and pushing a setState every frame from useFrame both warns
   // and churns — so the flag is only published when it actually flips
   const wasAtMinZoom = useRef(false)
-  const compactScreen = size.width < 720 || (size.height < 520 && window.matchMedia('(pointer: coarse)').matches)
+  const compactScreen = isCompactScreen(size.width, size.height)
   const detailMinZoom = compactScreen ? MOBILE_DETAIL_MIN_ZOOM : DESKTOP_DETAIL_MIN_ZOOM
   const minZoom = mode === 'edit' ? detailMinZoom : compactScreen ? MOBILE_EXPLORE_MIN_ZOOM : DESKTOP_EXPLORE_MIN_ZOOM
   const baseZoom = compactScreen ? MOBILE_DETAIL_MIN_ZOOM : 59
