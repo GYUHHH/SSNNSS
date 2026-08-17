@@ -101,7 +101,20 @@ let publishTimer: ReturnType<typeof setTimeout> | undefined
 export const schedulePublish = () => {
   if (isVisiting()) return
   clearTimeout(publishTimer)
-  publishTimer = setTimeout(() => { void publishRoom() }, 2500)
+  publishTimer = setTimeout(() => { publishTimer = undefined; void publishRoom() }, 900)
+}
+// Boot adopts whatever the server holds, so a change still sitting in the debounce when the page reloads is
+// simply lost. Anything pending is flushed the moment the page is hidden or closed.
+const flushPublish = () => {
+  if (!publishTimer) return
+  clearTimeout(publishTimer)
+  publishTimer = undefined
+  void publishRoom()
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', flushPublish)
+  window.addEventListener('beforeunload', flushPublish)
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPublish() })
 }
 
 // Anything that leaves a mark — a comment, a like — needs an id behind it. Callers ask here first; without
