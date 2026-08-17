@@ -24,6 +24,9 @@ export default function CameraController({ focusRoom }: { focusRoom?: FocusRoom 
   const dragZoom = useRef<{ identifier: number; startY: number; startZoom: number; lastX: number; lastY: number } | null>(null)
   const controls = useRef<ControlsRef | null>(null)
   const [dragZooming, setDragZooming] = useState(false)
+  // fully zoomed out is the room explorer, not a room: swinging the camera there just skews the tiled
+  // neighbours, so rotation is locked until the user zooms back in
+  const [atMinZoom, setAtMinZoom] = useState(false)
   const compactScreen = size.width < 720 || (size.height < 520 && window.matchMedia('(pointer: coarse)').matches)
   const detailMinZoom = compactScreen ? MOBILE_DETAIL_MIN_ZOOM : DESKTOP_DETAIL_MIN_ZOOM
   const minZoom = mode === 'edit' ? detailMinZoom : compactScreen ? MOBILE_EXPLORE_MIN_ZOOM : DESKTOP_EXPLORE_MIN_ZOOM
@@ -84,7 +87,7 @@ export default function CameraController({ focusRoom }: { focusRoom?: FocusRoom 
       // sideways movement swings the view while vertical movement stays pure zoom
       const dx = event.touches[0].clientX - dragZoom.current.lastX
       dragZoom.current.lastX = event.touches[0].clientX
-      if (controls.current) controls.current.setAzimuthalAngle(MathUtils.clamp(controls.current.getAzimuthalAngle() - dx * .027, 0, Math.PI / 2))
+      if (controls.current && zoomTarget.current > minZoom + .01) controls.current.setAzimuthalAngle(MathUtils.clamp(controls.current.getAzimuthalAngle() - dx * .027, 0, Math.PI / 2))
     }
     const onTouchEnd = (event: TouchEvent, cancelled = false) => {
       const touch = event.changedTouches[0]
@@ -109,6 +112,7 @@ export default function CameraController({ focusRoom }: { focusRoom?: FocusRoom 
 
   useFrame((_, delta) => {
     const camera2d = camera as OrthographicCamera
+    setAtMinZoom(zoomTarget.current <= minZoom + .01)
     const next = MathUtils.damp(camera2d.zoom, zoomTarget.current, 7, delta)
     if (Math.abs(next - camera2d.zoom) >= .001) { camera2d.zoom = next; camera2d.updateProjectionMatrix() }
     const orbit = controls.current
@@ -126,7 +130,7 @@ export default function CameraController({ focusRoom }: { focusRoom?: FocusRoom 
 
   return <OrbitControls
     ref={controls as never}
-    enableRotate={mode === 'normal' && !dragZooming}
+    enableRotate={mode === 'normal' && !dragZooming && !atMinZoom}
     target={[0, 3.5, 0]}
     enablePan={false}
     enableZoom={false}

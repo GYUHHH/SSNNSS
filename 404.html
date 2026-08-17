@@ -1,8 +1,0 @@
-<!doctype html>
-<meta charset="utf-8">
-<script>
-  // GitHub Pages has no SPA fallback: unknown paths like /SSNNSS/gyuh land here and bounce back to the app
-  // as ?p=gyuh; the app restores the pretty address with history.replaceState.
-  var l = location
-  l.replace(l.protocol + '//' + l.host + '/SSNNSS/?p=' + encodeURIComponent(l.pathname.replace(/^\/SSNNSS\/?/, '')) + (l.search ? '&' + l.search.slice(1) : ''))
-</script>

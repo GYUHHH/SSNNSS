@@ -1,4 +1,4 @@
-import { isVisiting, readStored, schedulePublish } from './social'
+import { isReadingBundle, isVisiting, readStored, schedulePublish } from './social'
 
 export type FurniturePlacement = { id: string; type: string; position?: [number, number, number]; rotation: [number, number, number]; scale: number; surfaceId?: string; gridX?: number; gridZ?: number; gridY?: number; wallId?: 'leftWall' | 'rightWall'; footprint?: { width: number; depth: number }; resolution?: 'base' | 'subgrid2'; styleId?: string; removed?: boolean; updatedAt: string }
 export type RoomStyle = { leftWall?: string; rightWall?: string; floor?: string }
@@ -22,7 +22,7 @@ const readSlots = (): SlotsBlob | null => {
   try { const raw = readStored(slotsKey); return raw ? JSON.parse(raw) as SlotsBlob : null } catch { return null }
 }
 const writeSlots = (blob: SlotsBlob) => {
-  if (isVisiting()) return
+  if (isVisiting() || isReadingBundle()) return
   try { localStorage.setItem(slotsKey, JSON.stringify(blob)); schedulePublish() } catch { /* localStorage may be unavailable */ }
 }
 
@@ -84,7 +84,7 @@ export function loadArtworks(): Record<string, string> | null {
   try { const raw = readStored(artworkKey); return raw ? JSON.parse(raw) as Record<string, string> : null } catch { return null }
 }
 export function saveArtworks(artworks: Record<string, string>) {
-  if (isVisiting()) return
+  if (isVisiting() || isReadingBundle()) return
   try { localStorage.setItem(artworkKey, JSON.stringify(artworks)); schedulePublish() } catch { /* quota exceeded or unavailable */ }
 }
 
@@ -94,7 +94,7 @@ export function loadBooks<T>(): T | null {
   try { const raw = readStored(booksKey); return raw ? JSON.parse(raw) as T : null } catch { return null }
 }
 export function saveBooks(books: unknown) {
-  if (isVisiting()) return
+  if (isVisiting() || isReadingBundle()) return
   try { localStorage.setItem(booksKey, JSON.stringify(books)); schedulePublish() } catch { /* quota exceeded or unavailable */ }
 }
 
@@ -104,7 +104,7 @@ export function loadGuestbook<T>(): T | null {
   try { const raw = readStored(guestbookKey); return raw ? JSON.parse(raw) as T : null } catch { return null }
 }
 export function saveGuestbook(guestbook: unknown) {
-  if (isVisiting()) return
+  if (isVisiting() || isReadingBundle()) return
   try { localStorage.setItem(guestbookKey, JSON.stringify(guestbook)); schedulePublish() } catch { /* quota exceeded or unavailable */ }
 }
 
@@ -115,6 +115,6 @@ export function loadProfile(): Profile | null {
   try { const raw = readStored(profileKey); return raw ? JSON.parse(raw) as Profile : null } catch { return null }
 }
 export function saveProfile(profile: Profile) {
-  if (isVisiting()) return
+  if (isVisiting() || isReadingBundle()) return
   try { localStorage.setItem(profileKey, JSON.stringify(profile)); schedulePublish() } catch { /* unavailable */ }
 }

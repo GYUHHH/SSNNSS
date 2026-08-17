@@ -1,3 +1,2 @@
-// Pages serves the repository as-is, so public/ keeps its folder there; the dev server flattens it into the root
-export const publicBase = typeof location === 'undefined' ? '/'
-  : location.hostname.endsWith('.github.io') ? `${import.meta.env.BASE_URL}public/` : import.meta.env.BASE_URL
+// Cloudflare Pages serves the built dist, where public/ is flattened into the root — same as the dev server
+export const publicBase = import.meta.env.BASE_URL

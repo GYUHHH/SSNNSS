@@ -5,7 +5,7 @@ import { adoptCharacterPosition, characterPosition, characterTeleport } from './
 import { publicBase } from './services/publicBase'
 import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic } from './services/music'
-import { purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myVisitorId, readStored, recordVisit, refreshVisit, removeRemoteComment, schedulePublish, subscribeRealtime, uploadMedia, type RemoteGuestComment } from './services/social'
+import { purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, schedulePublish, subscribeRealtime, uploadMedia, type RemoteGuestComment } from './services/social'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id })
 
@@ -694,6 +694,54 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const setArtwork = (id: string, dataURL: string | null) => isVisiting() ? undefined : setArtworks((prev) => { const next = { ...prev }; if (dataURL) next[id] = dataURL; else delete next[id]; return next })
   return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, profile, profileOpen, openProfile: () => setProfileOpen(true), closeProfile: () => setProfileOpen(false), setProfilePhoto, setProfileHandle, videoFrames, setVideoClip, videoLinks, setVideoLink, playingFrames, stopFrame: (id: string) => setPlayingFrames((prev) => prev.filter((value) => value !== id)), mutedFrames, setFrameMuted, highlightFrame, setHighlightFrame, openVideoPanel: (id: string) => { if (isVisiting()) return; setFrameMuted(id, false); setStyleTarget(null); setSelectedObject(id) }, rooms, activeRoomId, openRoom, createRoom, removeRoom, availableCount, guestbook, addGuestComment, removeGuestComment, remoteVisits, othersLikes, likeTotals, myLikes, pendingReactions, markReactionsSeen, openObject, reactionIdsFor, reactionTarget, setReactionTarget, commentTarget, setCommentTarget, timeOfDay, setTimeOfDay, books: visibleBooks, openBookId, bookshelfOpen, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, selectObject, clearSelection, finishCharacterAction: setCharacterState, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject('bookshelf'); setBookshelfOpen(true) }, addBook, deleteBook, updateBookVisibility, setBookShelf, addEntry, deleteEntry, updateEntry, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, closeStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
 }
+// A neighbour room in the zoom-out explorer, drawn from that room's own published bundle with the SAME furniture
+// components as the live room — so it is the real room, not a stand-in. Read-only by construction: there is no
+// state and no effect here, and every mutator below is a no-op, so no publish, realtime subscription, visit count
+// or storage write can run for a room the user is only looking at. A vacant slot passes null and gets the default
+// room, because an empty bundle makes every read miss and each loader falls back to its default.
+// ponytail: the bookshelf's top-surface offset stays at its default for neighbours — setBookshelfTopOffset is a
+// module singleton owned by the live room, and fighting over it would move the real room's shelf. Only matters if
+// something is placed on a neighbour's bookshelf cap; make the offset per-room if that ever shows.
+const NEIGHBOUR_TIME: TimeOfDay[] = ['day', 'evening', 'night']
+export function NeighbourRoomProvider({ bundle, children }: { bundle: Record<string, string> | null; children: ReactNode }) {
+  const value = useMemo<RoomStore>(() => readingBundle(bundle ?? {}, () => {
+    const slots = loadSlots()
+    const style = slotStyle(slots.active) ?? {}
+    const items = hydrateFurniture(slotItems(slots.active))
+    // owned-surface items carry no world position of their own; resolve them exactly as the live room does
+    const furniture = items.map((item) => {
+      if (!isOwnedSurfaceId(item.surfaceId)) return item
+      const surface = resolveSurface(items, item.surfaceId); if (!surface) return item
+      const position = gridToWorld(withResolution(surface, resolutionFor(item)), { gridX: item.gridX, gridY: item.gridY }, item.footprint, item.rotation[1])
+      const owner = items.find((value) => value.id === surface.ownerId)
+      return { ...item, position, rotation: [0, item.rotation[1] + (owner?.rotation[1] ?? 0), 0] as [number, number, number] }
+    })
+    const interactions = loadInteractions()
+    const saved = readStored('my-room-time-v1')
+    const noop = () => {}
+    return {
+      selectedObject: null, characterState: 'idle', computerOn: interactions.computerOn, toggledOn: new Set(interactions.toggles), cupHeld: interactions.cupHeld,
+      artworks: loadArtworks() ?? {}, setArtwork: noop,
+      rooms: slots.slots.map((slot) => ({ id: slot.id, name: slot.name })), activeRoomId: slots.active, openRoom: noop, createRoom: noop, removeRoom: noop, availableCount: () => 0,
+      profile: loadProfile() ?? { total: 0, today: 0, lastVisit: '', friends: 0 }, profileOpen: false, openProfile: noop, closeProfile: noop, setProfilePhoto: noop, setProfileHandle: noop,
+      videoFrames: {}, setVideoClip: noop, videoLinks: {}, setVideoLink: () => false, playingFrames: [], stopFrame: noop, mutedFrames: [], setFrameMuted: noop, highlightFrame: null, setHighlightFrame: noop, openVideoPanel: noop,
+      guestbook: {}, addGuestComment: noop, removeGuestComment: noop, remoteVisits: null, othersLikes: {}, likeTotals: {}, myLikes: [], pendingReactions: {}, markReactionsSeen: noop,
+      openObject: () => false, reactionIdsFor: () => [], reactionTarget: null, setReactionTarget: noop, commentTarget: null, setCommentTarget: noop,
+      timeOfDay: NEIGHBOUR_TIME.find((time) => time === saved) ?? 'day', setTimeOfDay: noop,
+      books: hydrateBooks(), openBookId: null, bookshelfOpen: false,
+      mode: 'normal', furniture, selectedFurnitureId: null, selectedPlacementValid: true, movingFurnitureId: null, preview: null, previewValid: false, previewDragging: false,
+      wallStyle: style, floorStyle: style.floor, styleTarget: null, debugAnchors: false, moveNotice: false, floorTarget: null,
+      musicTrack: null, setMusicTrack: noop, musicVolume: 0, setMusicVolume: noop,
+      selectObject: noop, clearSelection: noop, finishCharacterAction: noop, moveCharacterTo: noop, settleFloorMove: noop,
+      openBook: noop, closeBook: noop, addBook: noop, deleteBook: noop, updateBookVisibility: noop, setBookShelf: noop, addEntry: noop, deleteEntry: noop, updateEntry: noop,
+      toggleEditMode: noop, enterEditFurniture: noop, selectFurniture: noop, beginMove: noop, moveFurniture: noop, placeFurnitureAt: noop, endMove: noop, rotateFurniture: noop, removeFurniture: noop, undoLayout: noop, resetLayout: noop,
+      startPreview: noop, beginPreviewDrag: noop, movePreview: noop, endPreviewDrag: noop, placePreview: noop, cancelPreview: noop,
+      openStyleTarget: noop, closeStyleTarget: noop, setWallStyle: noop, setFloorStyle: noop, setFurnitureStyle: noop, toggleDebugAnchors: noop,
+    }
+  }), [bundle])
+  return <RoomContext value={value}>{children}</RoomContext>
+}
+
 export function useRoomStore() { const store = useContext(RoomContext); if (!store) throw new Error('RoomProvider is required'); return store }
 // for trees rendered outside the provider (e.g. the offscreen thumbnail canvas)
 export const useOptionalRoomStore = () => useContext(RoomContext)

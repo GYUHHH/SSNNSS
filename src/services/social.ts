@@ -53,8 +53,20 @@ const clearRoomCache = () => {
   try { for (let index = localStorage.length - 1; index >= 0; index--) { const key = localStorage.key(index); if (key?.startsWith('my-room-')) localStorage.removeItem(key) } } catch { /* storage may be unavailable */ }
 }
 
+// Drawing a neighbour's room needs that room's own storage, not this one's. Every content read in the app funnels
+// through readStored, so scoping the source here covers all of them with no reader threaded through call sites.
+// The scope is strictly synchronous and cleared in `finally`, so no two rooms can ever interleave.
+let readOverride: Record<string, string> | null = null
+// every writer checks this: a read for somebody else's room must never fall through to this browser's storage
+export const isReadingBundle = () => readOverride !== null
+export const readingBundle = <T>(bundle: Record<string, string>, run: () => T): T => {
+  const previous = readOverride
+  readOverride = bundle
+  try { return run() } finally { readOverride = previous }
+}
 // storage reads for room content route through here: a visit serves the fetched bundle exclusively
 export const readStored = (key: string): string | null => {
+  if (readOverride) return readOverride[key] ?? null
   if (isVisiting()) return visitData?.[key] ?? null
   try { return localStorage.getItem(key) } catch { return null }
 }
@@ -331,8 +343,19 @@ export async function ownedRoom(): Promise<{ handle: string; data: Record<string
   } catch { return null }
 }
 
-// The explorer only needs public room ids. Loading every room bundle here would expose private-sized payloads
-// and make zooming out progressively slower, so the selected room alone is fetched when the user enters it.
+// One neighbour's bundle, read-only — the explorer draws each surrounding room from its own saved layout. Unlike
+// enterRoom this changes nothing: no visit state, no history, no listeners, so it is safe to run for many rooms.
+export async function fetchRoomBundle(handle: string): Promise<Record<string, string> | null> {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${escape(handle)}&select=data&limit=1`, { headers })
+    const rows = await response.json()
+    const data = Array.isArray(rows) ? rows[0]?.data : null
+    return response.ok && data && typeof data === 'object' && !Array.isArray(data) ? data as Record<string, string> : null
+  } catch { return null }
+}
+
+// The explorer only needs public room ids up front; each neighbour's bundle is fetched lazily by fetchRoomBundle
+// once the zoom-out actually reveals it, so a directory of many rooms costs one request until it is looked at.
 export async function fetchRoomDirectory(limit = 37): Promise<string[]> {
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?select=handle&order=handle.asc&limit=${limit}`, { headers })
