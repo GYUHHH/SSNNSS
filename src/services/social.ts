@@ -179,6 +179,20 @@ export async function removeRemoteComment(commentId: string) {
   } catch { /* offline */ }
 }
 
+// Deleting something must take its reactions with it, or likes and comments for an object nobody can see
+// linger on the server forever. Likes delete directly; comments go through the RPC, which is what checks that
+// the room's owner is the one asking.
+export async function purgeReactions(itemIds: string[]) {
+  const room = currentRoomHandle()
+  if (!room || isVisiting() || itemIds.length === 0) return
+  const list = itemIds.map((id) => `"${id.replace(/"/g, '')}"`).join(',')
+  try {
+    const rows: RemoteGuestComment[] = await fetch(`${SUPABASE_URL}/rest/v1/guestbook?room=eq.${escape(room)}&item_id=in.(${escape(list)})&select=id`, { headers }).then((response) => response.json())
+    if (Array.isArray(rows)) for (const row of rows) await removeRemoteComment(row.id)
+    await fetch(`${SUPABASE_URL}/rest/v1/likes?room=eq.${escape(room)}&item_id=in.(${escape(list)})`, { method: 'DELETE', headers })
+  } catch { /* offline — the rows stay until the next delete */ }
+}
+
 // every like in the room, for the reaction badges (self-likes are filtered by the caller)
 export async function fetchAllLikes(): Promise<Array<{ item_id: string; visitor: string }> | null> {
   const room = currentRoomHandle()

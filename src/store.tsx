@@ -5,7 +5,7 @@ import { adoptCharacterPosition, characterPosition, characterTeleport } from './
 import { publicBase } from './services/publicBase'
 import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic } from './services/music'
-import { getSeenReactions, markReactionSeen, onRoomRefresh, uploadDataUrl, addRemoteComment, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myVisitorId, readStored, recordVisit, refreshVisit, removeRemoteComment, schedulePublish, subscribeRealtime, uploadMedia, type RemoteGuestComment } from './services/social'
+import { purgeReactions, getSeenReactions, markReactionSeen, onRoomRefresh, uploadDataUrl, addRemoteComment, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myVisitorId, readStored, recordVisit, refreshVisit, removeRemoteComment, schedulePublish, subscribeRealtime, uploadMedia, type RemoteGuestComment } from './services/social'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id })
 
@@ -379,7 +379,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const rotateFurniture = () => { const id = selectedFurnitureId; if (!id) return; const previous = furniture; const next = furniture.map((value) => value.id === id ? placeOnSurface(furniture, value, value.surfaceId, placementGrid(value), [0, (value.rotation[1] + Math.PI / 2) % (Math.PI * 2), 0]) : value); commit(next, previous) }
   // deleting also cancels any move-in-progress — otherwise a later endMove would restore the pre-delete copy
   // held in pendingMove/dragOrigin and the item would pop back
-  const removeFurniture = (targetId = selectedFurnitureId ?? undefined) => { if (!targetId) return; const group = (value: FurnitureItem) => value.id === targetId || (isOwnedSurfaceId(value.surfaceId) && ownerIdOf(value.surfaceId) === targetId); const next = furniture.map((value) => group(value) && !value.removed ? { ...value, removed: true, updatedAt: new Date().toISOString() } : value); pendingMove.current = null; setDragOrigin(null); setMovingFurnitureId(null); commit(next); setSelectedFurnitureId(null) }
+  const removeFurniture = (targetId = selectedFurnitureId ?? undefined) => { if (!targetId) return; const group = (value: FurnitureItem) => value.id === targetId || (isOwnedSurfaceId(value.surfaceId) && ownerIdOf(value.surfaceId) === targetId); const gone = furniture.filter((value) => group(value) && !value.removed).map((value) => value.id); const next = furniture.map((value) => group(value) && !value.removed ? { ...value, removed: true, updatedAt: new Date().toISOString() } : value); void purgeReactions(gone); dropReactions(gone); pendingMove.current = null; setDragOrigin(null); setMovingFurnitureId(null); commit(next); setSelectedFurnitureId(null) }
   const undoLayout = () => { let index = history.length - 1; while (index >= 0 && same(history[index], furniture)) index -= 1; const previous = history[index]; if (!previous) return; setHistory((items) => items.slice(0, index)); setFurniture(previous); persist(previous); setSelectedFurnitureId(null) }
   const resetLayout = () => { const next = initialFurniture.map((value) => ({ ...value })); commit(next); setSelectedFurnitureId(null) }
   // `context` defaults to current state; pass a NEXT state to validate a transform before committing it —
@@ -476,12 +476,18 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const toggleEditMode = () => { if (isVisiting()) return; endMove(); pendingMove.current = null; setMode((value) => value === 'normal' ? 'edit' : 'normal'); setPreview(null); setPreviewDragging(false); setDragOrigin(null); setMovingFurnitureId(null); setSelectedObject(null); setBookshelfOpen(false); setOpenBookId(null); setSelectedFurnitureId(null) }
   const openBook = (id: string) => { setSelectedObject('book'); setBookshelfOpen(false); setOpenBookId(id) }
   const addBook = (title: string, visibility: Visibility) => { const id = `book-${Date.now()}`; const createdAt = new Date().toISOString(); setBooks((items) => [...items, { id, title, coverColor: ['#718475', '#b96b52', '#607b93', '#b18a4c'][items.length % 4], description: '새 기록장', visibility, createdAt, updatedAt: createdAt, entries: [] }]) }
-  const deleteBook = (id: string) => { setBooks((items) => items.filter((book) => book.id !== id)); if (openBookId === id) { setOpenBookId(null); setBookshelfOpen(true) } }
+  const deleteBook = (id: string) => { const gone = (books.find((book) => book.id === id)?.entries ?? []).map((entry) => entry.id); void purgeReactions(gone); dropReactions(gone); setBooks((items) => items.filter((book) => book.id !== id)); if (openBookId === id) { setOpenBookId(null); setBookshelfOpen(true) } }
   const updateBookVisibility = (id: string, visibility: Visibility) => setBooks((items) => items.map((book) => book.id === id ? { ...book, visibility, updatedAt: new Date().toISOString() } : book))
   const setBookShelf = (id: string, shelf: number) => setBooks((items) => items.map((book) => book.id === id ? { ...book, shelf, updatedAt: new Date().toISOString() } : book))
   const addEntry: RoomStore['addEntry'] = (bookId, entry) => { const createdAt = new Date().toISOString(); setBooks((items) => items.map((book) => book.id === bookId ? { ...book, updatedAt: createdAt, entries: [...book.entries, { ...entry, id: `entry-${Date.now()}`, bookId, createdAt, updatedAt: createdAt, comments: [] }] } : book)) }
   const updateEntry = (bookId: string, entryId: string, patch: Partial<Pick<Entry, 'content' | 'images' | 'visibility'>>) => setBooks((items) => items.map((book) => book.id === bookId ? { ...book, updatedAt: new Date().toISOString(), entries: book.entries.map((entry) => entry.id === entryId ? { ...entry, ...patch, updatedAt: new Date().toISOString() } : entry) } : book))
-  const deleteEntry = (bookId: string, entryId: string) => setBooks((items) => items.map((book) => book.id === bookId ? { ...book, updatedAt: new Date().toISOString(), entries: book.entries.filter((entry) => entry.id !== entryId) } : book))
+  // reactions live under the deleted thing's id, so they are dropped from view at the same moment
+  const dropReactions = (ids: string[]) => {
+    setGuestbook((prev) => { const next = { ...prev }; for (const id of ids) delete next[id]; return next })
+    setOthersLikes((prev) => { const next = { ...prev }; for (const id of ids) delete next[id]; return next })
+    setLikeTotals((prev) => { const next = { ...prev }; for (const id of ids) delete next[id]; return next })
+  }
+  const deleteEntry = (bookId: string, entryId: string) => { void purgeReactions([entryId]); dropReactions([entryId]); return setBooks((items) => items.map((book) => book.id === bookId ? { ...book, updatedAt: new Date().toISOString(), entries: book.entries.filter((entry) => entry.id !== entryId) } : book)) }
   const openStyleTarget = (target: StyleTarget) => setStyleTarget(target)
   const closeStyleTarget = () => setStyleTarget(null)
   const setWallStyle = (wallId: WallId, presetId: string) => setWallStyleState((current) => { const next = { ...current, [wallId]: presetId }; saveSlotStyle(activeRoomId, { ...next, floor: floorStyle }); return next })
