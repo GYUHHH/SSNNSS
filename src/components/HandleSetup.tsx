@@ -18,7 +18,8 @@ export default function HandleSetup() {
   const [codeBad, setCodeBad] = useState(false)
   const [value, setValue] = useState('')
   const [taken, setTaken] = useState(false)
-  const [busy, setBusy] = useState(false)
+  // which action is running, not merely that one is — a single boolean would spin every button at once
+  const [busy, setBusy] = useState<string | null>(null)
   const [roomChecked, setRoomChecked] = useState(false)
   const [requested, setRequested] = useState(false)
   // which button was pressed on the first screen — the flow after it is identical either way
@@ -33,10 +34,16 @@ export default function HandleSetup() {
   const [checkingCode, setCheckingCode] = useState(false)
   const [google, setGoogle] = useState(false)
   useEffect(() => { void googleEnabled().then(setGoogle) }, [])
+  // While an action runs its button shows a turning ring instead of its label, so a slow network reads as
+  // progress rather than a dead button. aria-label keeps the name the ring replaces.
+  const work = (action: string, text: string) => ({
+    'aria-label': text,
+    children: busy === action ? <span className="btn-spin" aria-hidden="true" /> : text,
+  })
   const close = () => {
     setDismissed(true); setRequested(false); setIntent(null); setAlready(false)
     setEmail(''); setCode(''); setCodeSent(false); setCodeBad(false); setSendFailed(false); setValue(''); setTaken(false)
-    setVerified(false); setPassword(''); setLoginFailed(false); setPublishFailed(false); setBusy(false); setCheckingCode(false)
+    setVerified(false); setPassword(''); setLoginFailed(false); setPublishFailed(false); setBusy(null); setCheckingCode(false)
     // a session with no id is a signup that was walked away from — leaving it standing means reopening the card
     // lands back on the id step, since that step only ever asks for `session && !verified`
     if (session && !mine) void cancelSignup()
@@ -82,44 +89,44 @@ export default function HandleSetup() {
   const valid = /^[a-z0-9_]{3,20}$/.test(clean)
   const sendCode = async () => {
     if (!email.includes('@') || busy) return
-    setBusy(true)
+    setBusy('code-send')
     const ok = await sendOtpCode(email)
     setCodeSent(ok)
     setSendFailed(!ok)
-    setBusy(false)
+    setBusy(null)
   }
   const confirmCode = async () => {
     if (code.trim().length < 6 || busy) return
-    setBusy(true); setCheckingCode(true)
+    setBusy('code-check'); setCheckingCode(true)
     const ok = await verifyOtpCode(email, code.trim())
     setCodeBad(!ok)
     if (ok) { if (await ownedRoom()) setAlready(true); else setVerified(true) }
     // cleared in the same batch as the step above, so the swap happens in one render with nothing in between
-    setCheckingCode(false); setBusy(false)
+    setCheckingCode(false); setBusy(null)
   }
   const savePassword = async () => {
     if (password.length < 6 || busy) return
-    setBusy(true)
+    setBusy('password')
     await setPassword_(password)
     setVerified(false)
-    setBusy(false)
+    setBusy(null)
   }
   const signIn = async () => {
     if (!email.includes('@') || password.length < 6 || busy) return
-    setBusy(true)
+    setBusy('login')
     const ok = await signInWithPassword(email, password)
     setLoginFailed(!ok)
-    setBusy(false)
+    setBusy(null)
   }
   const claim = async () => {
     if (!valid || busy) return
-    setBusy(true)
-    if (await handleTaken(clean)) { setTaken(true); setBusy(false); return }
+    setBusy('claim')
+    if (await handleTaken(clean)) { setTaken(true); setBusy(null); return }
     // written straight to storage on purpose: publishRoom reads the handle back out of localStorage on the very
     // next line, and the store's setter only lands during React's next render, so it would publish under no handle
     claimHandleLocally(clean)
     setProfileHandle(clean)
-    if (!await publishRoom()) { setPublishFailed(true); setBusy(false); return }
+    if (!await publishRoom()) { setPublishFailed(true); setBusy(null); return }
     location.replace(roomPath(clean))
   }
   return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && close()}>
@@ -138,8 +145,8 @@ export default function HandleSetup() {
         <div className="login-form">
           <input type="email" value={email} placeholder="이메일" onChange={(event) => { setEmail(event.target.value); setLoginFailed(false) }} />
           <input type="password" value={password} className={loginFailed ? 'taken' : ''} placeholder="비밀번호" onChange={(event) => { setPassword(event.target.value); setLoginFailed(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void signIn() }} />
-          <button type="button" disabled={!email.includes('@') || password.length < 6 || busy} onClick={() => void signIn()}>{loginFailed ? '이메일 또는 비밀번호가 달라요' : '이메일로 로그인'}</button>
-          {google && <button type="button" className="ghost" onClick={() => void signInWithGoogle()}>Google로 로그인</button>}
+          <button type="button" disabled={!email.includes('@') || password.length < 6 || !!busy} onClick={() => void signIn()} {...work('login', loginFailed ? '이메일 또는 비밀번호가 달라요' : '이메일로 로그인')} />
+          {google && <button type="button" className="ghost" disabled={!!busy} onClick={() => { setBusy('google'); void signInWithGoogle() }} {...work('google', 'Google로 로그인')} />}
         </div>
       </>}
       {(!session || checkingCode) && intent === 'signup' && !already && !verified && <>
@@ -147,12 +154,12 @@ export default function HandleSetup() {
         <div className="login-form">
           <input type="email" value={email} placeholder="이메일" disabled={codeSent} onChange={(event) => setEmail(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void sendCode() }} />
           {!codeSent && <>
-            <button type="button" disabled={!email.includes('@') || busy} onClick={() => void sendCode()}>{sendFailed ? '잠시 후 다시 시도' : '인증번호 받기'}</button>
-            {google && <button type="button" className="ghost" onClick={() => void signInWithGoogle()}>Google로 가입하기</button>}
+            <button type="button" disabled={!email.includes('@') || !!busy} onClick={() => void sendCode()} {...work('code-send', sendFailed ? '잠시 후 다시 시도' : '인증번호 받기')} />
+            {google && <button type="button" className="ghost" disabled={!!busy} onClick={() => { setBusy('google'); void signInWithGoogle() }} {...work('google', 'Google로 가입하기')} />}
           </>}
           {codeSent && <>
             <input type="text" inputMode="numeric" value={code} className={codeBad ? 'taken' : ''} placeholder="인증번호" onChange={(event) => { setCode(event.target.value); setCodeBad(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void confirmCode() }} />
-            <button type="button" disabled={code.trim().length < 6 || busy} onClick={() => void confirmCode()}>{codeBad ? '번호가 달라요' : '확인'}</button>
+            <button type="button" disabled={code.trim().length < 6 || !!busy} onClick={() => void confirmCode()} {...work('code-check', codeBad ? '번호가 달라요' : '확인')} />
           </>}
         </div>
       </>}
@@ -163,14 +170,14 @@ export default function HandleSetup() {
         <strong>비밀번호 설정</strong>
         <div className="login-form">
           <input type="password" value={password} placeholder="비밀번호 (6자 이상)" onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void savePassword() }} />
-          <button type="button" disabled={password.length < 6 || busy} onClick={() => void savePassword()}>비밀번호 저장</button>
+          <button type="button" disabled={password.length < 6 || !!busy} onClick={() => void savePassword()} {...work('password', '비밀번호 저장')} />
         </div>
       </>}
       {session && !verified && !checkingCode && <>
         <strong>아이디 설정</strong>
         <div className="login-form">
           <input type="text" value={clean} className={taken ? 'taken' : ''} placeholder="영문 소문자, 숫자, _" onChange={(event) => { setValue(event.target.value); setTaken(false); setPublishFailed(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void claim() }} />
-          <button type="button" disabled={!valid || busy} onClick={() => void claim()}>{taken ? '이미 사용 중' : publishFailed ? '저장 실패, 다시 시도' : '이 아이디로 시작'}</button>
+          <button type="button" disabled={!valid || !!busy} onClick={() => void claim()} {...work('claim', taken ? '이미 사용 중' : publishFailed ? '저장 실패, 다시 시도' : '이 아이디로 시작')} />
         </div>
       </>}
     </section>
