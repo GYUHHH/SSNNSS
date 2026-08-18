@@ -176,7 +176,7 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
         // again carries on down to the explorer where the ring gathers. The hold is timed rather than a flag
         // because trackpads and pinches stream deltas continuously — without the grace period one smooth gesture
         // would touch the stop for a single frame and blow straight through it.
-        else if (lastZoomTarget.current > entry + .01) { zoomTarget.current = entry; entryHold.current = performance.now() + 400 }
+        else if (lastZoomTarget.current > entry + .01) { zoomTarget.current = entry; entryHold.current = performance.now() + 750 }
         else zoomTarget.current = performance.now() < entryHold.current ? entry : minZoom
       }
     }
