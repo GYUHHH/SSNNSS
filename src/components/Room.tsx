@@ -431,7 +431,10 @@ function RoomWorld() {
     // The pick is decided at the zoom floor and then held. Recomputing it on the way in reads a screen that is
     // already moving — the aim below is pulling the chosen room to the middle — so under a mouse that has not
     // budged the room under the cursor changes and the choice flips out from under the user mid-zoom.
-    if (mode === 'normal' && camera.zoom <= floor + .5) {
+    // The pick keeps updating through the first half of the transit band — the user can still steer onto a
+    // different room while the fade has already begun — and only freezes for the short stretch before the entry
+    // line, which is what keeps the choice from flapping while the camera is actively pulling it to the middle.
+    if (mode === 'normal' && camera.zoom <= (floor + entryZoom(size.width, size.height)) / 2) {
       // Measured in pixels off a projected centre rather than in world space: the cluster is stacked across storeys
       // and panning slides the target in the screen plane, so world distance disagrees with what is on screen. The
       // room already being viewed competes as well, and its winning means nothing is picked — zooming back into the
