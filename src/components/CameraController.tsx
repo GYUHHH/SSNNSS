@@ -8,9 +8,11 @@ const DESKTOP_DETAIL_MIN_ZOOM = 42
 const MOBILE_DETAIL_MIN_ZOOM = 30
 // How far out the explorer goes. A room is 200px wide at zoom 20.2, and the cluster spans three rooms across, so
 // desktop stops with the whole ring on screen at a readable size rather than shrinking it to a thumbnail. A phone
-// has far less width for the same three rooms, so it is allowed to pull back further before it stops.
+// still pulls back further for the same three rooms, but not to the point of fitting them all at once: at this
+// floor a room is about 160px on a 390px screen, which is legible, and the ring that no longer fits is reached by
+// panning — which is what the explorer is for anyway.
 const DESKTOP_EXPLORE_MIN_ZOOM = 40
-const MOBILE_EXPLORE_MIN_ZOOM = 13
+const MOBILE_EXPLORE_MIN_ZOOM = 16
 const MAX_ZOOM = 220
 
 export const isCompactScreen = (width: number, height: number) => width < 720 || (height < 520 && window.matchMedia('(pointer: coarse)').matches)
