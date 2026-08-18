@@ -335,10 +335,12 @@ function RoomWorld() {
     if (zoomedIn && !wasZoomedIn.current && pick) void open(pick)
     wasZoomedIn.current = zoomedIn
   })
+  // the picked room, or the one already being viewed when nothing is picked — what the camera should be aiming at
+  const aim = useMemo(() => (slots.find((slot) => slot.handle === centredHandle) ?? active)?.position ?? null, [slots, active, centredHandle])
   return <>
-    {slots.filter((slot) => slot.handle !== active.handle && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} />)}
+    {slots.filter((slot) => slot.handle !== active.handle && isEnterable(slot.handle) && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} />)}
     <group position={active.position}><Inert off={exploring}><RoomRoot /></Inert></group>
-    <CameraController focusRoom={focusRoom} />
+    <CameraController focusRoom={focusRoom} aim={aim} />
   </>
 }
 

@@ -25,7 +25,7 @@ const DEFAULT_POLAR = Math.acos(1 / 3)
 type FocusRoom = { position: [number, number, number]; token: number; shift?: [number, number, number] }
 type ControlsRef = { target: Vector3; update: () => void; getAzimuthalAngle: () => number; setAzimuthalAngle: (value: number) => void; getPolarAngle: () => number; setPolarAngle: (value: number) => void }
 
-export default function CameraController({ focusRoom }: { focusRoom?: FocusRoom }) {
+export default function CameraController({ focusRoom, aim }: { focusRoom?: FocusRoom; aim?: [number, number, number] | null }) {
   const { camera, gl, size } = useThree()
   const { mode } = useRoomStore()
   const zoomTarget = useRef(59)
@@ -54,6 +54,15 @@ export default function CameraController({ focusRoom }: { focusRoom?: FocusRoom 
     camera2d.zoom = zoomTarget.current = baseZoom
     camera2d.updateProjectionMatrix()
   }, [camera, compactScreen, baseZoom])
+
+  // While the explorer is being browsed the camera aims at whichever room is under the middle of the screen rather
+  // than at the room the user came from. Without it, the instant a zoom-in starts the damping drags the view back
+  // toward the old room: on a gentle wheel the picked room slides out of the middle before the entry line is even
+  // crossed, and on a fast one the user watches the room they chose leave the screen while zooming into it.
+  useEffect(() => {
+    if (!aim) return
+    targetGoal.current.set(aim[0], aim[1] + 3.5, aim[2])
+  }, [aim])
 
   useEffect(() => {
     if (!focusRoom) return
@@ -188,7 +197,9 @@ export default function CameraController({ focusRoom }: { focusRoom?: FocusRoom 
     mouseButtons={{ LEFT: atMinZoom ? MOUSE.PAN : MOUSE.ROTATE, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.PAN }}
     touches={{ ONE: atMinZoom ? TOUCH.PAN : TOUCH.ROTATE, TWO: TOUCH.DOLLY_PAN }}
     enableDamping
-    dampingFactor={0.08}
+    // Panning the explorer coasts noticeably further than a rotate does — it is a map being dragged, not a model
+    // being turned, and the same stiffness that keeps rotation precise makes the drag feel like it hits a wall.
+    dampingFactor={atMinZoom ? 0.03 : 0.08}
     rotateSpeed={0.55}
     minAzimuthAngle={0}
     maxAzimuthAngle={Math.PI / 2}
