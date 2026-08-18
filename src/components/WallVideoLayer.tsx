@@ -1,4 +1,5 @@
 import { Html } from '@react-three/drei'
+import { findFit } from './Furniture'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
 import type { Group } from 'three'
@@ -208,9 +209,10 @@ function WallVideo({ frameId }: { frameId: string }) {
 function FollowFit({ fitName, children }: { fitName: string; children: React.ReactNode }) {
   const holder = useRef<Group>(null)
   useFrame(({ scene }) => {
-    const fit = scene.getObjectByName(fitName)
     const target = holder.current
-    if (!fit || !target) return
+    if (!target) return
+    const fit = findFit(target, scene, fitName.replace('fit:', ''))
+    if (!fit) return
     fit.updateWorldMatrix(true, false)
     target.matrix.copy(fit.matrixWorld)
     target.matrixAutoUpdate = false

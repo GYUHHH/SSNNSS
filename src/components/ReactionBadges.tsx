@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useRef } from 'react'
 import { Box3, Vector3, type Group } from 'three'
 import { useRoomStore } from '../store'
+import { findFit } from './Furniture'
 import { setExternalHover } from './Interactive'
 import { isVisiting } from '../services/social'
 
@@ -19,7 +20,7 @@ function Badge({ id, count }: { id: string; count: number }) {
   useFrame(({ scene }) => {
     const target = holder.current
     if (!target) return
-    const fit = scene.getObjectByName(`fit:${id}`)
+    const fit = findFit(target, scene, id)
     if (!fit) { target.visible = false; return }
     box.current.setFromObject(fit)
     if (box.current.isEmpty()) { target.visible = false; return }

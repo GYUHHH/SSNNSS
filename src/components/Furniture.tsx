@@ -1,8 +1,17 @@
 import { type ReactNode, useLayoutEffect, useRef, useState } from 'react'
-import { Box3, type Group, type Mesh, Vector3 } from 'three'
+import { Box3, type Group, type Mesh, type Object3D, Vector3 } from 'three'
 import Interactive from './Interactive'
 import { type FurnitureId, type FurnitureItem, resolutionFor, useRoomStore } from '../store'
 import { fitMeshToFootprint, resolveSurface, wallSurfaces, withResolution } from '../services/roomGrid'
+
+// Every room in the explorer names its furniture identically — each one has a `desk` — so a scene-wide lookup for
+// `fit:<id>` can land on a NEIGHBOUR's copy and drag whatever follows it outside the room. Search only inside the
+// room the caller itself sits in: climb to the group the scene holds directly, which is that room, and look there.
+export const findFit = (from: Object3D, scene: Object3D, id: string) => {
+  let room = from
+  while (room.parent && room.parent !== scene) room = room.parent
+  return room.getObjectByName(`fit:${id}`)
+}
 
 export default function Furniture({ id, children }: { id: FurnitureId; children: ReactNode }) {
   const { furniture, mode } = useRoomStore()
