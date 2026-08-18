@@ -36,6 +36,8 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
   const { camera, gl, size } = useThree()
   const { mode } = useRoomStore()
   const zoomTarget = useRef(59)
+  // last frame's goal, so the band snap below can tell which way the user was winding
+  const lastZoomTarget = useRef(59)
   const targetGoal = useRef(new Vector3(0, 3.5, 0))
   // set while gliding back to the straight-on view after a room is entered, then cleared so the user owns the angle
   const angleGoal = useRef<{ azimuth: number; polar: number; life: number } | null>(null)
@@ -159,6 +161,17 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
 
   useFrame((_, delta) => {
     const camera2d = camera as OrthographicCamera
+    // The stretch between the explorer floor and the entry line is a hallway, not a place: nothing useful lives at
+    // zoom 43. So the GOAL is never allowed to settle there — any input that lands it inside the band is carried
+    // to whichever end it was heading for, and the camera glides through in one motion: wind out of a room and it
+    // runs all the way down to the explorer, wind in from the explorer and it runs all the way into the room. The
+    // camera's actual zoom still passes through the band smoothly, so entry and the fades fire exactly as before.
+    if (mode === 'normal' && zoomTarget.current !== lastZoomTarget.current) {
+      const entry = entryZoom(size.width, size.height)
+      if (zoomTarget.current > minZoom + .01 && zoomTarget.current < entry - .01)
+        zoomTarget.current = zoomTarget.current > lastZoomTarget.current ? Math.max(baseZoom, entry) : minZoom
+    }
+    lastZoomTarget.current = zoomTarget.current
     // Only in normal mode. Edit mode has its OWN, much higher floor, and on a phone the default zoom sits exactly
     // on it — so this read as "fully zoomed out", switched panning on, and a one-finger drag shoved the room away
     // while the user was arranging furniture.
