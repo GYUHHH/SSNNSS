@@ -186,6 +186,7 @@ function RoomContainer({ slot, distance, open }: { slot: RoomSlot; distance: num
   // set on the way in as well as cleared on the way out: StrictMode mounts, unmounts and remounts, and a
   // clear-only flag stays false through the remount, which silently blocked every bundle from ever landing
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+  const fadedOut = () => opacity.current < .65
   const collect = () => {
     materials.current = []
     group.current?.traverse((object) => {
@@ -224,7 +225,11 @@ function RoomContainer({ slot, distance, open }: { slot: RoomSlot; distance: num
     onClick={(event) => { if (opacity.current < .65 || pressWandered(event)) return; event.stopPropagation(); document.body.style.cursor = ''; open() }}>
     {/* its own boundary: a neighbour's font or texture must never suspend the live room out of view */}
     <Suspense fallback={null}>
-      <NeighbourRoomProvider bundle={bundle}><NeighbourRoom /></NeighbourRoomProvider>
+      {/* three's raycaster tests layers only, never `visible`, so a faded-out neighbour still swallows the ray.
+          That is what stopped a click on empty space from counting as a miss — and in edit mode, where every
+          neighbour is faded to nothing, it stopped the click that finishes editing. Inert while faded, hittable
+          once it has faded in, which is exactly when the click below is allowed to select the room anyway. */}
+      <Inert off={fadedOut}><NeighbourRoomProvider bundle={bundle}><NeighbourRoom /></NeighbourRoomProvider></Inert>
     </Suspense>
   </group>
 }
