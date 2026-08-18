@@ -163,6 +163,13 @@ const roomSlots = (handles: string[]): RoomSlot[] => {
 const withVacancies = (handles: string[]) => handles.length >= CLUSTER_SIZE ? handles
   : [...handles, ...Array.from({ length: CLUSTER_SIZE - handles.length }, (_, index) => `${VACANT}${index}`)]
 const isEnterable = (handle: string) => handle !== LOBBY && !handle.startsWith(VACANT)
+
+// Fully zoomed out a drag pans the explorer, and the browser still fires a click when the press ends — which
+// would drop the user into whichever room happened to be under the pointer. So a room only counts as picked if
+// the press that produced the click stayed put. One tracker for the whole cluster: the press belongs to the
+// gesture, not to a room.
+let pressAt: { x: number; y: number } | null = null
+const pressWandered = (event: { clientX: number; clientY: number }) => !!pressAt && Math.hypot(event.clientX - pressAt.x, event.clientY - pressAt.y) > 6
 // what a zoom-in may land in: real rooms always, and the lobby too for whoever has no room of their own —
 // signed out, the default room is home, and home has to be somewhere you can go back to
 const canEnter = (handle: string) => isEnterable(handle) || (handle === LOBBY && !isSignedIn())
@@ -246,7 +253,7 @@ function NeighbourRoom() {
   return <><Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><Character /></>
 }
 
-function RoomContainer({ slot, distance, centred, fresh }: { slot: RoomSlot; distance: number; centred: boolean; fresh?: Record<string, string> }) {
+function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlot; distance: number; centred: boolean; fresh?: Record<string, string>; open: () => void }) {
   // the live store on purpose: the viewer's own time of day is the light rig this room must compensate away
   const { mode, timeOfDay } = useRoomStore()
   const { gl, camera, scene } = useThree()
@@ -376,7 +383,8 @@ function RoomContainer({ slot, distance, centred, fresh }: { slot: RoomSlot; dis
       })
     }
   })
-  return <group ref={group} position={slot.position} visible={false}>
+  return <group ref={group} position={slot.position} visible={false}
+    onClick={(event) => { if (opacity.current < .65 || pressWandered(event)) return; event.stopPropagation(); open() }}>
     {/* its own boundary: a neighbour's font or texture must never suspend the live room out of view */}
     <Suspense fallback={null}>
       {/* Nothing is drawn until the room's own layout is in hand: rendering the provider with a null bundle
@@ -406,6 +414,12 @@ function RoomWorld() {
   // bundles pushed by the realtime stream, keyed by handle — each RoomContainer picks up its own
   const [freshBundles, setFreshBundles] = useState<Record<string, Record<string, string>>>({})
   useEffect(() => subscribeRoomBundles(handles.filter(isEnterable), (handle, data) => setFreshBundles((prev) => ({ ...prev, [handle]: data }))), [handles])
+  // capture-phase so the press lands before OrbitControls or any room handler sees the gesture
+  useEffect(() => {
+    const down = (event: PointerEvent) => { pressAt = { x: event.clientX, y: event.clientY } }
+    window.addEventListener('pointerdown', down, true)
+    return () => window.removeEventListener('pointerdown', down, true)
+  }, [])
   // what is being VIEWED, which is not the hub while visiting someone else
   const [activeHandle, setActiveHandle] = useState(() => currentRoomHandle() ?? hubHandle)
   const [focusRoom, setFocusRoom] = useState<{ position: [number, number, number]; token: number; shift?: [number, number, number] }>({ position: [0, 0, 0], token: 0 })
@@ -530,7 +544,7 @@ function RoomWorld() {
   // the picked room, or the one already being viewed when nothing is picked — what the camera should be aiming at
   const aim = useMemo(() => (slots.find((slot) => slot.handle === centredHandle) ?? active)?.position ?? null, [slots, active, centredHandle])
   return <>
-    {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY) && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} fresh={freshBundles[slot.handle]} />)}
+    {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY) && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} fresh={freshBundles[slot.handle]} open={() => void open(slot)} />)}
     <group position={active.position}><Inert off={exploring}><RoomRoot /></Inert></group>
     <CameraController focusRoom={focusRoom} aim={aim} />
   </>
