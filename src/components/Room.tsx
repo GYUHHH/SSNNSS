@@ -205,7 +205,10 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
   const materials = useRef<Faded[]>([])
   const recollectIn = useRef(0)
   const glow = useRef(0)
-  const [bundle, setBundle] = useState<Record<string, string> | null>(null)
+  // The lobby — the default room a signed-out visitor starts in — has no server bundle to wait for: an empty
+  // bundle IS its look. Without this the cell went permanently blank the moment such a visitor entered a real
+  // room, because the room they had just come from could never be drawn as a neighbour.
+  const [bundle, setBundle] = useState<Record<string, string> | null>(slot.handle === LOBBY ? {} : null)
   // that room's saved hour, read straight off the bundle (stored as the bare word: 'day' | 'evening' | 'night')
   const bundleTime = useRef('day')
   useEffect(() => { bundleTime.current = bundle?.['my-room-time-v1'] ?? 'day' }, [bundle])
@@ -417,7 +420,7 @@ function RoomWorld() {
   // the picked room, or the one already being viewed when nothing is picked — what the camera should be aiming at
   const aim = useMemo(() => (slots.find((slot) => slot.handle === centredHandle) ?? active)?.position ?? null, [slots, active, centredHandle])
   return <>
-    {slots.filter((slot) => slot.handle !== active.handle && isEnterable(slot.handle) && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} />)}
+    {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY) && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} />)}
     <group position={active.position}><Inert off={exploring}><RoomRoot /></Inert></group>
     <CameraController focusRoom={focusRoom} aim={aim} />
   </>
