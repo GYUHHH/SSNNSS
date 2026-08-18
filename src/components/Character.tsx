@@ -37,6 +37,17 @@ export default function Character() {
   useCursor(hovered)
   // set once: the group's position is driven imperatively from here on, never via a reactive JSX prop (which would re-snap it to `start` on every unrelated re-render)
   useLayoutEffect(() => { actor.current?.position.copy(start) }, [])
+  // A neighbour's layout arrives AFTER it has mounted — the bundle is only fetched once zooming out reveals the
+  // room — so the spot read on the first render is still the default, and the ref above had already latched it.
+  // That is why every visiting room stood on the same front corner no matter where its owner left their character.
+  // Only for a neighbour: the live room's character is driven by the tracker and by walking, and re-snapping it
+  // from here would fight both.
+  useLayoutEffect(() => {
+    if (!readOnly || !actor.current) return
+    start.set(characterHome[0], 0, characterHome[2])
+    actor.current.position.copy(start)
+    interactionStart.current.position = [start.x, 0, start.z]
+  }, [readOnly, characterHome[0], characterHome[2]])
 
   const seated = characterState === 'sitting' || characterState === 'working'
   const resting = characterState === 'laying' || characterState === 'sleeping'
@@ -58,7 +69,7 @@ export default function Character() {
     // this browser's own character, nor schedule a save of it.
     if (!readOnly) { characterPosition[0] = actor.current.position.x; characterPosition[2] = actor.current.position.z; persistCharacterPosition() }
     live.current -= delta
-    if (!isVisiting() && live.current <= 0 && Math.hypot(actor.current.position.x - sent.current[0], actor.current.position.z - sent.current[1]) > .02) {
+    if (!readOnly && !isVisiting() && live.current <= 0 && Math.hypot(actor.current.position.x - sent.current[0], actor.current.position.z - sent.current[1]) > .02) {
       live.current = .08
       sent.current = [actor.current.position.x, actor.current.position.z]
       broadcastCharacter([actor.current.position.x, 0, actor.current.position.z])
