@@ -243,7 +243,7 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
     const floor = exploreMinZoom(size.width, size.height)
     const span = (entryZoom(size.width, size.height) - floor) * (distance <= 1 ? 1 : distance === 2 ? .7 : .5)
     const wanted = mode === 'normal' ? MathUtils.clamp(1 - (camera.zoom - floor) / span, 0, 1) : 0
-    opacity.current = MathUtils.damp(opacity.current, wanted, 7, delta)
+    opacity.current = MathUtils.damp(opacity.current, wanted, 12, delta)
     // meshes can still arrive after the layout effect ran (a suspended font resolves and mounts its text), so while
     // the room is mid-fade re-collect a few times a second — an opaque late mesh in a faded room is very visible
     recollectIn.current -= delta
