@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { Group, Vector3 } from 'three'
 import { baseFloorCells, useRoomStore } from '../store'
-import { characterPosition, characterTeleport, persistCharacterPosition } from '../services/characterTracker'
+import { characterAttitude, characterPosition, characterTeleport, persistCharacterPosition } from '../services/characterTracker'
 import { broadcastCharacter, isVisiting } from '../services/social'
 import { resolveInteraction, stateForInteraction } from '../services/interactionAnchors'
 import { cellsFor, findPath, floorSurface, gridToWorld, type GridPosition, worldToGrid } from '../services/roomGrid'
@@ -24,7 +24,7 @@ export default function Character() {
   const armLeft = useRef<Group>(null); const armRight = useRef<Group>(null)
   const torso = useRef<Group>(null); const head = useRef<Group>(null)
   const [hovered, setHovered] = useState(false)
-  const { readOnly, characterHome, selectedObject, characterState, finishCharacterAction, cupHeld, selectObject, furniture, debugAnchors, moveNotice, floorTarget, settleFloorMove } = useRoomStore()
+  const { readOnly, characterHome, characterPose, selectedObject, characterState, finishCharacterAction, cupHeld, selectObject, furniture, debugAnchors, moveNotice, floorTarget, settleFloorMove } = useRoomStore()
   // Per room, not per module. Every room in the explorer renders one of these, so a single shared start would put
   // them all where THIS browser last left its own character. characterHome is that room's own saved spot.
   const start = useRef(new Vector3(characterHome[0], 0, characterHome[2])).current
@@ -44,10 +44,13 @@ export default function Character() {
   // from here would fight both.
   useLayoutEffect(() => {
     if (!readOnly || !actor.current) return
-    start.set(characterHome[0], 0, characterHome[2])
+    // the whole pose, not just the spot: a character left sitting has to keep the seat's height and the way it was
+    // facing, or it lands sunk into the floor pointing the default direction
+    start.set(characterHome[0], characterPose?.y ?? 0, characterHome[2])
     actor.current.position.copy(start)
+    actor.current.rotation.y = characterPose?.facing ?? Math.PI / 4
     interactionStart.current.position = [start.x, 0, start.z]
-  }, [readOnly, characterHome[0], characterHome[2]])
+  }, [readOnly, characterHome[0], characterHome[2], characterPose])
 
   const seated = characterState === 'sitting' || characterState === 'working'
   const resting = characterState === 'laying' || characterState === 'sleeping'
@@ -67,7 +70,11 @@ export default function Character() {
     }
     // A neighbour is somebody else's room being looked at: it must not write into the shared tracker, which is
     // this browser's own character, nor schedule a save of it.
-    if (!readOnly) { characterPosition[0] = actor.current.position.x; characterPosition[2] = actor.current.position.z; persistCharacterPosition() }
+    if (!readOnly) {
+      characterPosition[0] = actor.current.position.x; characterPosition[2] = actor.current.position.z
+      characterAttitude.facing = actor.current.rotation.y; characterAttitude.y = actor.current.position.y
+      persistCharacterPosition()
+    }
     live.current -= delta
     if (!readOnly && !isVisiting() && live.current <= 0 && Math.hypot(actor.current.position.x - sent.current[0], actor.current.position.z - sent.current[1]) > .02) {
       live.current = .08

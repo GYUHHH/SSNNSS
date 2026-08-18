@@ -1,7 +1,7 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { createSlot, deleteSlot, loadArtworks, loadProfile, saveProfile, type Profile, loadBooks, loadGuestbook, loadSlots, placedInOtherSlots, saveArtworks, saveBooks, saveGuestbook, saveSlotItems, saveSlotStyle, setActiveSlot, slotItems, slotStyle, type FurniturePlacement, type RoomStyle } from './services/roomLayoutStorage'
 import { bookshelfCapY, bookshelfTiers, canPlaceItem, cellsFor, clampGrid, floorSurface, GRID_COUNT, gridToWorld, isOwnedSurfaceId, nearestWallId, normalizedCells, ownerIdOf, resolveSurface, setBookshelfTopOffset, withResolution, type Footprint, type GridPosition, type PlacementItem, type PlacementResolution, type PlacementSurface, type SurfaceId, type SurfaceKind, type WallId, worldToGrid } from './services/roomGrid'
-import { adoptCharacterPosition, characterPosition, characterTeleport } from './services/characterTracker'
+import { adoptCharacterPosition, characterAttitude, characterPosition, characterTeleport } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
 import { loadOrders } from './services/playlistOrder'
 import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, syncPendingClips, encodeTarget, youTubeTarget } from './services/mediaStore'
@@ -13,6 +13,7 @@ const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id
 export type SelectedObject = string | null
 export type FurnitureId = string
 export type CharacterState = 'idle' | 'walking' | 'aligning' | 'sitting' | 'laying' | 'sleeping' | 'reading' | 'working' | 'interacting' | 'sittingFloor' | 'wave'
+export type CharacterPose = { state: CharacterState; facing: number; y: number }
 export type Visibility = 'public' | 'private'
 export type RoomMode = 'normal' | 'edit'
 export type FurnitureCategory = 'floorFurniture' | 'surfaceItem' | 'wallItem' | 'decoration'
@@ -174,11 +175,20 @@ export const loadAudioPrefs = (): Record<string, boolean> => {
 }
 
 // lamp/appliance on-off states and the other small interactions survive a reload as-is
-const loadInteractions = (): { toggles: string[]; computerOn: boolean; cupHeld: boolean } => {
+// Rides along with the other interactions rather than in its own key: it is saved at exactly the same moments and
+// the loader here is already tolerant of a record that predates it. Walking and aligning are read as idle — they
+// are the half-second on the way somewhere, never a pose anyone should be found frozen in.
+const TRANSIENT: CharacterState[] = ['walking', 'aligning']
+const loadPose = (saved: unknown): CharacterPose | null => {
+  const pose = (saved as { pose?: { state?: string; facing?: number; y?: number } } | null)?.pose
+  if (!pose || typeof pose.state !== 'string') return null
+  return { state: pose.state as CharacterState, facing: Number(pose.facing) || 0, y: Number(pose.y) || 0 }
+}
+const loadInteractions = (): { toggles: string[]; computerOn: boolean; cupHeld: boolean; pose: CharacterPose | null } => {
   try {
     const saved = JSON.parse(readStored('my-room-interactions-v1') ?? '')
-    return { toggles: Array.isArray(saved?.toggles) ? saved.toggles : ['lamp'], computerOn: !!saved?.computerOn, cupHeld: !!saved?.cupHeld }
-  } catch { return { toggles: ['lamp'], computerOn: false, cupHeld: false } }
+    return { toggles: Array.isArray(saved?.toggles) ? saved.toggles : ['lamp'], computerOn: !!saved?.computerOn, cupHeld: !!saved?.cupHeld, pose: loadPose(saved) }
+  } catch { return { toggles: ['lamp'], computerOn: false, cupHeld: false, pose: null } }
 }
 
 // existing gridX/gridY/footprint predate the sub-grid units for items that are NOW subgrid2 (they were captured at
@@ -241,6 +251,9 @@ type RoomStore = {
   // where this room's character stands. The live room keeps using the tracker's shared position; a neighbour
   // needs its OWNER's spot, read from that room's own bundle.
   characterHome: [number, number, number]
+  // how that character is standing — seated, laid down, which way it faces. Null in the live room, where the pose
+  // is whatever the user is doing right now; a neighbour needs the one its owner was last found in.
+  characterPose: CharacterPose | null
   mode: RoomMode; furniture: FurnitureItem[]; selectedFurnitureId: FurnitureId | null; selectedPlacementValid: boolean; movingFurnitureId: FurnitureId | null; preview: FurnitureItem | null; previewValid: boolean; previewDragging: boolean
   wallStyle: RoomStyle; floorStyle: string | undefined; styleTarget: StyleTarget | null; debugAnchors: boolean; moveNotice: boolean; floorTarget: [number, number, number] | null; musicTrack: string | null; setMusicTrack: (id: string | null) => void; musicVolume: number; setMusicVolume: (value: number) => void
   selectObject: (object: Exclude<SelectedObject, null>) => void; clearSelection: () => void; finishCharacterAction: (state: Exclude<CharacterState, 'walking'>) => void; moveCharacterTo: (position: [number, number, number]) => void; settleFloorMove: (reached: boolean) => void; openBook: (id: string) => void; closeBook: () => void; addBook: (title: string, visibility: Visibility) => void; deleteBook: (id: string) => void; updateBookVisibility: (id: string, visibility: Visibility) => void; setBookShelf: (id: string, shelf: number) => void; addEntry: (bookId: string, entry: EntryDraft) => void; deleteEntry: (bookId: string, entryId: string) => void; updateEntry: (bookId: string, entryId: string, patch: Partial<Pick<Entry, 'content' | 'images' | 'visibility'>>) => void; toggleDebugAnchors: () => void
@@ -321,7 +334,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }, [moveNotice])
   // diary content persists like the layout does — saved after every change (add book/entry, visibility toggle)
   useEffect(() => { saveBooks(books) }, [books])
-  useEffect(() => { if (isVisiting()) return; try { localStorage.setItem('my-room-interactions-v1', JSON.stringify({ toggles: [...toggledOn], computerOn, cupHeld })); schedulePublish() } catch { /* storage may be unavailable */ } }, [toggledOn, computerOn, cupHeld])
+  useEffect(() => { if (isVisiting()) return; try { localStorage.setItem('my-room-interactions-v1', JSON.stringify({ toggles: [...toggledOn], computerOn, cupHeld, pose: { state: TRANSIENT.includes(characterState) ? 'idle' : characterState, facing: characterAttitude.facing, y: characterAttitude.y } })); schedulePublish() } catch { /* storage may be unavailable */ } }, [toggledOn, computerOn, cupHeld, characterState])
   // items resolved onto a furniture-hosted surface (a mug on the desk) don't carry their own live world position —
   // it's recomputed here from the owner's CURRENT position/rotation every time `furniture` changes, so moving or
   // rotating the desk carries everything on it along for free, with no per-item cascade-update code anywhere else
@@ -777,7 +790,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       if (url) setArtworks((prev) => prev[id] === dataURL ? { ...prev, [id]: url } : prev)
     })
   }
-  return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, profile, profileOpen, openProfile: () => setProfileOpen(true), closeProfile: () => setProfileOpen(false), setProfilePhoto, setProfileHandle, videoFrames, setVideoClip, videoLinks, setVideoLink, playingFrames, stopFrame: (id: string) => setPlayingFrames((prev) => prev.filter((value) => value !== id)), mutedFrames, setFrameMuted, highlightFrame, setHighlightFrame, openVideoPanel: (id: string) => { if (isVisiting()) return; setFrameMuted(id, false); setStyleTarget(null); setSelectedObject(id) }, rooms, activeRoomId, openRoom, createRoom, removeRoom, availableCount, guestbook, addGuestComment, removeGuestComment, remoteVisits, othersLikes, likeTotals, myLikes, pendingReactions, markReactionsSeen, openObject, reactionIdsFor, reactionTarget, setReactionTarget, commentTarget, setCommentTarget, timeOfDay, setTimeOfDay, books: visibleBooks, openBookId, bookshelfOpen, readOnly: false, characterHome: characterPosition, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, selectObject, clearSelection, finishCharacterAction: setCharacterState, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject('bookshelf'); setBookshelfOpen(true) }, addBook, deleteBook, updateBookVisibility, setBookShelf, addEntry, deleteEntry, updateEntry, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, closeStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
+  return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, profile, profileOpen, openProfile: () => setProfileOpen(true), closeProfile: () => setProfileOpen(false), setProfilePhoto, setProfileHandle, videoFrames, setVideoClip, videoLinks, setVideoLink, playingFrames, stopFrame: (id: string) => setPlayingFrames((prev) => prev.filter((value) => value !== id)), mutedFrames, setFrameMuted, highlightFrame, setHighlightFrame, openVideoPanel: (id: string) => { if (isVisiting()) return; setFrameMuted(id, false); setStyleTarget(null); setSelectedObject(id) }, rooms, activeRoomId, openRoom, createRoom, removeRoom, availableCount, guestbook, addGuestComment, removeGuestComment, remoteVisits, othersLikes, likeTotals, myLikes, pendingReactions, markReactionsSeen, openObject, reactionIdsFor, reactionTarget, setReactionTarget, commentTarget, setCommentTarget, timeOfDay, setTimeOfDay, books: visibleBooks, openBookId, bookshelfOpen, readOnly: false, characterHome: characterPosition, characterPose: null, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, selectObject, clearSelection, finishCharacterAction: setCharacterState, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject('bookshelf'); setBookshelfOpen(true) }, addBook, deleteBook, updateBookVisibility, setBookShelf, addEntry, deleteEntry, updateEntry, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, closeStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
 }
 // A neighbour room in the zoom-out explorer, drawn from that room's own published bundle with the SAME furniture
 // components as the live room — so it is the real room, not a stand-in. Read-only by construction: there is no
@@ -828,7 +841,7 @@ export function NeighbourRoomProvider({ bundle, children }: { bundle: Record<str
     const saved = readStored('my-room-time-v1')
     const noop = () => {}
     return {
-      selectedObject: null, characterState: 'idle', computerOn: interactions.computerOn, toggledOn: new Set(interactions.toggles), cupHeld: interactions.cupHeld,
+      selectedObject: null, characterState: interactions.pose?.state ?? 'idle', computerOn: interactions.computerOn, toggledOn: new Set(interactions.toggles), cupHeld: interactions.cupHeld,
       artworks: loadArtworks() ?? {}, setArtwork: noop,
       rooms: slots.slots.map((slot) => ({ id: slot.id, name: slot.name })), activeRoomId: slots.active, openRoom: noop, createRoom: noop, removeRoom: noop, availableCount: () => 0,
       profile: loadProfile() ?? { total: 0, today: 0, lastVisit: '', friends: 0 }, profileOpen: false, openProfile: noop, closeProfile: noop, setProfilePhoto: noop, setProfileHandle: noop,
@@ -841,7 +854,7 @@ export function NeighbourRoomProvider({ bundle, children }: { bundle: Record<str
       openObject: () => false, reactionIdsFor: () => [], reactionTarget: null, setReactionTarget: noop, commentTarget: null, setCommentTarget: noop,
       timeOfDay: NEIGHBOUR_TIME.find((time) => time === saved) ?? 'day', setTimeOfDay: noop,
       books: hydrateBooks(), openBookId: null, bookshelfOpen: false,
-      readOnly: true, characterHome: storedCharacterHome(),
+      readOnly: true, characterHome: storedCharacterHome(), characterPose: interactions.pose,
       mode: 'normal', furniture, selectedFurnitureId: null, selectedPlacementValid: true, movingFurnitureId: null, preview: null, previewValid: false, previewDragging: false,
       wallStyle: style, floorStyle: style.floor, styleTarget: null, debugAnchors: false, moveNotice: false, floorTarget: null,
       musicTrack: null, setMusicTrack: noop, musicVolume: 0, setMusicVolume: noop,
