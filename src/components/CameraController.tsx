@@ -16,6 +16,11 @@ const MAX_ZOOM = 220
 export const isCompactScreen = (width: number, height: number) => width < 720 || (height < 520 && window.matchMedia('(pointer: coarse)').matches)
 // the floor the explorer bottoms out at — the neighbour fade bands are anchored to it so raising one moves the other
 export const exploreMinZoom = (width: number, height: number) => isCompactScreen(width, height) ? MOBILE_EXPLORE_MIN_ZOOM : DESKTOP_EXPLORE_MIN_ZOOM
+// Where zooming in stops being a look and counts as choosing the room in the middle. The flag that locks the
+// explorer flips on the very first wheel tick, far too twitchy to drop someone into a room, so the line sits a
+// little above the floor — desktop 46, mobile 15. The neighbour fade is spent by exactly here, so the ring is
+// already gone at the moment of entry.
+export const entryZoom = (width: number, height: number) => exploreMinZoom(width, height) * 1.15
 
 // The straight-on view a room is entered at, derived from the default rig: the camera sits at (10, 8.5, 10) looking
 // at (0, 3.5, 0), so the offset is (10, 5, 10) with radius 15 — azimuth atan2(10, 10) and polar acos(5 / 15).

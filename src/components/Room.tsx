@@ -6,7 +6,7 @@ import { NeighbourRoomProvider, useRoomStore } from '../store'
 import { currentRoomHandle, enterRoom, fetchRoomBundle, fetchRoomDirectory, myHandle } from '../services/social'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
-import CameraController, { exploreMinZoom } from './CameraController'
+import CameraController, { entryZoom, exploreMinZoom } from './CameraController'
 import Character from './Character'
 import Chair from './Chair'
 import Computer from './Computer'
@@ -205,12 +205,14 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
   useLayoutEffect(collect, [bundle])
   useFrame(({ camera, size }, delta) => {
     if (!group.current) return
-    // Bands are anchored to the zoom floor rather than fixed, so the whole cluster is up by the time zooming out
-    // has bottomed out. Fixed numbers had the ring fade in at zoom 36 and below, which went invisible the moment
-    // the desktop floor was raised past it. The fade spans 5 zoom units, so +12 above the floor is fully in by then.
+    // The ring belongs to the explorer, so it starts leaving the moment the zoom lifts off the floor at all rather
+    // than holding on until the user is already well inside a room. The band is spent by the line where a zoom-in
+    // counts as choosing a room, so the neighbours are gone before entry fires; outer rings clear sooner still,
+    // which is what keeps the depth reading. Anchored to the floor rather than fixed, because a fixed number goes
+    // invisible the moment the floor is raised past it.
     const floor = exploreMinZoom(size.width, size.height)
-    const threshold = floor + (distance <= 1 ? 12 : distance === 2 ? 8 : 5)
-    const wanted = mode === 'normal' ? MathUtils.clamp((threshold - camera.zoom) / 5, 0, 1) : 0
+    const span = (entryZoom(size.width, size.height) - floor) * (distance <= 1 ? 1 : distance === 2 ? .7 : .5)
+    const wanted = mode === 'normal' ? MathUtils.clamp(1 - (camera.zoom - floor) / span, 0, 1) : 0
     opacity.current = MathUtils.damp(opacity.current, wanted, 7, delta)
     // meshes can still arrive after the layout effect ran (a suspended font resolves and mounts its text), so while
     // the room is mid-fade re-collect a few times a second — an opaque late mesh in a faded room is very visible
@@ -307,11 +309,7 @@ function RoomWorld() {
     setFocusRoom({ position: [0, 0, 0], token: performance.now(), shift: slot.position })
   }
   useFrame(({ camera, size }) => {
-    // The flag that locks the explorer flips on the very first wheel tick, which is far too twitchy to drop someone
-    // into a room, so the line that counts as "chose this one" sits a little above the floor: desktop 46, mobile 15.
-    // That is still below the neighbour fade bands, so the ring is fully in view at the moment of the choice and
-    // then fades out as the zoom carries on.
-    const zoomedIn = mode !== 'normal' || camera.zoom > exploreMinZoom(size.width, size.height) * 1.15
+    const zoomedIn = mode !== 'normal' || camera.zoom > entryZoom(size.width, size.height)
     // Nearest room to the middle of the screen. Projected rather than measured in world space: the cluster is
     // stacked across storeys and panning slides the target in the screen plane, so world distance disagrees with
     // what is actually under the crosshair.
