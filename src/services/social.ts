@@ -105,15 +105,22 @@ export const myHandle = () => plainRoot ? null : ownHandle()
 export const isSignedIn = () => ownHandle() !== null
 export const roomPath = (handle: string) => `${BASE}${escape(handle)}`
 
+// A fetch started as the page goes away is normally killed mid-flight, and boot adopts whatever the server holds
+// — so a change made in the last second before closing the tab was simply lost. `keepalive` lets the request
+// outlive the page, but only up to 64KB, and a room carrying inline artwork runs past that. Over the limit it
+// falls back to a plain request, which is exactly what happened before, so nothing gets worse.
+const KEEPALIVE_LIMIT = 60_000
+
 // returns whether the save actually landed, so a caller about to send the user into that room can tell
-export async function publishRoom(): Promise<boolean> {
+export async function publishRoom(leaving = false): Promise<boolean> {
   const handle = ownHandle()
   if (!handle) return false
   const data: Record<string, string> = {}
   for (const key of SYNC_KEYS) { try { const value = localStorage.getItem(key); if (value) data[key] = value } catch { /* skip */ } }
   if (Object.keys(seenReactions).length) data[SEEN_KEY] = JSON.stringify(seenReactions)
+  const body = JSON.stringify({ p_handle: handle, p_secret: roomSecret(), p_data: data })
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/save_room`, { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ p_handle: handle, p_secret: roomSecret(), p_data: data }) })
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/save_room`, { method: 'POST', headers: await authHeaders(), body, keepalive: leaving && body.length < KEEPALIVE_LIMIT })
     return response.ok
   } catch { return false /* offline — the next change tries again */ }
 }
@@ -130,7 +137,7 @@ const flushPublish = () => {
   if (!publishTimer) return
   clearTimeout(publishTimer)
   publishTimer = undefined
-  void publishRoom()
+  void publishRoom(true)
 }
 if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', flushPublish)
