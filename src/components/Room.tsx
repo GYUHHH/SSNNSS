@@ -61,6 +61,32 @@ function CrossfadingLights({ preset }: { preset: typeof LIGHTING[keyof typeof LI
   </>
 }
 
+// Idle power saver, second attempt — this one cannot touch animation speed. The loop still runs at the display's
+// full rate: every useFrame callback, every clock and delta is exactly as before (the previous attempt drove the
+// clock by hand and anything reading elapsed time ran wild). Only the final DRAW is skipped on alternate frames
+// once the user has been hands-off for a second, which halves the GPU's work while idle; any input paints at
+// full rate again on the very next frame. A positive-priority useFrame takes over rendering in R3F, so the skip
+// is just "don't call render this frame".
+function RenderGovernor() {
+  const activeUntil = useRef(0)
+  const skip = useRef(false)
+  useEffect(() => {
+    activeUntil.current = performance.now() + 3000 // full rate through boot, while everything is still settling
+    const wake = () => { activeUntil.current = performance.now() + 1000 }
+    const inputs = ['pointerdown', 'pointermove', 'wheel', 'touchstart', 'touchmove', 'keydown'] as const
+    inputs.forEach((name) => window.addEventListener(name, wake, { passive: true }))
+    return () => inputs.forEach((name) => window.removeEventListener(name, wake))
+  }, [])
+  useFrame(({ gl, scene, camera }) => {
+    if (performance.now() >= activeUntil.current) {
+      skip.current = !skip.current
+      if (skip.current) return
+    } else skip.current = false
+    gl.render(scene, camera)
+  }, 1)
+  return null
+}
+
 function Scene() {
   const { clearSelection, mode, toggleEditMode, timeOfDay } = useRoomStore()
   const light = LIGHTING[timeOfDay]
@@ -71,6 +97,7 @@ function Scene() {
   const eventHost = useRef<HTMLDivElement>(null!)
   return <div ref={eventHost} className="canvas-host" style={{ background: light.bg }}><Canvas dpr={[1, 2]} gl={{ antialias: true }} eventSource={eventHost} events={shiftAwareEvents} onPointerMissed={(event) => { if (!(event.target as HTMLElement)?.closest?.('.canvas-host')) return; (mode === 'edit' ? toggleEditMode : clearSelection)() }} camera={{ position: [10, 8.5, 10] }}>
     <OrthographicCamera makeDefault position={[10, 8.5, 10]} zoom={59} near={0.1} far={100} />
+    <RenderGovernor />
     <CrossfadingLights preset={light} />
     <Suspense fallback={null}>
       <RoomWorld />
