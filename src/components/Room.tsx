@@ -241,8 +241,9 @@ function Inert({ off, children }: { off: (zoom: number, width: number, height: n
 }
 
 function RoomRoot() {
+  const { currentHandle } = useRoomStore()
   return <>
-    <Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><InventoryPreview /><SurfaceDropZones /><Character /><DebugAnchors /><WallVideoLayer /><ReactionBadges />
+    <Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><InventoryPreview /><SurfaceDropZones /><Character key={currentHandle ?? 'lobby'} /><DebugAnchors /><WallVideoLayer /><ReactionBadges />
   </>
 }
 
