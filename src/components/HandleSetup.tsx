@@ -61,6 +61,10 @@ export default function HandleSetup() {
     // signed-in owner standing at / would be asked to invent an id while their room sits in the database
     if (!session) { if (isPlainRoot()) setRoomChecked(true); return }
     if (mine) return
+    // A signed-out card at the plain root already set roomChecked, and signing in does not clear it — so the id
+    // step passed its guard the instant the session landed, before this lookup could redirect an account that
+    // already owns a room. A new session gets looked up from scratch.
+    setRoomChecked(false)
     let live = true
     void ownedRoom().then((room) => {
       if (!live) return
