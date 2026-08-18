@@ -441,19 +441,22 @@ export async function initOwnSync() {
   } catch { resetToPlainRoot() }
 }
 
-// The character moves continuously, so its position rides a broadcast on the room's channel instead of the
-// debounced room save: broadcasts hop client-to-client with no database write, so a visitor sees the walk as
-// it happens. The debounced save still runs, which is what makes the spot survive a reload.
+// One event per SETTLED action — sat down, stood up, arrived somewhere — not a stream of the walk itself. The
+// walk used to ride a dozen frames a second over the channel, which a visitor saw as a figure sliding around with
+// no walk animation; a snap to where the character ended up reads better and costs one message per action instead
+// of per frame, which is also the version that survives fifty rooms. Broadcasts hop client-to-client with no
+// database write; the debounced room save is still what makes the spot survive a reload.
+export type CharacterSettle = { position: [number, number, number]; pose: { state: string; facing: number; y: number } }
 let liveChannel: ReturnType<ReturnType<typeof supabaseClient>['channel']> | null = null
-export const broadcastCharacter = (position: [number, number, number]) => {
-  void liveChannel?.send({ type: 'broadcast', event: 'character', payload: { position } })
+export const broadcastCharacter = (settle: CharacterSettle) => {
+  void liveChannel?.send({ type: 'broadcast', event: 'character', payload: settle })
 }
 
-export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void, onRoomData: () => void, onLikes?: () => void, onCharacter?: (position: [number, number, number]) => void): () => void {
+export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void, onRoomData: () => void, onLikes?: () => void, onCharacter?: (settle: CharacterSettle) => void): () => void {
   const room = currentRoomHandle()
   if (!room) return () => { /* nothing to unsubscribe */ }
   const channel = supabaseClient().channel(`room-${room}`)
-    .on('broadcast', { event: 'character' }, ({ payload }) => onCharacter?.(payload.position))
+    .on('broadcast', { event: 'character' }, ({ payload }) => onCharacter?.(payload as CharacterSettle))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'guestbook', filter: `room=eq.${room}` }, onGuestbook)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'visits', filter: `room=eq.${room}` }, onVisits)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'likes', filter: `room=eq.${room}` }, () => onLikes?.())

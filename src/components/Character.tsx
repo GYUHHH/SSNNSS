@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Group, Vector3 } from 'three'
 import { baseFloorCells, useRoomStore } from '../store'
 import { characterAttitude, characterPosition, characterTeleport, persistCharacterPosition } from '../services/characterTracker'
-import { broadcastCharacter, isVisiting } from '../services/social'
+import { isVisiting } from '../services/social'
 import { resolveInteraction, stateForInteraction } from '../services/interactionAnchors'
 import { cellsFor, findPath, floorSurface, gridToWorld, type GridPosition, worldToGrid } from '../services/roomGrid'
 
@@ -30,9 +30,6 @@ export default function Character() {
   const start = useRef(new Vector3(characterHome[0], characterPose?.y ?? 0, characterHome[2])).current
   const route = useRef<Vector3[]>([]); const routeIndex = useRef(0); const routeKey = useRef<string | null>(null)
   const interactionStart = useRef<{ key: string | null; position: [number, number, number] }>({ key: null, position: [start.x, 0, start.z] })
-  // throttle for the live position broadcast, and the last spot actually sent
-  const live = useRef(0)
-  const sent = useRef<[number, number]>([start.x, start.z])
   const clock = useRef(0)
   useCursor(hovered)
   // set once: the group's position is driven imperatively from here on, never via a reactive JSX prop (which would re-snap it to `start` on every unrelated re-render)
@@ -83,12 +80,6 @@ export default function Character() {
       characterPosition[0] = actor.current.position.x; characterPosition[2] = actor.current.position.z
       characterAttitude.facing = actor.current.rotation.y; characterAttitude.y = actor.current.position.y
       persistCharacterPosition()
-    }
-    live.current -= delta
-    if (!readOnly && !isVisiting() && live.current <= 0 && Math.hypot(actor.current.position.x - sent.current[0], actor.current.position.z - sent.current[1]) > .02) {
-      live.current = .08
-      sent.current = [actor.current.position.x, actor.current.position.z]
-      broadcastCharacter([actor.current.position.x, 0, actor.current.position.z])
     }
     clock.current += delta
     const walking = characterState === 'walking'

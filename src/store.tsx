@@ -6,7 +6,7 @@ import { publicBase } from './services/publicBase'
 import { loadOrders } from './services/playlistOrder'
 import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, syncPendingClips, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic, syncPendingTracks } from './services/music'
-import { purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, schedulePublish, subscribeRealtime, uploadMedia, type RemoteGuestComment } from './services/social'
+import { purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, schedulePublish, subscribeRealtime, uploadMedia, type RemoteGuestComment } from './services/social'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id })
 
@@ -339,7 +339,15 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }, [moveNotice])
   // diary content persists like the layout does — saved after every change (add book/entry, visibility toggle)
   useEffect(() => { saveBooks(books) }, [books])
-  useEffect(() => { if (isVisiting()) return; try { localStorage.setItem('my-room-interactions-v1', JSON.stringify({ toggles: [...toggledOn], computerOn, cupHeld, pose: { state: TRANSIENT.includes(characterState) ? 'idle' : characterState, facing: characterAttitude.facing, y: characterAttitude.y } })); schedulePublish() } catch { /* storage may be unavailable */ } }, [toggledOn, computerOn, cupHeld, characterState])
+  useEffect(() => {
+    if (isVisiting()) return
+    const pose = { state: TRANSIENT.includes(characterState) ? 'idle' : characterState, facing: characterAttitude.facing, y: characterAttitude.y }
+    try { localStorage.setItem('my-room-interactions-v1', JSON.stringify({ toggles: [...toggledOn], computerOn, cupHeld, pose })); schedulePublish() } catch { /* storage may be unavailable */ }
+    // the settle event: anyone standing in this room sees the character land where it ended up, in the pose it
+    // ended up in, without waiting for the database round trip. Mid-walk states are skipped — the arrival is the
+    // event, not the journey.
+    if (!TRANSIENT.includes(characterState) && characterState !== 'walking' && characterState !== 'aligning') broadcastCharacter({ position: [characterPosition[0], 0, characterPosition[2]], pose })
+  }, [toggledOn, computerOn, cupHeld, characterState])
   // items resolved onto a furniture-hosted surface (a mug on the desk) don't carry their own live world position —
   // it's recomputed here from the owner's CURRENT position/rotation every time `furniture` changes, so moving or
   // rotating the desk carries everything on it along for free, with no per-item cascade-update code anywhere else
@@ -645,6 +653,10 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     setToggledOn(new Set(interactions.toggles))
     setComputerOn(interactions.computerOn)
     setCupHeld(interactions.cupHeld)
+    // The pose travels with the room data, so a change that arrives as a database update — the path that runs
+    // when the broadcast was missed — still sits the character down. Only while visiting: the owner's own room
+    // refresh must not yank their character out of whatever they are doing right now.
+    if (isVisiting()) { setLivePose(interactions.pose); setCharacterState(interactions.pose?.state ?? 'idle') }
   }
   // One-time rescue: photos saved as data URLs sit inside the room bundle and can swallow the entire 5MB
   // localStorage budget — after which every save silently fails. Move them to the bucket and keep the URL.
@@ -716,7 +728,15 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     loadRemoteLikes()
     // live events keep everything current without a refresh: new comments and visits re-pull their views,
     // and a room-data change while visiting re-fetches the snapshot and re-reads it into state in place
-    const stopRealtime = subscribeRealtime(loadRemoteGuestbook, loadRemoteVisits, () => { void refreshVisit() }, loadRemoteLikes, (position) => { characterTeleport.position = position })
+    const stopRealtime = subscribeRealtime(loadRemoteGuestbook, loadRemoteVisits, () => { void refreshVisit() }, loadRemoteLikes, (settle) => {
+      // only meaningful while STANDING IN someone else's room: the settle describes that room's character. The
+      // owner's own echo must not re-run their state machine mid-action.
+      if (!isVisiting()) return
+      characterTeleport.position = settle.position
+      const pose = loadPose({ pose: settle.pose })
+      setLivePose(pose)
+      setCharacterState(pose?.state ?? 'idle')
+    })
     const stopRefresh = onRoomRefresh(rehydrate)
     return () => { stopRealtime(); stopRefresh() }
   }, [roomSession])
