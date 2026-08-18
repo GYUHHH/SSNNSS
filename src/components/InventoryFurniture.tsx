@@ -159,7 +159,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     {lit && <StarField />}
   </>
   if (item.type === 'profile-board') return <>
-    <RoundedBox castShadow args={[1.4, 2.1, .07]} radius={.06} smoothness={2} position={[0, 0, .035]}>{mat('#fbf6ec')}</RoundedBox>
+    <RoundedBox castShadow args={[1.4, 2.1, .07]} radius={.03} smoothness={2} position={[0, 0, .035]}>{mat('#fbf6ec')}</RoundedBox>
     <mesh position={[0, .36, .073]}><circleGeometry args={[.47, 30]} />{mat('#e2d6c6')}</mesh>
     {!preview && <ProfileBoardFace />}
   </>
