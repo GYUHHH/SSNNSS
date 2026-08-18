@@ -140,7 +140,7 @@ export default function WallVideoLayer() {
 }
 
 function WallVideo({ frameId }: { frameId: string }) {
-  const { videoLinks, selectedObject, furniture, openVideoPanel, mode, mutedFrames, setFrameMuted, openObject } = useRoomStore()
+  const { videoLinks, selectedObject, furniture, openVideoPanel, mode, mutedFrames, setFrameMuted, openObject, enterEditFurniture } = useRoomStore()
   const item = furniture.find((entry) => entry.id === frameId)
   const videoId = videoLinks[frameId]
   const muted = mutedFrames.includes(frameId)
@@ -178,10 +178,12 @@ function WallVideo({ frameId }: { frameId: string }) {
   const held = useRef(false)
   const cancelHold = () => { clearTimeout(holdTimer.current); holdTimer.current = undefined }
   const startHold = (event: React.PointerEvent) => {
-    if (!isVisiting()) return
     held.current = false
     const { clientX, clientY } = event
-    holdTimer.current = setTimeout(() => { held.current = true; openReactionPicker({ id: frameId, x: clientX, y: clientY }) }, 500)
+    // the same hold every other piece answers to: a visitor gets the reaction picker, the owner goes into edit.
+    // The owner's branch was simply missing, which made the screen the one part of a video frame that refused
+    // the hold-to-edit gesture in their own room.
+    holdTimer.current = setTimeout(() => { held.current = true; if (isVisiting()) openReactionPicker({ id: frameId, x: clientX, y: clientY }); else enterEditFurniture(frameId) }, 500)
   }
   if (!active) return null
   return <FollowFit fitName={`fit:${item.id}`}>
