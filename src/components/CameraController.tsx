@@ -147,9 +147,11 @@ export default function CameraController({ focusRoom }: { focusRoom?: FocusRoom 
       if (Math.abs(azimuth - angle.azimuth) < .0005 && Math.abs(polar - angle.polar) < .0005) angleGoal.current = null
     }
     const target = orbit.target
-    // Fully zoomed out the user is browsing, so panning owns the target: follow wherever they drag instead of
-    // damping back to the focused room, and keep the goal in step so zooming back in stays where they left off.
-    if (fullyOut) { targetGoal.current.copy(target); orbit.update(); return }
+    // Fully zoomed out the user is browsing, so panning owns the target and the damping below is skipped — the
+    // view stays wherever it was dragged. The GOAL is deliberately left on the room being viewed, so the moment
+    // the user zooms back in the damping picks up again and carries them to its middle rather than leaving them
+    // parked wherever the panning happened to end.
+    if (fullyOut) { orbit.update(); return }
     const nextTarget = new Vector3(
       MathUtils.damp(target.x, targetGoal.current.x, 6, delta),
       MathUtils.damp(target.y, targetGoal.current.y, 6, delta),
