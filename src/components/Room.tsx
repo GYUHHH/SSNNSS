@@ -137,7 +137,7 @@ if (import.meta.env.DEV) {
 // click that selects it has nothing to land on, so read-only rooms hold their handlers back instead (see Floor,
 // Interactive, Furniture and Character: each one bails before stopPropagation when the store is readOnly).
 const NO_RAYCAST = () => {}
-type Faded = Material & { wasTransparent?: boolean; baseColor?: Color; color?: Color; map?: unknown }
+type Faded = Material & { wasTransparent?: boolean; baseColor?: Color; lastTinted?: Color; color?: Color; map?: unknown }
 // A neighbour wears its own hour, not the viewer's. The scene has one light rig — whichever preset the room being
 // viewed runs — so another room's saved time of day cannot arrive as actual light. Instead each material's colour
 // is multiplied by the ratio of the two presets' light: the numerator is the neighbour's own preset, the
@@ -225,8 +225,6 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
         const faded = material as Faded
         // remember what it was, because the fade is only allowed to borrow the flag, not keep it
         if (faded.wasTransparent === undefined) faded.wasTransparent = faded.transparent
-        // and the original colour, since the time-of-day cast below multiplies into it every frame
-        if (faded.color && !faded.baseColor) faded.baseColor = faded.color.clone()
         materials.current.push(faded)
       })
     })
@@ -266,7 +264,16 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
     materials.current.forEach((material) => {
       material.transparent = full ? material.wasTransparent ?? false : true
       material.opacity = full ? 1 : opacity.current
-      if (material.color && material.baseColor) material.color.copy(material.baseColor).multiply(material.map ? photoTint : tint)
+      if (!material.color) return
+      // The cast multiplies into the material's colour every frame, so the untouched colour has to live beside it —
+      // and it must never be frozen at whatever the first frame held. A neighbour's real wall and floor colours
+      // only arrive with the bundle, after mount, and freezing the base at capture time stomped them flat on the
+      // next frame. So: any colour that is not the one this loop last wrote was changed from outside — a style
+      // landing, a lamp toggling — and becomes the new base. Everything recolourable stays recolourable.
+      if (!material.baseColor) material.baseColor = material.color.clone()
+      else if (!material.lastTinted || !material.color.equals(material.lastTinted)) material.baseColor.copy(material.color)
+      material.color.copy(material.baseColor).multiply(material.map ? photoTint : tint)
+      material.lastTinted = (material.lastTinted ?? new Color()).copy(material.color)
     })
     // its real layout is fetched the first time the zoom-out actually reveals it, not on page load
     if (!requested.current && opacity.current > .02 && isEnterable(slot.handle)) {
