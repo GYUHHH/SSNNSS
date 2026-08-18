@@ -177,8 +177,10 @@ export const loadAudioPrefs = (): Record<string, boolean> => {
 // lamp/appliance on-off states and the other small interactions survive a reload as-is
 // Rides along with the other interactions rather than in its own key: it is saved at exactly the same moments and
 // the loader here is already tolerant of a record that predates it. Walking and aligning are read as idle — they
-// are the half-second on the way somewhere, never a pose anyone should be found frozen in.
-const TRANSIENT: CharacterState[] = ['walking', 'aligning', 'wave']
+// are the half-second on the way somewhere, never a pose anyone should be found frozen in. The wave is NOT one
+// of them: it loops until the owner clicks again, so it is a pose the room can be found in — and the whole point
+// of waving at the room is that a visitor gets to see it.
+const TRANSIENT: CharacterState[] = ['walking', 'aligning']
 const loadPose = (saved: unknown): CharacterPose | null => {
   const pose = (saved as { pose?: { state?: string; facing?: number; y?: number } } | null)?.pose
   if (!pose || typeof pose.state !== 'string') return null
