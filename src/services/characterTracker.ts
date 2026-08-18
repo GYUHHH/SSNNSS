@@ -16,18 +16,6 @@ export const persistCharacterPosition = () => {
   saveTimer = setTimeout(() => { saveTimer = undefined; if (isVisiting()) return; try { localStorage.setItem(STORAGE_KEY, JSON.stringify(characterPosition)); schedulePublish() } catch { /* storage may be unavailable */ } }, 1000)
 }
 
-// The rest of what a pose is made of, kept beside the position for the same reason: written every frame from
-// Character's useFrame, so it must not be state. `facing` is the actor's own Y rotation and `y` its height — a
-// seated character sits AT the seat's top, so without the height it would sink to the floor when another browser
-// draws it. Both are read when the pose is saved, never per frame.
-// Seeded from the last save rather than started at the defaults: the record is rewritten as soon as the room
-// mounts, which is before a single frame has run, so starting blank would overwrite a real seated pose with a
-// standing one every reload.
-const savedPose = (() => {
-  try { const pose = JSON.parse(readStored('my-room-interactions-v1') ?? '')?.pose; return pose && typeof pose.state === 'string' ? pose as { facing?: number; y?: number } : null } catch { return null }
-})()
-export const characterAttitude = { facing: Number(savedPose?.facing) || Math.PI / 4, y: Number(savedPose?.y) || 0 }
-
 // set by the store when the user clicks an empty floor cell; Character's useFrame applies it as an INSTANT
 // position snap (no walking) on the next frame and clears it
 export const characterTeleport: { position: [number, number, number] | null } = { position: null }
