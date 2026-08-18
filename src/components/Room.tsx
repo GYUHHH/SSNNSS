@@ -24,9 +24,9 @@ import ReactionBadges from './ReactionBadges'
 
 // per-time-of-day lighting: night keeps lights low so lit lamps visibly carry the room
 const LIGHTING = {
-  day: { bg: '#f4efe6', ambient: 2.1, ambientColor: '#fff7ee', dir: 2.4, dirColor: '#fff3e2' },
-  evening: { bg: '#e9d3bc', ambient: 1.3, ambientColor: '#ffc894', dir: 1.7, dirColor: '#ff9a5e' },
-  night: { bg: '#232939', ambient: 0.5, ambientColor: '#8b97b8', dir: 0.35, dirColor: '#aab4d4' },
+  day: { bg: '#f4efe6', ambient: 1.5, ambientColor: '#fff7ee', dir: 3.4, dirColor: '#fff3e2' },
+  evening: { bg: '#e9d3bc', ambient: 0.95, ambientColor: '#ffc894', dir: 2.4, dirColor: '#ff9a5e' },
+  night: { bg: '#232939', ambient: 0.36, ambientColor: '#8b97b8', dir: 0.5, dirColor: '#aab4d4' },
 } as const
 
 // Pointer coords are computed from the canvas's LIVE on-screen rect — the scene slides 240px left while a
@@ -57,7 +57,7 @@ function CrossfadingLights({ preset }: { preset: typeof LIGHTING[keyof typeof LI
   })
   return <>
     <ambientLight ref={ambient} intensity={initial.ambient} color={initial.ambientColor} />
-    <directionalLight ref={dir} castShadow position={[4, 8, 5]} intensity={initial.dir} color={initial.dirColor} shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
+    <directionalLight ref={dir} castShadow position={[6, 4.5, 2.5]} intensity={initial.dir} color={initial.dirColor} shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
   </>
 }
 
