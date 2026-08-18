@@ -593,7 +593,9 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
       ? <meshBasicMaterial key="clip" map={texture} />
       : <meshStandardMaterial key="empty" color="#20262b" emissive="#2b3236" emissiveIntensity={.25} />}
   </mesh>}
-  {link && !store?.playingFrames.includes(id) && <group position={[0, 0, .048]}>
+  {/* Not in a neighbour room: there the frame is a picture, and a click on it picks the room rather than starting
+     anything, so a play badge would be promising something that does not happen. */}
+  {link && !store?.readOnly && !store?.playingFrames.includes(id) && <group position={[0, 0, .048]}>
     <mesh><circleGeometry args={[.16, 20]} /><meshBasicMaterial color="#000000" transparent opacity={.55} /></mesh>
     {/* a 3-segment circle spans -r/2..r on x, so pull it left by r/4 to sit dead-center in the badge */}
     <mesh position={[-.019, 0, .002]}><circleGeometry args={[.075, 3]} /><meshBasicMaterial color="#ffffff" /></mesh>
