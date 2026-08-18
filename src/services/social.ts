@@ -129,6 +129,7 @@ export async function publishRoom(leaving = false): Promise<boolean> {
   const body = JSON.stringify({ p_handle: handle, p_secret: roomSecret(), p_data: data })
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/save_room`, { method: 'POST', headers: await authHeaders(), body, keepalive: leaving && body.length < KEEPALIVE_LIMIT })
+    if (response.ok) pingRoomUpdate(handle)
     return response.ok
   } catch { return false /* offline — the next change tries again */ }
 }
@@ -396,9 +397,9 @@ export async function ownedRoom(): Promise<{ handle: string; data: Record<string
 // the old spot until a full reload. Fifteen seconds keeps bursts of reveals to one request while staying current.
 const BUNDLE_TTL = 15_000
 const bundleCache = new Map<string, { at: number; request: Promise<Record<string, string> | null> }>()
-export function fetchRoomBundle(handle: string): Promise<Record<string, string> | null> {
+export function fetchRoomBundle(handle: string, fresh = false): Promise<Record<string, string> | null> {
   const cached = bundleCache.get(handle)
-  if (cached && performance.now() - cached.at < BUNDLE_TTL) return cached.request
+  if (!fresh && cached && performance.now() - cached.at < BUNDLE_TTL) return cached.request
   const request = (async () => {
     try {
       const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${escape(handle)}&select=data&limit=1`, { headers })
@@ -501,21 +502,46 @@ export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void,
   return () => { if (liveChannel === channel) liveChannel = null; void channel.unsubscribe() }
 }
 
+// ⚠️ 확장 스위치. false(현재): DB 변경 감지(postgres_changes)가 방 데이터 전체(~40KB)를 구독자마다 통째로
+// 밀어준다 — 유저가 적을 땐 가장 단순하고 즉각적이다. true(확장): 저장한 쪽이 방 이름 몇 바이트짜리 신호만
+// 쏘고, 그 방을 보고 있는 쪽이 REST로 번들을 직접 받아온다 — 페이로드가 수백분의 일로 줄고, 구독자마다
+// 필터를 검사하는 postgres_changes 병목도 사라진다. 동시 접속이 수백에 가까워지거나 Supabase 전송량 경고가
+// 보이면 이 값 하나만 true로 바꿔 배포하면 된다. 신호는 어느 모드에서든 항상 쏘고 있으므로(아래
+// pingRoomUpdate) 구버전 클라이언트와 섞여 있어도 순서 문제 없이 전환된다.
+const THIN_ROOM_UPDATES = false
+
+// the always-on signal for the thin path: a successful save announces WHICH room changed, nothing more
+let pingChannel: ReturnType<ReturnType<typeof supabaseClient>['channel']> | null = null
+const pingRoomUpdate = (handle: string) => {
+  void pingChannel?.send({ type: 'broadcast', event: 'room-updated', payload: { handle } })
+}
+
 // The explorer's neighbours hear about changes the same way a visited room does — the database pushes the
 // updated row, whole bundle included, so a character moved in another browser lands out here about a second
 // after that browser's debounced save, with no polling. The 15-second bundle cache stays as the fallback for
 // anything the stream misses; each push also refreshes that cache so a later fetch agrees with what was shown.
 export function subscribeRoomBundles(handles: string[], onBundle: (handle: string, data: Record<string, string>) => void): () => void {
   if (!handles.length) return () => { /* nothing to unsubscribe */ }
+  const wanted = new Set(handles)
   const channel = supabaseClient().channel('explorer-rooms')
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `handle=in.(${handles.join(',')})` }, (payload) => {
+  if (THIN_ROOM_UPDATES) {
+    // thin path: a few bytes say which room changed, and only viewers actually showing it go fetch the bundle
+    channel.on('broadcast', { event: 'room-updated' }, ({ payload }) => {
+      const handle = (payload as { handle?: string } | null)?.handle
+      if (typeof handle !== 'string' || !wanted.has(handle)) return
+      void fetchRoomBundle(handle, true).then((data) => { if (data) onBundle(handle, data) })
+    })
+  } else {
+    channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `handle=in.(${handles.join(',')})` }, (payload) => {
       const row = payload.new as { handle?: string; data?: Record<string, string> }
       if (!row?.handle || !row.data || typeof row.data !== 'object' || Array.isArray(row.data)) return
       bundleCache.set(row.handle, { at: performance.now(), request: Promise.resolve(row.data) })
       onBundle(row.handle, row.data)
     })
+  }
   channel.subscribe()
-  return () => { void channel.unsubscribe() }
+  pingChannel = channel
+  return () => { if (pingChannel === channel) pingChannel = null; void channel.unsubscribe() }
 }
 
 // visiting: pull the fresh bundle, then let main remount the app so every piece re-initializes from it
