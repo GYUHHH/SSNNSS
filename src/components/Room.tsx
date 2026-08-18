@@ -414,11 +414,17 @@ function RoomWorld() {
   // bundles pushed by the realtime stream, keyed by handle — each RoomContainer picks up its own
   const [freshBundles, setFreshBundles] = useState<Record<string, Record<string, string>>>({})
   useEffect(() => subscribeRoomBundles(handles.filter(isEnterable), (handle, data) => setFreshBundles((prev) => ({ ...prev, [handle]: data }))), [handles])
-  // capture-phase so the press lands before OrbitControls or any room handler sees the gesture
+  // Capture-phase so the press lands before OrbitControls or any room handler sees the gesture. Touchstart is
+  // tracked as well, because the mobile double-tap drag-zoom preventDefaults its second tap — that suppresses the
+  // derived pointerdown, so pressAt still held the FIRST tap's spot and the drag's release read as an unmoved
+  // click, dropping the user into whatever room was under the finger. The window capture runs before the zoom
+  // handler's preventDefault, so the second tap is recorded either way and the 6px rule covers both taps.
   useEffect(() => {
     const down = (event: PointerEvent) => { pressAt = { x: event.clientX, y: event.clientY } }
+    const touch = (event: TouchEvent) => { const t = event.touches[0]; if (t) pressAt = { x: t.clientX, y: t.clientY } }
     window.addEventListener('pointerdown', down, true)
-    return () => window.removeEventListener('pointerdown', down, true)
+    window.addEventListener('touchstart', touch, true)
+    return () => { window.removeEventListener('pointerdown', down, true); window.removeEventListener('touchstart', touch, true) }
   }, [])
   // what is being VIEWED, which is not the hub while visiting someone else
   const [activeHandle, setActiveHandle] = useState(() => currentRoomHandle() ?? hubHandle)
