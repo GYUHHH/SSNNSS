@@ -596,6 +596,10 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     setRoomSession((value) => value + 1)
     clearSelection()
     setMode('normal')
+    // autoplay-on-entry: runs once per room entered, with readStored already scoped to the new room
+    const playing = framesToPlay(hydrateFurniture(slotItems(loadSlots().active)), loadVideoLinks())
+    setPlayingFrames(playing)
+    setMutedFrames(framesToMute(playing))
     // the room being entered has its own character and its own pose — readStored is already scoped to it here
     const pose = loadPose((() => { try { return JSON.parse(readStored('my-room-interactions-v1') ?? '') } catch { return null } })())
     setLivePose(pose)
@@ -640,9 +644,12 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     setArtworks(loadArtworks() ?? {})
     const links = loadVideoLinks()
     setVideoLinks(links)
-    const playing = framesToPlay(items, links)
-    setPlayingFrames(playing)
-    setMutedFrames(framesToMute(playing))
+    // A live update must never START anything here. This runs every time the owner's room data changes — and the
+    // owner's data now changes on every click and sit-down — so recomputing the autoplay list from scratch was
+    // pressing play on the visitor's frames each time the owner touched their own room. What plays is the
+    // VISITOR's business; the update only prunes frames whose link no longer exists. Autoplay-on-entry lives in
+    // the navigation reset below, which runs exactly once per room actually entered.
+    setPlayingFrames((prev) => prev.filter((id) => links[id]))
     setGuestbook(loadGuestbook<Record<string, GuestComment[]>>() ?? {})
     // replaced, never merged: a room whose profile has no photo would otherwise keep showing the last one's
     setProfile({ total: 0, today: 0, lastVisit: '', friends: 0, ...(loadProfile() ?? {}) })
