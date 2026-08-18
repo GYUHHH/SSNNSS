@@ -260,7 +260,10 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
     const floor = exploreMinZoom(size.width, size.height)
     const span = (entryZoom(size.width, size.height) - floor) * (distance <= 1 ? 1 : distance === 2 ? .7 : .5)
     const wanted = mode === 'normal' ? MathUtils.clamp(1 - (camera.zoom - floor) / span, 0, 1) : 0
-    opacity.current = MathUtils.damp(opacity.current, wanted, 12, delta)
+    // The frame a room is first drawn tends to hitch — texture uploads land right then — and the long delta of
+    // that one frame used to advance the damp nearly to 1, so the room POPPED instead of fading. Capping the step
+    // means a hitch only moves the fade one small notch, and the glide plays out over the frames that follow.
+    opacity.current = MathUtils.damp(opacity.current, wanted, 12, Math.min(delta, 1 / 30))
     // meshes can still arrive after the layout effect ran (a suspended font resolves and mounts its text), so while
     // the room is mid-fade re-collect a few times a second — an opaque late mesh in a faded room is very visible
     recollectIn.current -= delta
