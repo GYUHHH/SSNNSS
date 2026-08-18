@@ -267,7 +267,11 @@ function RoomContainer({ slot, distance, centred, fresh }: { slot: RoomSlot; dis
     // invisible the moment the floor is raised past it.
     const floor = exploreMinZoom(size.width, size.height)
     const span = (entryZoom(size.width, size.height) - floor) * (distance <= 1 ? 1 : distance === 2 ? .7 : .5)
-    const wanted = mode === 'normal' ? MathUtils.clamp(1 - (camera.zoom - floor) / span, 0, 1) : 0
+    // The room being zoomed INTO is exempt from the ring's fade-out: it is the destination, and fading it away
+    // mid-approach blanked the very room the user was entering, which then popped back as the live room — the
+    // colour flicker on every entry. It holds full strength until the live room takes its place; everyone else
+    // in the ring still clears out on the way in.
+    const wanted = mode !== 'normal' ? 0 : centred ? 1 : MathUtils.clamp(1 - (camera.zoom - floor) / span, 0, 1)
     // The frame a room is first drawn tends to hitch — texture uploads land right then — and the long delta of
     // that one frame used to advance the damp nearly to 1, so the room POPPED instead of fading. Capping the step
     // means a hitch only moves the fade one small notch, and the glide plays out over the frames that follow.
