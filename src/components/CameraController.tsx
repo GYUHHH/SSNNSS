@@ -12,7 +12,7 @@ const MOBILE_DETAIL_MIN_ZOOM = 30
 // floor a room is about 160px on a 390px screen, which is legible, and the ring that no longer fits is reached by
 // panning — which is what the explorer is for anyway.
 const DESKTOP_EXPLORE_MIN_ZOOM = 40
-const MOBILE_EXPLORE_MIN_ZOOM = 16
+const MOBILE_EXPLORE_MIN_ZOOM = 19
 const MAX_ZOOM = 220
 
 export const isCompactScreen = (width: number, height: number) => width < 720 || (height < 520 && window.matchMedia('(pointer: coarse)').matches)
