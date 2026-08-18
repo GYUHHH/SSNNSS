@@ -501,6 +501,23 @@ export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void,
   return () => { if (liveChannel === channel) liveChannel = null; void channel.unsubscribe() }
 }
 
+// The explorer's neighbours hear about changes the same way a visited room does — the database pushes the
+// updated row, whole bundle included, so a character moved in another browser lands out here about a second
+// after that browser's debounced save, with no polling. The 15-second bundle cache stays as the fallback for
+// anything the stream misses; each push also refreshes that cache so a later fetch agrees with what was shown.
+export function subscribeRoomBundles(handles: string[], onBundle: (handle: string, data: Record<string, string>) => void): () => void {
+  if (!handles.length) return () => { /* nothing to unsubscribe */ }
+  const channel = supabaseClient().channel('explorer-rooms')
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `handle=in.(${handles.join(',')})` }, (payload) => {
+      const row = payload.new as { handle?: string; data?: Record<string, string> }
+      if (!row?.handle || !row.data || typeof row.data !== 'object' || Array.isArray(row.data)) return
+      bundleCache.set(row.handle, { at: performance.now(), request: Promise.resolve(row.data) })
+      onBundle(row.handle, row.data)
+    })
+  channel.subscribe()
+  return () => { void channel.unsubscribe() }
+}
+
 // visiting: pull the fresh bundle, then let main remount the app so every piece re-initializes from it
 const roomRefreshListeners = new Set<() => void>()
 export const onRoomRefresh = (listener: () => void) => { roomRefreshListeners.add(listener); return () => { roomRefreshListeners.delete(listener) } }

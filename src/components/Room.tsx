@@ -3,7 +3,7 @@ import { Canvas, events, useFrame, useThree } from '@react-three/fiber'
 import { type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Color, type Group, type Material, MathUtils, type Mesh, Vector3 } from 'three'
 import { NeighbourRoomProvider, useRoomStore } from '../store'
-import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDirectory, isSignedIn, myHandle, onRoomNavigation } from '../services/social'
+import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDirectory, isSignedIn, myHandle, onRoomNavigation, subscribeRoomBundles } from '../services/social'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
 import CameraController, { entryZoom, exploreMinZoom } from './CameraController'
@@ -200,7 +200,7 @@ function NeighbourRoom() {
   return <><Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><Character /></>
 }
 
-function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: number; centred: boolean }) {
+function RoomContainer({ slot, distance, centred, fresh }: { slot: RoomSlot; distance: number; centred: boolean; fresh?: Record<string, string> }) {
   // the live store on purpose: the viewer's own time of day is the light rig this room must compensate away
   const { mode, timeOfDay } = useRoomStore()
   const { gl, camera, scene } = useThree()
@@ -218,6 +218,14 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
   const nextFetch = useRef(0)
   const lastRaw = useRef('')
   const mounted = useRef(true)
+  // a pushed update from the live stream lands exactly like a fetched one, dedupe included
+  useEffect(() => {
+    if (!fresh) return
+    const raw = JSON.stringify(fresh)
+    if (raw === lastRaw.current) return
+    lastRaw.current = raw
+    setBundle(fresh)
+  }, [fresh])
   // set on the way in as well as cleared on the way out: StrictMode mounts, unmounts and remounts, and a
   // clear-only flag stays false through the remount, which silently blocked every bundle from ever landing
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
@@ -345,6 +353,9 @@ function RoomWorld() {
   // and with it the only way back to where the visitor started.
   const hubHandle = useRef(myHandle() ?? (isSignedIn() ? currentRoomHandle() : null) ?? LOBBY).current
   const [handles, setHandles] = useState(() => withVacancies([hubHandle]))
+  // bundles pushed by the realtime stream, keyed by handle — each RoomContainer picks up its own
+  const [freshBundles, setFreshBundles] = useState<Record<string, Record<string, string>>>({})
+  useEffect(() => subscribeRoomBundles(handles.filter(isEnterable), (handle, data) => setFreshBundles((prev) => ({ ...prev, [handle]: data }))), [handles])
   // what is being VIEWED, which is not the hub while visiting someone else
   const [activeHandle, setActiveHandle] = useState(() => currentRoomHandle() ?? hubHandle)
   const [focusRoom, setFocusRoom] = useState<{ position: [number, number, number]; token: number; shift?: [number, number, number] }>({ position: [0, 0, 0], token: 0 })
@@ -466,7 +477,7 @@ function RoomWorld() {
   // the picked room, or the one already being viewed when nothing is picked — what the camera should be aiming at
   const aim = useMemo(() => (slots.find((slot) => slot.handle === centredHandle) ?? active)?.position ?? null, [slots, active, centredHandle])
   return <>
-    {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY) && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} />)}
+    {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY) && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} fresh={freshBundles[slot.handle]} />)}
     <group position={active.position}><Inert off={exploring}><RoomRoot /></Inert></group>
     <CameraController focusRoom={focusRoom} aim={aim} />
   </>
