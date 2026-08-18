@@ -2,9 +2,8 @@ import { Html, RoundedBox, useCursor } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Group, Vector3 } from 'three'
-import { baseFloorCells, useRoomStore } from '../store'
-import { characterAttitude, characterPosition, characterTeleport, persistCharacterPosition } from '../services/characterTracker'
-import { isVisiting } from '../services/social'
+import { baseFloorCells, useRoomStore, type CharacterTransform } from '../store'
+import { characterPosition } from '../services/characterTracker'
 import { resolveInteraction, stateForInteraction } from '../services/interactionAnchors'
 import { cellsFor, findPath, floorSurface, gridToWorld, type GridPosition, worldToGrid } from '../services/roomGrid'
 
@@ -35,6 +34,9 @@ const simplifyPath = (path: GridPosition[]) => path.filter((cell, index) => {
   const before = path[index - 1]; const after = path[index + 1]
   return Math.sign(cell.gridX - before.gridX) !== Math.sign(after.gridX - cell.gridX) || Math.sign(cell.gridY - before.gridY) !== Math.sign(after.gridY - cell.gridY)
 })
+const currentTransform = (actor: Group): CharacterTransform => ({
+  position: [actor.position.x, 0, actor.position.z], facing: actor.rotation.y, y: actor.position.y,
+})
 
 export default function Character({ appearance: customAppearance }: { appearance?: Partial<CharacterAppearance> } = {}) {
   const actor = useRef<Group>(null)
@@ -42,7 +44,7 @@ export default function Character({ appearance: customAppearance }: { appearance
   const armLeft = useRef<Group>(null); const armRight = useRef<Group>(null)
   const torso = useRef<Group>(null); const head = useRef<Group>(null)
   const [hovered, setHovered] = useState(false)
-  const { readOnly, characterHome, characterPose, characterLook, currentHandle, selectedObject, characterState, finishCharacterAction, cupHeld, selectObject, furniture, debugAnchors, moveNotice, floorTarget, settleFloorMove } = useRoomStore()
+  const { readOnly, characterHome, characterPose, characterWritable, characterLook, currentHandle, selectedObject, characterState, finishCharacterAction, cupHeld, selectObject, furniture, debugAnchors, moveNotice, floorTarget, settleFloorMove } = useRoomStore()
   // the saved look wins over the prop, and both win over the defaults — unset parts fall through to the model
   const appearance = { ...DEFAULT_APPEARANCE, ...customAppearance, ...characterLook }
   // Per room, not per module. Every room in the explorer renders one of these, so a single shared start would put
@@ -52,37 +54,24 @@ export default function Character({ appearance: customAppearance }: { appearance
   const interactionStart = useRef<{ key: string | null; position: [number, number, number] }>({ key: null, position: [start.x, 0, start.z] })
   const clock = useRef(0)
   useCursor(hovered)
-  // set once: the group's position is driven imperatively from here on, never via a reactive JSX prop (which would re-snap it to `start` on every unrelated re-render)
-  useLayoutEffect(() => { actor.current?.position.copy(start) }, [])
-  // Bearing, height AND the pending teleport land in a LAYOUT effect, keyed to the room as well as the pose: a
-  // navigation commits the new room's data, and before that commit is painted the character is already standing
-  // on the new room's spot facing the new room's way. Left to the frame loop these applied one frame late — a
-  // painted flash of the previous room's character on every entry.
+  // A room change applies one complete snapshot before paint. The same actor can stay mounted without carrying
+  // any position, direction or route from the room left behind.
   useLayoutEffect(() => {
-    if (readOnly || !actor.current) return
-    if (isVisiting()) {
-      actor.current.position.set(characterHome[0], characterPose?.y ?? 0, characterHome[2])
-    } else if (characterTeleport.position) {
-      actor.current.position.set(characterTeleport.position[0], 0, characterTeleport.position[2])
-      characterTeleport.position = null
-    }
-    actor.current.position.y = characterPose?.y ?? 0
+    if (!actor.current) return
+    start.set(characterHome[0], characterPose?.y ?? 0, characterHome[2])
+    actor.current.position.copy(start)
     actor.current.rotation.y = characterPose?.facing ?? Math.PI / 4
-  }, [readOnly, characterHome[0], characterHome[1], characterHome[2], characterPose, currentHandle])
-  // A neighbour's layout arrives AFTER it has mounted — the bundle is only fetched once zooming out reveals the
-  // room — so the spot read on the first render is still the default, and the ref above had already latched it.
-  // That is why every visiting room stood on the same front corner no matter where its owner left their character.
-  // Only for a neighbour: the live room's character is driven by the tracker and by walking, and re-snapping it
-  // from here would fight both.
+    route.current = []; routeIndex.current = 0; routeKey.current = null
+    interactionStart.current = { key: null, position: [start.x, 0, start.z] }
+  }, [currentHandle])
+  // Visitor and explorer characters are read-only snapshots. Owner realtime updates replace them as a whole.
   useLayoutEffect(() => {
-    if (!readOnly || !actor.current) return
-    // the whole pose, not just the spot: a character left sitting has to keep the seat's height and the way it was
-    // facing, or it lands sunk into the floor pointing the default direction
+    if (characterWritable || !actor.current) return
     start.set(characterHome[0], characterPose?.y ?? 0, characterHome[2])
     actor.current.position.copy(start)
     actor.current.rotation.y = characterPose?.facing ?? Math.PI / 4
     interactionStart.current.position = [start.x, 0, start.z]
-  }, [readOnly, characterHome[0], characterHome[2], characterPose])
+  }, [characterWritable, characterHome[0], characterHome[2], characterPose])
 
   const seated = characterState === 'sitting' || characterState === 'working'
   const resting = characterState === 'laying' || characterState === 'sleeping'
@@ -95,20 +84,8 @@ export default function Character({ appearance: customAppearance }: { appearance
 
   useFrame((_, delta) => {
     if (!actor.current) return
-    // an owner's move arriving over the wire lands as an instant snap, not a walk
-    if (!readOnly && !isVisiting() && characterTeleport.position) {
-      actor.current.position.set(characterTeleport.position[0], 0, characterTeleport.position[2])
-      characterTeleport.position = null
-    }
-    // A neighbour is somebody else's room being looked at: it must not write into the shared tracker, which is
-    // this browser's own character, nor schedule a save of it.
-    // The tracker and attitude are THIS ACCOUNT's character. While visiting, the live actor is someone else's —
-    // writing it here poisoned the shared record with the host's facing and height, and the save that fires on
-    // arriving home then published that poison as the owner's own pose. Visits read, never write.
-    if (!readOnly && !isVisiting()) {
+    if (characterWritable) {
       characterPosition[0] = actor.current.position.x; characterPosition[2] = actor.current.position.z
-      characterAttitude.facing = actor.current.rotation.y; characterAttitude.y = actor.current.position.y
-      persistCharacterPosition()
     }
     // a neighbour's character is part of a still: its clock holds, so the wave arm and the sleeping breath
     // freeze mid-gesture instead of ticking away in every room of the explorer
@@ -134,7 +111,7 @@ export default function Character({ appearance: customAppearance }: { appearance
         for (const candidate of candidates) { const found = cellKey(candidate) === cellKey(startCell) ? [] : findPath(occupied, startCell, candidate); if (found.length || cellKey(candidate) === cellKey(startCell)) { path = found; goal = candidate; break } }
         // no reachable approach cell: don't dead-end with an empty route (routeKey would block any retry) —
         // fall through to 'aligning', whose glide always completes and lands the interaction anyway
-        if (!goal) { route.current = []; routeKey.current = null; finishCharacterAction('aligning'); return }
+        if (!goal) { route.current = []; routeKey.current = null; finishCharacterAction('aligning', currentTransform(actor.current)); return }
         const cells = simplifyPath(path)
         route.current = cells.map((cell, index) => {
           if (index === cells.length - 1 && cellKey(goal) === cellKey(desiredCell)) return new Vector3(...destination)
@@ -152,7 +129,7 @@ export default function Character({ appearance: customAppearance }: { appearance
       actor.current.position.lerp(target, Math.min(1, delta * 6))
       if (actor.current.position.distanceTo(target) < .12) {
         if (routeIndex.current < route.current.length - 1) routeIndex.current += 1
-        else finishCharacterAction('aligning')
+        else finishCharacterAction('aligning', currentTransform(actor.current))
       }
     } else if (walking && floorTarget) {
       // floor-click walk: same waypoint motion as furniture walks, ending in idle at the clicked cell
@@ -163,7 +140,7 @@ export default function Character({ appearance: customAppearance }: { appearance
         const startCell = worldToGrid(floorSurface, [actor.current.position.x, 0, actor.current.position.z], CELL)
         const goal = worldToGrid(floorSurface, floorTarget, CELL)
         const path = cellKey(goal) === cellKey(startCell) ? [] : findPath(occupied, startCell, goal)
-        if (!path.length && cellKey(goal) !== cellKey(startCell)) { settleFloorMove(false); return }
+        if (!path.length && cellKey(goal) !== cellKey(startCell)) { settleFloorMove(false, currentTransform(actor.current)); return }
         const cells = simplifyPath(path)
         route.current = cells.map((cell, index) => index === cells.length - 1 ? new Vector3(...floorTarget) : new Vector3(...gridToWorld(floorSurface, cell, CELL)).setY(0))
         if (!route.current.length) route.current = [new Vector3(...floorTarget)]
@@ -177,18 +154,18 @@ export default function Character({ appearance: customAppearance }: { appearance
       actor.current.position.lerp(target, Math.min(1, delta * 6))
       if (actor.current.position.distanceTo(target) < .12) {
         if (routeIndex.current < route.current.length - 1) routeIndex.current += 1
-        else settleFloorMove(true)
+        else settleFloorMove(true, currentTransform(actor.current))
       }
     } else if (characterState === 'aligning' && interaction) {
       const target = new Vector3(...interaction.actionWorld.position)
       actor.current.position.lerp(target, Math.min(1, delta * 5))
       actor.current.rotation.y = turnToward(actor.current.rotation.y, interaction.actionWorld.rotation, Math.min(1, delta * 7))
       const angleLeft = Math.abs(Math.atan2(Math.sin(interaction.actionWorld.rotation - actor.current.rotation.y), Math.cos(interaction.actionWorld.rotation - actor.current.rotation.y)))
-      if (actor.current.position.distanceTo(target) < .025 && angleLeft < .025) finishCharacterAction(stateForInteraction(interaction.type))
+      if (actor.current.position.distanceTo(target) < .025 && angleLeft < .025) finishCharacterAction(stateForInteraction(interaction.type), currentTransform(actor.current))
     } else {
       routeKey.current = null
       // walking/aligning with nothing to walk to (selection vanished, item removed) must settle, not spin forever
-      if ((walking || characterState === 'aligning') && !interaction && !floorTarget) finishCharacterAction('idle')
+      if ((walking || characterState === 'aligning') && !interaction && !floorTarget) finishCharacterAction('idle', currentTransform(actor.current))
     }
 
     const swing = walking ? Math.sin(clock.current * 8) * 0.5 : 0
@@ -201,7 +178,7 @@ export default function Character({ appearance: customAppearance }: { appearance
     if (torso.current) torso.current.scale.y = characterState === 'sleeping' ? 1 + Math.sin(clock.current * 2.2) * 0.02 : 1
   })
 
-  return <group ref={actor} name="CharacterRoot" scale={0.85} rotation={[0, Math.PI / 4, 0]} onPointerOver={(event) => { if (readOnly) return; event.stopPropagation(); setHovered(true) }} onPointerOut={() => setHovered(false)} onClick={(event) => { if (readOnly) return; event.stopPropagation(); selectObject('character') }}>
+  return <group ref={actor} name="CharacterRoot" scale={0.85} onPointerOver={(event) => { if (readOnly) return; event.stopPropagation(); setHovered(true) }} onPointerOut={() => setHovered(false)} onClick={(event) => { if (readOnly) return; event.stopPropagation(); selectObject('character') }}>
     <group position={[0, pose.y, 0]} rotation={pose.rotation} scale={hovered ? 1.03 : 1}>
       <group ref={torso} name="Body">
         <group name="BaseBody">
