@@ -275,7 +275,7 @@ const OWNED_PER_TYPE = 1
 // video frames and lights come in pairs; everything else stays single
 const OWNED_OVERRIDES: Record<string, number> = { 'video-frame-3': 2, 'video-frame-4': 2, 'video-frame-5': 2, lamp: 2, 'floor-lamp': 2, 'string-lights': 2, 'led-lamp': 2 }
 const ownedCountOf = (type: string) => OWNED_OVERRIDES[type] ?? OWNED_PER_TYPE
-export const MAX_ROOMS = 3
+export const MAX_ROOMS = 2
 
 const RoomContext = createContext<RoomStore | null>(null)
 
