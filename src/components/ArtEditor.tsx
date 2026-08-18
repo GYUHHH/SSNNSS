@@ -29,7 +29,9 @@ export function DrawingEditor({ id, width, height, onClose }: { id: string; widt
     const ctx = canvas.getContext('2d')!
     ctx.fillStyle = PAPER; ctx.fillRect(0, 0, width, height)
     const existing = artworks[id]
-    if (existing) { const img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0, width, height); img.src = existing }
+    // the saved picture now lives in the bucket, so it has to be fetched as a cross-origin image or the canvas
+    // is tainted and the toDataURL below throws when the drawing is saved
+    if (existing) { const img = new Image(); img.crossOrigin = 'anonymous'; img.onload = () => ctx.drawImage(img, 0, 0, width, height); img.src = existing }
   }, [])
   const point = (event: React.PointerEvent<HTMLCanvasElement>): [number, number] => {
     const rect = event.currentTarget.getBoundingClientRect()

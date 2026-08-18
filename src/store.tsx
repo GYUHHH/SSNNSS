@@ -526,7 +526,14 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   useEffect(() => { saveGuestbook(guestbook) }, [guestbook])
   // the number is a version stamp: bumping it remounts the screen so a replaced clip actually reloads
   useEffect(() => { listVideoIds().then((ids) => { if (ids?.length) setVideoFrames(Object.fromEntries(ids.map((id) => [id, 1]))) }) }, [])
-  const setProfilePhoto = (photo: string | null) => isVisiting() ? undefined : setProfile((current) => { const next = { ...current, photo: photo ?? undefined }; saveProfile(next); return next })
+  // The picture shows straight away from the data URL, then quietly becomes a bucket address once the upload
+  // lands — the room only ever carries the address, which is what keeps the published bundle small.
+  const storePhoto = (photo: string | undefined) => setProfile((current) => { const next = { ...current, photo }; saveProfile(next); return next })
+  const setProfilePhoto = (photo: string | null) => {
+    if (isVisiting()) return
+    storePhoto(photo ?? undefined)
+    if (photo?.startsWith('data:')) void uploadDataUrl('profile', photo).then((url) => { if (url) storePhoto(url) })
+  }
   const setProfileHandle = (handle: string) => setProfile((current) => { const next = { ...current, handle: handle.trim() || undefined }; saveProfile(next); return next })
   const setVideoLink = (id: string, url: string | null) => {
     if (isVisiting()) return false
@@ -639,6 +646,21 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       if (changed && live) { saveBooks(current); setBooks(current.map((book) => ({ ...book }))) }
       // Same rescue for media whose upload never landed: it still plays locally for the owner, so the failure is
       // invisible until a visitor hears nothing. Re-uploading here means a dropped connection costs one reload.
+      // Artwork and the profile photo were kept inline as data URLs, which is most of what a published room
+      // weighs — and past 64KB the save made while closing the tab cannot survive the page. Same rescue.
+      const art = loadArtworks() ?? {}
+      let movedArt = false
+      for (const [key, value] of Object.entries(art)) {
+        if (!value.startsWith('data:')) continue
+        const url = await uploadDataUrl('art', value)
+        if (url) { art[key] = url; movedArt = true }
+      }
+      if (movedArt && live) { saveArtworks(art); setArtworks({ ...art }) }
+      const storedProfile = loadProfile()
+      if (storedProfile?.photo?.startsWith('data:')) {
+        const url = await uploadDataUrl('profile', storedProfile.photo)
+        if (url && live) storePhoto(url)
+      }
       if (live) await Promise.allSettled([syncPendingTracks(), syncPendingClips()])
     })()
     return () => { live = false }
@@ -746,7 +768,15 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     else setPlacedElsewhere(placedInOtherSlots(activeRoomId))
   }
   const setTimeOfDay = (time: TimeOfDay) => { setTimeOfDayState(time); if (isVisiting()) return; try { localStorage.setItem('my-room-time-v1', time); schedulePublish() } catch { /* unavailable */ } }
-  const setArtwork = (id: string, dataURL: string | null) => isVisiting() ? undefined : setArtworks((prev) => { const next = { ...prev }; if (dataURL) next[id] = dataURL; else delete next[id]; return next })
+  const setArtwork = (id: string, dataURL: string | null) => {
+    if (isVisiting()) return
+    setArtworks((prev) => { const next = { ...prev }; if (dataURL) next[id] = dataURL; else delete next[id]; return next })
+    // same swap as the profile photo. `artworks` also holds plain text (a banner's caption), so only a data URL
+    // is ever uploaded, and the entry is only replaced if it is still the one that was sent.
+    if (dataURL?.startsWith('data:')) void uploadDataUrl('art', dataURL).then((url) => {
+      if (url) setArtworks((prev) => prev[id] === dataURL ? { ...prev, [id]: url } : prev)
+    })
+  }
   return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, profile, profileOpen, openProfile: () => setProfileOpen(true), closeProfile: () => setProfileOpen(false), setProfilePhoto, setProfileHandle, videoFrames, setVideoClip, videoLinks, setVideoLink, playingFrames, stopFrame: (id: string) => setPlayingFrames((prev) => prev.filter((value) => value !== id)), mutedFrames, setFrameMuted, highlightFrame, setHighlightFrame, openVideoPanel: (id: string) => { if (isVisiting()) return; setFrameMuted(id, false); setStyleTarget(null); setSelectedObject(id) }, rooms, activeRoomId, openRoom, createRoom, removeRoom, availableCount, guestbook, addGuestComment, removeGuestComment, remoteVisits, othersLikes, likeTotals, myLikes, pendingReactions, markReactionsSeen, openObject, reactionIdsFor, reactionTarget, setReactionTarget, commentTarget, setCommentTarget, timeOfDay, setTimeOfDay, books: visibleBooks, openBookId, bookshelfOpen, readOnly: false, characterHome: characterPosition, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, selectObject, clearSelection, finishCharacterAction: setCharacterState, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject('bookshelf'); setBookshelfOpen(true) }, addBook, deleteBook, updateBookVisibility, setBookShelf, addEntry, deleteEntry, updateEntry, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, closeStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
 }
 // A neighbour room in the zoom-out explorer, drawn from that room's own published bundle with the SAME furniture
