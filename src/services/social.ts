@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { compressImage } from './imageCompress'
 
 // Supabase-backed social layer: plain fetch against PostgREST, plus the SDK's realtime channel for live updates.
 // - The owner's room state (a bundle of my-room-* localStorage values) is published under their profile
@@ -168,10 +169,13 @@ export async function uploadMedia(path: string, file: Blob): Promise<string | nu
   // a visitor's upload would land in the room owner's bucket — nothing they do may write there
   if (isVisiting()) return null
   try {
+    // every image goes through here — diary photos, drawings, anything a future caller adds — so shrinking at this
+    // one point covers the lot instead of each call site remembering to. Non-images pass straight through.
+    const body = await compressImage(file)
     const response = await fetch(`${SUPABASE_URL}/storage/v1/object/media/${path}`, {
       method: 'POST',
-      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': file.type || 'application/octet-stream' },
-      body: file,
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': body.type || 'application/octet-stream' },
+      body,
     })
     if (!response.ok) return null
     return `${SUPABASE_URL}/storage/v1/object/public/media/${path}`
