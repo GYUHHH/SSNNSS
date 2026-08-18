@@ -194,19 +194,7 @@ if (import.meta.env.DEV) {
 // click that selects it has nothing to land on, so read-only rooms hold their handlers back instead (see Floor,
 // Interactive, Furniture and Character: each one bails before stopPropagation when the store is readOnly).
 const NO_RAYCAST = () => {}
-type Faded = Material & { wasTransparent?: boolean; baseColor?: Color; lastTinted?: Color; color?: Color; map?: unknown }
-// A Canvas has one real light rig, so a neighbour keeps its own saved hour by cancelling the viewer's rig from
-// its materials and applying that room's rig. This is one shared calculation, not a second neighbour light setup.
-type TimeOfDay = keyof typeof LIGHTING
-const roomLight = (time: TimeOfDay) => {
-  const preset = LIGHTING[time]
-  return new Color(preset.ambientColor).multiplyScalar(preset.ambient)
-    .add(new Color(preset.dirColor).multiplyScalar(preset.dir * .5))
-}
-const roomTone = (room: TimeOfDay, viewer: TimeOfDay) => {
-  const current = roomLight(viewer)
-  return roomLight(room).multiply(new Color(1 / current.r, 1 / current.g, 1 / current.b))
-}
+type Faded = Material & { wasTransparent?: boolean; color?: Color }
 function Inert({ off, children }: { off: (zoom: number, width: number, height: number) => boolean; children: ReactNode }) {
   const group = useRef<Group>(null)
   const applied = useRef<boolean | null>(null)
@@ -243,8 +231,7 @@ function NeighbourRoom() {
 }
 
 function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlot; distance: number; centred: boolean; fresh?: Record<string, string>; open: () => void }) {
-  // the live store owns the Canvas light rig; this room's own saved time supplies its matching material tone
-  const { mode, timeOfDay } = useRoomStore()
+  const { mode } = useRoomStore()
   const { gl, camera, scene } = useThree()
   const group = useRef<Group>(null)
   const opacity = useRef(0)
@@ -254,9 +241,6 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
   // bundle IS its look. Without this the cell went permanently blank the moment such a visitor entered a real
   // room, because the room they had just come from could never be drawn as a neighbour.
   const [bundle, setBundle] = useState<Record<string, string> | null>(slot.handle === LOBBY ? {} : null)
-  const bundleTime = (bundle?.['my-room-time-v1'] === 'evening' || bundle?.['my-room-time-v1'] === 'night' ? bundle['my-room-time-v1'] : 'day') as TimeOfDay
-  const tint = useMemo(() => roomTone(bundleTime, timeOfDay), [bundleTime, timeOfDay])
-  const contentTint = useMemo(() => roomTone('day', timeOfDay), [timeOfDay])
   const nextFetch = useRef(0)
   const lastRaw = useRef('')
   const mounted = useRef(true)
@@ -341,15 +325,6 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
       // instead of floating over the ghosted room as three hard dark bars for the entire glide
       material.opacity = full ? 1 : material.userData.lateFade ? opacity.current ** 7 : opacity.current
       if (!material.color) return
-      // The cast multiplies into the material's colour every frame, so the untouched colour has to live beside it —
-      // and it must never be frozen at whatever the first frame held. A neighbour's real wall and floor colours
-      // only arrive with the bundle, after mount, and freezing the base at capture time stomped them flat on the
-      // next frame. So: any colour that is not the one this loop last wrote was changed from outside — a style
-      // landing, a lamp toggling — and becomes the new base. Everything recolourable stays recolourable.
-      if (!material.baseColor) material.baseColor = material.color.clone()
-      else if (!material.lastTinted || !material.color.equals(material.lastTinted)) material.baseColor.copy(material.color)
-      material.color.copy(material.baseColor).multiply(material.map ? contentTint : tint)
-      material.lastTinted = (material.lastTinted ?? new Color()).copy(material.color)
     })
     // Fetched when the zoom-out first reveals it, and refreshed every so often for as long as it stays on
     // screen — a one-shot fetch froze the neighbour at its first snapshot, so an owner moving their character
