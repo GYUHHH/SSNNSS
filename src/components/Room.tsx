@@ -3,7 +3,7 @@ import { Canvas, events, useFrame } from '@react-three/fiber'
 import { type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Color, type Group, type Material, MathUtils, type Mesh, Vector3 } from 'three'
 import { NeighbourRoomProvider, useRoomStore } from '../store'
-import { currentRoomHandle, enterRoom, fetchRoomBundle, fetchRoomDirectory, myHandle, onRoomNavigation } from '../services/social'
+import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDirectory, isSignedIn, myHandle, onRoomNavigation } from '../services/social'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
 import CameraController, { entryZoom, exploreMinZoom } from './CameraController'
@@ -116,6 +116,9 @@ const roomSlots = (handles: string[]): RoomSlot[] => {
 const withVacancies = (handles: string[]) => handles.length >= CLUSTER_SIZE ? handles
   : [...handles, ...Array.from({ length: CLUSTER_SIZE - handles.length }, (_, index) => `${VACANT}${index}`)]
 const isEnterable = (handle: string) => handle !== LOBBY && !handle.startsWith(VACANT)
+// what a zoom-in may land in: real rooms always, and the lobby too for whoever has no room of their own —
+// signed out, the default room is home, and home has to be somewhere you can go back to
+const canEnter = (handle: string) => isEnterable(handle) || (handle === LOBBY && !isSignedIn())
 
 if (import.meta.env.DEV) {
   const check = roomSlots(['0', '1', '2', '3', '4', '5', '6'])
@@ -306,7 +309,10 @@ function RoomWorld() {
   // The cluster is centred on the signed-in user's OWN room — it is their neighbourhood, so their room is the hub
   // the others ring around, whichever room they happen to be looking at. Signed out there is no own room, so the
   // room in the address (or the lobby) takes the middle instead.
-  const hubHandle = useRef(myHandle() ?? currentRoomHandle() ?? LOBBY).current
+  // Signed out, the hub is ALWAYS the lobby — even when the address opens straight into someone's room. Taking
+  // the visited room as hub there meant a refresh mid-visit dropped the default room out of the cluster entirely,
+  // and with it the only way back to where the visitor started.
+  const hubHandle = useRef(myHandle() ?? (isSignedIn() ? currentRoomHandle() : null) ?? LOBBY).current
   const [handles, setHandles] = useState(() => withVacancies([hubHandle]))
   // what is being VIEWED, which is not the hub while visiting someone else
   const [activeHandle, setActiveHandle] = useState(() => currentRoomHandle() ?? hubHandle)
@@ -370,7 +376,9 @@ function RoomWorld() {
     setFocusRoom({ position: [0, 0, 0], token: performance.now(), shift: slot && handle !== activeHandle ? slot.position : undefined })
   }), [slots, hubHandle, activeHandle])
   const open = async (slot: RoomSlot) => {
-    if (opening.current || !isEnterable(slot.handle)) return
+    if (opening.current || !canEnter(slot.handle)) return
+    // the lobby is not on the server — going back to it is a local reset that walks the same listener path
+    if (slot.handle === LOBBY) { enterLobby(); return }
     opening.current = true
     await enterRoom(slot.handle)
     opening.current = false
@@ -392,7 +400,7 @@ function RoomWorld() {
         let best = Infinity
         let winner: RoomSlot | null = null
         for (const slot of slots) {
-          if (slot !== active && (!isEnterable(slot.handle) || ringDistance(slot, active) > VISIBLE_RINGS)) continue
+          if (slot !== active && (!canEnter(slot.handle) || ringDistance(slot, active) > VISIBLE_RINGS)) continue
           probe.set(slot.position[0], slot.position[1] + 3.5, slot.position[2]).project(camera)
           const offset = Math.hypot((probe.x - atX) * halfW, (probe.y - atY) * halfH)
           if (offset < best) { best = offset; winner = slot }

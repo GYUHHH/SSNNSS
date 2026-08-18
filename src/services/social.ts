@@ -50,6 +50,14 @@ const roomNavigationListeners = new Set<() => void>()
 export const onRoomNavigation = (listener: () => void) => { roomNavigationListeners.add(listener); return () => { roomNavigationListeners.delete(listener) } }
 export const isVisiting = () => plainRoot || (visitHandle !== null && visitHandle !== ownHandle())
 const resetToPlainRoot = () => { visitHandle = null; plainRoot = true; visitData = null; history.replaceState(null, '', BASE) }
+// A signed-out visitor walking back into the default room they started in. The plain root reads as empty —
+// readStored returns nothing there — so every store falls back to its defaults, which IS the lobby's look; the
+// same listeners fire as for entering any real room, so the whole app swaps in one pass exactly like enterRoom.
+export function enterLobby() {
+  resetToPlainRoot()
+  roomRefreshListeners.forEach((listener) => listener())
+  roomNavigationListeners.forEach((listener) => listener())
+}
 const clearRoomCache = () => {
   try { for (let index = localStorage.length - 1; index >= 0; index--) { const key = localStorage.key(index); if (key?.startsWith('my-room-')) localStorage.removeItem(key) } } catch { /* storage may be unavailable */ }
 }
