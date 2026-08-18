@@ -775,7 +775,11 @@ export function NeighbourRoomProvider({ bundle, children }: { bundle: Record<str
       artworks: loadArtworks() ?? {}, setArtwork: noop,
       rooms: slots.slots.map((slot) => ({ id: slot.id, name: slot.name })), activeRoomId: slots.active, openRoom: noop, createRoom: noop, removeRoom: noop, availableCount: () => 0,
       profile: loadProfile() ?? { total: 0, today: 0, lastVisit: '', friends: 0 }, profileOpen: false, openProfile: noop, closeProfile: noop, setProfilePhoto: noop, setProfileHandle: noop,
-      videoFrames: {}, setVideoClip: noop, videoLinks: {}, setVideoLink: () => false, playingFrames: [], stopFrame: noop, mutedFrames: [], setFrameMuted: noop, highlightFrame: null, setHighlightFrame: noop, openVideoPanel: noop,
+      // The links are read so a neighbour's frames show that room's YouTube poster — VideoScreen already draws one
+      // whenever a link is present, and it costs an image rather than an embed. WallVideoLayer stays out of the
+      // neighbour tree: that is what would put a live iframe on every frame of every room, and being DOM rather
+      // than 3D it would not fade with the room either. The real thing plays once the room is entered.
+      videoFrames: {}, setVideoClip: noop, videoLinks: loadVideoLinks(), setVideoLink: () => false, playingFrames: [], stopFrame: noop, mutedFrames: [], setFrameMuted: noop, highlightFrame: null, setHighlightFrame: noop, openVideoPanel: noop,
       guestbook: {}, addGuestComment: noop, removeGuestComment: noop, remoteVisits: null, othersLikes: {}, likeTotals: {}, myLikes: [], pendingReactions: {}, markReactionsSeen: noop,
       openObject: () => false, reactionIdsFor: () => [], reactionTarget: null, setReactionTarget: noop, commentTarget: null, setCommentTarget: noop,
       timeOfDay: NEIGHBOUR_TIME.find((time) => time === saved) ?? 'day', setTimeOfDay: noop,
