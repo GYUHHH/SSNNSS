@@ -638,10 +638,15 @@ function ProfileBoardFace() {
     texture.needsUpdate = true
   }, [total, today, friends, texture])
   const portrait = useMemo(() => { if (!photo) return null; const map = new TextureLoader().load(photo); map.colorSpace = SRGBColorSpace; return map }, [photo])
+  // These sit ON the board, and the stats panel is drawn on a transparent canvas, so the board behind it is what
+  // should show through. While a neighbour room fades it is all in the sorted transparent pass, which orders by
+  // the object's projected z — and the stats panel hangs 0.59 BELOW the board's centre, which this camera reads as
+  // further away. It drew first, wrote depth, and the board behind it was then rejected, leaving bare wall in its
+  // place. renderOrder pins them after the board no matter what the distances work out to.
   return <>
-    {portrait && <mesh position={[0, .36, .076]}><circleGeometry args={[.47, 30]} /><meshBasicMaterial map={portrait} /></mesh>}
-    {profile?.handle && <Text font={PRETENDARD_WOFF} position={[0, -.22, .076]} fontSize={.13} color="#403f3d" anchorX="center" anchorY="middle">{profile.handle}</Text>}
-    <mesh position={[0, -.59, .076]}><planeGeometry args={[1.2, .48]} /><meshBasicMaterial map={texture} transparent /></mesh>
+    {portrait && <mesh renderOrder={1} position={[0, .36, .076]}><circleGeometry args={[.47, 30]} /><meshBasicMaterial map={portrait} /></mesh>}
+    {profile?.handle && <Text renderOrder={1} font={PRETENDARD_WOFF} position={[0, -.22, .076]} fontSize={.13} color="#403f3d" anchorX="center" anchorY="middle">{profile.handle}</Text>}
+    <mesh renderOrder={1} position={[0, -.59, .076]}><planeGeometry args={[1.2, .48]} /><meshBasicMaterial map={texture} transparent /></mesh>
   </>
 }
 
