@@ -3,6 +3,7 @@ import { SRGBColorSpace, type Texture, TextureLoader } from 'three'
 import { useOptionalRoomStore, useRoomStore } from '../store'
 import { getVideo } from '../services/mediaStore'
 import { loadOrders, onOrderChange, saveOrder } from '../services/playlistOrder'
+import { isBlockedVideo, onBlockedVideos } from '../services/ytResume'
 
 const PAPER = '#f6efe2'
 const COLORS = ['#3f3a33', '#b96b52', '#d9a441', '#8a9c82', '#607b93', '#a06a8c', '#e8b4a0', '#f3ead9']
@@ -147,10 +148,11 @@ export function ClipPreview({ id }: { id: string }) {
 // way with a transition; the new order commits (and saves) on release. Playback picks the change up from the
 // NEXT video, and the id list itself arrives from playback sync (watchPlaylistOrder).
 const titleCache: Record<string, string> = {}
-function OrderRow({ videoId, title, dragging, shift, onHandleDown }: { videoId: string; title: string; dragging: boolean; shift: number; onHandleDown: (event: React.PointerEvent) => void }) {
-  return <li className={dragging ? 'order-row dragging' : 'order-row'} style={{ transform: shift ? `translateY(${shift}px)` : undefined }}>
+function OrderRow({ videoId, title, blocked, dragging, shift, onHandleDown }: { videoId: string; title: string; blocked: boolean; dragging: boolean; shift: number; onHandleDown: (event: React.PointerEvent) => void }) {
+  return <li className={`order-row${dragging ? ' dragging' : ''}${blocked ? ' blocked' : ''}`} style={{ transform: shift ? `translateY(${shift}px)` : undefined }}>
     <img src={`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`} alt="" draggable={false} />
     <span>{title || videoId}</span>
+    {blocked && <span className="order-warn" aria-label="재생 불가">!</span>}
     <button type="button" className="order-handle" aria-label="순서 이동" onPointerDown={onHandleDown}>≡</button>
   </li>
 }
@@ -163,6 +165,10 @@ export function PlaylistOrderEditor({ id }: { id: string }) {
   const [titles, setTitles] = useState<Record<string, string>>({})
   const [drag, setDrag] = useState<{ index: number; delta: number } | null>(null)
   const rowStep = useRef(48)
+  // a video is only known to be unplayable once the player has actually refused it, so the list re-reads
+  // whenever playback discovers another one
+  const [, setBlockedTick] = useState(0)
+  useEffect(() => onBlockedVideos(() => setBlockedTick((value) => value + 1)), [])
   useEffect(() => {
     if (!playlistId) return
     setOrder(loadOrders()[playlistId] ?? [])
@@ -213,7 +219,9 @@ export function PlaylistOrderEditor({ id }: { id: string }) {
         if (index > drag.index && index <= target) shift = -rowStep.current
         else if (index < drag.index && index >= target) shift = rowStep.current
       }
-      return <OrderRow key={videoId} videoId={videoId} title={titles[videoId] ?? titleCache[videoId] ?? ''} dragging={dragging} shift={dragging ? drag.delta : shift} onHandleDown={startDrag(index)} />
+      return <OrderRow key={videoId} videoId={videoId} title={titles[videoId] ?? titleCache[videoId] ?? ''} blocked={isBlockedVideo(videoId)} dragging={dragging} shift={dragging ? drag.delta : shift} onHandleDown={startDrag(index)} />
     })}
+    {/* said once rather than repeated on every marked row — the markers show WHICH, this says WHY */}
+    {order.some((videoId) => isBlockedVideo(videoId)) && <li className="order-note">이 영상은 외부 재생이 불가합니다.</li>}
   </ul>
 }

@@ -22,6 +22,19 @@ const persist = () => {
   if (saveTimer) return
   saveTimer = setTimeout(() => { saveTimer = undefined; localStorage.setItem(STORAGE_KEY, JSON.stringify({ time: videoResume, video: playlistVideoResume })) }, 1000)
 }
+// Videos the player has actually refused. YouTube reports this over the same postMessage channel as an onError:
+// 101 and 150 are "the owner disabled playback outside YouTube", 100 is deleted or private, 2 is a malformed id
+// and 5 is a player failure. All of them mean the same thing here — this one cannot be shown on a wall.
+// Kept in memory only: an owner who fixes a video should not have to clear a stale warning, and a reload re-tests.
+const blockedVideos = new Set<string>()
+export const isBlockedVideo = (videoId: string) => blockedVideos.has(videoId)
+const blockedListeners = new Set<() => void>()
+export const onBlockedVideos = (listener: () => void) => { blockedListeners.add(listener); return () => { blockedListeners.delete(listener) } }
+// Which videos have failed since the last one that actually played, per frame. Skipping stops the moment a video
+// fails twice in the same run: that means the playlist has been walked all the way round and nothing in it plays,
+// so the player is left sitting on YouTube's own "cannot be played" screen, which the visitor sees too.
+const skipRun: Record<string, Set<string>> = {}
+
 // the live iframe per frame, so playlist controls can reach the player that is actually on the wall
 const activeIframes: Record<string, HTMLIFrameElement> = {}
 const soundRequestCancels: Record<string, () => void> = {}
@@ -34,7 +47,22 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
       const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
       const currentTime = data?.info?.currentTime
       if (typeof currentTime === 'number') { videoResume[frameId] = currentTime; persist() }
-      if (typeof data?.info?.playerState === 'number') framePlayerStates[frameId] = data.info.playerState
+      if (typeof data?.info?.playerState === 'number') {
+        framePlayerStates[frameId] = data.info.playerState
+        // something played, so the run of failures is over and a later dud may skip afresh
+        if (data.info.playerState === 1) delete skipRun[frameId]
+      }
+      if (data?.event === 'onError' || typeof data?.info?.errorCode === 'number') {
+        const failed = playlistVideoResume[frameId]
+        if (failed) {
+          if (!blockedVideos.has(failed)) { blockedVideos.add(failed); blockedListeners.forEach((listener) => listener()) }
+          const run = (skipRun[frameId] ??= new Set())
+          if (run.has(failed)) return // already skipped past this one — the whole list is unplayable, so stop
+          run.add(failed)
+        }
+        command(frameId, 'nextVideo')
+        return
+      }
       if (typeof data?.info?.muted === 'boolean' && lastReportedMuted[frameId] !== data.info.muted) {
         lastReportedMuted[frameId] = data.info.muted
         muteStateListeners.forEach((listener) => listener(frameId, data.info.muted))
