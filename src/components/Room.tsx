@@ -207,7 +207,6 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
   const group = useRef<Group>(null)
   const opacity = useRef(0)
   const materials = useRef<Faded[]>([])
-  const recollectIn = useRef(0)
   const glow = useRef(0)
   // The lobby — the default room a signed-out visitor starts in — has no server bundle to wait for: an empty
   // bundle IS its look. Without this the cell went permanently blank the moment such a visitor entered a real
@@ -264,10 +263,13 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
     // that one frame used to advance the damp nearly to 1, so the room POPPED instead of fading. Capping the step
     // means a hitch only moves the fade one small notch, and the glide plays out over the frames that follow.
     opacity.current = MathUtils.damp(opacity.current, wanted, 12, Math.min(delta, 1 / 30))
-    // meshes can still arrive after the layout effect ran (a suspended font resolves and mounts its text), so while
-    // the room is mid-fade re-collect a few times a second — an opaque late mesh in a faded room is very visible
-    recollectIn.current -= delta
-    if (opacity.current > .01 && opacity.current < .99 && recollectIn.current <= 0) { recollectIn.current = .4; collect() }
+    // Materials keep arriving after the layout effect ran — a suspended font resolves, and a photo or thumbnail
+    // texture finishing its load SWAPS IN a whole new material. A newcomer the loop below doesn't know about is
+    // drawn at its natural full opacity, which against a half-faded room reads as the photo popping in — and on
+    // the way out, popping off. So while the room is mid-fade the collection is rebuilt every frame: the traverse
+    // is a few hundred objects and the fade lasts under a second, and it guarantees a material's very first drawn
+    // frame already carries the room's opacity.
+    if (opacity.current > .01 && opacity.current < .995) collect()
     group.current.visible = opacity.current > .01
     // A nudge in size is the whole highlight. The cluster is stacked by storey, so lifting or outlining the picked
     // room would fight that illusion, while 6% reads as hover without moving anything out of its own cell.
