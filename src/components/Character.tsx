@@ -22,7 +22,7 @@ export type CharacterAppearance = {
   shoeColor: string
 }
 
-const DEFAULT_APPEARANCE: CharacterAppearance = {
+export const DEFAULT_APPEARANCE: CharacterAppearance = {
   skinColor: '#dfa27f', hairStyle: 'bob', hairColor: '#5a4035',
   top: 'tshirt', topColor: '#627b73', bottom: 'shorts', bottomColor: '#80675b',
   shoes: 'round', shoeColor: '#4c3b34',
@@ -37,13 +37,14 @@ const simplifyPath = (path: GridPosition[]) => path.filter((cell, index) => {
 })
 
 export default function Character({ appearance: customAppearance }: { appearance?: Partial<CharacterAppearance> } = {}) {
-  const appearance = { ...DEFAULT_APPEARANCE, ...customAppearance }
   const actor = useRef<Group>(null)
   const legLeft = useRef<Group>(null); const legRight = useRef<Group>(null)
   const armLeft = useRef<Group>(null); const armRight = useRef<Group>(null)
   const torso = useRef<Group>(null); const head = useRef<Group>(null)
   const [hovered, setHovered] = useState(false)
-  const { readOnly, characterHome, characterPose, selectedObject, characterState, finishCharacterAction, cupHeld, selectObject, furniture, debugAnchors, moveNotice, floorTarget, settleFloorMove } = useRoomStore()
+  const { readOnly, characterHome, characterPose, characterLook, selectedObject, characterState, finishCharacterAction, cupHeld, selectObject, furniture, debugAnchors, moveNotice, floorTarget, settleFloorMove } = useRoomStore()
+  // the saved look wins over the prop, and both win over the defaults — unset parts fall through to the model
+  const appearance = { ...DEFAULT_APPEARANCE, ...customAppearance, ...characterLook }
   // Per room, not per module. Every room in the explorer renders one of these, so a single shared start would put
   // them all where THIS browser last left its own character. characterHome is that room's own saved spot.
   const start = useRef(new Vector3(characterHome[0], characterPose?.y ?? 0, characterHome[2])).current

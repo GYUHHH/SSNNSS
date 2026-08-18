@@ -21,7 +21,7 @@ const authHeaders = async (): Promise<Record<string, string>> => {
 }
 const escape = encodeURIComponent
 
-const SYNC_KEYS = ['my-room-slots-v1', 'my-room-video-links-v1', 'my-room-artwork-v1', 'my-room-profile-v1', 'my-room-books-v1', 'my-room-guestbook-v1', 'my-room-playlist-order-v1', 'my-room-interactions-v1', 'my-room-time-v1', 'my-room-music-v1', 'my-room-clip-urls-v1', 'my-room-character-v1']
+const SYNC_KEYS = ['my-room-slots-v1', 'my-room-video-links-v1', 'my-room-artwork-v1', 'my-room-profile-v1', 'my-room-books-v1', 'my-room-guestbook-v1', 'my-room-playlist-order-v1', 'my-room-interactions-v1', 'my-room-time-v1', 'my-room-music-v1', 'my-room-clip-urls-v1', 'my-room-character-v1', 'my-room-character-look-v1']
 
 // Room addresses are simple paths: (domain)/(id). GitHub Pages has no SPA fallback, so 404.html bounces
 // unknown paths back here as ?p=<id> and the address bar is restored. Legacy ?room= links keep working.
