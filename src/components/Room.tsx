@@ -256,6 +256,7 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
   const [bundle, setBundle] = useState<Record<string, string> | null>(slot.handle === LOBBY ? {} : null)
   const bundleTime = (bundle?.['my-room-time-v1'] === 'evening' || bundle?.['my-room-time-v1'] === 'night' ? bundle['my-room-time-v1'] : 'day') as TimeOfDay
   const tint = useMemo(() => roomTone(bundleTime, timeOfDay), [bundleTime, timeOfDay])
+  const contentTint = useMemo(() => roomTone('day', timeOfDay), [timeOfDay])
   const nextFetch = useRef(0)
   const lastRaw = useRef('')
   const mounted = useRef(true)
@@ -347,7 +348,7 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
       // landing, a lamp toggling — and becomes the new base. Everything recolourable stays recolourable.
       if (!material.baseColor) material.baseColor = material.color.clone()
       else if (!material.lastTinted || !material.color.equals(material.lastTinted)) material.baseColor.copy(material.color)
-      material.color.copy(material.baseColor).multiply(tint)
+      material.color.copy(material.baseColor).multiply(material.map ? contentTint : tint)
       material.lastTinted = (material.lastTinted ?? new Color()).copy(material.color)
     })
     // Fetched when the zoom-out first reveals it, and refreshed every so often for as long as it stays on
