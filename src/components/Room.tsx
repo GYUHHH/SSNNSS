@@ -442,6 +442,11 @@ function RoomWorld() {
   const cursorOn = useRef(false)
   // starts true so the very first frame — which opens at the entry zoom already — is not read as a zoom-in
   const wasZoomedIn = useRef(true)
+  // set the moment ANY entry starts, re-armed only once the camera is back out at the explorer. The camera's own
+  // entry zoom crosses the entry line like a user's would, and without this latch that crossing fired a SECOND
+  // entry into whatever was picked at the time — on touch, the middle-of-screen room, so a tapped outer room
+  // flashed up and then bounced to the centre one.
+  const entryLatched = useRef(false)
   useEffect(() => {
     let live = true
     void fetchRoomDirectory().then((found) => {
@@ -489,6 +494,9 @@ function RoomWorld() {
   }), [slots, hubHandle, activeHandle])
   const open = async (slot: RoomSlot) => {
     if (opening.current || !canEnter(slot.handle)) return
+    entryLatched.current = true
+    // the clicked room becomes the pick, so the highlight and the fade exemption follow the room actually entered
+    picked.current = slot
     // the lobby is not on the server — going back to it is a local reset that walks the same listener path
     if (slot.handle === LOBBY) { enterLobby(); return }
     opening.current = true
@@ -541,9 +549,11 @@ function RoomWorld() {
     // stays clamped on a room that is no longer the one being viewed and the camera never comes free again.
     const handle = !zoomedIn || opening.current ? picked.current?.handle ?? null : null
     if (handle !== centred.current) { centred.current = handle; setCentredHandle(handle) }
-    // the edge, not the state: entering is what crossing the line does, so it fires once per zoom-in
-    if (zoomedIn && !wasZoomedIn.current && picked.current) void open(picked.current)
+    // the edge, not the state: entering is what crossing the line does, so it fires once per zoom-in — and only
+    // when no entry is already underway (the latch covers the camera's own entry zoom crossing this same line)
+    if (zoomedIn && !wasZoomedIn.current && picked.current && !entryLatched.current) void open(picked.current)
     wasZoomedIn.current = zoomedIn
+    if (!zoomedIn) entryLatched.current = false
     // spent once the room is in, so coming back down through the band does not re-light a stale choice
     if (zoomedIn && !opening.current) picked.current = null
   })
