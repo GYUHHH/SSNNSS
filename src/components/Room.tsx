@@ -138,6 +138,7 @@ if (import.meta.env.DEV) {
 // click that selects it has nothing to land on, so read-only rooms hold their handlers back instead (see Floor,
 // Interactive, Furniture and Character: each one bails before stopPropagation when the store is readOnly).
 const NO_RAYCAST = () => {}
+type Faded = Material & { wasTransparent?: boolean }
 function Inert({ off, children }: { off: (zoom: number, width: number, height: number) => boolean; children: ReactNode }) {
   const group = useRef<Group>(null)
   const applied = useRef<boolean | null>(null)
@@ -178,7 +179,7 @@ function RoomContainer({ slot, distance, open }: { slot: RoomSlot; distance: num
   const { mode } = useRoomStore()
   const group = useRef<Group>(null)
   const opacity = useRef(0)
-  const materials = useRef<Material[]>([])
+  const materials = useRef<Faded[]>([])
   const recollectIn = useRef(0)
   const [bundle, setBundle] = useState<Record<string, string> | null>(null)
   const requested = useRef(false)
@@ -193,7 +194,12 @@ function RoomContainer({ slot, distance, open }: { slot: RoomSlot; distance: num
       const mesh = object as Mesh
       if (!mesh.isMesh) return
       const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-      list.forEach((material) => { material.transparent = true; materials.current.push(material) })
+      list.forEach((material) => {
+        const faded = material as Faded
+        // remember what it was, because the fade is only allowed to borrow the flag, not keep it
+        if (faded.wasTransparent === undefined) faded.wasTransparent = faded.transparent
+        materials.current.push(faded)
+      })
     })
   }
   useLayoutEffect(collect, [bundle])
@@ -212,7 +218,15 @@ function RoomContainer({ slot, distance, open }: { slot: RoomSlot; distance: num
     if (opacity.current > .01 && opacity.current < .99 && recollectIn.current <= 0) { recollectIn.current = .4; collect() }
     group.current.visible = opacity.current > .01
     group.current.scale.setScalar(.88 + opacity.current * .12)
-    materials.current.forEach((material) => { material.opacity = opacity.current })
+    // Once the room is all the way in, hand every material its own transparency back and pin opacity to exactly 1.
+    // Holding them transparent forever put decals into the sorted transparent pass alongside the panel they sit
+    // on — a few thousandths apart — and when the decal won that toss the panel behind it failed the depth test
+    // and the wall showed through it. The profile board's stats read as wall-coloured because of it.
+    const full = opacity.current > .995
+    materials.current.forEach((material) => {
+      material.transparent = full ? material.wasTransparent ?? false : true
+      material.opacity = full ? 1 : opacity.current
+    })
     // its real layout is fetched the first time the zoom-out actually reveals it, not on page load
     if (!requested.current && opacity.current > .02 && isEnterable(slot.handle)) {
       requested.current = true

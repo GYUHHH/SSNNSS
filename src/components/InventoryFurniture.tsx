@@ -158,12 +158,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     {lit && <StarField />}
   </>
   if (item.type === 'profile-board') return <>
-    {/* A rim behind the card. The card is a warm off-white and so is the default wall, so on those walls it read
-       as nothing at all — obvious once several rooms are on screen and one of them has a coloured wall to
-       compare against. The rim is darker than both the cream and the coloured presets, so the card keeps its
-       shape whatever the wall behind it is; it sits back far enough that only its edge shows. */}
-    <RoundedBox castShadow args={[1.5, 2.2, .05]} radius={.07} smoothness={2} position={[0, 0, .025]}>{mat('#8c8478')}</RoundedBox>
-    <RoundedBox args={[1.4, 2.1, .07]} radius={.06} smoothness={2} position={[0, 0, .035]}>{mat('#fbf6ec')}</RoundedBox>
+    <RoundedBox castShadow args={[1.4, 2.1, .07]} radius={.06} smoothness={2} position={[0, 0, .035]}>{mat('#fbf6ec')}</RoundedBox>
     <mesh position={[0, .36, .073]}><circleGeometry args={[.47, 30]} />{mat('#e2d6c6')}</mesh>
     {!preview && <ProfileBoardFace />}
   </>
