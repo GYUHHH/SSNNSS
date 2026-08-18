@@ -148,6 +148,18 @@ const hydrateBooks = () => (loadBooks<Book[]>() ?? initialBooks).map((book) => (
 
 // per-frame audio choice: true = sound on, false = muted on purpose, absent = never chosen.
 // Falls back to the old positive-list key once, migrating "was unmuted" entries to true.
+// Autoplay, shared by the first mount and by every later room change. Entering a room through the explorer does
+// not remount the provider, so a room switch has to run exactly the same computation again — otherwise the frames
+// of the room just left stay in playingFrames, nothing starts, and SoundHub (which only shows while something is
+// playing) disappears with it.
+const framesToPlay = (items: FurnitureItem[], links: Record<string, string>) =>
+  items.filter((item) => !item.removed && item.type.startsWith('video-frame') && links[item.id]).map((item) => item.id)
+const framesToMute = (playing: string[]) => {
+  if (typeof window === 'undefined') return playing
+  const prefs = loadAudioPrefs()
+  return playing.filter((id) => prefs[id] !== true)
+}
+
 export const loadAudioPrefs = (): Record<string, boolean> => {
   try {
     const saved = JSON.parse(localStorage.getItem('my-room-video-audio-v1') ?? 'null')
@@ -273,8 +285,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   // every linked frame starts playing on entry, muted — browsers block sound before any user gesture.
   // Per-frame audio preference: true = user wants sound, false = user muted it on purpose, absent = never chose.
   // Absent frames get sound on the visitor's first click; explicit false is never overridden.
-  const [playingFrames, setPlayingFrames] = useState<string[]>(() => furniture.filter((item) => !item.removed && item.type.startsWith('video-frame') && videoLinks[item.id]).map((item) => item.id))
-  const [mutedFrames, setMutedFrames] = useState<string[]>(() => { if (typeof window === 'undefined') return playingFrames; const prefs = loadAudioPrefs(); return playingFrames.filter((id) => prefs[id] !== true) })
+  const [playingFrames, setPlayingFrames] = useState<string[]>(() => framesToPlay(furniture, videoLinks))
+  const [mutedFrames, setMutedFrames] = useState<string[]>(() => framesToMute(playingFrames))
   // persist=false is for the browser overruling us (sound autoplay blocked): the UI flips to muted
   // without forgetting that the user wants this frame loud on future visits
   const setFrameMuted = (id: string, muted: boolean, persist = true) => {
@@ -539,7 +551,28 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   // server-backed guestbook + real visit counts arrive once per load
   const [remoteVisits, setRemoteVisits] = useState<{ total: number; today: number } | null>(null)
   const [roomSession, setRoomSession] = useState(0)
-  useEffect(() => onRoomNavigation(() => setRoomSession((value) => value + 1)), [])
+  // A room change carries none of the last room's screen state into the next one: open panels, the selection, the
+  // pose, any half-finished edit — and the undo history, which is the dangerous one, since undoing after a switch
+  // would write the previous room's layout into this one. Realtime updates arrive through onRoomRefresh instead and
+  // leave all of this alone, so a comment landing in your own room never closes what you have open.
+  useEffect(() => onRoomNavigation(() => {
+    setRoomSession((value) => value + 1)
+    clearSelection()
+    setMode('normal')
+    setCharacterState('idle')
+    setHistory([])
+    setDragOrigin(null)
+    setMovingFurnitureId(null)
+    setPreview(null)
+    setPreviewDragging(false)
+    setProfileOpen(false)
+    setReactionTarget(null)
+    setCommentTarget(null)
+    setHighlightFrame(null)
+    setVideoFrames({})
+    setMusicTrackState(null)
+    stopMusic()
+  }), [])
   // likes from OTHER people, for the red reaction badges
   const [othersLikes, setOthersLikes] = useState<Record<string, number>>({})
   // full like counts (mine included) and which ones are mine — the diary's heart button shows both
@@ -558,13 +591,18 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     const active = slots.slots.some((slot) => slot.id === activeRoomIdRef.current) ? activeRoomIdRef.current : slots.active
     setRooms(slots.slots.map(({ id, name }) => ({ id, name })))
     setActiveRoomId(active)
-    setFurniture(hydrateFurniture(slotItems(active)))
+    const items = hydrateFurniture(slotItems(active))
+    setFurniture(items)
     const style = slotStyle(active) ?? {}
     setWallStyleState(style)
     setFloorStyleState(style.floor)
     setBooks(hydrateBooks())
     setArtworks(loadArtworks() ?? {})
-    setVideoLinks(loadVideoLinks())
+    const links = loadVideoLinks()
+    setVideoLinks(links)
+    const playing = framesToPlay(items, links)
+    setPlayingFrames(playing)
+    setMutedFrames(framesToMute(playing))
     setGuestbook(loadGuestbook<Record<string, GuestComment[]>>() ?? {})
     // replaced, never merged: a room whose profile has no photo would otherwise keep showing the last one's
     setProfile({ total: 0, today: 0, lastVisit: '', friends: 0, ...(loadProfile() ?? {}) })
