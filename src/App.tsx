@@ -15,11 +15,11 @@ import Room from './components/Room'
 import StylePanel from './components/StylePanel'
 import { MAX_ROOMS, RoomProvider, useRoomStore } from './store'
 import { customizableTypes } from './services/styles'
-import { isPlainRoot, isVisiting, myHandle } from './services/social'
+import { isSignedIn, isVisiting, myHandle } from './services/social'
 import { thumbnailFor } from './services/thumbnails'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 145
+const BUILD = 146
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget } = useRoomStore()
@@ -95,8 +95,8 @@ function Interface() {
       {cardControls && <section className="object-card"><span>{time}</span></section>}
       <StylePanel />
     </aside>
-    {/* the plain site's way in — the same card the rest of the app opens, just reachable without waiting for it */}
-    {mode === 'normal' && isPlainRoot() && <nav className="entry-buttons" aria-label="시작하기">
+    {/* the way in for anyone without an account — stays up on every address, including someone else's room */}
+    {mode === 'normal' && !isSignedIn() && <nav className="entry-buttons" aria-label="시작하기">
       <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('need-id', { detail: 'login' }))}>로그인</button>
       <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('need-id', { detail: 'signup' }))}>가입하기</button>
     </nav>}

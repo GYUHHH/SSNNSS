@@ -98,6 +98,10 @@ const ownHandle = (): string | null => {
 export const currentRoomHandle = () => (isVisiting() ? visitHandle : ownHandle())
 // the writer's OWN id, even while visiting someone else's room (reads the local profile directly)
 export const myHandle = () => plainRoot ? null : ownHandle()
+// Whether this browser has an account at all. myHandle() reports null at the plain root on purpose, and
+// isPlainRoot() only says which address is open — neither answers "is this person signed in", which is what the
+// entry buttons need: they must stay up while a signed-out visitor is looking at somebody else's room too.
+export const isSignedIn = () => ownHandle() !== null
 export const roomPath = (handle: string) => `${BASE}${escape(handle)}`
 
 export async function publishRoom() {
