@@ -1,4 +1,4 @@
-import { ContactShadows, OrthographicCamera } from '@react-three/drei'
+import { OrthographicCamera } from '@react-three/drei'
 import { Canvas, events, useFrame, useThree } from '@react-three/fiber'
 import { type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { type AmbientLight, Color, type DirectionalLight, type Group, type Material, MathUtils, type Mesh, Vector3 } from 'three'
@@ -69,7 +69,7 @@ function Scene() {
   // Scene events re-route to this host (with client coords) because the canvas itself is pointer-transparent
   // so clicks over a video can fall through into the iframe. The room background moves to the host's CSS.
   const eventHost = useRef<HTMLDivElement>(null!)
-  return <div ref={eventHost} className="canvas-host" style={{ background: light.bg }}><Canvas shadows="basic" dpr={[1, 2]} gl={{ antialias: true }} eventSource={eventHost} events={shiftAwareEvents} onPointerMissed={(event) => { if (!(event.target as HTMLElement)?.closest?.('.canvas-host')) return; (mode === 'edit' ? toggleEditMode : clearSelection)() }} camera={{ position: [10, 8.5, 10] }}>
+  return <div ref={eventHost} className="canvas-host" style={{ background: light.bg }}><Canvas dpr={[1, 2]} gl={{ antialias: true }} eventSource={eventHost} events={shiftAwareEvents} onPointerMissed={(event) => { if (!(event.target as HTMLElement)?.closest?.('.canvas-host')) return; (mode === 'edit' ? toggleEditMode : clearSelection)() }} camera={{ position: [10, 8.5, 10] }}>
     <OrthographicCamera makeDefault position={[10, 8.5, 10]} zoom={59} near={0.1} far={100} />
     <CrossfadingLights preset={light} />
     <Suspense fallback={null}>
@@ -209,7 +209,6 @@ function Inert({ off, children }: { off: (zoom: number, width: number, height: n
 function RoomRoot() {
   return <>
     <Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><InventoryPreview /><SurfaceDropZones /><Character /><DebugAnchors /><WallVideoLayer /><ReactionBadges />
-    <ContactShadows position={[0, 0.018, 0]} opacity={0.38} scale={9} blur={2.4} far={2.2} resolution={1024} />
   </>
 }
 
