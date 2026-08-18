@@ -238,6 +238,9 @@ type RoomStore = {
   // true only for a neighbour room drawn in the explorer: nothing here may be written, and anything that would
   // otherwise fall back to THIS browser's own media or storage must stay empty instead
   readOnly: boolean
+  // where this room's character stands. The live room keeps using the tracker's shared position; a neighbour
+  // needs its OWNER's spot, read from that room's own bundle.
+  characterHome: [number, number, number]
   mode: RoomMode; furniture: FurnitureItem[]; selectedFurnitureId: FurnitureId | null; selectedPlacementValid: boolean; movingFurnitureId: FurnitureId | null; preview: FurnitureItem | null; previewValid: boolean; previewDragging: boolean
   wallStyle: RoomStyle; floorStyle: string | undefined; styleTarget: StyleTarget | null; debugAnchors: boolean; moveNotice: boolean; floorTarget: [number, number, number] | null; musicTrack: string | null; setMusicTrack: (id: string | null) => void; musicVolume: number; setMusicVolume: (value: number) => void
   selectObject: (object: Exclude<SelectedObject, null>) => void; clearSelection: () => void; finishCharacterAction: (state: Exclude<CharacterState, 'walking'>) => void; moveCharacterTo: (position: [number, number, number]) => void; settleFloorMove: (reached: boolean) => void; openBook: (id: string) => void; closeBook: () => void; addBook: (title: string, visibility: Visibility) => void; deleteBook: (id: string) => void; updateBookVisibility: (id: string, visibility: Visibility) => void; setBookShelf: (id: string, shelf: number) => void; addEntry: (bookId: string, entry: EntryDraft) => void; deleteEntry: (bookId: string, entryId: string) => void; updateEntry: (bookId: string, entryId: string, patch: Partial<Pick<Entry, 'content' | 'images' | 'visibility'>>) => void; toggleDebugAnchors: () => void
@@ -744,7 +747,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }
   const setTimeOfDay = (time: TimeOfDay) => { setTimeOfDayState(time); if (isVisiting()) return; try { localStorage.setItem('my-room-time-v1', time); schedulePublish() } catch { /* unavailable */ } }
   const setArtwork = (id: string, dataURL: string | null) => isVisiting() ? undefined : setArtworks((prev) => { const next = { ...prev }; if (dataURL) next[id] = dataURL; else delete next[id]; return next })
-  return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, profile, profileOpen, openProfile: () => setProfileOpen(true), closeProfile: () => setProfileOpen(false), setProfilePhoto, setProfileHandle, videoFrames, setVideoClip, videoLinks, setVideoLink, playingFrames, stopFrame: (id: string) => setPlayingFrames((prev) => prev.filter((value) => value !== id)), mutedFrames, setFrameMuted, highlightFrame, setHighlightFrame, openVideoPanel: (id: string) => { if (isVisiting()) return; setFrameMuted(id, false); setStyleTarget(null); setSelectedObject(id) }, rooms, activeRoomId, openRoom, createRoom, removeRoom, availableCount, guestbook, addGuestComment, removeGuestComment, remoteVisits, othersLikes, likeTotals, myLikes, pendingReactions, markReactionsSeen, openObject, reactionIdsFor, reactionTarget, setReactionTarget, commentTarget, setCommentTarget, timeOfDay, setTimeOfDay, books: visibleBooks, openBookId, bookshelfOpen, readOnly: false, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, selectObject, clearSelection, finishCharacterAction: setCharacterState, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject('bookshelf'); setBookshelfOpen(true) }, addBook, deleteBook, updateBookVisibility, setBookShelf, addEntry, deleteEntry, updateEntry, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, closeStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
+  return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, profile, profileOpen, openProfile: () => setProfileOpen(true), closeProfile: () => setProfileOpen(false), setProfilePhoto, setProfileHandle, videoFrames, setVideoClip, videoLinks, setVideoLink, playingFrames, stopFrame: (id: string) => setPlayingFrames((prev) => prev.filter((value) => value !== id)), mutedFrames, setFrameMuted, highlightFrame, setHighlightFrame, openVideoPanel: (id: string) => { if (isVisiting()) return; setFrameMuted(id, false); setStyleTarget(null); setSelectedObject(id) }, rooms, activeRoomId, openRoom, createRoom, removeRoom, availableCount, guestbook, addGuestComment, removeGuestComment, remoteVisits, othersLikes, likeTotals, myLikes, pendingReactions, markReactionsSeen, openObject, reactionIdsFor, reactionTarget, setReactionTarget, commentTarget, setCommentTarget, timeOfDay, setTimeOfDay, books: visibleBooks, openBookId, bookshelfOpen, readOnly: false, characterHome: characterPosition, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, selectObject, clearSelection, finishCharacterAction: setCharacterState, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject('bookshelf'); setBookshelfOpen(true) }, addBook, deleteBook, updateBookVisibility, setBookShelf, addEntry, deleteEntry, updateEntry, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, closeStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
 }
 // A neighbour room in the zoom-out explorer, drawn from that room's own published bundle with the SAME furniture
 // components as the live room — so it is the real room, not a stand-in. Read-only by construction: there is no
@@ -765,6 +768,16 @@ const neighbourVideoLinks = () => {
     const first = orders[link.slice(3)]?.[0]
     return [frameId, first ? `${link}@${first}` : link]
   }))
+}
+
+// Read inside the bundle scope, so it is the spot that room's owner left their character on rather than the one
+// this browser happens to hold. Same default as a fresh room: the open front corner.
+const storedCharacterHome = (): [number, number, number] => {
+  try {
+    const value = JSON.parse(readStored('my-room-character-v1') ?? '')
+    if (Array.isArray(value) && value.length === 3) return value as [number, number, number]
+  } catch { /* nothing stored */ }
+  return [2.8, 0, 2.8]
 }
 
 const NEIGHBOUR_TIME: TimeOfDay[] = ['day', 'evening', 'night']
@@ -798,7 +811,7 @@ export function NeighbourRoomProvider({ bundle, children }: { bundle: Record<str
       openObject: () => false, reactionIdsFor: () => [], reactionTarget: null, setReactionTarget: noop, commentTarget: null, setCommentTarget: noop,
       timeOfDay: NEIGHBOUR_TIME.find((time) => time === saved) ?? 'day', setTimeOfDay: noop,
       books: hydrateBooks(), openBookId: null, bookshelfOpen: false,
-      readOnly: true,
+      readOnly: true, characterHome: storedCharacterHome(),
       mode: 'normal', furniture, selectedFurnitureId: null, selectedPlacementValid: true, movingFurnitureId: null, preview: null, previewValid: false, previewDragging: false,
       wallStyle: style, floorStyle: style.floor, styleTarget: null, debugAnchors: false, moveNotice: false, floorTarget: null,
       musicTrack: null, setMusicTrack: noop, musicVolume: 0, setMusicVolume: noop,

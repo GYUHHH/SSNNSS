@@ -8,8 +8,6 @@ import { broadcastCharacter, isVisiting } from '../services/social'
 import { resolveInteraction, stateForInteraction } from '../services/interactionAnchors'
 import { cellsFor, findPath, floorSurface, gridToWorld, type GridPosition, worldToGrid } from '../services/roomGrid'
 
-// resumes from the last remembered spot (characterTracker loads it from storage at module init)
-const start = new Vector3(characterPosition[0], 0, characterPosition[2])
 const CELL = { width: 1, depth: 1 }
 
 const turnToward = (current: number, target: number, amount: number) => current + Math.atan2(Math.sin(target - current), Math.cos(target - current)) * amount
@@ -26,7 +24,10 @@ export default function Character() {
   const armLeft = useRef<Group>(null); const armRight = useRef<Group>(null)
   const torso = useRef<Group>(null); const head = useRef<Group>(null)
   const [hovered, setHovered] = useState(false)
-  const { readOnly, selectedObject, characterState, finishCharacterAction, cupHeld, selectObject, furniture, debugAnchors, moveNotice, floorTarget, settleFloorMove } = useRoomStore()
+  const { readOnly, characterHome, selectedObject, characterState, finishCharacterAction, cupHeld, selectObject, furniture, debugAnchors, moveNotice, floorTarget, settleFloorMove } = useRoomStore()
+  // Per room, not per module. Every room in the explorer renders one of these, so a single shared start would put
+  // them all where THIS browser last left its own character. characterHome is that room's own saved spot.
+  const start = useRef(new Vector3(characterHome[0], 0, characterHome[2])).current
   const route = useRef<Vector3[]>([]); const routeIndex = useRef(0); const routeKey = useRef<string | null>(null)
   const interactionStart = useRef<{ key: string | null; position: [number, number, number] }>({ key: null, position: [start.x, 0, start.z] })
   // throttle for the live position broadcast, and the last spot actually sent
@@ -49,11 +50,13 @@ export default function Character() {
   useFrame((_, delta) => {
     if (!actor.current) return
     // an owner's move arriving over the wire lands as an instant snap, not a walk
-    if (characterTeleport.position) {
+    if (!readOnly && characterTeleport.position) {
       actor.current.position.set(characterTeleport.position[0], 0, characterTeleport.position[2])
       characterTeleport.position = null
     }
-    characterPosition[0] = actor.current.position.x; characterPosition[2] = actor.current.position.z; persistCharacterPosition()
+    // A neighbour is somebody else's room being looked at: it must not write into the shared tracker, which is
+    // this browser's own character, nor schedule a save of it.
+    if (!readOnly) { characterPosition[0] = actor.current.position.x; characterPosition[2] = actor.current.position.z; persistCharacterPosition() }
     live.current -= delta
     if (!isVisiting() && live.current <= 0 && Math.hypot(actor.current.position.x - sent.current[0], actor.current.position.z - sent.current[1]) > .02) {
       live.current = .08
