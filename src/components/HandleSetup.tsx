@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useRoomStore } from '../store'
-import { adoptRoomData, claimHandleLocally, currentUserEmail, googleEnabled, handleTaken, isPlainRoot, isVisiting, myHandle, onAuthChange, ownedRoom, publishRoom, roomPath, sendOtpCode, setPassword as setPassword_, signInWithGoogle, signInWithPassword, verifyOtpCode } from '../services/social'
+import { adoptRoomData, cancelSignup, claimHandleLocally, currentUserEmail, googleEnabled, handleTaken, isPlainRoot, isVisiting, myHandle, onAuthChange, ownedRoom, publishRoom, roomPath, sendOtpCode, setPassword as setPassword_, signInWithGoogle, signInWithPassword, verifyOtpCode } from '../services/social'
 
 // First-time onboarding: email → emailed 6-digit code → pick a unique id. Claiming publishes the personal
 // room, binds it to the account, and moves to its address (domain)/(id).
@@ -33,7 +33,10 @@ export default function HandleSetup() {
   const close = () => {
     setDismissed(true); setRequested(false); setIntent(null); setAlready(false)
     setEmail(''); setCode(''); setCodeSent(false); setCodeBad(false); setSendFailed(false); setValue(''); setTaken(false)
-    setVerified(false); setPassword(''); setLoginFailed(false)
+    setVerified(false); setPassword(''); setLoginFailed(false); setPublishFailed(false); setBusy(false)
+    // a session with no id is a signup that was walked away from — leaving it standing means reopening the card
+    // lands back on the id step, since that step only ever asks for `session && !verified`
+    if (session && !mine) void cancelSignup()
   }
   useEffect(() => {
     const onNeed = (event: Event) => { const wanted = (event as CustomEvent<'login' | 'signup' | undefined>).detail; setRequested(true); setDismissed(false); if (wanted) setIntent(wanted) }

@@ -295,6 +295,13 @@ export const onAuthChange = (listener: (email: string | null) => void) => {
   const { data } = supabaseClient().auth.onAuthStateChange((_event, session) => listener(session?.user.email ?? null))
   return () => data.subscription.unsubscribe()
 }
+// Closing the card before an id was claimed abandons the signup. Drop the half-finished session so the next
+// 로그인/가입하기 press starts at the top instead of dropping straight back into the id step — but do NOT use
+// signOut here: it clears every my-room-* key, which would throw away a room decorated before signing up.
+export async function cancelSignup() {
+  try { await supabaseClient().auth.signOut() } catch { /* already gone */ }
+}
+
 export async function signOut() {
   await publishRoom()
   await supabaseClient().auth.signOut()
