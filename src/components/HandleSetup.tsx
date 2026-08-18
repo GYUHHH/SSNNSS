@@ -28,12 +28,15 @@ export default function HandleSetup() {
   const [password, setPassword] = useState('')
   const [loginFailed, setLoginFailed] = useState(false)
   const [publishFailed, setPublishFailed] = useState(false)
+  // verifyOtpCode signs the user in, so `session` lands one await before `verified` does — and `session && !verified`
+  // is exactly the id step's condition, which is why it flashed on its way to the password step
+  const [checkingCode, setCheckingCode] = useState(false)
   const [google, setGoogle] = useState(false)
   useEffect(() => { void googleEnabled().then(setGoogle) }, [])
   const close = () => {
     setDismissed(true); setRequested(false); setIntent(null); setAlready(false)
     setEmail(''); setCode(''); setCodeSent(false); setCodeBad(false); setSendFailed(false); setValue(''); setTaken(false)
-    setVerified(false); setPassword(''); setLoginFailed(false); setPublishFailed(false); setBusy(false)
+    setVerified(false); setPassword(''); setLoginFailed(false); setPublishFailed(false); setBusy(false); setCheckingCode(false)
     // a session with no id is a signup that was walked away from — leaving it standing means reopening the card
     // lands back on the id step, since that step only ever asks for `session && !verified`
     if (session && !mine) void cancelSignup()
@@ -69,7 +72,7 @@ export default function HandleSetup() {
   }, [session, mine])
   // while the owned-room lookup is in flight the id step must stay hidden, or it flashes before the redirect
   // inside someone else's room the card stays out of the way until an action actually needs an id
-  if (mine || dismissed || !checked || (session && !roomChecked && !verified)) return null
+  if (mine || dismissed || !checked || (session && !roomChecked && !verified && !checkingCode)) return null
   if (isVisiting() && !requested) return null
   const clean = value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20)
   const valid = /^[a-z0-9_]{3,20}$/.test(clean)
@@ -83,11 +86,12 @@ export default function HandleSetup() {
   }
   const confirmCode = async () => {
     if (code.trim().length < 6 || busy) return
-    setBusy(true)
+    setBusy(true); setCheckingCode(true)
     const ok = await verifyOtpCode(email, code.trim())
     setCodeBad(!ok)
     if (ok) { if (await ownedRoom()) setAlready(true); else setVerified(true) }
-    setBusy(false)
+    // cleared in the same batch as the step above, so the swap happens in one render with nothing in between
+    setCheckingCode(false); setBusy(false)
   }
   const savePassword = async () => {
     if (password.length < 6 || busy) return
@@ -134,7 +138,7 @@ export default function HandleSetup() {
           {google && <button type="button" className="ghost" onClick={() => void signInWithGoogle()}>Google로 로그인</button>}
         </div>
       </>}
-      {!session && intent === 'signup' && !already && !verified && <>
+      {(!session || checkingCode) && intent === 'signup' && !already && !verified && <>
         <strong>가입하기</strong>
         <div className="login-form">
           <input type="email" value={email} placeholder="이메일" disabled={codeSent} onChange={(event) => setEmail(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void sendCode() }} />
@@ -158,7 +162,7 @@ export default function HandleSetup() {
           <button type="button" disabled={password.length < 6 || busy} onClick={() => void savePassword()}>비밀번호 저장</button>
         </div>
       </>}
-      {session && !verified && <>
+      {session && !verified && !checkingCode && <>
         <strong>아이디 설정</strong>
         <div className="login-form">
           <input type="text" value={clean} className={taken ? 'taken' : ''} placeholder="영문 소문자, 숫자, _" onChange={(event) => { setValue(event.target.value); setTaken(false); setPublishFailed(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void claim() }} />
