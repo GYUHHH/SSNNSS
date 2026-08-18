@@ -1,4 +1,4 @@
-import { isReadingBundle, isVisiting, readStored, schedulePublish } from './social'
+import { isReadingBundle, isVisiting, readStored, schedulePublish, uploadMedia } from './social'
 
 // Video clips are far too big for localStorage (a few MB blows the whole quota and would take the room layout
 // down with it), so they live in IndexedDB as blobs keyed by the frame's furniture id.
@@ -27,6 +27,26 @@ export const putVideo = (id: string, blob: Blob) => run('readwrite', (store) => 
 export const getVideo = (id: string) => run<Blob>('readonly', (store) => store.get(id) as IDBRequest<Blob>)
 export const deleteVideo = (id: string) => run('readwrite', (store) => store.delete(id))
 export const listVideoIds = async () => (await run<IDBValidKey[]>('readonly', (store) => store.getAllKeys())) as string[] | null
+
+// Same silent-failure trap as the music registry: a clip whose upload never landed still plays for the owner from
+// IndexedDB and for nobody else. Any local clip with no url in the map is uploaded again on the way back in.
+export async function syncPendingClips(): Promise<number> {
+  if (isVisiting() || isReadingBundle()) return 0
+  const ids = await listVideoIds()
+  if (!ids) return 0
+  const urls = loadClipUrls()
+  let fixed = 0
+  for (const id of ids) {
+    if (id.startsWith('music-') || urls[id]) continue
+    const blob = await run<Blob | undefined>('readonly', (store) => store.get(id))
+    if (!blob) continue
+    const url = await uploadMedia(`clips/${id}`, blob)
+    if (!url) continue
+    saveClipUrl(id, url)
+    fixed += 1
+  }
+  return fixed
+}
 
 // youtube links are tiny, so they stay in localStorage next to the rest of the room
 const linkKey = 'my-room-video-links-v1'

@@ -3,8 +3,8 @@ import { createSlot, deleteSlot, loadArtworks, loadProfile, saveProfile, type Pr
 import { bookshelfCapY, bookshelfTiers, canPlaceItem, cellsFor, clampGrid, floorSurface, GRID_COUNT, gridToWorld, isOwnedSurfaceId, nearestWallId, normalizedCells, ownerIdOf, resolveSurface, setBookshelfTopOffset, withResolution, type Footprint, type GridPosition, type PlacementItem, type PlacementResolution, type PlacementSurface, type SurfaceId, type SurfaceKind, type WallId, worldToGrid } from './services/roomGrid'
 import { adoptCharacterPosition, characterPosition, characterTeleport } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
-import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, encodeTarget, youTubeTarget } from './services/mediaStore'
-import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic } from './services/music'
+import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, syncPendingClips, encodeTarget, youTubeTarget } from './services/mediaStore'
+import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic, syncPendingTracks } from './services/music'
 import { purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, schedulePublish, subscribeRealtime, uploadMedia, type RemoteGuestComment } from './services/social'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id })
@@ -633,6 +633,9 @@ export function RoomProvider({ children }: { children: ReactNode }) {
         }
       }
       if (changed && live) { saveBooks(current); setBooks(current.map((book) => ({ ...book }))) }
+      // Same rescue for media whose upload never landed: it still plays locally for the owner, so the failure is
+      // invisible until a visitor hears nothing. Re-uploading here means a dropped connection costs one reload.
+      if (live) await Promise.allSettled([syncPendingTracks(), syncPendingClips()])
     })()
     return () => { live = false }
   }, [])

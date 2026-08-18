@@ -36,6 +36,25 @@ export async function addTrackFile(file: File): Promise<string> {
   return id
 }
 
+// A track whose upload never landed plays for the owner — the local blob is right there — and for nobody else.
+// The failure is silent by design (uploadMedia returns null and the caller shrugs), so it is caught on the way back
+// in instead: any track still missing its url that still has its local copy is uploaded again and the registry
+// patched. Built-ins have no url because they ship with the site, so they are skipped.
+export async function syncPendingTracks(): Promise<number> {
+  if (isVisiting()) return 0
+  let fixed = 0
+  for (const track of loadTracks()) {
+    if (track.url || BUILTIN[track.id]) continue
+    const blob = await getVideo(`music-${track.id}`)
+    if (!blob) continue
+    const url = await uploadMedia(`music/${track.id}`, blob)
+    if (!url) continue
+    saveTracks(loadTracks().map((entry) => entry.id === track.id ? { ...entry, url } : entry))
+    fixed += 1
+  }
+  return fixed
+}
+
 let audio: HTMLAudioElement | null = null
 let currentId: string | null = null
 let volume = 0.7
