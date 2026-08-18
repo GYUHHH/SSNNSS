@@ -10,6 +10,24 @@ import { cellsFor, findPath, floorSurface, gridToWorld, type GridPosition, world
 
 const CELL = { width: 1, depth: 1 }
 
+export type CharacterAppearance = {
+  skinColor: string
+  hairStyle: 'bob'
+  hairColor: string
+  top: 'tshirt'
+  topColor: string
+  bottom: 'shorts'
+  bottomColor: string
+  shoes: 'round'
+  shoeColor: string
+}
+
+const DEFAULT_APPEARANCE: CharacterAppearance = {
+  skinColor: '#dfa27f', hairStyle: 'bob', hairColor: '#5a4035',
+  top: 'tshirt', topColor: '#627b73', bottom: 'shorts', bottomColor: '#80675b',
+  shoes: 'round', shoeColor: '#4c3b34',
+}
+
 const turnToward = (current: number, target: number, amount: number) => current + Math.atan2(Math.sin(target - current), Math.cos(target - current)) * amount
 const cellKey = ({ gridX, gridY }: GridPosition) => `${gridX}:${gridY}`
 const simplifyPath = (path: GridPosition[]) => path.filter((cell, index) => {
@@ -18,7 +36,8 @@ const simplifyPath = (path: GridPosition[]) => path.filter((cell, index) => {
   return Math.sign(cell.gridX - before.gridX) !== Math.sign(after.gridX - cell.gridX) || Math.sign(cell.gridY - before.gridY) !== Math.sign(after.gridY - cell.gridY)
 })
 
-export default function Character() {
+export default function Character({ appearance: customAppearance }: { appearance?: Partial<CharacterAppearance> } = {}) {
+  const appearance = { ...DEFAULT_APPEARANCE, ...customAppearance }
   const actor = useRef<Group>(null)
   const legLeft = useRef<Group>(null); const legRight = useRef<Group>(null)
   const armLeft = useRef<Group>(null); const armRight = useRef<Group>(null)
@@ -170,42 +189,59 @@ export default function Character() {
     if (torso.current) torso.current.scale.y = characterState === 'sleeping' ? 1 + Math.sin(clock.current * 2.2) * 0.02 : 1
   })
 
-  return <group ref={actor} scale={0.85} rotation={[0, Math.PI / 4, 0]} onPointerOver={(event) => { if (readOnly) return; event.stopPropagation(); setHovered(true) }} onPointerOut={() => setHovered(false)} onClick={(event) => { if (readOnly) return; event.stopPropagation(); selectObject('character') }}>
+  return <group ref={actor} name="CharacterRoot" scale={0.85} rotation={[0, Math.PI / 4, 0]} onPointerOver={(event) => { if (readOnly) return; event.stopPropagation(); setHovered(true) }} onPointerOut={() => setHovered(false)} onClick={(event) => { if (readOnly) return; event.stopPropagation(); selectObject('character') }}>
     <group position={[0, pose.y, 0]} rotation={pose.rotation} scale={hovered ? 1.03 : 1}>
-      <group ref={torso}>
-        <mesh position={[0, 1.15, 0]}><cylinderGeometry args={[.08, .09, .16, 8]} /><meshStandardMaterial color="#dfa27f" roughness={.85} /></mesh>
-        <RoundedBox args={[.42, .52, .24]} radius={.06} smoothness={2} position={[0, .96, 0]}><meshStandardMaterial color="#627b73" roughness={.9} /></RoundedBox>
-        <RoundedBox args={[.46, .14, .26]} radius={.055} smoothness={2} position={[0, 1.17, 0]}><meshStandardMaterial color="#627b73" roughness={.9} /></RoundedBox>
-        <RoundedBox args={[.4, .2, .28]} radius={.045} smoothness={2} position={[0, .66, 0]}><meshStandardMaterial color="#80675b" roughness={.9} /></RoundedBox>
+      <group ref={torso} name="Body">
+        <group name="BaseBody">
+          <mesh name="Neck" position={[0, 1.14, 0]}><cylinderGeometry args={[.085, .09, .14, 8]} /><meshStandardMaterial color={appearance.skinColor} roughness={.85} /></mesh>
+          <RoundedBox name="Torso" args={[.36, .46, .21]} radius={.07} smoothness={2} position={[0, .88, 0]}><meshStandardMaterial color={appearance.skinColor} roughness={.9} /></RoundedBox>
+        </group>
+        <group name="Top">
+          <RoundedBox args={[.43, .47, .245]} radius={.065} smoothness={2} position={[0, .9, 0]}><meshStandardMaterial color={appearance.topColor} roughness={.9} /></RoundedBox>
+          <RoundedBox name="Collar" args={[.45, .12, .255]} radius={.055} smoothness={2} position={[0, 1.09, 0]}><meshStandardMaterial color={appearance.topColor} roughness={.9} /></RoundedBox>
+        </group>
+        <group name="Bottom">
+          <RoundedBox name="Shorts" args={[.4, .16, .27]} radius={.045} smoothness={2} position={[0, .64, 0]}><meshStandardMaterial color={appearance.bottomColor} roughness={.9} /></RoundedBox>
+        </group>
       </group>
-      <group ref={head} position={[0, 1.35, 0]}><group position={[0, -1.35, 0]}>
-        <mesh position={[0, 1.43, -.055]} scale={[1.04, 1.08, .92]}><sphereGeometry args={[.34, 12, 10]} /><meshStandardMaterial color="#5a4035" roughness={.92} /></mesh>
-        <mesh position={[0, 1.42, .035]} scale={[.94, 1, .92]}><sphereGeometry args={[.31, 12, 10]} /><meshStandardMaterial color="#e3aa86" roughness={.9} /></mesh>
-        <mesh position={[0, 1.47, .015]}><sphereGeometry args={[.335, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshStandardMaterial color="#5a4035" roughness={.92} /></mesh>
-        {[[-.13, 1.54], [.02, 1.57], [.14, 1.53]].map(([x, y], index) => <mesh key={index} position={[x, y, .265]} scale={[1, 1.3, .6]} rotation={[0, 0, index === 1 ? 0 : x * 1.4]}><sphereGeometry args={[.095, 9, 7]} /><meshStandardMaterial color="#5a4035" roughness={.92} /></mesh>)}
-        {[-.105, .105].map((x) => <mesh key={x} position={[x, 1.39, .32]}><sphereGeometry args={[.027, 8, 6]} /><meshStandardMaterial color="#41332d" roughness={.8} /></mesh>)}
-        {[-.31, .31].map((x) => <mesh key={x} position={[x, 1.42, 0]} scale={[.55, 1, .65]}><sphereGeometry args={[.08, 8, 6]} /><meshStandardMaterial color="#dfa27f" roughness={.9} /></mesh>)}
-      </group></group>
-      <group ref={armLeft} position={[-.29, 1.13, 0]}>
-        <RoundedBox args={[.16, .29, .17]} radius={.06} smoothness={2} position={[0, -.14, 0]}><meshStandardMaterial color="#627b73" roughness={.9} /></RoundedBox>
-        <RoundedBox args={[.135, .25, .145]} radius={.055} smoothness={2} position={[0, -.39, .015]}><meshStandardMaterial color="#dfa27f" roughness={.88} /></RoundedBox>
-        <mesh position={[0, -.55, .025]}><sphereGeometry args={[.085, 9, 7]} /><meshStandardMaterial color="#dfa27f" roughness={.88} /></mesh>
+      <group ref={head} name="Head" position={[0, 1.34, 0]}>
+        <group name="Face">
+          <mesh position={[0, .015, .025]} scale={[.95, 1, .92]}><sphereGeometry args={[.35, 12, 10]} /><meshStandardMaterial color={appearance.skinColor} roughness={.9} /></mesh>
+          {[-.115, .115].map((x) => <mesh key={x} position={[x, -.015, .34]}><sphereGeometry args={[.027, 8, 6]} /><meshStandardMaterial color="#41332d" roughness={.8} /></mesh>)}
+          {[-.335, .335].map((x) => <mesh key={x} position={[x, .005, 0]} scale={[.55, 1, .65]}><sphereGeometry args={[.08, 8, 6]} /><meshStandardMaterial color={appearance.skinColor} roughness={.9} /></mesh>)}
+        </group>
+        <group name={`Hair-${appearance.hairStyle}`}>
+          <mesh position={[0, .035, -.055]} scale={[1.04, 1.07, .93]}><sphereGeometry args={[.37, 12, 10]} /><meshStandardMaterial color={appearance.hairColor} roughness={.92} /></mesh>
+          <mesh position={[0, .075, .015]}><sphereGeometry args={[.365, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshStandardMaterial color={appearance.hairColor} roughness={.92} /></mesh>
+          {[[-.14, .14], [.02, .17], [.15, .13]].map(([x, y], index) => <mesh key={index} position={[x, y, .285]} scale={[1, 1.3, .6]} rotation={[0, 0, index === 1 ? 0 : x * 1.4]}><sphereGeometry args={[.1, 9, 7]} /><meshStandardMaterial color={appearance.hairColor} roughness={.92} /></mesh>)}
+        </group>
+        <group name="GlassesSlot" position={[0, -.015, .355]} />
+        <group name="HatSlot" position={[0, .37, 0]} />
+        <group name="EarringSlot" position={[.34, 0, 0]} />
       </group>
-      <group ref={armRight} position={[.29, 1.13, 0]}>
-        <RoundedBox args={[.16, .29, .17]} radius={.06} smoothness={2} position={[0, -.14, 0]}><meshStandardMaterial color="#627b73" roughness={.9} /></RoundedBox>
-        <RoundedBox args={[.135, .25, .145]} radius={.055} smoothness={2} position={[0, -.39, .015]}><meshStandardMaterial color="#dfa27f" roughness={.88} /></RoundedBox>
-        <mesh position={[0, -.55, .025]}><sphereGeometry args={[.085, 9, 7]} /><meshStandardMaterial color="#dfa27f" roughness={.88} /></mesh>
+      {([-1, 1] as const).map((side) => <group key={side} ref={side < 0 ? armLeft : armRight} name={side < 0 ? 'LeftArm' : 'RightArm'} position={[side * .285, 1.08, 0]}>
+        <group name="UpperArm">
+          <RoundedBox args={[.17, .26, .18]} radius={.065} smoothness={2} position={[0, -.11, 0]}><meshStandardMaterial color={appearance.skinColor} roughness={.88} /></RoundedBox>
+          <RoundedBox name="Sleeve" args={[.185, .22, .19]} radius={.065} smoothness={2} position={[0, -.08, 0]}><meshStandardMaterial color={appearance.topColor} roughness={.9} /></RoundedBox>
+        </group>
+        <group name="ForeArm" position={[0, -.235, .01]}>
+          <RoundedBox args={[.15, .24, .16]} radius={.06} smoothness={2} position={[0, -.11, 0]}><meshStandardMaterial color={appearance.skinColor} roughness={.88} /></RoundedBox>
+          <mesh name="Hand" position={[0, -.235, .015]} scale={[.95, 1, .9]}><sphereGeometry args={[.087, 9, 7]} /><meshStandardMaterial color={appearance.skinColor} roughness={.88} /></mesh>
+        </group>
+      </group>)}
+      {([-1, 1] as const).map((side) => <group key={side} ref={side < 0 ? legLeft : legRight} name={side < 0 ? 'LeftLeg' : 'RightLeg'} position={[side * .125, .57, 0]}>
+        <group name="UpperLeg">
+          <RoundedBox name="Pants" args={[.19, .26, .2]} radius={.06} smoothness={2} position={[0, -.115, 0]}><meshStandardMaterial color={appearance.bottomColor} roughness={.92} /></RoundedBox>
+        </group>
+        <group name="LowerLeg" position={[0, -.235, 0]}>
+          <RoundedBox args={[.17, .24, .18]} radius={.055} smoothness={2} position={[0, -.105, 0]}><meshStandardMaterial color={appearance.skinColor} roughness={.9} /></RoundedBox>
+          <group name="Foot" position={[0, -.235, .045]}>
+            <RoundedBox name="Shoes" args={[.2, .13, .25]} radius={.06} smoothness={2} position={[0, -.005, .025]}><meshStandardMaterial color={appearance.shoeColor} roughness={.88} /></RoundedBox>
+          </group>
+        </group>
       </group>
-      <group ref={legLeft} position={[-.13, .6, 0]}>
-        <RoundedBox args={[.19, .29, .2]} radius={.055} smoothness={2} position={[0, -.15, 0]}><meshStandardMaterial color="#80675b" roughness={.92} /></RoundedBox>
-        <RoundedBox args={[.17, .27, .18]} radius={.05} smoothness={2} position={[0, -.42, 0]}><meshStandardMaterial color="#d6a07e" roughness={.9} /></RoundedBox>
-        <RoundedBox args={[.2, .13, .29]} radius={.055} smoothness={2} position={[0, -.6, .055]}><meshStandardMaterial color="#4c3b34" roughness={.88} /></RoundedBox>
-      </group>
-      <group ref={legRight} position={[.13, .6, 0]}>
-        <RoundedBox args={[.19, .29, .2]} radius={.055} smoothness={2} position={[0, -.15, 0]}><meshStandardMaterial color="#80675b" roughness={.92} /></RoundedBox>
-        <RoundedBox args={[.17, .27, .18]} radius={.05} smoothness={2} position={[0, -.42, 0]}><meshStandardMaterial color="#d6a07e" roughness={.9} /></RoundedBox>
-        <RoundedBox args={[.2, .13, .29]} radius={.055} smoothness={2} position={[0, -.6, .055]}><meshStandardMaterial color="#4c3b34" roughness={.88} /></RoundedBox>
-      </group>
+      )}
+      <group name="NecklaceSlot" position={[0, 1.08, .14]} />
       {cupHeld && <mesh position={[.4, .61, .1]}><cylinderGeometry args={[.09, .09, .18, 16]} /><meshStandardMaterial color="#f5e7cc" roughness={.85} /></mesh>}
       {moveNotice && <Html position={[0, 2, 0]} center><div className="speech-bubble">여기로 이동할 수 없어요</div></Html>}
       {selectedObject === 'plant' && characterState === 'interacting' && <Html position={[0, 2, 0]} center><div className="speech-bubble">새 잎이 났네.</div></Html>}
@@ -213,4 +249,3 @@ export default function Character() {
     </group>
   </group>
 }
-
