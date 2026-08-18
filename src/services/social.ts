@@ -391,11 +391,14 @@ export async function ownedRoom(): Promise<{ handle: string; data: Record<string
 // One neighbour's bundle, read-only — the explorer draws each surrounding room from its own saved layout. Unlike
 // enterRoom this changes nothing: no visit state, no history, no listeners, so it is safe to run for many rooms.
 // The in-flight promise is what gets cached, so the prefetch fired at directory load and the request made when a
-// room actually fades in are one and the same network call — the reveal just awaits the answer already on its way.
-const bundleCache = new Map<string, Promise<Record<string, string> | null>>()
+// room actually fades in are one and the same network call. The cache EXPIRES though: held forever, a neighbour
+// was frozen at whatever its first fetch saw — its owner could move across the room and the explorer still showed
+// the old spot until a full reload. Fifteen seconds keeps bursts of reveals to one request while staying current.
+const BUNDLE_TTL = 15_000
+const bundleCache = new Map<string, { at: number; request: Promise<Record<string, string> | null> }>()
 export function fetchRoomBundle(handle: string): Promise<Record<string, string> | null> {
   const cached = bundleCache.get(handle)
-  if (cached) return cached
+  if (cached && performance.now() - cached.at < BUNDLE_TTL) return cached.request
   const request = (async () => {
     try {
       const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${escape(handle)}&select=data&limit=1`, { headers })
@@ -406,7 +409,7 @@ export function fetchRoomBundle(handle: string): Promise<Record<string, string> 
     bundleCache.delete(handle)  // a failure must not be remembered as that room's layout forever
     return null
   })()
-  bundleCache.set(handle, request)
+  bundleCache.set(handle, { at: performance.now(), request })
   return request
 }
 

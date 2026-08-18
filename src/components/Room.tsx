@@ -215,7 +215,8 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
   // that room's saved hour, read straight off the bundle (stored as the bare word: 'day' | 'evening' | 'night')
   const bundleTime = useRef('day')
   useEffect(() => { bundleTime.current = bundle?.['my-room-time-v1'] ?? 'day' }, [bundle])
-  const requested = useRef(false)
+  const nextFetch = useRef(0)
+  const lastRaw = useRef('')
   const mounted = useRef(true)
   // set on the way in as well as cleared on the way out: StrictMode mounts, unmounts and remounts, and a
   // clear-only flag stays false through the remount, which silently blocked every bundle from ever landing
@@ -302,10 +303,19 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
       material.color.copy(material.baseColor).multiply(material.map ? photoTint : tint)
       material.lastTinted = (material.lastTinted ?? new Color()).copy(material.color)
     })
-    // its real layout is fetched the first time the zoom-out actually reveals it, not on page load
-    if (!requested.current && opacity.current > .02 && isEnterable(slot.handle)) {
-      requested.current = true
-      void fetchRoomBundle(slot.handle).then((found) => { if (found && mounted.current) setBundle(found) })
+    // Fetched when the zoom-out first reveals it, and refreshed every so often for as long as it stays on
+    // screen — a one-shot fetch froze the neighbour at its first snapshot, so an owner moving their character
+    // never showed up out here until a full reload. Unchanged payloads are dropped before setState, so the
+    // steady case re-renders nothing.
+    if (opacity.current > .02 && isEnterable(slot.handle) && performance.now() > nextFetch.current) {
+      nextFetch.current = performance.now() + 15_000
+      void fetchRoomBundle(slot.handle).then((found) => {
+        if (!found || !mounted.current) return
+        const raw = JSON.stringify(found)
+        if (raw === lastRaw.current) return
+        lastRaw.current = raw
+        setBundle(found)
+      })
     }
   })
   return <group ref={group} position={slot.position} visible={false}>
