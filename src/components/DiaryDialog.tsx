@@ -1,3 +1,4 @@
+import { autosize } from '../services/autosize'
 import { type ChangeEvent, type FormEvent, useRef, useState } from 'react'
 import { type Book, type Entry, type EntryDraft, type Visibility, useRoomStore } from '../store'
 import { HeartIcon, CommentIcon } from './ReactionIcons'
@@ -91,7 +92,7 @@ function EntryEditor({ bookId, entry, onClose }: { bookId: string; entry: Entry;
       <strong>기록 수정</strong>
       {images[0] && <img src={assetUrl(images[0])} alt="기록 사진" />}
       <label className="entry-editor-file">사진 바꾸기<input type="file" accept="image/*" onChange={pick} /></label>
-      <textarea value={content} onChange={(event) => setContent(event.target.value)} placeholder="내용" />
+      <textarea ref={autosize} rows={1} value={content} onChange={(event) => { setContent(event.target.value); autosize(event.currentTarget) }} placeholder="내용" />
       <fieldset><legend>공개 설정</legend><label><input type="radio" checked={visibility === 'public'} onChange={() => setVisibility('public')} /> 공개</label><label><input type="radio" checked={visibility === 'private'} onChange={() => setVisibility('private')} /> 비공개</label></fieldset>
       <div className="entry-editor-foot">
         <button type="button" className="entry-editor-delete" onClick={() => setConfirming(true)}>삭제</button>
@@ -107,12 +108,10 @@ function EntryComments({ entry, inputRef }: { entry: Entry; inputRef: React.RefO
   const [text, setText] = useState('')
   const comments = guestbook[entry.id] ?? []
   const mine = myVisitorId()
-  // grow with the text; CSS caps the height at three lines and takes over with a scrollbar
-  const fit = (element: HTMLTextAreaElement | null) => { if (!element) return; element.style.height = 'auto'; element.style.height = `${element.scrollHeight}px` }
   const submit = (event: FormEvent) => { event.preventDefault(); if (!text.trim() || !requireHandle()) return; addGuestComment(entry.id, text.trim()); setText(''); if (inputRef.current) inputRef.current.style.height = 'auto' }
   return <section className="entry-comments" aria-label="댓글">
     <form className="entry-comment-form" onSubmit={submit}>
-      <textarea ref={inputRef} rows={1} maxLength={200} value={text} onChange={(event) => { setText(event.target.value); fit(event.currentTarget) }} placeholder="댓글" />
+      <textarea ref={inputRef} rows={1} maxLength={200} value={text} onChange={(event) => { setText(event.target.value); autosize(event.currentTarget) }} placeholder="댓글" />
       <button type="submit">전송</button>
     </form>
     <div className="entry-comment-list">{comments.map((comment) => <article key={comment.id} className="entry-comment"><header><strong>{comment.name}{comment.verified && ' ✓'}</strong><time>{comment.createdAt.slice(0, 10)}</time>{(!isVisiting() || comment.visitor === mine) && <button type="button" aria-label="댓글 삭제" onClick={() => removeGuestComment(entry.id, comment.id)}>×</button>}</header><p>{comment.text}</p></article>)}</div>
@@ -136,7 +135,7 @@ function EntryForm({ book, onSave }: { book: Book; onSave: (entry: EntryDraft) =
   return <form className="entry-form" onSubmit={submit}>
     <label>사진<input type="file" accept="image/*" multiple onChange={addImages} /></label>
     {images.length > 0 && <div className="draft-images">{images.map((image, index) => <button key={image} type="button" onClick={() => setEditing(image)}><img src={image} alt={`추가한 사진 ${index + 1}`} /></button>)}</div>}
-    <label>내용<textarea value={content} onChange={(event) => setContent(event.target.value)} /></label>
+    <label>내용<textarea ref={autosize} rows={1} value={content} onChange={(event) => { setContent(event.target.value); autosize(event.currentTarget) }} /></label>
     <fieldset><legend>공개 설정</legend><label><input type="radio" checked={visibility === 'public'} onChange={() => setVisibility('public')} /> 공개</label><label><input type="radio" checked={visibility === 'private'} onChange={() => setVisibility('private')} /> 비공개</label></fieldset>
     <button className="save-entry" type="submit">저장</button>
     {editing && <PhotoEditor source={editing} onClose={() => setEditing(null)} onApply={(edited) => { setImages((current) => current.map((image) => image === editing ? edited : image)); setEditing(null) }} />}

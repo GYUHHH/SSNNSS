@@ -1,3 +1,4 @@
+import { autosize } from '../services/autosize'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useRoomStore } from '../store'
 import { ClipPreview, DrawingEditor, PhotoPickButton, PlaylistOrderEditor, VideoLinkInput, VideoPickButton } from './ArtEditor'
@@ -48,7 +49,7 @@ function Guestbook({ id, onClose }: { id: string; onClose: () => void }) {
   return <>
     <header><strong>방명록</strong><button className="close-ui" type="button" aria-label="닫기" onClick={onClose}>×</button></header>
     <div className="guest-form">
-      <textarea maxLength={200} value={text} onChange={(event) => setText(event.target.value)} placeholder="한마디 남겨주세요" onKeyDown={(event) => { if (event.nativeEvent.isComposing) return; if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() } }} />
+      <textarea ref={autosize} rows={1} maxLength={200} value={text} onChange={(event) => { setText(event.target.value); autosize(event.currentTarget) }} placeholder="한마디 남겨주세요" onKeyDown={(event) => { if (event.nativeEvent.isComposing) return; if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() } }} />
       <button type="button" onClick={submit}>남기기</button>
     </div>
     <div className="guest-list">
