@@ -34,12 +34,12 @@ function RoomColorEditor() {
   </div>
 }
 
-export default function InventoryPanel() {
+export default function InventoryPanel({ open }: { open: boolean }) {
   const [category, setCategory] = useState<InventoryCategory>('전체')
   const { startPreview, preview, previewValid, placePreview, cancelPreview, availableCount } = useRoomStore()
   // only what you still own and have not put down somewhere — placing one takes it off this list
   const stock = CATALOG.filter((entry) => availableCount(entry.type) > 0 && (category === '전체' || categoryFor(entry.type) === category))
-  return <section className={preview ? 'inventory-panel previewing' : 'inventory-panel'} aria-label="가구함">
+  return <section className={`inventory-panel${preview ? ' previewing' : ''}${open ? ' open' : ''}`} aria-label="가구함" aria-hidden={!open}>
     <span className="sheet-handle" aria-hidden="true" />
     <header><strong>가구함</strong>{preview && <button type="button" onClick={cancelPreview}>미리보기 취소</button>}</header>
     <nav>{categories.map((entry) => <button key={entry} className={category === entry ? 'active' : ''} type="button" onClick={() => setCategory(entry)}>{entry}</button>)}</nav>

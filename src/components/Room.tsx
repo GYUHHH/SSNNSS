@@ -64,6 +64,12 @@ const LOBBY = '__lobby__'
 const VACANT = '__vacant-'
 // one room plus a full ring of six neighbours
 const CLUSTER_SIZE = 7
+// How much of the neighbourhood is actually built. Every slot used to mount a whole room — dozens of meshes each —
+// whether or not it could reach the screen, so the cost tracked the size of the entire directory rather than the
+// view: fifty rooms would have meant thousands of objects held in memory and walked every frame to build the
+// render list, for three rooms' worth of picture. Two rings is eighteen neighbours, and the zoom floor fits about
+// three rooms across, so what gets dropped was never close to the frame.
+const VISIBLE_RINGS = 2
 
 // A room lives at plan-grid cell (a, b) — world (a·CELL, storey·CELL, b·CELL) — and its storey is exactly −(a + b).
 // Measured under the 45° isometric camera (x === z): one room projects to a 200×200px box, a step of 7 along the
@@ -305,7 +311,7 @@ function RoomWorld() {
     setFocusRoom({ position: [0, 0, 0], token: performance.now() })
   }
   return <>
-    {slots.filter((slot) => slot.handle !== active.handle).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} open={() => void open(slot)} />)}
+    {slots.filter((slot) => slot.handle !== active.handle && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} open={() => void open(slot)} />)}
     <group position={active.position}><Inert off={exploring}><RoomRoot /></Inert></group>
     <CameraController focusRoom={focusRoom} />
   </>
