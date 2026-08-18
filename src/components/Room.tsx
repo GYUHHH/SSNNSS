@@ -1,7 +1,7 @@
 import { ContactShadows, OrthographicCamera } from '@react-three/drei'
 import { Canvas, events, useFrame } from '@react-three/fiber'
 import { type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { type Group, type Material, MathUtils, type Mesh, Vector3 } from 'three'
+import { Color, type Group, type Material, MathUtils, type Mesh, Vector3 } from 'three'
 import { NeighbourRoomProvider, useRoomStore } from '../store'
 import { currentRoomHandle, enterRoom, fetchRoomBundle, fetchRoomDirectory, myHandle } from '../services/social'
 import Bookshelf from './Bookshelf'
@@ -137,7 +137,15 @@ if (import.meta.env.DEV) {
 // click that selects it has nothing to land on, so read-only rooms hold their handlers back instead (see Floor,
 // Interactive, Furniture and Character: each one bails before stopPropagation when the store is readOnly).
 const NO_RAYCAST = () => {}
-type Faded = Material & { wasTransparent?: boolean }
+type Faded = Material & { wasTransparent?: boolean; baseColor?: Color; color?: Color }
+// A neighbour wears its own hour. The scene has one light rig — the viewer's — so another room's saved time of
+// day cannot arrive as light; it arrives as a colour cast multiplied into every material, scaled off the same
+// lighting presets the live room uses. Day is identity, so a day room costs nothing and looks untouched.
+const NEIGHBOUR_TINT: Record<string, Color> = {
+  day: new Color(1, 1, 1),
+  evening: new Color(.93, .76, .62),
+  night: new Color(.5, .56, .72),
+}
 function Inert({ off, children }: { off: (zoom: number, width: number, height: number) => boolean; children: ReactNode }) {
   const group = useRef<Group>(null)
   const applied = useRef<boolean | null>(null)
@@ -182,6 +190,9 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
   const recollectIn = useRef(0)
   const glow = useRef(0)
   const [bundle, setBundle] = useState<Record<string, string> | null>(null)
+  // that room's saved hour, read straight off the bundle (stored as the bare word: 'day' | 'evening' | 'night')
+  const bundleTime = useRef('day')
+  useEffect(() => { bundleTime.current = bundle?.['my-room-time-v1'] ?? 'day' }, [bundle])
   const requested = useRef(false)
   const mounted = useRef(true)
   // set on the way in as well as cleared on the way out: StrictMode mounts, unmounts and remounts, and a
@@ -198,6 +209,8 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
         const faded = material as Faded
         // remember what it was, because the fade is only allowed to borrow the flag, not keep it
         if (faded.wasTransparent === undefined) faded.wasTransparent = faded.transparent
+        // and the original colour, since the time-of-day cast below multiplies into it every frame
+        if (faded.color && !faded.baseColor) faded.baseColor = faded.color.clone()
         materials.current.push(faded)
       })
     })
@@ -228,9 +241,11 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
     // on — a few thousandths apart — and when the decal won that toss the panel behind it failed the depth test
     // and the wall showed through it. The profile board's stats read as wall-coloured because of it.
     const full = opacity.current > .995
+    const tint = NEIGHBOUR_TINT[bundleTime.current] ?? NEIGHBOUR_TINT.day
     materials.current.forEach((material) => {
       material.transparent = full ? material.wasTransparent ?? false : true
       material.opacity = full ? 1 : opacity.current
+      if (material.color && material.baseColor) material.color.copy(material.baseColor).multiply(tint)
     })
     // its real layout is fetched the first time the zoom-out actually reveals it, not on page load
     if (!requested.current && opacity.current > .02 && isEnterable(slot.handle)) {
