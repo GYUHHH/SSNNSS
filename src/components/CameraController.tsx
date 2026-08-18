@@ -193,6 +193,9 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
     // fully zoomed out the view is the explorer, so a drag roams the cluster instead of swinging it
     enablePan={atMinZoom}
     screenSpacePanning
+    // the explorer is a map being dragged across several rooms, so the pointer covers more ground per pixel there
+    // than the fine positioning a pan inside a single room is for
+    panSpeed={atMinZoom ? 2 : 1}
     enableZoom={false}
     mouseButtons={{ LEFT: atMinZoom ? MOUSE.PAN : MOUSE.ROTATE, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.PAN }}
     touches={{ ONE: atMinZoom ? TOUCH.PAN : TOUCH.ROTATE, TWO: TOUCH.DOLLY_PAN }}
