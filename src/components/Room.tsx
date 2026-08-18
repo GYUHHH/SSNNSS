@@ -137,7 +137,7 @@ if (import.meta.env.DEV) {
 // click that selects it has nothing to land on, so read-only rooms hold their handlers back instead (see Floor,
 // Interactive, Furniture and Character: each one bails before stopPropagation when the store is readOnly).
 const NO_RAYCAST = () => {}
-type Faded = Material & { wasTransparent?: boolean; baseColor?: Color; color?: Color }
+type Faded = Material & { wasTransparent?: boolean; baseColor?: Color; color?: Color; map?: unknown }
 // A neighbour wears its own hour, not the viewer's. The scene has one light rig — whichever preset the room being
 // viewed runs — so another room's saved time of day cannot arrive as actual light. Instead each material's colour
 // is multiplied by the ratio of the two presets' light: the numerator is the neighbour's own preset, the
@@ -152,10 +152,14 @@ const lightEnergy = (time: TimeOfDay) => {
   return new Color(preset.ambientColor).multiplyScalar(preset.ambient)
     .add(new Color(preset.dirColor).multiplyScalar(preset.dir * .5))
 }
+// Raised to a soft power rather than used raw: the full ratio between day and night is a factor of eight, which
+// crushed night rooms nearly black and blew day rooms out. 0.6 keeps the direction and hue of the correction while
+// pulling both extremes toward one — the cast is still unmistakably morning or midnight, just not punishing.
+const SOFTEN = .6
 const NEIGHBOUR_TINT = Object.fromEntries(TIMES.map((room) => [room, Object.fromEntries(TIMES.map((viewer) => {
   const target = lightEnergy(room)
   const current = lightEnergy(viewer)
-  return [viewer, new Color(target.r / current.r, target.g / current.g, target.b / current.b)]
+  return [viewer, new Color(Math.pow(target.r / current.r, SOFTEN), Math.pow(target.g / current.g, SOFTEN), Math.pow(target.b / current.b, SOFTEN))]
 }))])) as Record<TimeOfDay, Record<TimeOfDay, Color>>
 function Inert({ off, children }: { off: (zoom: number, width: number, height: number) => boolean; children: ReactNode }) {
   const group = useRef<Group>(null)
@@ -254,10 +258,15 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
     // and the wall showed through it. The profile board's stats read as wall-coloured because of it.
     const full = opacity.current > .995
     const tint = (NEIGHBOUR_TINT[bundleTime.current as TimeOfDay] ?? NEIGHBOUR_TINT.day)[timeOfDay]
+    // Anything carrying an image — a profile photo, a video thumbnail, a framed picture — is CONTENT, not part of
+    // the room's fabric, and it has to stay readable whatever hour either room is set to. Those materials get the
+    // day correction instead: their own room's cast is skipped and the viewer's rig is still cancelled out, so a
+    // photo reads at full daylight brightness inside a midnight room.
+    const photoTint = NEIGHBOUR_TINT.day[timeOfDay]
     materials.current.forEach((material) => {
       material.transparent = full ? material.wasTransparent ?? false : true
       material.opacity = full ? 1 : opacity.current
-      if (material.color && material.baseColor) material.color.copy(material.baseColor).multiply(tint)
+      if (material.color && material.baseColor) material.color.copy(material.baseColor).multiply(material.map ? photoTint : tint)
     })
     // its real layout is fetched the first time the zoom-out actually reveals it, not on page load
     if (!requested.current && opacity.current > .02 && isEnterable(slot.handle)) {
