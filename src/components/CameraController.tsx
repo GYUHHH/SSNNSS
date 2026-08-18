@@ -177,7 +177,10 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
     // while the user was arranging furniture.
     const fullyOut = mode === 'normal' && zoomTarget.current <= minZoom + .01
     if (fullyOut !== wasAtMinZoom.current) { wasAtMinZoom.current = fullyOut; setAtMinZoom(fullyOut) }
-    const next = MathUtils.damp(camera2d.zoom, zoomTarget.current, 7, delta)
+    // the glide through the explorer band is the room-to-explorer transition itself, so it gets a gentler pace
+    // than ordinary zooming — inside the band only, everything else keeps the usual snap
+    const inBand = mode === 'normal' && camera2d.zoom < entryZoom(size.width, size.height) && camera2d.zoom > minZoom + .01
+    const next = MathUtils.damp(camera2d.zoom, zoomTarget.current, inBand ? 4.5 : 7, delta)
     if (Math.abs(next - camera2d.zoom) >= .001) { camera2d.zoom = next; camera2d.updateProjectionMatrix() }
     const orbit = controls.current
     if (!orbit) return
