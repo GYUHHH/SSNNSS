@@ -92,9 +92,11 @@ export function PhotoPickButton({ id, width, height }: { id: string; width: numb
 export function BannerTextInput({ id, artwork, saveArtwork }: { id: string; artwork?: string; saveArtwork?: (id: string, text: string | null) => void }) {
   const store = useOptionalRoomStore()
   const [text, setText] = useState(artwork ?? store?.artworks[id] ?? 'WELCOME ♥')
+  // applying is the end of the interaction — the popup rides the banner's selection, so clearing it closes the popup
+  const apply = () => { (saveArtwork ?? store?.setArtwork)?.(id, text.trim() || null); store?.clearSelection() }
   return <div className="banner-input">
-    <input type="text" maxLength={40} value={text} onChange={(event) => setText(event.target.value)} placeholder="배너 문구" />
-    <button type="button" onClick={() => (saveArtwork ?? store?.setArtwork)?.(id, text.trim() || null)}>적용</button>
+    <input type="text" maxLength={40} value={text} onChange={(event) => setText(event.target.value)} placeholder="배너 문구" onKeyDown={(event) => { if (!event.nativeEvent.isComposing && event.key === 'Enter') apply() }} />
+    <button type="button" onClick={apply}>적용</button>
   </div>
 }
 

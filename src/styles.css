@@ -120,9 +120,9 @@ img.art-image { object-fit: contain; width: 100%; }
 .time-controls { position: fixed; z-index: 4; left: 24px; bottom: 24px; display: flex; gap: 4px; }
 .time-controls button { border: 1px solid #c2c2be; border-radius: 4px; padding: 6px 10px; font-size: 12px; color: #403f3d; background: #ffffff; cursor: pointer; }
 .time-controls .active { border-color: #3a3a38; background: #e9e9e6; }
-.banner-input { display: flex; gap: 5px; margin: 8px 0 2px; }
+.banner-input { display: flex; gap: 5px; align-items: stretch; margin: 8px 0 2px; }
 .banner-input input { flex: 1; min-width: 0; border: 1px solid #c2c2be; border-radius: 4px; padding: 6px 8px; font-size: 12px; color: #403f3d; background: #ffffff; }
-.banner-input button { border: 1px solid #3a3a38; border-radius: 4px; padding: 6px 10px; font-size: 12px; color: #ffffff; background: #3a3a38; cursor: pointer; }
+.banner-input button { border: 1px solid #3a3a38; border-radius: 4px; padding: 6px 10px; font-size: 12px; line-height: 1.15; color: #ffffff; background: #3a3a38; cursor: pointer; }
 .art-panel { position: fixed; z-index: 5; top: 0; right: 0; bottom: 0; width: min(480px, 92vw); padding: 18px 22px 24px; overflow-y: auto; border-left: 1px solid #b3b3ae; background: #ffffff; transform: translateX(100%); transition: transform .42s cubic-bezier(.4, 0, .2, 1); }
 .art-panel.open { transform: translateX(0); }
 .art-panel:not(.open) { pointer-events: none; }
