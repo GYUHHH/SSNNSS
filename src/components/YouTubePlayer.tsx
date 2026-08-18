@@ -14,6 +14,6 @@ export default function YouTubePlayer() {
   const selected = furniture.find((item) => item.id === docked)
   if (!videoId || !selected?.type.startsWith('video-frame')) return null
   return <section className="yt-player docked" aria-label="유튜브 재생">
-    <ResumingIframe key={docked} videoId={videoId} frameId={docked} extra="autoplay=1" />
+    <ResumingIframe key={docked} videoId={videoId} frameId={docked} extra="autoplay=1&playsinline=1&mute=1" />
   </section>
 }

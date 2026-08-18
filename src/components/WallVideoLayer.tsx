@@ -7,7 +7,7 @@ import { loadAudioPrefs, useRoomStore } from '../store'
 import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
 import { isVisiting } from '../services/social'
 import { openReactionPicker } from './ReactionPicker'
-import { embedSrc, trackIframe, requestSound, playlistVideoResume, watchPlaylistOrder, playFrame, framePlayerStates, onFrameMuteState } from '../services/ytResume'
+import { embedSrc, trackIframe, playlistVideoResume, watchPlaylistOrder, playFrame, framePlayerStates } from '../services/ytResume'
 
 // The playing iframes live here, OUTSIDE the furniture tree: entering edit mode swaps every piece into a
 // different wrapper, which would unmount an iframe rendered inside it and reload the video. This layer stays
@@ -18,12 +18,6 @@ import { embedSrc, trackIframe, requestSound, playlistVideoResume, watchPlaylist
 // thumbnail (it 404s for normal videos), and everything else is measured by reading the letterbox bars inside
 // the 480x360 hqdefault thumbnail (pure-black rows/columns around the content). The measured ratio is only
 // trusted when it lands near a common aspect — anything odd resolves to null so the caller skips cropping.
-// Once the visitor has clicked anywhere, the page holds a sticky activation and embeds may autoplay WITH
-// sound — so remounts (e.g. returning from the expanded panel) of an unmuted frame skip the muted start
-// entirely instead of racing the browser's short post-click grace window with an unmute command.
-let userInteracted = false
-if (typeof window !== 'undefined') window.addEventListener('pointerdown', () => { userInteracted = true }, { once: true })
-
 const aspectCache: Record<string, Promise<number | null>> = {}
 export function videoAspect(id: string): Promise<number | null> {
   return aspectCache[id] ??= new Promise((resolve) => {
@@ -62,7 +56,7 @@ export function videoAspect(id: string): Promise<number | null> {
 }
 
 export default function WallVideoLayer() {
-  const { playingFrames, mutedFrames, setFrameMuted, videoLinks } = useRoomStore()
+  const { playingFrames, setFrameMuted, videoLinks, activeRoomId } = useRoomStore()
   // one order-keeper per playing playlist frame, alive across wall<->panel switches (it follows whichever
   // iframe is currently registered for the frame), enforcing the site's custom order and syncing the id list
   useEffect(() => {
@@ -72,31 +66,23 @@ export default function WallVideoLayer() {
       .map((entry) => watchPlaylistOrder(entry.id, entry.link.slice(3).split('@')[0]))
     return () => stops.forEach((stop) => stop())
   }, [playingFrames, videoLinks])
-  // The first click/tap anywhere unlocks sound. Capture it before the canvas consumes a mobile gesture; retry
-  // every frame that is not deliberately muted, even if the autoplay-blocked UI state has not landed yet.
-  const latest = useRef({ playingFrames, mutedFrames, setFrameMuted })
-  latest.current = { playingFrames, mutedFrames, setFrameMuted }
+  // A page gesture may unlock sound, but it never decides which videos should make sound. Only frames the
+  // visitor explicitly enabled before are retried, and that retry does not rewrite the saved preference.
+  const latest = useRef({ playingFrames, setFrameMuted, activeRoomId })
+  latest.current = { playingFrames, setFrameMuted, activeRoomId }
   useEffect(() => {
     let used = false
     const onFirstGesture = () => {
       if (used) return
       used = true
-      const prefs = loadAudioPrefs()
+      const prefs = loadAudioPrefs(latest.current.activeRoomId)
       for (const id of latest.current.playingFrames) {
-        if (prefs[id] !== false) {
-          latest.current.setFrameMuted(id, false)
-          requestSound(id, () => latest.current.setFrameMuted(id, true, false))
-          playFrame(id)
-        }
+        if (prefs[id] === true) latest.current.setFrameMuted(id, false, false)
       }
     }
     window.addEventListener('pointerdown', onFirstGesture, { capture: true })
-    window.addEventListener('touchstart', onFirstGesture, { capture: true, passive: true })
-    return () => {
-      window.removeEventListener('pointerdown', onFirstGesture, true)
-      window.removeEventListener('touchstart', onFirstGesture, true)
-    }
-  }, [])
+    return () => window.removeEventListener('pointerdown', onFirstGesture, true)
+  }, [activeRoomId])
   // Focus guard: if a wall iframe holds focus when the tab is left, the browser re-focuses it on return and
   // the YouTube player mistakes that for user activity, waking its control overlay. Whenever focus lands on a
   // wall iframe (window 'blur' fires the moment it does, and also on real tab-leave) it is released right away,
@@ -115,11 +101,6 @@ export default function WallVideoLayer() {
   // Mobile browsers pause media while the screen is off and the embeds do not resume by themselves.
   // The state right before hiding is snapshotted, and on return ONLY frames that were actually playing get
   // nudged back — a video the user paused stays paused, and no commands go to players that need none.
-  // the UI's mute flags mirror what the player actually reports — if an unmute attempt silently fails,
-  // the speaker icon says muted instead of lying (preferences are not touched by this sync)
-  useEffect(() => onFrameMuteState((id, actualMuted) => {
-    if (latest.current.playingFrames.includes(id) && latest.current.mutedFrames.includes(id) !== actualMuted) latest.current.setFrameMuted(id, actualMuted, false)
-  }), [])
   const playingBeforeHide = useRef<string[]>([])
   useEffect(() => {
     // mobile only: desktop browsers keep background tabs playing, so PC gets no intervention at all
@@ -140,17 +121,10 @@ export default function WallVideoLayer() {
 }
 
 function WallVideo({ frameId }: { frameId: string }) {
-  const { videoLinks, selectedObject, furniture, openVideoPanel, mode, mutedFrames, setFrameMuted, openObject, enterEditFurniture } = useRoomStore()
+  const { videoLinks, selectedObject, furniture, openVideoPanel, mode, openObject, enterEditFurniture } = useRoomStore()
   const item = furniture.find((entry) => entry.id === frameId)
   const videoId = videoLinks[frameId]
-  const muted = mutedFrames.includes(frameId)
   const active = !!item && !item.removed && !!videoId && selectedObject !== frameId
-  // the embed itself always starts muted so autoplay is never blocked; sound is lifted immediately (retrying
-  // until the player answers), and if the browser refuses (fresh visitor, no gesture yet) playback simply
-  // continues muted with the 🔇 button shown
-  useEffect(() => {
-    if (active && !muted) return requestSound(frameId, () => setFrameMuted(frameId, true, false), () => setFrameMuted(frameId, false, false))
-  }, [active, muted, frameId])  // eslint-disable-line react-hooks/exhaustive-deps -- setFrameMuted identity is unstable
   // Crop only as much as the video's own letterbox allows: YouTube's edge overlays hide inside the black bars
   // of wide videos, but 4:3/portrait videos fill the iframe, so cutting a fixed band would eat real content.
   // The aspect comes from videoAspect() below (thumbnail probing — oEmbed reports 16:9 for everything);
@@ -195,7 +169,7 @@ function WallVideo({ frameId }: { frameId: string }) {
         <div className="wall-video" style={{ width: 640, height: divHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
           {/* controls=0 keeps YouTube's control bar from popping over the wall screen (it auto-shows on tab
               return); the expanded panel player keeps its controls */}
-          <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra={!muted && userInteracted ? 'autoplay=1&playsinline=1&controls=0' : 'autoplay=1&playsinline=1&mute=1&controls=0'} frameStyle={{ ...(crop ? { width: 640, top: -crop, height: divHeight + crop * 2 } : { width: 640, height: divHeight }), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} />
+          <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra="autoplay=1&playsinline=1&mute=1&controls=0" frameStyle={{ ...(crop ? { width: 640, top: -crop, height: divHeight + crop * 2 } : { width: 640, height: divHeight }), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} />
           {/* the two shields carry the open-the-panel click and together cover everything but YouTube's own
               skip-ad corner, which is left live so the visitor can press it themselves */}
           {mode !== 'edit' && ['top', 'rest'].map((part) => <div key={part} className={`wall-video-shield ${part}`}

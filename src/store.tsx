@@ -7,6 +7,7 @@ import { loadOrders } from './services/playlistOrder'
 import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, syncPendingClips, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic, syncPendingTracks } from './services/music'
 import { purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, schedulePublish, subscribeRealtime, uploadMedia, type RemoteGuestComment } from './services/social'
+import { cancelSoundRequest, muteFrame, requestSound } from './services/ytResume'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id })
 
@@ -163,30 +164,48 @@ const initialBooks: Book[] = [
 
 const hydrateBooks = () => (loadBooks<Book[]>() ?? initialBooks).map((book) => ({ ...book, entries: book.entries.map((entry) => ({ ...entry, comments: entry.comments ?? [] })) }))
 
-// per-frame audio choice: true = sound on, false = muted on purpose, absent = never chosen.
-// Falls back to the old positive-list key once, migrating "was unmuted" entries to true.
+// Per-frame audio choice: true = the visitor explicitly wants sound, false = explicitly muted, absent = never chosen.
+// Audio is visitor-local, but frame ids repeat across rooms, so preferences are scoped to room handle + room slot.
 // Autoplay, shared by the first mount and by every later room change. Entering a room through the explorer does
 // not remount the provider, so a room switch has to run exactly the same computation again — otherwise the frames
 // of the room just left stay in playingFrames, nothing starts, and SoundHub (which only shows while something is
 // playing) disappears with it.
 const framesToPlay = (items: FurnitureItem[], links: Record<string, string>) =>
   items.filter((item) => !item.removed && item.type.startsWith('video-frame') && links[item.id]).map((item) => item.id)
-const framesToMute = (playing: string[]) => {
-  if (typeof window === 'undefined') return playing
-  const prefs = loadAudioPrefs()
-  return playing.filter((id) => prefs[id] !== true)
-}
+const framesToMute = (playing: string[]) => playing
 
-export const loadAudioPrefs = (): Record<string, boolean> => {
+const AUDIO_PREFS_KEY = 'my-room-video-audio-v1'
+const audioScope = (slotId = 'room-1') => `${currentRoomHandle() ?? 'lobby'}:${slotId}`
+type AudioPrefStore = Record<string, Record<string, boolean>>
+const readAudioPrefStore = (): AudioPrefStore | Record<string, boolean> | null => {
   try {
-    const saved = JSON.parse(localStorage.getItem('my-room-video-audio-v1') ?? 'null')
+    const saved = JSON.parse(localStorage.getItem(AUDIO_PREFS_KEY) ?? 'null')
     if (saved && typeof saved === 'object' && !Array.isArray(saved)) return saved
   } catch { /* fall through to migration */ }
+  return null
+}
+export const loadAudioPrefs = (slotId = 'room-1'): Record<string, boolean> => {
+  const saved = readAudioPrefStore()
+  if (saved) {
+    const values = Object.values(saved)
+    if (values.every((value) => typeof value === 'boolean')) return saved as Record<string, boolean> // one-time legacy format
+    const scoped = (saved as AudioPrefStore)[audioScope(slotId)]
+    if (scoped && typeof scoped === 'object') return scoped
+  }
   try {
     const old = JSON.parse(localStorage.getItem('my-room-video-unmuted-v1') ?? '[]')
     if (Array.isArray(old)) return Object.fromEntries(old.map((id: string) => [id, true]))
   } catch { /* storage may be unavailable */ }
   return {}
+}
+const saveAudioPref = (slotId: string, id: string, enabled: boolean) => {
+  try {
+    const saved = readAudioPrefStore()
+    const legacy = saved && Object.values(saved).every((value) => typeof value === 'boolean') ? saved as Record<string, boolean> : null
+    const store: AudioPrefStore = legacy ? { [audioScope(slotId)]: legacy } : (saved as AudioPrefStore | null) ?? {}
+    store[audioScope(slotId)] = { ...(store[audioScope(slotId)] ?? {}), [id]: enabled }
+    localStorage.setItem(AUDIO_PREFS_KEY, JSON.stringify(store))
+  } catch { /* storage may be unavailable */ }
 }
 
 // lamp/appliance on-off states and the other small interactions survive a reload as-is
@@ -342,17 +361,16 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   })
   const [videoFrames, setVideoFrames] = useState<Record<string, number>>({})
   const [videoLinks, setVideoLinks] = useState<Record<string, string>>(() => (typeof window === 'undefined' ? {} : loadVideoLinks()))
-  // every linked frame starts playing on entry, muted — browsers block sound before any user gesture.
-  // Per-frame audio preference: true = user wants sound, false = user muted it on purpose, absent = never chose.
-  // Absent frames get sound on the visitor's first click; explicit false is never overridden.
+  // Every linked frame starts muted. A saved choice is only retried from the page's next real gesture.
   const [playingFrames, setPlayingFrames] = useState<string[]>(() => framesToPlay(furniture, videoLinks))
   const [mutedFrames, setMutedFrames] = useState<string[]>(() => framesToMute(playingFrames))
-  // persist=false is for the browser overruling us (sound autoplay blocked): the UI flips to muted
-  // without forgetting that the user wants this frame loud on future visits
+  const applyFrameMuted = (id: string, muted: boolean) => setMutedFrames((prev) => muted ? (prev.includes(id) ? prev : [...prev, id]) : prev.filter((value) => value !== id))
+  // persist=false changes only the live player state (master mute, browser retry, etc.).
   const setFrameMuted = (id: string, muted: boolean, persist = true) => {
-    setMutedFrames((prev) => muted ? (prev.includes(id) ? prev : [...prev, id]) : prev.filter((value) => value !== id))
-    if (!persist) return
-    try { const prefs = loadAudioPrefs(); prefs[id] = !muted; localStorage.setItem('my-room-video-audio-v1', JSON.stringify(prefs)) } catch { /* storage may be unavailable */ }
+    applyFrameMuted(id, muted)
+    if (muted) { cancelSoundRequest(id); muteFrame(id) }
+    else requestSound(id, () => applyFrameMuted(id, true), () => applyFrameMuted(id, false))
+    if (persist) saveAudioPref(activeRoomId, id, !muted)
   }
   // which wall video the sound list is pointing at, for its hover glow
   const [highlightFrame, setHighlightFrame] = useState<string | null>(null)

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRoomStore } from '../store'
-import { cancelSoundRequest, muteFrame, unmuteFrame } from '../services/ytResume'
 import { setExternalHover } from './Interactive'
 
 function SpeakerIcon({ muted, size }: { muted: boolean; size: number }) {
@@ -25,8 +24,7 @@ export default function SoundHub() {
     window.addEventListener('pointerdown', onOutside)
     return () => window.removeEventListener('pointerdown', onOutside)
   }, [open])
-  // M = master mute toggle: silences every playing frame at once, and pressing again restores exactly the
-  // frames that had sound. UI-level only — saved per-frame preferences stay untouched.
+  // M only restores the frames it muted itself. It must never turn every video on just because none was loud.
   const restore = useRef<string[]>([])
   const latest = useRef({ playingFrames, mutedFrames, setFrameMuted })
   latest.current = { playingFrames, mutedFrames, setFrameMuted }
@@ -39,11 +37,11 @@ export default function SoundHub() {
       const loud = playing.filter((id) => !mutedList.includes(id))
       if (loud.length) {
         restore.current = loud
-        loud.forEach((id) => { cancelSoundRequest(id); muteFrame(id); setMuted(id, true, false) })
+        loud.forEach((id) => setMuted(id, true, false))
       } else {
         const back = restore.current.filter((id) => playing.includes(id))
-        const targets = back.length ? back : playing
-        targets.forEach((id) => { unmuteFrame(id); setMuted(id, false, false) })
+        back.forEach((id) => setMuted(id, false, false))
+        restore.current = []
       }
     }
     window.addEventListener('keydown', onKey)
@@ -52,10 +50,7 @@ export default function SoundHub() {
   const frames = playingFrames.map((id) => furniture.find((item) => item.id === id && !item.removed)).flatMap((item) => item ? [item] : [])
   if (!frames.length || mode === 'edit') return null
   const anySound = frames.some((item) => !mutedFrames.includes(item.id))
-  const toggle = (id: string, muted: boolean) => {
-    if (muted) unmuteFrame(id); else { cancelSoundRequest(id); muteFrame(id) }
-    setFrameMuted(id, !muted)
-  }
+  const toggle = (id: string, muted: boolean) => setFrameMuted(id, !muted)
   return <div ref={hub} className="sound-hub">
     {open && <ul className="sound-hub-list" aria-label="영상 소리">
       {frames.map((item, index) => {
