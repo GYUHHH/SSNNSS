@@ -1,7 +1,7 @@
 import { ContactShadows, OrthographicCamera } from '@react-three/drei'
 import { Canvas, events, useFrame, useThree } from '@react-three/fiber'
 import { type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Color, type Group, type Material, MathUtils, type Mesh, Vector3 } from 'three'
+import { type AmbientLight, Color, type DirectionalLight, type Group, type Material, MathUtils, type Mesh, Vector3 } from 'three'
 import { NeighbourRoomProvider, useRoomStore } from '../store'
 import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDirectory, isSignedIn, myHandle, onRoomNavigation, subscribeRoomBundles } from '../services/social'
 import Bookshelf from './Bookshelf'
@@ -40,6 +40,27 @@ const shiftAwareEvents: NonNullable<Parameters<typeof Canvas>[0]['events']> = (s
   },
 })
 
+// The hour changes by GLIDING, not switching. Set as plain reactive props, a new time of day slammed the light
+// values over in a single frame — so the lights live here behind refs, the JSX only ever carries the values from
+// mount, and every change eases toward its target instead. The matching background glide is CSS on .canvas-host.
+function CrossfadingLights({ preset }: { preset: typeof LIGHTING[keyof typeof LIGHTING] }) {
+  const ambient = useRef<AmbientLight>(null)
+  const dir = useRef<DirectionalLight>(null)
+  const initial = useRef(preset).current
+  const goal = useRef({ ambient: initial.ambient, dir: initial.dir, ambientColor: new Color(initial.ambientColor), dirColor: new Color(initial.dirColor) })
+  useEffect(() => { goal.current = { ambient: preset.ambient, dir: preset.dir, ambientColor: new Color(preset.ambientColor), dirColor: new Color(preset.dirColor) } }, [preset])
+  useFrame((_, delta) => {
+    const step = Math.min(delta, 1 / 30)
+    const blend = 1 - Math.exp(-3 * step)
+    if (ambient.current) { ambient.current.intensity = MathUtils.damp(ambient.current.intensity, goal.current.ambient, 3, step); ambient.current.color.lerp(goal.current.ambientColor, blend) }
+    if (dir.current) { dir.current.intensity = MathUtils.damp(dir.current.intensity, goal.current.dir, 3, step); dir.current.color.lerp(goal.current.dirColor, blend) }
+  })
+  return <>
+    <ambientLight ref={ambient} intensity={initial.ambient} color={initial.ambientColor} />
+    <directionalLight ref={dir} castShadow position={[4, 8, 5]} intensity={initial.dir} color={initial.dirColor} shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
+  </>
+}
+
 function Scene() {
   const { clearSelection, mode, toggleEditMode, timeOfDay } = useRoomStore()
   const light = LIGHTING[timeOfDay]
@@ -50,8 +71,7 @@ function Scene() {
   const eventHost = useRef<HTMLDivElement>(null!)
   return <div ref={eventHost} className="canvas-host" style={{ background: light.bg }}><Canvas shadows="basic" dpr={[1, 2]} gl={{ antialias: true }} eventSource={eventHost} events={shiftAwareEvents} onPointerMissed={(event) => { if (!(event.target as HTMLElement)?.closest?.('.canvas-host')) return; (mode === 'edit' ? toggleEditMode : clearSelection)() }} camera={{ position: [10, 8.5, 10] }}>
     <OrthographicCamera makeDefault position={[10, 8.5, 10]} zoom={59} near={0.1} far={100} />
-    <ambientLight intensity={light.ambient} color={light.ambientColor} />
-    <directionalLight castShadow position={[4, 8, 5]} intensity={light.dir} color={light.dirColor} shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
+    <CrossfadingLights preset={light} />
     <Suspense fallback={null}>
       <RoomWorld />
     </Suspense>
