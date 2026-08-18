@@ -19,7 +19,7 @@ export const setExternalHover = (id: string | null) => { hoverShared.group = id;
 // roughly nine screen pixels at the zoom a room is entered at. The bigger win is not the margin though: the pad is a
 // solid box, so it also fills the holes INSIDE an outline — between chair legs, under a desk, around a lamp stem —
 // which is where most missed clicks actually land.
-const PAD = .14
+const PAD = .08
 const padBox = new Box3()
 const padInverse = new Matrix4()
 const padSize = new Vector3()
