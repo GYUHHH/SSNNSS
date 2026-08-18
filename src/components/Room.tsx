@@ -288,7 +288,7 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
       material.transparent = full ? material.wasTransparent ?? false : true
       // trim bars ride the cube of the fade: still smooth, but they only surface once the room is nearly whole,
       // instead of floating over the ghosted room as three hard dark bars for the entire glide
-      material.opacity = full ? 1 : material.userData.lateFade ? opacity.current ** 5 : opacity.current
+      material.opacity = full ? 1 : material.userData.lateFade ? opacity.current ** 7 : opacity.current
       if (!material.color) return
       // The cast multiplies into the material's colour every frame, so the untouched colour has to live beside it —
       // and it must never be frozen at whatever the first frame held. A neighbour's real wall and floor colours
