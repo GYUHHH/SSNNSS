@@ -1,5 +1,5 @@
 import { ContactShadows, OrthographicCamera } from '@react-three/drei'
-import { Canvas, events, useFrame } from '@react-three/fiber'
+import { Canvas, events, useFrame, useThree } from '@react-three/fiber'
 import { type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Color, type Group, type Material, MathUtils, type Mesh, Vector3 } from 'three'
 import { NeighbourRoomProvider, useRoomStore } from '../store'
@@ -203,6 +203,7 @@ function NeighbourRoom() {
 function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: number; centred: boolean }) {
   // the live store on purpose: the viewer's own time of day is the light rig this room must compensate away
   const { mode, timeOfDay } = useRoomStore()
+  const { gl, camera, scene } = useThree()
   const group = useRef<Group>(null)
   const opacity = useRef(0)
   const materials = useRef<Faded[]>([])
@@ -221,6 +222,19 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
   // clear-only flag stays false through the remount, which silently blocked every bundle from ever landing
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
   const fadedOut = () => opacity.current < .65
+  // Shaders are compiled the first time a mesh is actually DRAWN, and until the zoom-out reveals it a neighbour
+  // is never drawn — so the reveal itself paid for several rooms' worth of program compilation at once, and the
+  // gather from the entry line to the floor stuttered through it. Compiling in the background as soon as the
+  // room's content mounts moves that cost to a moment when nothing on screen depends on this room; twice, since
+  // suspended pieces (fonts, textures) mount after the first pass, and re-compiling what is already compiled
+  // costs nothing.
+  useEffect(() => {
+    if (!bundle || !group.current) return
+    const warm = () => { if (group.current) void gl.compileAsync(group.current, camera, scene).catch(() => {}) }
+    const first = setTimeout(warm, 300)
+    const second = setTimeout(warm, 2000)
+    return () => { clearTimeout(first); clearTimeout(second) }
+  }, [bundle, camera, gl, scene])
   const collect = () => {
     materials.current = []
     group.current?.traverse((object) => {
