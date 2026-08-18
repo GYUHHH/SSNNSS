@@ -329,11 +329,11 @@ function RoomWorld() {
       probe.set(active.position[0], active.position[1] + 3.5, active.position[2]).project(camera)
       if (Math.hypot(probe.x, probe.y) < best) pick = null
     }
-    // Deliberately NOT cleared once the zoom-in starts. Clearing it here pointed the camera back at the room being
-    // left for the whole of the entry — a network round trip — so the user watched it zoom toward the old room and
-    // then jump to the one they had picked. The pick holds until the room is actually entered and wins the middle
-    // on its own; the highlight goes with it either way, because a neighbour has faded out by then.
-    const handle = pick?.handle ?? null
+    // Held through the entry itself, and dropped the instant it is done. Dropping it as soon as the zoom-in starts
+    // pointed the camera back at the room being left for the whole of a network round trip, so the user watched it
+    // zoom toward the old room and then jump. Keeping it AFTER the entry is just as wrong the other way: the aim
+    // stays clamped on a room that is no longer the one being viewed and the camera never comes free again.
+    const handle = !zoomedIn || opening.current ? pick?.handle ?? null : null
     if (handle !== centred.current) { centred.current = handle; setCentredHandle(handle) }
     // the edge, not the state: entering is what crossing the line does, so it fires once per zoom-in
     if (zoomedIn && !wasZoomedIn.current && pick) void open(pick)
