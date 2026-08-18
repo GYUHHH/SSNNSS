@@ -51,9 +51,9 @@ function CrossfadingLights({ preset }: { preset: typeof LIGHTING[keyof typeof LI
   useEffect(() => { goal.current = { ambient: preset.ambient, dir: preset.dir, ambientColor: new Color(preset.ambientColor), dirColor: new Color(preset.dirColor) } }, [preset])
   useFrame((_, delta) => {
     const step = Math.min(delta, 1 / 30)
-    const blend = 1 - Math.exp(-3 * step)
-    if (ambient.current) { ambient.current.intensity = MathUtils.damp(ambient.current.intensity, goal.current.ambient, 3, step); ambient.current.color.lerp(goal.current.ambientColor, blend) }
-    if (dir.current) { dir.current.intensity = MathUtils.damp(dir.current.intensity, goal.current.dir, 3, step); dir.current.color.lerp(goal.current.dirColor, blend) }
+    const blend = 1 - Math.exp(-6 * step)
+    if (ambient.current) { ambient.current.intensity = MathUtils.damp(ambient.current.intensity, goal.current.ambient, 6, step); ambient.current.color.lerp(goal.current.ambientColor, blend) }
+    if (dir.current) { dir.current.intensity = MathUtils.damp(dir.current.intensity, goal.current.dir, 6, step); dir.current.color.lerp(goal.current.dirColor, blend) }
   })
   return <>
     <ambientLight ref={ambient} intensity={initial.ambient} color={initial.ambientColor} />
