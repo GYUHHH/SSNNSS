@@ -539,10 +539,8 @@ function RoomWorld() {
     // the edge, not the state: entering is what crossing the line does, so it fires once per zoom-in — and only
     // when no entry is already underway (the latch covers the camera's own entry zoom crossing this same line)
     if (zoomedIn && !wasZoomedIn.current && picked.current && !entryLatched.current) void open(picked.current)
-    // the latch is spent on the way back OUT, not the moment the pick is taken — cleared while the camera was
-    // still at the floor it was already gone by the time the entry zoom crossed the line it was meant to cover
-    if (wasZoomedIn.current && !zoomedIn) entryLatched.current = false
     wasZoomedIn.current = zoomedIn
+    if (!zoomedIn) entryLatched.current = false
     // spent once the room is in, so coming back down through the band does not re-light a stale choice
     if (zoomedIn && !opening.current) picked.current = null
   })

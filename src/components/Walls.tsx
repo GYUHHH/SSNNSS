@@ -11,7 +11,7 @@ const DEFAULT_WALL_COLOR: Record<WallId, string> = { leftWall: '#f1dfc4', rightW
 const TRIM_COLOR = '#8a6a52'
 
 export default function Walls() {
-  const { readOnly, mode, furniture, selectedFurnitureId, movingFurnitureId, preview, previewDragging, wallStyle, moveFurniture, placeFurnitureAt, movePreview, openStyleTarget } = useRoomStore()
+  const { mode, furniture, selectedFurnitureId, movingFurnitureId, preview, previewDragging, wallStyle, moveFurniture, placeFurnitureAt, movePreview, openStyleTarget } = useRoomStore()
   const selected = furniture.find((item) => item.id === selectedFurnitureId)
   const activeWall = selected?.wallId ?? preview?.wallId ?? null
   const posterArt = useArtTexture('poster')
@@ -22,9 +22,9 @@ export default function Walls() {
   }
   return <>
     {(Object.values(wallSurfaces) as typeof wallSurfaces[WallId][]).map((wall) => <mesh key={wall.id} receiveShadow position={[wall.position[0] - wall.normal[0] * .11, wall.position[1] - wall.normal[1] * .11, wall.position[2] - wall.normal[2] * .11]} rotation={wall.rotation}
-      onPointerDown={(event) => { if (!readOnly && mode === 'edit') event.stopPropagation() }}
-      onPointerMove={(event) => { if (readOnly) return; if (movingFurnitureId === selected?.id || (previewDragging && preview?.allowedSurfaces.includes('wall'))) { event.stopPropagation(); moveTo(wall.id as WallId, event.point) } }}
-      onClick={(event) => { if (readOnly) return; event.stopPropagation(); if (mode !== 'normal' && selected?.movable && selected.allowedSurfaces.includes('wall') && !movingFurnitureId) placeFurnitureAt(selected.id, [event.point.x, event.point.y, event.point.z], wall.id) }}
+      onPointerDown={(event) => { if (mode === 'edit') event.stopPropagation() }}
+      onPointerMove={(event) => { if (movingFurnitureId === selected?.id || (previewDragging && preview?.allowedSurfaces.includes('wall'))) { event.stopPropagation(); moveTo(wall.id as WallId, event.point) } }}
+      onClick={(event) => { event.stopPropagation(); if (mode !== 'normal' && selected?.movable && selected.allowedSurfaces.includes('wall') && !movingFurnitureId) placeFurnitureAt(selected.id, [event.point.x, event.point.y, event.point.z], wall.id) }}
     ><boxGeometry args={[wall.width, wall.height, .22]} /><meshStandardMaterial color={colorOf(wallStyle[wall.id as WallId], DEFAULT_WALL_COLOR[wall.id as WallId])} /></mesh>)}
     {/* Trim bars: square channels under each wall plus the open corner column between the walls. Tagged so the
         explorer's fade can hold them back — thin dark boxes read double-dense while semi-transparent and floated
