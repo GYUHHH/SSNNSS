@@ -22,7 +22,7 @@ export const exploreMinZoom = (width: number, height: number) => isCompactScreen
 const DEFAULT_AZIMUTH = Math.PI / 4
 const DEFAULT_POLAR = Math.acos(1 / 3)
 
-type FocusRoom = { position: [number, number, number]; token: number }
+type FocusRoom = { position: [number, number, number]; token: number; shift?: [number, number, number] }
 type ControlsRef = { target: Vector3; update: () => void; getAzimuthalAngle: () => number; setAzimuthalAngle: (value: number) => void; getPolarAngle: () => number; setPolarAngle: (value: number) => void }
 
 export default function CameraController({ focusRoom }: { focusRoom?: FocusRoom }) {
@@ -57,11 +57,23 @@ export default function CameraController({ focusRoom }: { focusRoom?: FocusRoom 
 
   useEffect(() => {
     if (!focusRoom) return
+    // The cluster re-bases onto the room being entered, so that room teleports from its own cell to the origin —
+    // a whole CELL, about 290px at the desktop zoom floor. Sliding the camera by exactly the same amount leaves it
+    // where it already was on screen, and the damping below then carries it to the middle from there. Without this
+    // the room jumps out from under the user at the very moment the zoom-in is taking them into it.
+    const shift = focusRoom.shift
+    if (shift && controls.current) {
+      const delta = new Vector3(shift[0], shift[1], shift[2])
+      controls.current.target.sub(delta)
+      camera.position.sub(delta)
+    }
     targetGoal.current.set(focusRoom.position[0], focusRoom.position[1] + 3.5, focusRoom.position[2])
-    zoomTarget.current = baseZoom
+    // Entry is the user's own zoom-in now, so the standard framing is a floor rather than an override — forcing
+    // the zoom back to it would fight the wheel that is still turning. Wind past it and the extra is kept.
+    zoomTarget.current = Math.max(zoomTarget.current, baseZoom)
     // whatever the explorer was left rotated or panned to, entering a room lands dead-centre on the 45° view
     angleGoal.current = { azimuth: DEFAULT_AZIMUTH, polar: DEFAULT_POLAR }
-  }, [baseZoom, focusRoom?.token])
+  }, [baseZoom, camera, focusRoom?.token])
 
   useEffect(() => { zoomTarget.current = Math.max(zoomTarget.current, minZoom) }, [minZoom])
 

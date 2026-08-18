@@ -1,7 +1,7 @@
 import { ContactShadows, OrthographicCamera } from '@react-three/drei'
 import { Canvas, events, useFrame } from '@react-three/fiber'
 import { type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { type Group, type Material, MathUtils, type Mesh } from 'three'
+import { type Group, type Material, MathUtils, type Mesh, Vector3 } from 'three'
 import { NeighbourRoomProvider, useRoomStore } from '../store'
 import { currentRoomHandle, enterRoom, fetchRoomBundle, fetchRoomDirectory, myHandle } from '../services/social'
 import Bookshelf from './Bookshelf'
@@ -117,13 +117,6 @@ const withVacancies = (handles: string[]) => handles.length >= CLUSTER_SIZE ? ha
   : [...handles, ...Array.from({ length: CLUSTER_SIZE - handles.length }, (_, index) => `${VACANT}${index}`)]
 const isEnterable = (handle: string) => handle !== LOBBY && !handle.startsWith(VACANT)
 
-// Fully zoomed out a drag pans the explorer, and the browser still fires a click when the press ends — which would
-// drop the user into whichever room happened to be under the pointer. So a room only counts as picked if the press
-// that produced the click stayed put. One tracker for the whole cluster on purpose: the press belongs to the
-// gesture, not to a room, and a per-room ref would miss a drag that started somewhere else and ended on this one.
-let pressAt: { x: number; y: number } | null = null
-const pressWandered = (event: { clientX: number; clientY: number }) => !!pressAt && Math.hypot(event.clientX - pressAt.x, event.clientY - pressAt.y) > 6
-
 if (import.meta.env.DEV) {
   const check = roomSlots(['0', '1', '2', '3', '4', '5', '6'])
   if (new Set(check.map((slot) => slot.position.join(':'))).size !== 7 || check.slice(1).some((slot) => ringDistance(slot, check[0]) !== 1)) throw new Error('Room cluster slots must form six unique neighbours')
@@ -181,12 +174,13 @@ function NeighbourRoom() {
   return <><Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><Character /></>
 }
 
-function RoomContainer({ slot, distance, open }: { slot: RoomSlot; distance: number; open: () => void }) {
+function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: number; centred: boolean }) {
   const { mode } = useRoomStore()
   const group = useRef<Group>(null)
   const opacity = useRef(0)
   const materials = useRef<Faded[]>([])
   const recollectIn = useRef(0)
+  const glow = useRef(0)
   const [bundle, setBundle] = useState<Record<string, string> | null>(null)
   const requested = useRef(false)
   const mounted = useRef(true)
@@ -223,7 +217,10 @@ function RoomContainer({ slot, distance, open }: { slot: RoomSlot; distance: num
     recollectIn.current -= delta
     if (opacity.current > .01 && opacity.current < .99 && recollectIn.current <= 0) { recollectIn.current = .4; collect() }
     group.current.visible = opacity.current > .01
-    group.current.scale.setScalar(.88 + opacity.current * .12)
+    // A nudge in size is the whole highlight. The cluster is stacked by storey, so lifting or outlining the picked
+    // room would fight that illusion, while 6% reads as hover without moving anything out of its own cell.
+    glow.current = MathUtils.damp(glow.current, centred ? 1 : 0, 9, delta)
+    group.current.scale.setScalar((.88 + opacity.current * .12) * (1 + glow.current * .06))
     // Once the room is all the way in, hand every material its own transparency back and pin opacity to exactly 1.
     // Holding them transparent forever put decals into the sorted transparent pass alongside the panel they sit
     // on — a few thousandths apart — and when the decal won that toss the panel behind it failed the depth test
@@ -239,10 +236,7 @@ function RoomContainer({ slot, distance, open }: { slot: RoomSlot; distance: num
       void fetchRoomBundle(slot.handle).then((found) => { if (found && mounted.current) setBundle(found) })
     }
   })
-  return <group ref={group} position={slot.position} visible={false}
-    onPointerOver={(event) => { if (opacity.current < .65) return; event.stopPropagation(); document.body.style.cursor = 'pointer' }}
-    onPointerOut={() => { document.body.style.cursor = '' }}
-    onClick={(event) => { if (opacity.current < .65 || pressWandered(event)) return; event.stopPropagation(); document.body.style.cursor = ''; open() }}>
+  return <group ref={group} position={slot.position} visible={false}>
     {/* its own boundary: a neighbour's font or texture must never suspend the live room out of view */}
     <Suspense fallback={null}>
       {/* three's raycaster tests layers only, never `visible`, so a faded-out neighbour still swallows the ray.
@@ -263,8 +257,14 @@ function RoomWorld() {
   const [handles, setHandles] = useState(() => withVacancies([hubHandle]))
   // what is being VIEWED, which is not the hub while visiting someone else
   const [activeHandle, setActiveHandle] = useState(() => currentRoomHandle() ?? hubHandle)
-  const [focusRoom, setFocusRoom] = useState<{ position: [number, number, number]; token: number }>({ position: [0, 0, 0], token: 0 })
+  const [focusRoom, setFocusRoom] = useState<{ position: [number, number, number]; token: number; shift?: [number, number, number] }>({ position: [0, 0, 0], token: 0 })
   const opening = useRef(false)
+  // which room is under the middle of the screen, and therefore the one a zoom-in would take the user into
+  const [centredHandle, setCentredHandle] = useState<string | null>(null)
+  const centred = useRef<string | null>(null)
+  const probe = useRef(new Vector3()).current
+  // starts true so the very first frame — which opens at the entry zoom already — is not read as a zoom-in
+  const wasZoomedIn = useRef(true)
   useEffect(() => {
     let live = true
     void fetchRoomDirectory().then((found) => {
@@ -277,12 +277,6 @@ function RoomWorld() {
     })
     return () => { live = false }
   }, [hubHandle])
-  // capture so the press is recorded before OrbitControls or a room handler sees the gesture
-  useEffect(() => {
-    const down = (event: PointerEvent) => { pressAt = { x: event.clientX, y: event.clientY } }
-    window.addEventListener('pointerdown', down, true)
-    return () => window.removeEventListener('pointerdown', down, true)
-  }, [])
   // Re-based so the room being viewed always sits at the world origin. Everything inside a room — the placement
   // grid, the character's pathfinding, every worldToGrid call — is written in room-local coordinates against
   // surfaces at the origin, so entering an offset neighbour put every click outside the 10x10 grid and the room
@@ -307,11 +301,42 @@ function RoomWorld() {
     opening.current = false
     if (!entered) return
     setActiveHandle(slot.handle)
-    // the cluster re-bases onto the room just entered, so the view always settles on the origin
-    setFocusRoom({ position: [0, 0, 0], token: performance.now() })
+    // The cluster re-bases onto the room just entered, so the view always settles on the origin. `shift` hands the
+    // camera where that room WAS, so it can slide with the re-base instead of having the room yanked out from
+    // under it — see the shift handling in CameraController.
+    setFocusRoom({ position: [0, 0, 0], token: performance.now(), shift: slot.position })
   }
+  useFrame(({ camera, size }) => {
+    // The flag that locks the explorer flips on the very first wheel tick, which is far too twitchy to drop someone
+    // into a room, so the line that counts as "chose this one" sits a little above the floor: desktop 46, mobile 15.
+    // That is still below the neighbour fade bands, so the ring is fully in view at the moment of the choice and
+    // then fades out as the zoom carries on.
+    const zoomedIn = mode !== 'normal' || camera.zoom > exploreMinZoom(size.width, size.height) * 1.15
+    // Nearest room to the middle of the screen. Projected rather than measured in world space: the cluster is
+    // stacked across storeys and panning slides the target in the screen plane, so world distance disagrees with
+    // what is actually under the crosshair.
+    let pick: RoomSlot | null = null
+    let best = Infinity
+    if (mode === 'normal') {
+      for (const slot of slots) {
+        if (slot.handle === active.handle || !isEnterable(slot.handle) || ringDistance(slot, active) > VISIBLE_RINGS) continue
+        probe.set(slot.position[0], slot.position[1] + 3.5, slot.position[2]).project(camera)
+        const offset = Math.hypot(probe.x, probe.y)
+        if (offset < best) { best = offset; pick = slot }
+      }
+      // the room already being viewed competes for the middle too, and losing to it means nothing is picked —
+      // zooming back into the room you are in should just re-centre it, which the camera already does on its own
+      probe.set(active.position[0], active.position[1] + 3.5, active.position[2]).project(camera)
+      if (Math.hypot(probe.x, probe.y) < best) pick = null
+    }
+    const handle = zoomedIn ? null : pick?.handle ?? null
+    if (handle !== centred.current) { centred.current = handle; setCentredHandle(handle) }
+    // the edge, not the state: entering is what crossing the line does, so it fires once per zoom-in
+    if (zoomedIn && !wasZoomedIn.current && pick) void open(pick)
+    wasZoomedIn.current = zoomedIn
+  })
   return <>
-    {slots.filter((slot) => slot.handle !== active.handle && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} open={() => void open(slot)} />)}
+    {slots.filter((slot) => slot.handle !== active.handle && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} />)}
     <group position={active.position}><Inert off={exploring}><RoomRoot /></Inert></group>
     <CameraController focusRoom={focusRoom} />
   </>
