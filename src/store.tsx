@@ -3,6 +3,7 @@ import { createSlot, deleteSlot, loadArtworks, loadProfile, saveProfile, type Pr
 import { bookshelfCapY, bookshelfTiers, canPlaceItem, cellsFor, clampGrid, floorSurface, GRID_COUNT, gridToWorld, isOwnedSurfaceId, nearestWallId, normalizedCells, ownerIdOf, resolveSurface, setBookshelfTopOffset, withResolution, type Footprint, type GridPosition, type PlacementItem, type PlacementResolution, type PlacementSurface, type SurfaceId, type SurfaceKind, type WallId, worldToGrid } from './services/roomGrid'
 import { adoptCharacterPosition, characterPosition, characterTeleport } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
+import { loadOrders } from './services/playlistOrder'
 import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, syncPendingClips, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic, syncPendingTracks } from './services/music'
 import { purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, schedulePublish, subscribeRealtime, uploadMedia, type RemoteGuestComment } from './services/social'
@@ -753,6 +754,19 @@ export function RoomProvider({ children }: { children: ReactNode }) {
 // ponytail: the bookshelf's top-surface offset stays at its default for neighbours — setBookshelfTopOffset is a
 // module singleton owned by the live room, and fighting over it would move the real room's shelf. Only matters if
 // something is placed on a neighbour's bookshelf cap; make the offset per-room if that ever shows.
+// A playlist saved as plain `pl:<id>` names no starting video, so VideoScreen has nothing to fetch a thumbnail
+// for and the frame stays dark. The room's own saved play order knows which video goes first, so that id stands in
+// as the poster. It has to be resolved HERE, inside the bundle scope: VideoScreen looks the link up later from an
+// effect, by which time reads have fallen back to this browser's own storage.
+const neighbourVideoLinks = () => {
+  const orders = loadOrders()
+  return Object.fromEntries(Object.entries(loadVideoLinks()).map(([frameId, link]) => {
+    if (!link.startsWith('pl:') || link.includes('@')) return [frameId, link]
+    const first = orders[link.slice(3)]?.[0]
+    return [frameId, first ? `${link}@${first}` : link]
+  }))
+}
+
 const NEIGHBOUR_TIME: TimeOfDay[] = ['day', 'evening', 'night']
 export function NeighbourRoomProvider({ bundle, children }: { bundle: Record<string, string> | null; children: ReactNode }) {
   const value = useMemo<RoomStore>(() => readingBundle(bundle ?? {}, () => {
@@ -779,7 +793,7 @@ export function NeighbourRoomProvider({ bundle, children }: { bundle: Record<str
       // whenever a link is present, and it costs an image rather than an embed. WallVideoLayer stays out of the
       // neighbour tree: that is what would put a live iframe on every frame of every room, and being DOM rather
       // than 3D it would not fade with the room either. The real thing plays once the room is entered.
-      videoFrames: {}, setVideoClip: noop, videoLinks: loadVideoLinks(), setVideoLink: () => false, playingFrames: [], stopFrame: noop, mutedFrames: [], setFrameMuted: noop, highlightFrame: null, setHighlightFrame: noop, openVideoPanel: noop,
+      videoFrames: {}, setVideoClip: noop, videoLinks: neighbourVideoLinks(), setVideoLink: () => false, playingFrames: [], stopFrame: noop, mutedFrames: [], setFrameMuted: noop, highlightFrame: null, setHighlightFrame: noop, openVideoPanel: noop,
       guestbook: {}, addGuestComment: noop, removeGuestComment: noop, remoteVisits: null, othersLikes: {}, likeTotals: {}, myLikes: [], pendingReactions: {}, markReactionsSeen: noop,
       openObject: () => false, reactionIdsFor: () => [], reactionTarget: null, setReactionTarget: noop, commentTarget: null, setCommentTarget: noop,
       timeOfDay: NEIGHBOUR_TIME.find((time) => time === saved) ?? 'day', setTimeOfDay: noop,
