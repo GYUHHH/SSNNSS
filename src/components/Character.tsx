@@ -42,7 +42,7 @@ export default function Character({ appearance: customAppearance }: { appearance
   const armLeft = useRef<Group>(null); const armRight = useRef<Group>(null)
   const torso = useRef<Group>(null); const head = useRef<Group>(null)
   const [hovered, setHovered] = useState(false)
-  const { readOnly, characterHome, characterPose, characterLook, selectedObject, characterState, finishCharacterAction, cupHeld, selectObject, furniture, debugAnchors, moveNotice, floorTarget, settleFloorMove } = useRoomStore()
+  const { readOnly, characterHome, characterPose, characterLook, currentHandle, selectedObject, characterState, finishCharacterAction, cupHeld, selectObject, furniture, debugAnchors, moveNotice, floorTarget, settleFloorMove } = useRoomStore()
   // the saved look wins over the prop, and both win over the defaults — unset parts fall through to the model
   const appearance = { ...DEFAULT_APPEARANCE, ...customAppearance, ...characterLook }
   // Per room, not per module. Every room in the explorer renders one of these, so a single shared start would put
@@ -54,15 +54,19 @@ export default function Character({ appearance: customAppearance }: { appearance
   useCursor(hovered)
   // set once: the group's position is driven imperatively from here on, never via a reactive JSX prop (which would re-snap it to `start` on every unrelated re-render)
   useLayoutEffect(() => { actor.current?.position.copy(start) }, [])
-  // Bearing and height track the POSE, not the mount: rotation and height are driven imperatively from useFrame,
-  // so the navigation reset in the store — which does put characterState back through livePose — never reached
-  // them on its own. This runs at mount (come back seated the way the room was left) and again whenever
-  // navigation swaps the pose in (each entered room's character stands its own way, not the last room's).
-  useEffect(() => {
+  // Bearing, height AND the pending teleport land in a LAYOUT effect, keyed to the room as well as the pose: a
+  // navigation commits the new room's data, and before that commit is painted the character is already standing
+  // on the new room's spot facing the new room's way. Left to the frame loop these applied one frame late — a
+  // painted flash of the previous room's character on every entry.
+  useLayoutEffect(() => {
     if (readOnly || !actor.current) return
+    if (characterTeleport.position) {
+      actor.current.position.set(characterTeleport.position[0], 0, characterTeleport.position[2])
+      characterTeleport.position = null
+    }
     actor.current.position.y = characterPose?.y ?? 0
     actor.current.rotation.y = characterPose?.facing ?? Math.PI / 4
-  }, [readOnly, characterPose])
+  }, [readOnly, characterPose, currentHandle])
   // A neighbour's layout arrives AFTER it has mounted — the bundle is only fetched once zooming out reveals the
   // room — so the spot read on the first render is still the default, and the ref above had already latched it.
   // That is why every visiting room stood on the same front corner no matter where its owner left their character.
@@ -96,7 +100,10 @@ export default function Character({ appearance: customAppearance }: { appearance
     }
     // A neighbour is somebody else's room being looked at: it must not write into the shared tracker, which is
     // this browser's own character, nor schedule a save of it.
-    if (!readOnly) {
+    // The tracker and attitude are THIS ACCOUNT's character. While visiting, the live actor is someone else's —
+    // writing it here poisoned the shared record with the host's facing and height, and the save that fires on
+    // arriving home then published that poison as the owner's own pose. Visits read, never write.
+    if (!readOnly && !isVisiting()) {
       characterPosition[0] = actor.current.position.x; characterPosition[2] = actor.current.position.z
       characterAttitude.facing = actor.current.rotation.y; characterAttitude.y = actor.current.position.y
       persistCharacterPosition()
