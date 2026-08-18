@@ -28,6 +28,9 @@ const LIGHTING = {
   evening: { bg: '#e9d3bc', ambient: 0.95, ambientColor: '#ffc894', dir: 2.4, dirColor: '#ff9a5e' },
   night: { bg: '#232939', ambient: 0.36, ambientColor: '#8b97b8', dir: 0.5, dirColor: '#aab4d4' },
 } as const
+type TimeOfDay = keyof typeof LIGHTING
+const TIME_LAYER: Record<TimeOfDay, number> = { day: 1, evening: 2, night: 3 }
+const EXPLORER_LAYER_MASK = (1 << 4) - 1
 
 // Pointer coords are computed from the canvas's LIVE on-screen rect — the scene slides 240px left while a
 // panel is open, and the default client-coordinate mapping would leave every click/hover offset by that shift.
@@ -61,6 +64,15 @@ function CrossfadingLights({ preset }: { preset: typeof LIGHTING[keyof typeof LI
   </>
 }
 
+function TimeLayerLights({ time }: { time: TimeOfDay }) {
+  const ambient = useRef<AmbientLight>(null)
+  const dir = useRef<DirectionalLight>(null)
+  const preset = LIGHTING[time]
+  const layer = TIME_LAYER[time]
+  useLayoutEffect(() => { ambient.current?.layers.set(layer); dir.current?.layers.set(layer) }, [layer])
+  return <><ambientLight ref={ambient} intensity={preset.ambient} color={preset.ambientColor} /><directionalLight ref={dir} position={[6, 4.5, 2.5]} intensity={preset.dir} color={preset.dirColor} /></>
+}
+
 // Idle power saver, second attempt — this one cannot touch animation speed. The loop still runs at the display's
 // full rate: every useFrame callback, every clock and delta is exactly as before (the previous attempt drove the
 // clock by hand and anything reading elapsed time ran wild). Only the final DRAW is skipped on alternate frames
@@ -77,12 +89,21 @@ function RenderGovernor() {
     inputs.forEach((name) => window.addEventListener(name, wake, { passive: true }))
     return () => inputs.forEach((name) => window.removeEventListener(name, wake))
   }, [])
-  useFrame(({ gl, scene, camera }) => {
+  useFrame(({ gl, scene, camera, size }) => {
     if (performance.now() >= activeUntil.current) {
       skip.current = !skip.current
       if (skip.current) return
     } else skip.current = false
+    const originalAutoClear = gl.autoClear
+    camera.layers.set(0)
+    gl.autoClear = true
     gl.render(scene, camera)
+    if (camera.zoom <= entryZoom(size.width, size.height)) {
+      gl.autoClear = false
+      Object.values(TIME_LAYER).forEach((layer) => { camera.layers.set(layer); gl.render(scene, camera) })
+    }
+    gl.autoClear = originalAutoClear
+    camera.layers.mask = EXPLORER_LAYER_MASK
   }, 1)
   return null
 }
@@ -99,6 +120,7 @@ function Scene() {
     <OrthographicCamera makeDefault position={[10, 8.5, 10]} zoom={59} near={0.1} far={100} />
     <RenderGovernor />
     <CrossfadingLights preset={light} />
+    <TimeLayerLights time="day" /><TimeLayerLights time="evening" /><TimeLayerLights time="night" />
     <Suspense fallback={null}>
       <RoomWorld />
     </Suspense>
@@ -241,6 +263,9 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
   // bundle IS its look. Without this the cell went permanently blank the moment such a visitor entered a real
   // room, because the room they had just come from could never be drawn as a neighbour.
   const [bundle, setBundle] = useState<Record<string, string> | null>(slot.handle === LOBBY ? {} : null)
+  const savedTime = bundle?.['my-room-time-v1']
+  const roomTime: TimeOfDay = savedTime === 'evening' || savedTime === 'night' ? savedTime : 'day'
+  const layer = TIME_LAYER[roomTime]
   const nextFetch = useRef(0)
   const lastRaw = useRef('')
   const mounted = useRef(true)
@@ -272,6 +297,7 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
   const collect = () => {
     materials.current = []
     group.current?.traverse((object) => {
+      object.layers.set(layer)
       const mesh = object as Mesh
       if (!mesh.isMesh) return
       const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
@@ -283,7 +309,7 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
       })
     })
   }
-  useLayoutEffect(collect, [bundle])
+  useLayoutEffect(collect, [bundle, layer])
   useFrame(({ camera, size }, delta) => {
     if (!group.current) return
     // The ring belongs to the explorer, so it starts leaving the moment the zoom lifts off the floor at all rather
