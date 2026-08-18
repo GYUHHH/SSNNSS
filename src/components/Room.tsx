@@ -286,7 +286,9 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
     const photoTint = NEIGHBOUR_TINT.day[timeOfDay]
     materials.current.forEach((material) => {
       material.transparent = full ? material.wasTransparent ?? false : true
-      material.opacity = full ? 1 : opacity.current
+      // trim bars ride the cube of the fade: still smooth, but they only surface once the room is nearly whole,
+      // instead of floating over the ghosted room as three hard dark bars for the entire glide
+      material.opacity = full ? 1 : material.userData.lateFade ? opacity.current ** 3 : opacity.current
       if (!material.color) return
       // The cast multiplies into the material's colour every frame, so the untouched colour has to live beside it —
       // and it must never be frozen at whatever the first frame held. A neighbour's real wall and floor colours
