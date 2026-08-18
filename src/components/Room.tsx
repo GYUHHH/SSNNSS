@@ -284,11 +284,16 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
   return <group ref={group} position={slot.position} visible={false}>
     {/* its own boundary: a neighbour's font or texture must never suspend the live room out of view */}
     <Suspense fallback={null}>
+      {/* Nothing is drawn until the room's own layout is in hand: rendering the provider with a null bundle
+          shows the DEFAULT room, and a stranger's cell flashing the starter layout before flipping to the real
+          one read as broken. With bundles prefetched at directory load the gap is rarely even visible. */}
+      {bundle === null ? null : <>
       {/* three's raycaster tests layers only, never `visible`, so a faded-out neighbour still swallows the ray.
           That is what stopped a click on empty space from counting as a miss — and in edit mode, where every
           neighbour is faded to nothing, it stopped the click that finishes editing. Inert while faded, hittable
           once it has faded in, which is exactly when the click below is allowed to select the room anyway. */}
       <Inert off={fadedOut}><NeighbourRoomProvider bundle={bundle}><NeighbourRoom /></NeighbourRoomProvider></Inert>
+      </>}
     </Suspense>
   </group>
 }
@@ -325,6 +330,9 @@ function RoomWorld() {
       const viewed = currentRoomHandle()
       if (viewed && viewed !== hubHandle && !rest.includes(viewed)) rest.unshift(viewed)
       setHandles(withVacancies([hubHandle, ...rest]))
+      // warm every bundle now, while the user is still looking at their own room — by the time they zoom out,
+      // the layouts are already here and each neighbour appears as itself rather than as the default room first
+      rest.filter(isEnterable).forEach((handle) => void fetchRoomBundle(handle))
     })
     return () => { live = false }
   }, [hubHandle])

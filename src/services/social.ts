@@ -369,13 +369,24 @@ export async function ownedRoom(): Promise<{ handle: string; data: Record<string
 
 // One neighbour's bundle, read-only — the explorer draws each surrounding room from its own saved layout. Unlike
 // enterRoom this changes nothing: no visit state, no history, no listeners, so it is safe to run for many rooms.
-export async function fetchRoomBundle(handle: string): Promise<Record<string, string> | null> {
-  try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${escape(handle)}&select=data&limit=1`, { headers })
-    const rows = await response.json()
-    const data = Array.isArray(rows) ? rows[0]?.data : null
-    return response.ok && data && typeof data === 'object' && !Array.isArray(data) ? data as Record<string, string> : null
-  } catch { return null }
+// The in-flight promise is what gets cached, so the prefetch fired at directory load and the request made when a
+// room actually fades in are one and the same network call — the reveal just awaits the answer already on its way.
+const bundleCache = new Map<string, Promise<Record<string, string> | null>>()
+export function fetchRoomBundle(handle: string): Promise<Record<string, string> | null> {
+  const cached = bundleCache.get(handle)
+  if (cached) return cached
+  const request = (async () => {
+    try {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${escape(handle)}&select=data&limit=1`, { headers })
+      const rows = await response.json()
+      const data = Array.isArray(rows) ? rows[0]?.data : null
+      if (response.ok && data && typeof data === 'object' && !Array.isArray(data)) return data as Record<string, string>
+    } catch { /* fall through */ }
+    bundleCache.delete(handle)  // a failure must not be remembered as that room's layout forever
+    return null
+  })()
+  bundleCache.set(handle, request)
+  return request
 }
 
 // The explorer only needs public room ids up front; each neighbour's bundle is fetched lazily by fetchRoomBundle
