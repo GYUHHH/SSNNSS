@@ -1,6 +1,6 @@
 import { OrbitControls } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MathUtils, MOUSE, OrthographicCamera, TOUCH, Vector3 } from 'three'
 import { useRoomStore } from '../store'
 
@@ -75,7 +75,10 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
     targetGoal.current.set(aim[0], aim[1] + 3.5, aim[2])
   }, [aim])
 
-  useEffect(() => {
+  // LAYOUT effect on purpose: the re-base and this camera slide must land in the same painted frame. As a plain
+  // effect it ran after the browser had already painted the re-based cluster once — a single flashed frame of the
+  // previous room's view on every entry.
+  useLayoutEffect(() => {
     if (!focusRoom) return
     // The cluster re-bases onto the room being entered, so that room teleports from its own cell to the origin —
     // a whole CELL, about 290px at the desktop zoom floor. Sliding the camera by exactly the same amount leaves it
