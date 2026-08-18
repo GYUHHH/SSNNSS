@@ -509,6 +509,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @media (max-width: 719px) {
   .art-panel { top: auto; right: 0; left: 0; width: auto; max-height: 68vh; padding: 8px 16px calc(20px + env(safe-area-inset-bottom)); border-left: 0; border-top: 1px solid var(--ui-line); border-radius: 14px 14px 0 0; transform: translateY(100%); transition: transform .42s cubic-bezier(.22, 1.2, .36, 1); overscroll-behavior: contain; }
   .art-panel.open { transform: translateY(0); }
+  /* the 가구함 rises from the bottom like the art sheet. It is rendered conditionally rather than kept mounted
+     and toggled, so the entrance is an animation rather than a transition on a class. It stops above the edit
+     toolbar on purpose — that bar is the only way out of edit mode and must stay reachable. */
+  .inventory-panel { border-top: 1px solid var(--ui-line); border-radius: 14px 14px 0 0; padding-top: 8px; animation: sheet-rise .28s cubic-bezier(.22, 1, .36, 1); }
+  @keyframes sheet-rise { from { transform: translateY(100%); } to { transform: translateY(0); } }
   .sheet-handle { display: block; width: 38px; height: 4px; margin: 2px auto 10px; border-radius: 999px; background: var(--ui-line); }
   .art-open .scene, .scene { transform: translate3d(0, calc(var(--sheet, 0) * -26vh), 0); }
   .art-open .room-ui, .art-open .room-controls { right: 14px; }
