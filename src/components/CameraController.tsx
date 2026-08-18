@@ -36,7 +36,7 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
   const zoomTarget = useRef(59)
   const targetGoal = useRef(new Vector3(0, 3.5, 0))
   // set while gliding back to the straight-on view after a room is entered, then cleared so the user owns the angle
-  const angleGoal = useRef<{ azimuth: number; polar: number } | null>(null)
+  const angleGoal = useRef<{ azimuth: number; polar: number; life: number } | null>(null)
   const touchStart = useRef<{ x: number; y: number; time: number } | null>(null)
   const pinchDistance = useRef(0)
   const lastTap = useRef({ time: 0, x: 0, y: 0 })
@@ -86,7 +86,7 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
     // the zoom back to it would fight the wheel that is still turning. Wind past it and the extra is kept.
     zoomTarget.current = Math.max(zoomTarget.current, baseZoom)
     // whatever the explorer was left rotated or panned to, entering a room lands dead-centre on the 45° view
-    angleGoal.current = { azimuth: DEFAULT_AZIMUTH, polar: DEFAULT_POLAR }
+    angleGoal.current = { azimuth: DEFAULT_AZIMUTH, polar: DEFAULT_POLAR, life: 2 }
   }, [baseZoom, camera, focusRoom?.token])
 
   useEffect(() => { zoomTarget.current = Math.max(zoomTarget.current, minZoom) }, [minZoom])
@@ -169,11 +169,16 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
     // glide the swing back to the straight-on view when a room has just been entered, then hand the angle back
     const angle = angleGoal.current
     if (angle) {
-      const azimuth = MathUtils.damp(orbit.getAzimuthalAngle(), angle.azimuth, 6, delta)
-      const polar = MathUtils.damp(orbit.getPolarAngle(), angle.polar, 6, delta)
-      orbit.setAzimuthalAngle(azimuth)
-      orbit.setPolarAngle(polar)
-      if (Math.abs(azimuth - angle.azimuth) < .0005 && Math.abs(polar - angle.polar) < .0005) angleGoal.current = null
+      // The goal is handed over whole and OrbitControls eases into it on its own. Damping toward it here as well
+      // was a trap: with enableDamping, setAzimuthalAngle applies only dampingFactor — 8% — of what it is given,
+      // so damping first and then losing 92% of that moved the angle 0.74% a frame. Converging to the old
+      // half-thousandth threshold at that rate took about fifteen seconds, and for all fifteen the angle was being
+      // rewritten every frame, which is a camera that will not turn. `life` is the backstop: whatever a future
+      // version of these setters does, the hold expires.
+      angle.life -= delta
+      orbit.setAzimuthalAngle(angle.azimuth)
+      orbit.setPolarAngle(angle.polar)
+      if (angle.life <= 0 || (Math.abs(orbit.getAzimuthalAngle() - angle.azimuth) < .002 && Math.abs(orbit.getPolarAngle() - angle.polar) < .002)) angleGoal.current = null
     }
     const target = orbit.target
     // Fully zoomed out the user is browsing, so panning owns the target and the damping below is skipped — the

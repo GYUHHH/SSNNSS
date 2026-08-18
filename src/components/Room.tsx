@@ -319,26 +319,28 @@ function RoomWorld() {
     // already moving — the aim below is pulling the chosen room to the middle — so under a mouse that has not
     // budged the room under the cursor changes and the choice flips out from under the user mid-zoom.
     if (mode === 'normal' && camera.zoom <= floor + .5) {
-      // With a mouse, whatever is under the cursor is the choice: hover a room, zoom, land in it. Touch has no
-      // hover to read — the last tap is stale by the time the pinch happens — so there the middle of the screen
-      // is the crosshair, which is what panning aims anyway.
-      const atX = fine.current ? pointer.x : 0
-      const atY = fine.current ? pointer.y : 0
-      // Projected rather than measured in world space: the cluster is stacked across storeys and panning slides
-      // the target in the screen plane, so world distance disagrees with what is actually under the cursor.
-      let pick: RoomSlot | null = null
-      let best = Infinity
-      for (const slot of slots) {
-        if (slot.handle === active.handle || !isEnterable(slot.handle) || ringDistance(slot, active) > VISIBLE_RINGS) continue
-        probe.set(slot.position[0], slot.position[1] + 3.5, slot.position[2]).project(camera)
-        const offset = Math.hypot(probe.x - atX, probe.y - atY)
-        if (offset < best) { best = offset; pick = slot }
+      // Measured in pixels off a projected centre rather than in world space: the cluster is stacked across storeys
+      // and panning slides the target in the screen plane, so world distance disagrees with what is on screen. The
+      // room already being viewed competes as well, and its winning means nothing is picked — zooming back into the
+      // room you are in should just re-centre it, which the camera already does on its own.
+      const halfW = size.width / 2
+      const halfH = size.height / 2
+      const nearest = (atX: number, atY: number) => {
+        let best = Infinity
+        let winner: RoomSlot | null = null
+        for (const slot of slots) {
+          if (slot !== active && (!isEnterable(slot.handle) || ringDistance(slot, active) > VISIBLE_RINGS)) continue
+          probe.set(slot.position[0], slot.position[1] + 3.5, slot.position[2]).project(camera)
+          const offset = Math.hypot((probe.x - atX) * halfW, (probe.y - atY) * halfH)
+          if (offset < best) { best = offset; winner = slot }
+        }
+        return { slot: winner === active ? null : winner, offset: best }
       }
-      // the room already being viewed competes too, and losing to it means nothing is picked — zooming back into
-      // the room you are in should just re-centre it, which the camera already does on its own
-      probe.set(active.position[0], active.position[1] + 3.5, active.position[2]).project(camera)
-      if (Math.hypot(probe.x - atX, probe.y - atY) < best) pick = null
-      picked.current = pick
+      // Both readings are live on a desktop, and the mouse only takes over where it is actually resting on a room —
+      // a room projects to a 200px box at zoom 20.2, so half of one is 4.95 pixels per unit of zoom. Off the rooms,
+      // or on a touch screen where the last tap is long stale, the middle of the screen is the crosshair.
+      const hover = fine.current ? nearest(pointer.x, pointer.y) : null
+      picked.current = hover && hover.offset <= camera.zoom * 4.95 ? hover.slot : nearest(0, 0).slot
     }
     // Held through the entry itself, and dropped the instant it is done. Dropping it as soon as the zoom-in starts
     // pointed the camera back at the room being left for the whole of a network round trip, so the user watched it
