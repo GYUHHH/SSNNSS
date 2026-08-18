@@ -1,4 +1,4 @@
-import { isReadingBundle, isVisiting, readStored, schedulePublish, uploadMedia } from './social'
+import { isReadingBundle, isVisiting, readStored, uploadMedia, writeStored } from './social'
 
 // Video clips are far too big for localStorage (a few MB blows the whole quota and would take the room layout
 // down with it), so they live in IndexedDB as blobs keyed by the frame's furniture id.
@@ -48,14 +48,14 @@ export async function syncPendingClips(): Promise<number> {
   return fixed
 }
 
-// youtube links are tiny, so they stay in localStorage next to the rest of the room
+// YouTube links are tiny room data; only their server-backed map is needed here.
 const linkKey = 'my-room-video-links-v1'
 export function loadVideoLinks(): Record<string, string> {
   try { const raw = readStored(linkKey); return raw ? JSON.parse(raw) as Record<string, string> : {} } catch { return {} }
 }
 export function saveVideoLinks(links: Record<string, string>) {
   if (isVisiting() || isReadingBundle()) return
-  try { localStorage.setItem(linkKey, JSON.stringify(links)); schedulePublish() } catch { /* unavailable */ }
+  writeStored(linkKey, JSON.stringify(links))
 }
 
 // uploaded clips also live in the storage bucket; this map (frame id -> public url) syncs with the room so
@@ -66,12 +66,9 @@ export function loadClipUrls(): Record<string, string> {
 }
 export function saveClipUrl(id: string, url: string | null) {
   if (isVisiting() || isReadingBundle()) return
-  try {
-    const urls = loadClipUrls()
-    if (url) urls[id] = url; else delete urls[id]
-    localStorage.setItem(clipUrlKey, JSON.stringify(urls))
-    schedulePublish()
-  } catch { /* unavailable */ }
+  const urls = loadClipUrls()
+  if (url) urls[id] = url; else delete urls[id]
+  writeStored(clipUrlKey, JSON.stringify(urls))
 }
 
 // accepts watch, youtu.be, shorts and embed forms, or a bare id

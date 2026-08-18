@@ -76,7 +76,7 @@ export default function HandleSetup() {
     void ownedRoom().then((room) => {
       if (!live) return
       if (!room) { setRoomChecked(true); return }
-      adoptRoomData(room.data)
+      adoptRoomData(room.data, room.handle)
       location.replace(roomPath(room.handle))
     })
     return () => { live = false }
@@ -122,8 +122,7 @@ export default function HandleSetup() {
     if (!valid || busy) return
     setBusy('claim')
     if (await handleTaken(clean)) { setTaken(true); setBusy(null); return }
-    // written straight to storage on purpose: publishRoom reads the handle back out of localStorage on the very
-    // next line, and the store's setter only lands during React's next render, so it would publish under no handle
+    // Establish the account's in-memory room identity before React's profile update lands, then save it now.
     claimHandleLocally(clean)
     setProfileHandle(clean)
     if (!await publishRoom()) { setPublishFailed(true); setBusy(null); return }

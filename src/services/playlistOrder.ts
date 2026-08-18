@@ -1,4 +1,4 @@
-import { isVisiting, readStored, schedulePublish } from './social'
+import { isVisiting, readStored, writeStored } from './social'
 
 // Our-site-only play order for YouTube playlists. The playlist on YouTube stays untouched and remains the
 // source of truth for WHICH videos exist; the stored order here is the source of truth for the SEQUENCE the
@@ -12,7 +12,7 @@ export const loadOrders = (): Record<string, string[]> => {
 }
 
 export const saveOrder = (playlistId: string, order: string[]) => {
-  if (!isVisiting()) try { const orders = loadOrders(); orders[playlistId] = order; localStorage.setItem(STORAGE_KEY, JSON.stringify(orders)); schedulePublish() } catch { /* storage may be unavailable */ }
+  if (!isVisiting()) { const orders = loadOrders(); orders[playlistId] = order; writeStored(STORAGE_KEY, JSON.stringify(orders)) }
   listeners.forEach((listener) => listener(playlistId))
 }
 

@@ -2,8 +2,8 @@ import { createClient } from '@supabase/supabase-js'
 import { compressImage } from './imageCompress'
 
 // Supabase-backed social layer: plain fetch against PostgREST, plus the SDK's realtime channel for live updates.
-// - The owner's room state (a bundle of my-room-* localStorage values) is published under their profile
-//   handle, guarded by a per-device secret checked inside the save_room SQL function.
+// - The owner's room state lives in the server bundle. An in-memory copy keeps synchronous loaders simple;
+//   every change is sent immediately and verified against the saved row.
 // - Visiting ?room=<handle> loads that bundle read-only: the intercepted storage reads serve it instead of
 //   the visitor's own room, and every save becomes a no-op so nothing local gets overwritten.
 // - Likes are one row per (room, item, visitor); toggling inserts or deletes and returns the fresh count.
@@ -20,8 +20,6 @@ const authHeaders = async (): Promise<Record<string, string>> => {
   } catch { return headers }
 }
 const escape = encodeURIComponent
-
-const SYNC_KEYS = ['my-room-slots-v1', 'my-room-video-links-v1', 'my-room-artwork-v1', 'my-room-profile-v1', 'my-room-books-v1', 'my-room-guestbook-v1', 'my-room-playlist-order-v1', 'my-room-interactions-v1', 'my-room-time-v1', 'my-room-music-v1', 'my-room-clip-urls-v1', 'my-room-character-v1', 'my-room-character-look-v1']
 
 // Room addresses are simple paths: (domain)/(id). GitHub Pages has no SPA fallback, so 404.html bounces
 // unknown paths back here as ?p=<id> and the address bar is restored. Legacy ?room= links keep working.
@@ -46,6 +44,15 @@ let plainRoot = visitHandle === null
 export const visitedHandle = () => visitHandle
 export const isPlainRoot = () => plainRoot
 let visitData: Record<string, string> | null = null
+let ownerHandle: string | null = null
+let ownerData: Record<string, string> = {}
+let ownerPersisted = false
+const dirtyKeys = new Set<string>()
+const deletedKeys = new Set<string>()
+const LEGACY_ROOM_KEYS = ['my-room-layout-v1', 'my-room-slots-v1', 'my-room-video-links-v1', 'my-room-artwork-v1', 'my-room-profile-v1', 'my-room-books-v1', 'my-room-guestbook-v1', 'my-room-playlist-order-v1', 'my-room-interactions-v1', 'my-room-time-v1', 'my-room-music-v1', 'my-room-clip-urls-v1', 'my-room-character-v1', 'my-room-character-look-v1', 'my-room-reactions-seen-v1']
+const clearLegacyRoomContent = () => {
+  try { for (const key of LEGACY_ROOM_KEYS) localStorage.removeItem(key) } catch { /* storage may be unavailable */ }
+}
 const roomNavigationListeners = new Set<() => void>()
 export const onRoomNavigation = (listener: () => void) => { roomNavigationListeners.add(listener); return () => { roomNavigationListeners.delete(listener) } }
 export const isVisiting = () => plainRoot || (visitHandle !== null && visitHandle !== ownHandle())
@@ -59,6 +66,11 @@ export function enterLobby() {
   roomNavigationListeners.forEach((listener) => listener())
 }
 const clearRoomCache = () => {
+  ownerHandle = null
+  ownerData = {}
+  ownerPersisted = false
+  dirtyKeys.clear()
+  deletedKeys.clear()
   try { for (let index = localStorage.length - 1; index >= 0; index--) { const key = localStorage.key(index); if (key?.startsWith('my-room-')) localStorage.removeItem(key) } } catch { /* storage may be unavailable */ }
 }
 
@@ -77,7 +89,21 @@ export const readingBundle = <T>(bundle: Record<string, string>, run: () => T): 
 export const readStored = (key: string): string | null => {
   if (readOverride) return readOverride[key] ?? null
   if (isVisiting()) return visitData?.[key] ?? null
-  try { return localStorage.getItem(key) } catch { return null }
+  return ownerData[key] ?? null
+}
+export const writeStored = (key: string, value: string) => {
+  if (isVisiting() || isReadingBundle() || ownerData[key] === value) return
+  ownerData[key] = value
+  dirtyKeys.add(key)
+  deletedKeys.delete(key)
+  schedulePublish()
+}
+export const removeStored = (key: string) => {
+  if (isVisiting() || isReadingBundle() || !(key in ownerData)) return
+  delete ownerData[key]
+  dirtyKeys.add(key)
+  deletedKeys.add(key)
+  schedulePublish()
 }
 
 export async function initVisit() {
@@ -101,9 +127,7 @@ const persistentId = (key: string) => {
 const visitorId = () => persistentId('my-room-visitor-v1')
 const roomSecret = () => persistentId('my-room-secret-v1')
 
-const ownHandle = (): string | null => {
-  try { return JSON.parse(localStorage.getItem('my-room-profile-v1') ?? 'null')?.handle ?? null } catch { return null }
-}
+const ownHandle = () => ownerHandle
 export const currentRoomHandle = () => (isVisiting() ? visitHandle : ownHandle())
 // the writer's OWN id, even while visiting someone else's room (reads the local profile directly)
 export const myHandle = () => plainRoot ? null : ownHandle()
@@ -113,44 +137,100 @@ export const myHandle = () => plainRoot ? null : ownHandle()
 export const isSignedIn = () => ownHandle() !== null
 export const roomPath = (handle: string) => `${BASE}${escape(handle)}`
 
-// A fetch started as the page goes away is normally killed mid-flight, and boot adopts whatever the server holds
-// — so a change made in the last second before closing the tab was simply lost. `keepalive` lets the request
-// outlive the page, but only up to 64KB, and a room carrying inline artwork runs past that. Over the limit it
-// falls back to a plain request, which is exactly what happened before, so nothing gets worse.
 const KEEPALIVE_LIMIT = 60_000
+const sameBundle = (left: Record<string, string>, right: Record<string, string>) => {
+  const keys = Object.keys(left)
+  return keys.length === Object.keys(right).length && keys.every((key) => left[key] === right[key])
+}
+if (import.meta.env.DEV && (!sameBundle({ a: '1' }, { a: '1' }) || sameBundle({ a: '1' }, { a: '2' }))) throw new Error('Room bundle comparison failed')
 
-// returns whether the save actually landed, so a caller about to send the user into that room can tell
-export async function publishRoom(leaving = false): Promise<boolean> {
+let publishQueued = false
+let publishTask: Promise<boolean> | null = null
+let retryTimer: ReturnType<typeof setTimeout> | undefined
+const saveRoomSnapshot = async (leaving: boolean): Promise<boolean> => {
   const handle = ownHandle()
   if (!handle) return false
-  const data: Record<string, string> = {}
-  for (const key of SYNC_KEYS) { try { const value = localStorage.getItem(key); if (value) data[key] = value } catch { /* skip */ } }
-  if (Object.keys(seenReactions).length) data[SEEN_KEY] = JSON.stringify(seenReactions)
-  const body = JSON.stringify({ p_handle: handle, p_secret: roomSecret(), p_data: data })
+  const savingKeys = new Set(dirtyKeys)
+  const savingValues = new Map([...savingKeys].map((key) => [key, ownerData[key]]))
+  const savingDeleted = new Set([...savingKeys].filter((key) => deletedKeys.has(key)))
+  if (!savingKeys.size && !leaving) return true
+  let data = { ...ownerData }
   try {
+    // Another signed-in device may have changed a different key since this copy was loaded. Merge only this
+    // request's dirty keys into the newest server bundle so publishing a book cannot roll back a phone edit.
+    if (!leaving) {
+      const latest = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${escape(handle)}&select=data&limit=1`, { headers, cache: 'no-store' })
+      const rows = await latest.json()
+      if (!latest.ok) return false
+      if (ownerPersisted && (!Array.isArray(rows) || !rows[0])) return false
+      const remote = Array.isArray(rows) && rows[0]?.data && typeof rows[0].data === 'object' ? rows[0].data as Record<string, string> : {}
+      data = { ...remote }
+      for (const key of savingKeys) {
+        if (savingDeleted.has(key)) delete data[key]
+        else if (savingValues.get(key) !== undefined) data[key] = savingValues.get(key)!
+      }
+    }
+    const body = JSON.stringify({ p_handle: handle, p_secret: roomSecret(), p_data: data })
     const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/save_room`, { method: 'POST', headers: await authHeaders(), body, keepalive: leaving && body.length < KEEPALIVE_LIMIT })
-    if (response.ok) pingRoomUpdate(handle)
-    return response.ok
+    if (!response.ok) return false
+    if (!leaving) {
+      const verify = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${escape(handle)}&select=data&limit=1`, { headers, cache: 'no-store' })
+      const rows = await verify.json()
+      if (!verify.ok || !sameBundle(data, Array.isArray(rows) ? rows[0]?.data ?? {} : {})) return false
+    }
+    const currentData = ownerData
+    ownerData = data
+    ownerPersisted = true
+    for (const key of [...dirtyKeys]) {
+      const unchanged = savingKeys.has(key)
+        && savingDeleted.has(key) === deletedKeys.has(key)
+        && savingValues.get(key) === currentData[key]
+      if (unchanged) {
+        dirtyKeys.delete(key)
+        deletedKeys.delete(key)
+      } else if (deletedKeys.has(key)) delete ownerData[key]
+      else if (currentData[key] !== undefined) ownerData[key] = currentData[key]
+    }
+    pingRoomUpdate(handle)
+    return true
   } catch { return false /* offline — the next change tries again */ }
 }
 
-let publishTimer: ReturnType<typeof setTimeout> | undefined
+// All room writers share this serialized queue. Changes made during a request run in the next pass, and failed
+// writes remain queued for retry, so an older response cannot overwrite a newer edit.
+export function publishRoom(leaving = false): Promise<boolean> {
+  publishQueued = true
+  if (publishTask) return publishTask
+  publishTask = (async () => {
+    let ok = true
+    while (publishQueued) {
+      publishQueued = false
+      ok = await saveRoomSnapshot(leaving)
+      if (!ok) {
+        publishQueued = true
+        clearTimeout(retryTimer)
+        retryTimer = setTimeout(() => { retryTimer = undefined; void publishRoom() }, 1500)
+        break
+      }
+    }
+    return ok
+  })().finally(() => {
+    publishTask = null
+    if (publishQueued && !retryTimer) void publishRoom()
+  })
+  return publishTask
+}
 export const schedulePublish = () => {
   if (isVisiting()) return
-  clearTimeout(publishTimer)
-  publishTimer = setTimeout(() => { publishTimer = undefined; void publishRoom() }, 900)
+  void publishRoom()
 }
-// Boot adopts whatever the server holds, so a change still sitting in the debounce when the page reloads is
-// simply lost. Anything pending is flushed the moment the page is hidden or closed.
 const flushPublish = () => {
-  if (!publishTimer) return
-  clearTimeout(publishTimer)
-  publishTimer = undefined
-  void publishRoom(true)
+  if (publishQueued || publishTask) void saveRoomSnapshot(true)
 }
 if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', flushPublish)
   window.addEventListener('beforeunload', flushPublish)
+  window.addEventListener('online', () => { if (dirtyKeys.size) void publishRoom() })
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPublish() })
 }
 
@@ -164,34 +244,24 @@ export const requireHandle = (): boolean => {
 // claiming an id writes the visitor's OWN profile, so it must go through even while inside someone else's
 // room — the usual visiting guard is there to protect the host's data, not to block signing up
 export const claimHandleLocally = (handle: string) => {
-  try {
-    const profile = JSON.parse(localStorage.getItem('my-room-profile-v1') ?? '{}')
-    localStorage.setItem('my-room-profile-v1', JSON.stringify({ ...profile, handle }))
-  } catch { /* storage unavailable */ }
+  ownerHandle = handle
+  ownerPersisted = false
+  visitHandle = handle
+  plainRoot = false
+  let profile: Record<string, unknown> = {}
+  try { profile = JSON.parse(ownerData['my-room-profile-v1'] ?? '{}') } catch { /* keep empty */ }
+  writeStored('my-room-profile-v1', JSON.stringify({ ...profile, handle }))
 }
 
 export const myVisitorId = () => visitorId()
 
-// Which reactions the owner has already opened, keyed by item id. The server bundle carries it between devices,
-// but each device ALSO keeps its own copy and the two are merged by taking the higher count — because every
-// publish replaces the whole bundle, a second signed-in session (the desktop left open) that publishes anything
-// at all pushes ITS stale seen-map over the fresh one, and marks made on the phone came back as unread after a
-// restart. Counts only ever grow, so max-merge can never resurrect a dismissed badge.
+// Which reactions the owner has already opened, keyed by item id. It is part of the same server bundle so the
+// unread state follows the account instead of this browser.
 const SEEN_KEY = 'my-room-reactions-seen-v1'
 let seenReactions: Record<string, number> = {}
 export const getSeenReactions = () => seenReactions
-const persistSeen = () => { try { localStorage.setItem(SEEN_KEY, JSON.stringify(seenReactions)) } catch { /* unavailable */ } }
-const mergeSeenWithLocal = (incoming: Record<string, number>) => {
-  try {
-    const local = JSON.parse(localStorage.getItem(SEEN_KEY) ?? '{}') as Record<string, number>
-    for (const key of Object.keys(local)) incoming[key] = Math.max(incoming[key] ?? 0, local[key] ?? 0)
-  } catch { /* keep incoming */ }
-  return incoming
-}
-// seeded from the device's own copy at load, so marks survive even a server bundle that lost the key entirely
-seenReactions = mergeSeenWithLocal({})
-// publish immediately — a debounce here loses the mark when the owner refreshes right after looking
-export const markReactionSeen = (id: string, count: number) => { seenReactions[id] = count; persistSeen(); void publishRoom() }
+const persistSeen = () => writeStored(SEEN_KEY, JSON.stringify(seenReactions))
+export const markReactionSeen = (id: string, count: number) => { seenReactions[id] = count; persistSeen() }
 
 // uploaded media (music files, video clips) go to the public storage bucket so visitors can stream them
 export async function uploadMedia(path: string, file: Blob): Promise<string | null> {
@@ -383,7 +453,7 @@ export async function ownedRoom(): Promise<{ handle: string; data: Record<string
     const { data } = await supabaseClient().auth.getSession()
     const uid = data.session?.user.id
     if (!uid) return null
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?owner=eq.${escape(uid)}&select=handle,data&limit=1`, { headers })
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?owner=eq.${escape(uid)}&select=handle,data&limit=1`, { headers, cache: 'no-store' })
     const rows = await response.json()
     return Array.isArray(rows) ? rows[0] ?? null : null
   } catch { return null }
@@ -450,38 +520,34 @@ export async function handleTaken(handle: string): Promise<boolean> {
   } catch { return true }
 }
 
-export function adoptRoomData(bundle: Record<string, string>) {
-  try {
-    for (const [key, value] of Object.entries(bundle)) {
-      if (key === SEEN_KEY) { try { seenReactions = mergeSeenWithLocal(JSON.parse(value) ?? {}); persistSeen() } catch { /* keep empty */ } continue }
-      if (key.startsWith('my-room-')) localStorage.setItem(key, value)
-    }
-  } catch { /* storage may be unavailable */ }
+export function adoptRoomData(bundle: Record<string, string>, handle?: string) {
+  ownerData = { ...bundle }
+  ownerPersisted = true
+  dirtyKeys.clear()
+  deletedKeys.clear()
+  if (handle) ownerHandle = handle
+  try { seenReactions = JSON.parse(bundle[SEEN_KEY] ?? '{}') ?? {} } catch { seenReactions = {} }
+  clearLegacyRoomContent()
 }
 
-// The server is the source of truth: a confirmed missing owner bundle clears its local cache instead of
-// reviving a room the owner already deleted from Supabase. A network failure only falls back to the base view.
+// Authentication chooses the owner bundle before React mounts. This is what makes a fresh phone read the same
+// room immediately: neither a local profile nor a previously visited URL is needed to discover the account room.
 export async function initOwnSync() {
-  const handle = ownHandle()
-  if (!handle) return
-  // the bare address belongs to whoever already holds an id on this device — treating them as a passer-by is
-  // what made every save a no-op, since the plain root is read-only by design
-  if (plainRoot) { visitHandle = handle; plainRoot = false; history.replaceState(null, '', roomPath(handle)) }
-  else if (isVisiting()) return
-  try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${escape(handle)}&select=data`, { headers })
-    const rows = await response.json()
-    const bundle = Array.isArray(rows) ? rows[0]?.data : null
-    if (!response.ok || !bundle || typeof bundle !== 'object' || Array.isArray(bundle)) { clearRoomCache(); resetToPlainRoot(); return }
-    adoptRoomData(bundle)
-  } catch { resetToPlainRoot() }
+  const room = await ownedRoom()
+  if (!room) return
+  adoptRoomData(room.data, room.handle)
+  if (plainRoot) {
+    visitHandle = room.handle
+    plainRoot = false
+    history.replaceState(null, '', roomPath(room.handle))
+  }
 }
 
 // One event per SETTLED action — sat down, stood up, arrived somewhere — not a stream of the walk itself. The
 // walk used to ride a dozen frames a second over the channel, which a visitor saw as a figure sliding around with
 // no walk animation; a snap to where the character ended up reads better and costs one message per action instead
 // of per frame, which is also the version that survives fifty rooms. Broadcasts hop client-to-client with no
-// database write; the debounced room save is still what makes the spot survive a reload.
+// database write; the immediate room save is still what makes the spot survive a reload.
 export type CharacterSettle = { position: [number, number, number]; pose: { state: string; facing: number; y: number } }
 let liveChannel: ReturnType<ReturnType<typeof supabaseClient>['channel']> | null = null
 export const broadcastCharacter = (settle: CharacterSettle) => {

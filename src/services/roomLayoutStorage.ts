@@ -1,4 +1,4 @@
-import { isReadingBundle, isVisiting, readStored, schedulePublish } from './social'
+import { isReadingBundle, isVisiting, readStored, writeStored } from './social'
 
 export type FurniturePlacement = { id: string; type: string; position?: [number, number, number]; rotation: [number, number, number]; scale: number; surfaceId?: string; gridX?: number; gridZ?: number; gridY?: number; wallId?: 'leftWall' | 'rightWall'; footprint?: { width: number; depth: number }; resolution?: 'base' | 'subgrid2'; styleId?: string; removed?: boolean; updatedAt: string }
 export type RoomStyle = { leftWall?: string; rightWall?: string; floor?: string }
@@ -23,7 +23,7 @@ const readSlots = (): SlotsBlob | null => {
 }
 const writeSlots = (blob: SlotsBlob) => {
   if (isVisiting() || isReadingBundle()) return
-  try { localStorage.setItem(slotsKey, JSON.stringify(blob)); schedulePublish() } catch { /* localStorage may be unavailable */ }
+  writeStored(slotsKey, JSON.stringify(blob))
 }
 
 // first run promotes the single saved room into slot one — the old key is left untouched as a fallback copy
@@ -78,14 +78,14 @@ export function placedInOtherSlots(activeId: string): Record<string, number> {
   return counts
 }
 
-// user-made artwork (poster drawings, frame photos) keyed by furniture id, stored as data URLs
+// user-made artwork (poster drawings, frame photos) keyed by furniture id; uploaded images become bucket URLs
 const artworkKey = 'my-room-artwork-v1'
 export function loadArtworks(): Record<string, string> | null {
   try { const raw = readStored(artworkKey); return raw ? JSON.parse(raw) as Record<string, string> : null } catch { return null }
 }
 export function saveArtworks(artworks: Record<string, string>) {
   if (isVisiting() || isReadingBundle()) return
-  try { localStorage.setItem(artworkKey, JSON.stringify(artworks)); schedulePublish() } catch { /* quota exceeded or unavailable */ }
+  writeStored(artworkKey, JSON.stringify(artworks))
 }
 
 // diary books/entries live under their own key so the layout blob stays small and the two never clobber each other
@@ -95,17 +95,7 @@ export function loadBooks<T>(): T | null {
 }
 export function saveBooks(books: unknown) {
   if (isVisiting() || isReadingBundle()) return
-  try { localStorage.setItem(booksKey, JSON.stringify(books)); schedulePublish() } catch { /* quota exceeded or unavailable */ }
-}
-
-// guestbook comments per wall-board furniture id
-const guestbookKey = 'my-room-guestbook-v1'
-export function loadGuestbook<T>(): T | null {
-  try { const raw = readStored(guestbookKey); return raw ? JSON.parse(raw) as T : null } catch { return null }
-}
-export function saveGuestbook(guestbook: unknown) {
-  if (isVisiting() || isReadingBundle()) return
-  try { localStorage.setItem(guestbookKey, JSON.stringify(guestbook)); schedulePublish() } catch { /* quota exceeded or unavailable */ }
+  writeStored(booksKey, JSON.stringify(books))
 }
 
 // visitor counts and the profile photo — counted locally until there is a server to ask
@@ -116,5 +106,5 @@ export function loadProfile(): Profile | null {
 }
 export function saveProfile(profile: Profile) {
   if (isVisiting() || isReadingBundle()) return
-  try { localStorage.setItem(profileKey, JSON.stringify(profile)); schedulePublish() } catch { /* unavailable */ }
+  writeStored(profileKey, JSON.stringify(profile))
 }

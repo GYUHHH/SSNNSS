@@ -1,12 +1,12 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { createSlot, deleteSlot, loadArtworks, loadProfile, saveProfile, type Profile, loadBooks, loadGuestbook, loadSlots, placedInOtherSlots, saveArtworks, saveBooks, saveGuestbook, saveSlotItems, saveSlotStyle, setActiveSlot, slotItems, slotStyle, type FurniturePlacement, type RoomStyle } from './services/roomLayoutStorage'
+import { createSlot, deleteSlot, loadArtworks, loadProfile, saveProfile, type Profile, loadBooks, loadSlots, placedInOtherSlots, saveArtworks, saveBooks, saveSlotItems, saveSlotStyle, setActiveSlot, slotItems, slotStyle, type FurniturePlacement, type RoomStyle } from './services/roomLayoutStorage'
 import { bookshelfCapY, bookshelfTiers, canPlaceItem, cellsFor, clampGrid, floorSurface, GRID_COUNT, gridToWorld, isOwnedSurfaceId, nearestWallId, normalizedCells, ownerIdOf, resolveSurface, setBookshelfTopOffset, withResolution, type Footprint, type GridPosition, type PlacementItem, type PlacementResolution, type PlacementSurface, type SurfaceId, type SurfaceKind, type WallId, worldToGrid } from './services/roomGrid'
 import { characterPosition } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
 import { loadOrders } from './services/playlistOrder'
 import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, syncPendingClips, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic, syncPendingTracks } from './services/music'
-import { purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, schedulePublish, subscribeRealtime, uploadMedia, type RemoteGuestComment } from './services/social'
+import { purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, removeStored, subscribeRealtime, uploadMedia, writeStored, type RemoteGuestComment } from './services/social'
 import { cancelSoundRequest, muteFrame, requestSound } from './services/ytResume'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id })
@@ -337,9 +337,9 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     if (isVisiting()) return
     const next = patch === null ? null : { ...characterLook, ...patch }
     setCharacterLookState(next)
-    try { if (next) localStorage.setItem(LOOK_KEY, JSON.stringify(next)); else localStorage.removeItem(LOOK_KEY); schedulePublish() } catch { /* storage may be unavailable */ }
+    if (next) writeStored(LOOK_KEY, JSON.stringify(next)); else removeStored(LOOK_KEY)
   }
-  const [selectedObject, setSelectedObject] = useState<SelectedObject>(null); const [computerOn, setComputerOn] = useState(() => loadInteractions().computerOn); const [toggledOn, setToggledOn] = useState<Set<string>>(() => new Set(loadInteractions().toggles)); const [artworks, setArtworks] = useState<Record<string, string>>(() => (typeof window === 'undefined' ? {} : loadArtworks() ?? {})); const [guestbook, setGuestbook] = useState<Record<string, GuestComment[]>>(() => (typeof window === 'undefined' ? {} : loadGuestbook<Record<string, GuestComment[]>>() ?? {})); const [timeOfDay, setTimeOfDayState] = useState<TimeOfDay>(() => { try { const saved = readStored('my-room-time-v1'); return saved === 'evening' || saved === 'night' ? saved : 'day' } catch { return 'day' } }); const [cupHeld, setCupHeld] = useState(() => loadInteractions().cupHeld); const [books, setBooks] = useState<Book[]>(() => (typeof window === 'undefined' ? initialBooks : hydrateBooks())); const [openBookId, setOpenBookId] = useState<string | null>(null); const [bookshelfOpen, setBookshelfOpen] = useState(false)
+  const [selectedObject, setSelectedObject] = useState<SelectedObject>(null); const [computerOn, setComputerOn] = useState(() => loadInteractions().computerOn); const [toggledOn, setToggledOn] = useState<Set<string>>(() => new Set(loadInteractions().toggles)); const [artworks, setArtworks] = useState<Record<string, string>>(() => (typeof window === 'undefined' ? {} : loadArtworks() ?? {})); const [guestbook, setGuestbook] = useState<Record<string, GuestComment[]>>({}); const [timeOfDay, setTimeOfDayState] = useState<TimeOfDay>(() => { try { const saved = readStored('my-room-time-v1'); return saved === 'evening' || saved === 'night' ? saved : 'day' } catch { return 'day' } }); const [cupHeld, setCupHeld] = useState(() => loadInteractions().cupHeld); const [books, setBooks] = useState<Book[]>(() => (typeof window === 'undefined' ? initialBooks : hydrateBooks())); const [openBookId, setOpenBookId] = useState<string | null>(null); const [bookshelfOpen, setBookshelfOpen] = useState(false)
   const rooms0 = useRef(typeof window === 'undefined' ? { active: 'room-1', slots: [{ id: 'room-1', name: '나의 방' }] } : loadSlots()).current
   const [rooms, setRooms] = useState<Array<{ id: string; name: string }>>(() => rooms0.slots.map(({ id, name }) => ({ id, name })))
   const [activeRoomId, setActiveRoomId] = useState(rooms0.active)
@@ -398,11 +398,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isVisiting()) return
     const pose = { state: TRANSIENT.includes(characterState) ? 'idle' : characterState, facing: characterSnapshot.facing, y: characterSnapshot.y }
-    try {
-      localStorage.setItem('my-room-character-v1', JSON.stringify(characterSnapshot.position))
-      localStorage.setItem('my-room-interactions-v1', JSON.stringify({ toggles: [...toggledOn], computerOn, cupHeld, pose }))
-      schedulePublish()
-    } catch { /* storage may be unavailable */ }
+    writeStored('my-room-character-v1', JSON.stringify(characterSnapshot.position))
+    writeStored('my-room-interactions-v1', JSON.stringify({ toggles: [...toggledOn], computerOn, cupHeld, pose }))
     // the settle event: anyone standing in this room sees the character land where it ended up, in the pose it
     // ended up in, without waiting for the database round trip. Mid-walk states are skipped — the arrival is the
     // event, not the journey.
@@ -609,7 +606,6 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     }).catch(() => { /* no import file present */ })
   }, [])
   useEffect(() => { saveArtworks(artworks) }, [artworks])
-  useEffect(() => { saveGuestbook(guestbook) }, [guestbook])
   // the number is a version stamp: bumping it remounts the screen so a replaced clip actually reloads
   useEffect(() => { listVideoIds().then((ids) => { if (ids?.length) setVideoFrames(Object.fromEntries(ids.map((id) => [id, 1]))) }) }, [])
   // The picture shows straight away from the data URL, then quietly becomes a bucket address once the upload
@@ -710,7 +706,6 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     // VISITOR's business; the update only prunes frames whose link no longer exists. Autoplay-on-entry lives in
     // the navigation reset below, which runs exactly once per room actually entered.
     setPlayingFrames((prev) => prev.filter((id) => links[id]))
-    setGuestbook(loadGuestbook<Record<string, GuestComment[]>>() ?? {})
     // replaced, never merged: a room whose profile has no photo would otherwise keep showing the last one's
     setProfile({ total: 0, today: 0, lastVisit: '', friends: 0, ...(loadProfile() ?? {}) })
     const time = readStored('my-room-time-v1')
@@ -873,7 +868,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     if (id === activeRoomId) openRoom(rest[0].id)
     else setPlacedElsewhere(placedInOtherSlots(activeRoomId))
   }
-  const setTimeOfDay = (time: TimeOfDay) => { setTimeOfDayState(time); if (isVisiting()) return; try { localStorage.setItem('my-room-time-v1', time); schedulePublish() } catch { /* unavailable */ } }
+  const setTimeOfDay = (time: TimeOfDay) => { setTimeOfDayState(time); if (!isVisiting()) writeStored('my-room-time-v1', time) }
   const setArtwork = (id: string, dataURL: string | null) => {
     if (isVisiting()) return
     setArtworks((prev) => { const next = { ...prev }; if (dataURL) next[id] = dataURL; else delete next[id]; return next })

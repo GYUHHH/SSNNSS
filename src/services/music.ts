@@ -1,9 +1,9 @@
 // The room's music player: one shared <audio> element playing either the built-in track or files the user
 // added. Uploaded files live in IndexedDB (same blob store as video clips, key-prefixed), and the playlist
-// (ids, titles, order) lives in localStorage. Playback advances down the playlist and wraps.
+// (ids, titles, order) lives in the room's server bundle. Playback advances down the playlist and wraps.
 import { publicBase } from './publicBase'
 import { getVideo, putVideo } from './mediaStore'
-import { isVisiting, readStored, schedulePublish, uploadMedia } from './social'
+import { isVisiting, readStored, uploadMedia, writeStored } from './social'
 
 export type MusicTrack = { id: string; title: string; artist: string; url?: string }
 
@@ -16,7 +16,7 @@ export const loadTracks = (): MusicTrack[] => {
   return SEED
 }
 export const saveTracks = (tracks: MusicTrack[]) => {
-  if (!isVisiting()) try { localStorage.setItem(REGISTRY_KEY, JSON.stringify(tracks)); schedulePublish() } catch { /* storage may be unavailable */ }
+  if (!isVisiting()) writeStored(REGISTRY_KEY, JSON.stringify(tracks))
   notify()
 }
 
