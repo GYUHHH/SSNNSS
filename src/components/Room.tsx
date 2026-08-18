@@ -48,11 +48,10 @@ function Scene() {
   // Scene events re-route to this host (with client coords) because the canvas itself is pointer-transparent
   // so clicks over a video can fall through into the iframe. The room background moves to the host's CSS.
   const eventHost = useRef<HTMLDivElement>(null!)
-  return <div ref={eventHost} className="canvas-host" style={{ background: light.bg }}><Canvas shadows="basic" dpr={[1, 2]} gl={{ antialias: true }} frameloop="never" eventSource={eventHost} events={shiftAwareEvents} onPointerMissed={(event) => { if (!(event.target as HTMLElement)?.closest?.('.canvas-host')) return; (mode === 'edit' ? toggleEditMode : clearSelection)() }} camera={{ position: [10, 8.5, 10] }}>
+  return <div ref={eventHost} className="canvas-host" style={{ background: light.bg }}><Canvas shadows="basic" dpr={[1, 2]} gl={{ antialias: true }} eventSource={eventHost} events={shiftAwareEvents} onPointerMissed={(event) => { if (!(event.target as HTMLElement)?.closest?.('.canvas-host')) return; (mode === 'edit' ? toggleEditMode : clearSelection)() }} camera={{ position: [10, 8.5, 10] }}>
     <OrthographicCamera makeDefault position={[10, 8.5, 10]} zoom={59} near={0.1} far={100} />
     <ambientLight intensity={light.ambient} color={light.ambientColor} />
     <directionalLight castShadow position={[4, 8, 5]} intensity={light.dir} color={light.dirColor} shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
-    <FrameGovernor />
     <Suspense fallback={null}>
       <RoomWorld />
     </Suspense>
@@ -317,31 +316,6 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
       </>}
     </Suspense>
   </group>
-}
-
-// The render loop is driven by hand so it can idle. Left to itself the canvas repaints sixty times a second
-// whether anything moved or not, and on a laptop that is most of what the site costs in battery. Everything that
-// animates here is delta-based (damp, lerp, clocks), so halving the frame rate halves the work without changing
-// any motion's speed — and the moment a hand touches the page it snaps back to full rate for a second, so
-// dragging, zooming and typing never feel the difference.
-function FrameGovernor() {
-  const advance = useThree((state) => state.advance)
-  useEffect(() => {
-    let raf = 0
-    let last = 0
-    let activeUntil = performance.now() + 3000 // full rate through boot, while everything is still settling in
-    const wake = () => { activeUntil = performance.now() + 1000 }
-    const inputs = ['pointerdown', 'pointermove', 'wheel', 'touchstart', 'touchmove', 'keydown'] as const
-    inputs.forEach((name) => window.addEventListener(name, wake, { passive: true }))
-    const loop = (time: number) => {
-      raf = requestAnimationFrame(loop)
-      // 60fps while the user is (recently) interacting, ~30fps when the room is just being looked at
-      if (time < activeUntil || time - last >= 33) { last = time; advance(time) }
-    }
-    raf = requestAnimationFrame(loop)
-    return () => { cancelAnimationFrame(raf); inputs.forEach((name) => window.removeEventListener(name, wake)) }
-  }, [advance])
-  return null
 }
 
 function RoomWorld() {
