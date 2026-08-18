@@ -13,6 +13,7 @@ import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
 import { PRETENDARD_WOFF } from '../services/fonts'
 import { getVideo, loadClipUrls } from '../services/mediaStore'
+import { playlistVideoResume } from '../services/ytResume'
 import MirrorGlass from './MirrorGlass'
 import { Swing } from './motion'
 
@@ -548,6 +549,11 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
   const version = store?.videoFrames[id] ?? 0
   const link = store?.videoLinks[id]
   const [texture, setTexture] = useState<Texture | null>(null)
+  // A playlist's thumbnail follows whatever it was last left on, which is what the frame will resume to. The
+  // stored `@start` video is only the entry point and stops being true after the first track change, so it is a
+  // fallback rather than the answer. Resolved outside the effect and listed in its deps so the picture updates
+  // when the playlist moves on instead of staying on whatever it showed at mount.
+  const posterId = link && (link.startsWith('pl:') ? playlistVideoResume[id] || link.split('@')[1] : link)
   useEffect(() => {
     let live = true
     let url: string | null = null
@@ -565,7 +571,6 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
       video.colorSpace = SRGBColorSpace
       setTexture(video)
     }
-    const posterId = link && (link.startsWith('pl:') ? link.split('@')[1] : link)
     if (posterId) new TextureLoader().setCrossOrigin('anonymous').loadAsync(`https://img.youtube.com/vi/${posterId}/hqdefault.jpg`).then((poster) => {
       if (!live) return
       poster.colorSpace = SRGBColorSpace
@@ -586,7 +591,7 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
       element?.pause()
       if (url) URL.revokeObjectURL(url)
     }
-  }, [id, version, link])
+  }, [id, version, link, posterId])
   return <>{!store?.playingFrames.includes(id) && <mesh position={[0, 0, .042]}>
     <planeGeometry args={[width, height]} />
     {texture
