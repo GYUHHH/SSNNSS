@@ -131,7 +131,10 @@ export default function CameraController({ focusRoom }: { focusRoom?: FocusRoom 
 
   useFrame((_, delta) => {
     const camera2d = camera as OrthographicCamera
-    const fullyOut = zoomTarget.current <= minZoom + .01
+    // Only in normal mode. Edit mode has its OWN, much higher floor, and on a phone the default zoom sits exactly
+    // on it — so this read as "fully zoomed out", switched panning on, and a one-finger drag shoved the room away
+    // while the user was arranging furniture.
+    const fullyOut = mode === 'normal' && zoomTarget.current <= minZoom + .01
     if (fullyOut !== wasAtMinZoom.current) { wasAtMinZoom.current = fullyOut; setAtMinZoom(fullyOut) }
     const next = MathUtils.damp(camera2d.zoom, zoomTarget.current, 7, delta)
     if (Math.abs(next - camera2d.zoom) >= .001) { camera2d.zoom = next; camera2d.updateProjectionMatrix() }
