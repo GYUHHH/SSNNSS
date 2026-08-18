@@ -171,13 +171,26 @@ export const claimHandleLocally = (handle: string) => {
 
 export const myVisitorId = () => visitorId()
 
-// which reactions the owner has already opened, keyed by item id — lives ONLY in the server bundle
-// (the owner asked for nothing in localStorage), loaded at boot and pushed up with every publish
+// Which reactions the owner has already opened, keyed by item id. The server bundle carries it between devices,
+// but each device ALSO keeps its own copy and the two are merged by taking the higher count — because every
+// publish replaces the whole bundle, a second signed-in session (the desktop left open) that publishes anything
+// at all pushes ITS stale seen-map over the fresh one, and marks made on the phone came back as unread after a
+// restart. Counts only ever grow, so max-merge can never resurrect a dismissed badge.
 const SEEN_KEY = 'my-room-reactions-seen-v1'
 let seenReactions: Record<string, number> = {}
 export const getSeenReactions = () => seenReactions
+const persistSeen = () => { try { localStorage.setItem(SEEN_KEY, JSON.stringify(seenReactions)) } catch { /* unavailable */ } }
+const mergeSeenWithLocal = (incoming: Record<string, number>) => {
+  try {
+    const local = JSON.parse(localStorage.getItem(SEEN_KEY) ?? '{}') as Record<string, number>
+    for (const key of Object.keys(local)) incoming[key] = Math.max(incoming[key] ?? 0, local[key] ?? 0)
+  } catch { /* keep incoming */ }
+  return incoming
+}
+// seeded from the device's own copy at load, so marks survive even a server bundle that lost the key entirely
+seenReactions = mergeSeenWithLocal({})
 // publish immediately — a debounce here loses the mark when the owner refreshes right after looking
-export const markReactionSeen = (id: string, count: number) => { seenReactions[id] = count; void publishRoom() }
+export const markReactionSeen = (id: string, count: number) => { seenReactions[id] = count; persistSeen(); void publishRoom() }
 
 // uploaded media (music files, video clips) go to the public storage bucket so visitors can stream them
 export async function uploadMedia(path: string, file: Blob): Promise<string | null> {
@@ -436,7 +449,7 @@ export async function handleTaken(handle: string): Promise<boolean> {
 export function adoptRoomData(bundle: Record<string, string>) {
   try {
     for (const [key, value] of Object.entries(bundle)) {
-      if (key === SEEN_KEY) { try { seenReactions = JSON.parse(value) ?? {} } catch { /* keep empty */ } continue }
+      if (key === SEEN_KEY) { try { seenReactions = mergeSeenWithLocal(JSON.parse(value) ?? {}); persistSeen() } catch { /* keep empty */ } continue }
       if (key.startsWith('my-room-')) localStorage.setItem(key, value)
     }
   } catch { /* storage may be unavailable */ }
