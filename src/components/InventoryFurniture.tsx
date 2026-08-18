@@ -547,7 +547,9 @@ function CalendarArt() {
     const t = new CanvasTexture(canvas); t.colorSpace = SRGBColorSpace
     return t
   }, [])
-  return <mesh position={[0, 0, .045]}><planeGeometry args={[.52, .6]} /><meshStandardMaterial map={texture} roughness={.9} /></mesh>
+  // sized to the board it sits on, not inset from it — the backing used to show around the page as a cream
+  // border, which read as an outline the calendar was never meant to have
+  return <mesh position={[0, 0, .045]}><planeGeometry args={[.6, .68]} /><meshStandardMaterial map={texture} roughness={.9} /></mesh>
 }
 
 // jukebox controls anchored over the player, shown while it is the selected object
