@@ -104,15 +104,17 @@ export const myHandle = () => plainRoot ? null : ownHandle()
 export const isSignedIn = () => ownHandle() !== null
 export const roomPath = (handle: string) => `${BASE}${escape(handle)}`
 
-export async function publishRoom() {
+// returns whether the save actually landed, so a caller about to send the user into that room can tell
+export async function publishRoom(): Promise<boolean> {
   const handle = ownHandle()
-  if (!handle) return
+  if (!handle) return false
   const data: Record<string, string> = {}
   for (const key of SYNC_KEYS) { try { const value = localStorage.getItem(key); if (value) data[key] = value } catch { /* skip */ } }
   if (Object.keys(seenReactions).length) data[SEEN_KEY] = JSON.stringify(seenReactions)
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/rpc/save_room`, { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ p_handle: handle, p_secret: roomSecret(), p_data: data }) })
-  } catch { /* offline — the next change tries again */ }
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/save_room`, { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ p_handle: handle, p_secret: roomSecret(), p_data: data }) })
+    return response.ok
+  } catch { return false /* offline — the next change tries again */ }
 }
 
 let publishTimer: ReturnType<typeof setTimeout> | undefined

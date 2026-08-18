@@ -27,6 +27,7 @@ export default function HandleSetup() {
   const [verified, setVerified] = useState(false)
   const [password, setPassword] = useState('')
   const [loginFailed, setLoginFailed] = useState(false)
+  const [publishFailed, setPublishFailed] = useState(false)
   const [google, setGoogle] = useState(false)
   useEffect(() => { void googleEnabled().then(setGoogle) }, [])
   const close = () => {
@@ -103,9 +104,11 @@ export default function HandleSetup() {
     if (!valid || busy) return
     setBusy(true)
     if (await handleTaken(clean)) { setTaken(true); setBusy(false); return }
-    if (isVisiting()) claimHandleLocally(clean)
-    else setProfileHandle(clean)
-    await publishRoom()
+    // written straight to storage on purpose: publishRoom reads the handle back out of localStorage on the very
+    // next line, and the store's setter only lands during React's next render, so it would publish under no handle
+    claimHandleLocally(clean)
+    setProfileHandle(clean)
+    if (!await publishRoom()) { setPublishFailed(true); setBusy(false); return }
     location.replace(roomPath(clean))
   }
   return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && close()}>
@@ -128,32 +131,35 @@ export default function HandleSetup() {
           {google && <button type="button" className="ghost" onClick={() => void signInWithGoogle()}>Google로 로그인</button>}
         </div>
       </>}
-      {!session && intent === 'signup' && !already && <>
+      {!session && intent === 'signup' && !already && !verified && <>
         <strong>가입하기</strong>
         <div className="login-form">
-          {verified
-            ? <>
-              <input type="password" value={password} placeholder="비밀번호 (6자 이상)" onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void savePassword() }} />
-              <button type="button" disabled={password.length < 6 || busy} onClick={() => void savePassword()}>비밀번호 저장</button>
-            </>
-            : <>
-              <input type="email" value={email} placeholder="이메일" disabled={codeSent} onChange={(event) => setEmail(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void sendCode() }} />
-              {!codeSent && <>
-                <button type="button" disabled={!email.includes('@') || busy} onClick={() => void sendCode()}>{sendFailed ? '잠시 후 다시 시도' : '인증번호 받기'}</button>
-                {google && <button type="button" className="ghost" onClick={() => void signInWithGoogle()}>Google로 가입하기</button>}
-              </>}
-              {codeSent && <>
-                <input type="text" inputMode="numeric" value={code} className={codeBad ? 'taken' : ''} placeholder="인증번호" onChange={(event) => { setCode(event.target.value); setCodeBad(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void confirmCode() }} />
-                <button type="button" disabled={code.trim().length < 6 || busy} onClick={() => void confirmCode()}>{codeBad ? '번호가 달라요' : '확인'}</button>
-              </>}
-            </>}
+          <input type="email" value={email} placeholder="이메일" disabled={codeSent} onChange={(event) => setEmail(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void sendCode() }} />
+          {!codeSent && <>
+            <button type="button" disabled={!email.includes('@') || busy} onClick={() => void sendCode()}>{sendFailed ? '잠시 후 다시 시도' : '인증번호 받기'}</button>
+            {google && <button type="button" className="ghost" onClick={() => void signInWithGoogle()}>Google로 가입하기</button>}
+          </>}
+          {codeSent && <>
+            <input type="text" inputMode="numeric" value={code} className={codeBad ? 'taken' : ''} placeholder="인증번호" onChange={(event) => { setCode(event.target.value); setCodeBad(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void confirmCode() }} />
+            <button type="button" disabled={code.trim().length < 6 || busy} onClick={() => void confirmCode()}>{codeBad ? '번호가 달라요' : '확인'}</button>
+          </>}
+        </div>
+      </>}
+      {/* Verifying the code signs the user in, so `session` fills the moment the code is accepted. This step must
+          not be gated on !session or it disappears exactly when it is due — and with it savePassword, which is
+          what clears `verified` and lets the id step below appear. That left an empty card. */}
+      {verified && <>
+        <strong>비밀번호 설정</strong>
+        <div className="login-form">
+          <input type="password" value={password} placeholder="비밀번호 (6자 이상)" onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void savePassword() }} />
+          <button type="button" disabled={password.length < 6 || busy} onClick={() => void savePassword()}>비밀번호 저장</button>
         </div>
       </>}
       {session && !verified && <>
         <strong>아이디 설정</strong>
         <div className="login-form">
-          <input type="text" value={clean} className={taken ? 'taken' : ''} placeholder="영문 소문자, 숫자, _" onChange={(event) => { setValue(event.target.value); setTaken(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void claim() }} />
-          <button type="button" disabled={!valid || busy} onClick={() => void claim()}>{taken ? '이미 사용 중' : '이 아이디로 시작'}</button>
+          <input type="text" value={clean} className={taken ? 'taken' : ''} placeholder="영문 소문자, 숫자, _" onChange={(event) => { setValue(event.target.value); setTaken(false); setPublishFailed(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void claim() }} />
+          <button type="button" disabled={!valid || busy} onClick={() => void claim()}>{taken ? '이미 사용 중' : publishFailed ? '저장 실패, 다시 시도' : '이 아이디로 시작'}</button>
         </div>
       </>}
     </section>
