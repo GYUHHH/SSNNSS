@@ -265,6 +265,10 @@ function RoomWorld() {
   const [centredHandle, setCentredHandle] = useState<string | null>(null)
   const centred = useRef<string | null>(null)
   const probe = useRef(new Vector3()).current
+  // the room chosen at the zoom floor, held until it has been entered
+  const picked = useRef<RoomSlot | null>(null)
+  // a mouse can hover, a finger cannot — read once, since a device does not grow one mid-session
+  const fine = useRef(typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches)
   // starts true so the very first frame — which opens at the entry zoom already — is not read as a zoom-in
   const wasZoomedIn = useRef(true)
   useEffect(() => {
@@ -308,34 +312,45 @@ function RoomWorld() {
     // under it — see the shift handling in CameraController.
     setFocusRoom({ position: [0, 0, 0], token: performance.now(), shift: slot.position })
   }
-  useFrame(({ camera, size }) => {
+  useFrame(({ camera, pointer, size }) => {
+    const floor = exploreMinZoom(size.width, size.height)
     const zoomedIn = mode !== 'normal' || camera.zoom > entryZoom(size.width, size.height)
-    // Nearest room to the middle of the screen. Projected rather than measured in world space: the cluster is
-    // stacked across storeys and panning slides the target in the screen plane, so world distance disagrees with
-    // what is actually under the crosshair.
-    let pick: RoomSlot | null = null
-    let best = Infinity
-    if (mode === 'normal') {
+    // The pick is decided at the zoom floor and then held. Recomputing it on the way in reads a screen that is
+    // already moving — the aim below is pulling the chosen room to the middle — so under a mouse that has not
+    // budged the room under the cursor changes and the choice flips out from under the user mid-zoom.
+    if (mode === 'normal' && camera.zoom <= floor + .5) {
+      // With a mouse, whatever is under the cursor is the choice: hover a room, zoom, land in it. Touch has no
+      // hover to read — the last tap is stale by the time the pinch happens — so there the middle of the screen
+      // is the crosshair, which is what panning aims anyway.
+      const atX = fine.current ? pointer.x : 0
+      const atY = fine.current ? pointer.y : 0
+      // Projected rather than measured in world space: the cluster is stacked across storeys and panning slides
+      // the target in the screen plane, so world distance disagrees with what is actually under the cursor.
+      let pick: RoomSlot | null = null
+      let best = Infinity
       for (const slot of slots) {
         if (slot.handle === active.handle || !isEnterable(slot.handle) || ringDistance(slot, active) > VISIBLE_RINGS) continue
         probe.set(slot.position[0], slot.position[1] + 3.5, slot.position[2]).project(camera)
-        const offset = Math.hypot(probe.x, probe.y)
+        const offset = Math.hypot(probe.x - atX, probe.y - atY)
         if (offset < best) { best = offset; pick = slot }
       }
-      // the room already being viewed competes for the middle too, and losing to it means nothing is picked —
-      // zooming back into the room you are in should just re-centre it, which the camera already does on its own
+      // the room already being viewed competes too, and losing to it means nothing is picked — zooming back into
+      // the room you are in should just re-centre it, which the camera already does on its own
       probe.set(active.position[0], active.position[1] + 3.5, active.position[2]).project(camera)
-      if (Math.hypot(probe.x, probe.y) < best) pick = null
+      if (Math.hypot(probe.x - atX, probe.y - atY) < best) pick = null
+      picked.current = pick
     }
     // Held through the entry itself, and dropped the instant it is done. Dropping it as soon as the zoom-in starts
     // pointed the camera back at the room being left for the whole of a network round trip, so the user watched it
     // zoom toward the old room and then jump. Keeping it AFTER the entry is just as wrong the other way: the aim
     // stays clamped on a room that is no longer the one being viewed and the camera never comes free again.
-    const handle = !zoomedIn || opening.current ? pick?.handle ?? null : null
+    const handle = !zoomedIn || opening.current ? picked.current?.handle ?? null : null
     if (handle !== centred.current) { centred.current = handle; setCentredHandle(handle) }
     // the edge, not the state: entering is what crossing the line does, so it fires once per zoom-in
-    if (zoomedIn && !wasZoomedIn.current && pick) void open(pick)
+    if (zoomedIn && !wasZoomedIn.current && picked.current) void open(picked.current)
     wasZoomedIn.current = zoomedIn
+    // spent once the room is in, so coming back down through the band does not re-light a stale choice
+    if (zoomedIn && !opening.current) picked.current = null
   })
   // the picked room, or the one already being viewed when nothing is picked — what the camera should be aiming at
   const aim = useMemo(() => (slots.find((slot) => slot.handle === centredHandle) ?? active)?.position ?? null, [slots, active, centredHandle])
