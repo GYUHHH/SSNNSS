@@ -138,14 +138,25 @@ if (import.meta.env.DEV) {
 // Interactive, Furniture and Character: each one bails before stopPropagation when the store is readOnly).
 const NO_RAYCAST = () => {}
 type Faded = Material & { wasTransparent?: boolean; baseColor?: Color; color?: Color }
-// A neighbour wears its own hour. The scene has one light rig — the viewer's — so another room's saved time of
-// day cannot arrive as light; it arrives as a colour cast multiplied into every material, scaled off the same
-// lighting presets the live room uses. Day is identity, so a day room costs nothing and looks untouched.
-const NEIGHBOUR_TINT: Record<string, Color> = {
-  day: new Color(1, 1, 1),
-  evening: new Color(.93, .76, .62),
-  night: new Color(.5, .56, .72),
+// A neighbour wears its own hour, not the viewer's. The scene has one light rig — whichever preset the room being
+// viewed runs — so another room's saved time of day cannot arrive as actual light. Instead each material's colour
+// is multiplied by the ratio of the two presets' light: the numerator is the neighbour's own preset, the
+// denominator cancels the viewer's rig back out. Both come from the same LIGHTING table the real rooms are lit
+// with, nothing hand-picked — and because it is a ratio, a day room stays bright inside a night viewer's scene,
+// where the denominator is small and the compensation brightens rather than darkens.
+type TimeOfDay = keyof typeof LIGHTING
+const TIMES = Object.keys(LIGHTING) as TimeOfDay[]
+// a preset's light on a mostly-diffuse material: full ambient plus about half the directional (average incidence)
+const lightEnergy = (time: TimeOfDay) => {
+  const preset = LIGHTING[time]
+  return new Color(preset.ambientColor).multiplyScalar(preset.ambient)
+    .add(new Color(preset.dirColor).multiplyScalar(preset.dir * .5))
 }
+const NEIGHBOUR_TINT = Object.fromEntries(TIMES.map((room) => [room, Object.fromEntries(TIMES.map((viewer) => {
+  const target = lightEnergy(room)
+  const current = lightEnergy(viewer)
+  return [viewer, new Color(target.r / current.r, target.g / current.g, target.b / current.b)]
+}))])) as Record<TimeOfDay, Record<TimeOfDay, Color>>
 function Inert({ off, children }: { off: (zoom: number, width: number, height: number) => boolean; children: ReactNode }) {
   const group = useRef<Group>(null)
   const applied = useRef<boolean | null>(null)
@@ -183,7 +194,8 @@ function NeighbourRoom() {
 }
 
 function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: number; centred: boolean }) {
-  const { mode } = useRoomStore()
+  // the live store on purpose: the viewer's own time of day is the light rig this room must compensate away
+  const { mode, timeOfDay } = useRoomStore()
   const group = useRef<Group>(null)
   const opacity = useRef(0)
   const materials = useRef<Faded[]>([])
@@ -241,7 +253,7 @@ function RoomContainer({ slot, distance, centred }: { slot: RoomSlot; distance: 
     // on — a few thousandths apart — and when the decal won that toss the panel behind it failed the depth test
     // and the wall showed through it. The profile board's stats read as wall-coloured because of it.
     const full = opacity.current > .995
-    const tint = NEIGHBOUR_TINT[bundleTime.current] ?? NEIGHBOUR_TINT.day
+    const tint = (NEIGHBOUR_TINT[bundleTime.current as TimeOfDay] ?? NEIGHBOUR_TINT.day)[timeOfDay]
     materials.current.forEach((material) => {
       material.transparent = full ? material.wasTransparent ?? false : true
       material.opacity = full ? 1 : opacity.current
