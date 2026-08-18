@@ -3,7 +3,7 @@ import { Canvas, events, useFrame, useThree } from '@react-three/fiber'
 import { type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { type AmbientLight, Color, type DirectionalLight, type Group, type Material, MathUtils, type Mesh, Vector3 } from 'three'
 import { NeighbourRoomProvider, useRoomStore } from '../store'
-import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDirectory, isSignedIn, myHandle, onRoomNavigation, subscribeRoomBundles } from '../services/social'
+import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDirectory, isSignedIn, myHandle, subscribeRoomBundles } from '../services/social'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
 import CameraController, { entryZoom, exploreMinZoom } from './CameraController'
@@ -426,8 +426,13 @@ function RoomWorld() {
     window.addEventListener('touchstart', touch, true)
     return () => { window.removeEventListener('pointerdown', down, true); window.removeEventListener('touchstart', touch, true) }
   }, [])
-  // what is being VIEWED, which is not the hub while visiting someone else
-  const [activeHandle, setActiveHandle] = useState(() => currentRoomHandle() ?? hubHandle)
+  // What is being VIEWED — not the hub while visiting someone else. Derived from the STORE's own commit rather
+  // than kept as separate state here: the store lives on the DOM root and this world on the canvas root, and two
+  // roots may paint their commits apart — with separate state, one frame could show the new room's data still
+  // standing in the old room's cell (the flash every entry had). Reading the handle out of the same context value
+  // that carries the data makes the re-base and the content swap indivisible.
+  const { currentHandle } = useRoomStore()
+  const activeHandle = currentHandle ?? hubHandle
   const [focusRoom, setFocusRoom] = useState<{ position: [number, number, number]; token: number; shift?: [number, number, number] }>({ position: [0, 0, 0], token: 0 })
   const opening = useRef(false)
   // which room is under the middle of the screen, and therefore the one a zoom-in would take the user into
@@ -482,16 +487,20 @@ function RoomWorld() {
   // The swap happens HERE, inside enterRoom's own listener pass, not after the await in open(). Doing it after
   // put the new room's data and the re-base in different render batches: for one frame the freshly-hydrated live
   // room was drawn at the OLD room's cell while the entered room's neighbour copy still stood in its own — the
-  // same room in two places, plus two heavy renders back to back, which is the stutter entry had. In the listener
-  // everything lands in the one batch React makes of enterRoom's synchronous listener calls. `shift` hands the
-  // camera where the entered room WAS, so it slides with the re-base instead of having the room yanked from under
-  // it — see the shift handling in CameraController.
-  useEffect(() => onRoomNavigation(() => {
-    const handle = currentRoomHandle() ?? hubHandle
-    const slot = slots.find((value) => value.handle === handle)
-    setActiveHandle(handle)
-    setFocusRoom({ position: [0, 0, 0], token: performance.now(), shift: slot && handle !== activeHandle ? slot.position : undefined })
-  }), [slots, hubHandle, activeHandle])
+  // The camera compensation for a re-base. Runs as a LAYOUT effect in the same pre-paint window as the re-base
+  // commit itself: the setFocusRoom here flushes synchronously, CameraController's own layout effect applies the
+  // slide, and only then does the browser paint — one frame, everything moved together. `shift` is the entered
+  // room's position in the PREVIOUS layout, read from a snapshot taken before this render's slots replaced it.
+  const lastHandle = useRef(activeHandle)
+  const previousSlots = useRef(slots)
+  useLayoutEffect(() => {
+    const wasAt = previousSlots.current
+    previousSlots.current = slots
+    if (activeHandle === lastHandle.current) return
+    const slot = wasAt.find((value) => value.handle === activeHandle)
+    lastHandle.current = activeHandle
+    setFocusRoom({ position: [0, 0, 0], token: performance.now(), shift: slot?.position })
+  }, [activeHandle, slots])
   const open = async (slot: RoomSlot) => {
     if (opening.current || !canEnter(slot.handle)) return
     entryLatched.current = true
