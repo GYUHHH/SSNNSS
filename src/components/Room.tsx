@@ -269,6 +269,8 @@ function RoomWorld() {
   const picked = useRef<RoomSlot | null>(null)
   // a mouse can hover, a finger cannot — read once, since a device does not grow one mid-session
   const fine = useRef(typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches)
+  // whether the cursor is currently the pointer, so the style is only written when it flips
+  const cursorOn = useRef(false)
   // starts true so the very first frame — which opens at the entry zoom already — is not read as a zoom-in
   const wasZoomedIn = useRef(true)
   useEffect(() => {
@@ -340,8 +342,12 @@ function RoomWorld() {
       // a room projects to a 200px box at zoom 20.2, so half of one is 4.95 pixels per unit of zoom. Off the rooms,
       // or on a touch screen where the last tap is long stale, the middle of the screen is the crosshair.
       const hover = fine.current ? nearest(pointer.x, pointer.y) : null
-      picked.current = hover && hover.offset <= camera.zoom * 4.95 ? hover.slot : nearest(0, 0).slot
-    }
+      const overRoom = hover !== null && hover.offset <= camera.zoom * 4.95
+      picked.current = overRoom ? hover.slot : nearest(0, 0).slot
+      // the mouse resting on an enterable room is an invitation, and the cursor says so
+      const wanted = overRoom && hover.slot !== null
+      if (wanted !== cursorOn.current) { cursorOn.current = wanted; document.body.style.cursor = wanted ? 'pointer' : '' }
+    } else if (cursorOn.current) { cursorOn.current = false; document.body.style.cursor = '' }
     // Held through the entry itself, and dropped the instant it is done. Dropping it as soon as the zoom-in starts
     // pointed the camera back at the room being left for the whole of a network round trip, so the user watched it
     // zoom toward the old room and then jump. Keeping it AFTER the entry is just as wrong the other way: the aim
