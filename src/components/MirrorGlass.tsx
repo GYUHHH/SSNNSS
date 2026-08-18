@@ -1,6 +1,7 @@
 import { useFBO } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
+import { useOptionalRoomStore } from '../store'
 import { Matrix4, type Mesh, OrthographicCamera, PerspectiveCamera, Plane, ShaderMaterial, Vector3 } from 'three'
 
 // A planar mirror that works under this room's ORTHOGRAPHIC camera. drei's MeshReflectorMaterial cannot: it
@@ -12,6 +13,11 @@ const BIAS = new Matrix4().set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 0.5, 0
 
 export default function MirrorGlass({ width, height }: { width: number; height: number }) {
   const mesh = useRef<Mesh>(null)
+  // The reflection is a full extra render of the scene, every frame, per mirror — by far the most expensive
+  // thing a single prop can cost. A neighbour room's mirror captures ONE reflection and keeps it: the still is
+  // indistinguishable out there, and a ring of mirrored rooms stops multiplying the whole scene's render bill.
+  const frozen = !!useOptionalRoomStore()?.readOnly
+  const captured = useRef(false)
   const fbo = useFBO(768, 768, { samples: 2 })
   const scratch = useMemo(() => ({
     normal: new Vector3(), mirrorPos: new Vector3(), cameraPos: new Vector3(), view: new Vector3(),
@@ -33,6 +39,8 @@ export default function MirrorGlass({ width, height }: { width: number; height: 
   useFrame(({ gl, scene, camera }) => {
     const glass = mesh.current
     if (!glass) return
+    if (frozen && captured.current) return
+    captured.current = true
     const { normal, mirrorPos, cameraPos, view, lookAt, target, up, rotation, plane } = scratch
     glass.updateWorldMatrix(true, false)
     mirrorPos.setFromMatrixPosition(glass.matrixWorld)

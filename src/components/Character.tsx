@@ -101,7 +101,9 @@ export default function Character({ appearance: customAppearance }: { appearance
       characterAttitude.facing = actor.current.rotation.y; characterAttitude.y = actor.current.position.y
       persistCharacterPosition()
     }
-    clock.current += delta
+    // a neighbour's character is part of a still: its clock holds, so the wave arm and the sleeping breath
+    // freeze mid-gesture instead of ticking away in every room of the explorer
+    if (!readOnly) clock.current += delta
     const walking = characterState === 'walking'
     if (interactionStart.current.key !== selectedObject) interactionStart.current = { key: selectedObject, position: [actor.current.position.x, 0, actor.current.position.z] }
     const interaction = resolveInteraction(selectedObject, furniture, interactionStart.current.position)
