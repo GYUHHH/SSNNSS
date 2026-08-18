@@ -87,9 +87,8 @@ export default function Character({ appearance: customAppearance }: { appearance
     if (characterWritable) {
       characterPosition[0] = actor.current.position.x; characterPosition[2] = actor.current.position.z
     }
-    // a neighbour's character is part of a still: its clock holds, so the wave arm and the sleeping breath
-    // freeze mid-gesture instead of ticking away in every room of the explorer
-    if (!readOnly) clock.current += delta
+    // Explorer characters stay read-only, but their saved pose keeps its small idle motion as a live preview.
+    clock.current += delta
     const walking = characterState === 'walking'
     if (interactionStart.current.key !== selectedObject) interactionStart.current = { key: selectedObject, position: [actor.current.position.x, 0, actor.current.position.z] }
     const interaction = resolveInteraction(selectedObject, furniture, interactionStart.current.position)
