@@ -201,7 +201,7 @@ export default function Character({ appearance: customAppearance }: { appearance
           <RoundedBox name="Collar" args={[.45, .12, .255]} radius={.055} smoothness={2} position={[0, 1.09, 0]}><meshStandardMaterial color={appearance.topColor} roughness={.9} /></RoundedBox>
         </group>
         <group name="Bottom">
-          <RoundedBox name="Shorts" args={[.4, .16, .27]} radius={.045} smoothness={2} position={[0, .64, 0]}><meshStandardMaterial color={appearance.bottomColor} roughness={.9} /></RoundedBox>
+          <RoundedBox name="Shorts" args={[.43, .16, .27]} radius={.045} smoothness={2} position={[0, .64, 0]}><meshStandardMaterial color={appearance.bottomColor} roughness={.9} /></RoundedBox>
         </group>
       </group>
       <group ref={head} name="Head" position={[0, 1.34, 0]}>
@@ -221,11 +221,11 @@ export default function Character({ appearance: customAppearance }: { appearance
       </group>
       {([-1, 1] as const).map((side) => <group key={side} ref={side < 0 ? armLeft : armRight} name={side < 0 ? 'LeftArm' : 'RightArm'} position={[side * .285, 1.08, 0]}>
         <group name="UpperArm">
-          <RoundedBox args={[.17, .26, .18]} radius={.065} smoothness={2} position={[0, -.11, 0]}><meshStandardMaterial color={appearance.skinColor} roughness={.88} /></RoundedBox>
-          <RoundedBox name="Sleeve" args={[.185, .22, .19]} radius={.065} smoothness={2} position={[0, -.08, 0]}><meshStandardMaterial color={appearance.topColor} roughness={.9} /></RoundedBox>
+          <RoundedBox args={[.145, .26, .155]} radius={.06} smoothness={2} position={[0, -.11, 0]}><meshStandardMaterial color={appearance.skinColor} roughness={.88} /></RoundedBox>
+          <RoundedBox name="Sleeve" args={[.16, .22, .165]} radius={.06} smoothness={2} position={[0, -.08, 0]}><meshStandardMaterial color={appearance.topColor} roughness={.9} /></RoundedBox>
         </group>
         <group name="ForeArm" position={[0, -.235, .01]}>
-          <RoundedBox args={[.15, .24, .16]} radius={.06} smoothness={2} position={[0, -.11, 0]}><meshStandardMaterial color={appearance.skinColor} roughness={.88} /></RoundedBox>
+          <RoundedBox args={[.128, .24, .137]} radius={.055} smoothness={2} position={[0, -.11, 0]}><meshStandardMaterial color={appearance.skinColor} roughness={.88} /></RoundedBox>
           <mesh name="Hand" position={[0, -.235, .015]} scale={[.95, 1, .9]}><sphereGeometry args={[.087, 9, 7]} /><meshStandardMaterial color={appearance.skinColor} roughness={.88} /></mesh>
         </group>
       </group>)}
