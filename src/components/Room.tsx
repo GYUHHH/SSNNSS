@@ -386,7 +386,10 @@ function RoomWorld() {
       // or on a touch screen where the last tap is long stale, the middle of the screen is the crosshair.
       const hover = fine.current ? nearest(pointer.x, pointer.y) : null
       const overRoom = hover !== null && hover.offset <= camera.zoom * 4.95
-      picked.current = overRoom ? hover.slot : nearest(0, 0).slot
+      // With a mouse the cursor is the whole story: on a room means that room, off every room means no pick at
+      // all — zooming in just returns to the room being viewed. The middle-of-screen crosshair is for touch,
+      // which has no cursor to read.
+      picked.current = fine.current ? (overRoom ? hover.slot : null) : nearest(0, 0).slot
       // the mouse resting on an enterable room is an invitation, and the cursor says so
       const wanted = overRoom && hover.slot !== null
       if (wanted !== cursorOn.current) { cursorOn.current = wanted; document.body.style.cursor = wanted ? 'pointer' : '' }
