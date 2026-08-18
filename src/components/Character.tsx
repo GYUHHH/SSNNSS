@@ -60,13 +60,15 @@ export default function Character({ appearance: customAppearance }: { appearance
   // painted flash of the previous room's character on every entry.
   useLayoutEffect(() => {
     if (readOnly || !actor.current) return
-    if (characterTeleport.position) {
+    if (isVisiting()) {
+      actor.current.position.set(characterHome[0], characterPose?.y ?? 0, characterHome[2])
+    } else if (characterTeleport.position) {
       actor.current.position.set(characterTeleport.position[0], 0, characterTeleport.position[2])
       characterTeleport.position = null
     }
     actor.current.position.y = characterPose?.y ?? 0
     actor.current.rotation.y = characterPose?.facing ?? Math.PI / 4
-  }, [readOnly, characterPose, currentHandle])
+  }, [readOnly, characterHome[0], characterHome[1], characterHome[2], characterPose, currentHandle])
   // A neighbour's layout arrives AFTER it has mounted — the bundle is only fetched once zooming out reveals the
   // room — so the spot read on the first render is still the default, and the ref above had already latched it.
   // That is why every visiting room stood on the same front corner no matter where its owner left their character.
@@ -94,7 +96,7 @@ export default function Character({ appearance: customAppearance }: { appearance
   useFrame((_, delta) => {
     if (!actor.current) return
     // an owner's move arriving over the wire lands as an instant snap, not a walk
-    if (!readOnly && characterTeleport.position) {
+    if (!readOnly && !isVisiting() && characterTeleport.position) {
       actor.current.position.set(characterTeleport.position[0], 0, characterTeleport.position[2])
       characterTeleport.position = null
     }
