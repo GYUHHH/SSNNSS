@@ -3,7 +3,7 @@ import { Canvas, events, useFrame } from '@react-three/fiber'
 import { type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Color, type Group, type Material, MathUtils, type Mesh, Vector3 } from 'three'
 import { NeighbourRoomProvider, useRoomStore } from '../store'
-import { currentRoomHandle, enterRoom, fetchRoomBundle, fetchRoomDirectory, myHandle } from '../services/social'
+import { currentRoomHandle, enterRoom, fetchRoomBundle, fetchRoomDirectory, myHandle, onRoomNavigation } from '../services/social'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
 import CameraController, { entryZoom, exploreMinZoom } from './CameraController'
@@ -356,17 +356,24 @@ function RoomWorld() {
   const active = slots.find((slot) => slot.handle === activeHandle) ?? slots[0]
   // the room underneath the explorer is scenery until it is entered: fully zoomed out, a click selects a room
   const exploring = (zoom: number, width: number, height: number) => mode === 'normal' && zoom <= exploreMinZoom(width, height) + .5
+  // The swap happens HERE, inside enterRoom's own listener pass, not after the await in open(). Doing it after
+  // put the new room's data and the re-base in different render batches: for one frame the freshly-hydrated live
+  // room was drawn at the OLD room's cell while the entered room's neighbour copy still stood in its own — the
+  // same room in two places, plus two heavy renders back to back, which is the stutter entry had. In the listener
+  // everything lands in the one batch React makes of enterRoom's synchronous listener calls. `shift` hands the
+  // camera where the entered room WAS, so it slides with the re-base instead of having the room yanked from under
+  // it — see the shift handling in CameraController.
+  useEffect(() => onRoomNavigation(() => {
+    const handle = currentRoomHandle() ?? hubHandle
+    const slot = slots.find((value) => value.handle === handle)
+    setActiveHandle(handle)
+    setFocusRoom({ position: [0, 0, 0], token: performance.now(), shift: slot && handle !== activeHandle ? slot.position : undefined })
+  }), [slots, hubHandle, activeHandle])
   const open = async (slot: RoomSlot) => {
     if (opening.current || !isEnterable(slot.handle)) return
     opening.current = true
-    const entered = await enterRoom(slot.handle)
+    await enterRoom(slot.handle)
     opening.current = false
-    if (!entered) return
-    setActiveHandle(slot.handle)
-    // The cluster re-bases onto the room just entered, so the view always settles on the origin. `shift` hands the
-    // camera where that room WAS, so it can slide with the re-base instead of having the room yanked out from
-    // under it — see the shift handling in CameraController.
-    setFocusRoom({ position: [0, 0, 0], token: performance.now(), shift: slot.position })
   }
   useFrame(({ camera, pointer, size }) => {
     const floor = exploreMinZoom(size.width, size.height)
