@@ -49,16 +49,6 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     return <><RoundedBox castShadow args={[1.34, 1.34, .05]} radius={.03} smoothness={2} position={[0, 0, .025]}>{mat('#8a6048')}</RoundedBox><mesh position={[0, 0, .055]}><planeGeometry args={[1.18, 1.18]} />{mat('#c9a06c')}</mesh><mesh position={[0, .47, .06]}><planeGeometry args={[.62, .16]} />{mat('#f3ead9')}</mesh>{Array.from({ length: noteCount }, (_, index) => <group key={index} position={[-.36 + (index % 3) * .36, .16 - Math.floor(index / 3) * .42, .06]} rotation={[0, 0, (index % 2 ? 1 : -1) * .06]}><mesh><planeGeometry args={[.26, .26]} /><meshStandardMaterial color={['#fffaf0', '#f9e9c8', '#e8f0dd'][index % 3]} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh position={[0, .11, .005]}><circleGeometry args={[.022, 8]} /><meshStandardMaterial color="#b3563f" transparent={material.transparent} opacity={material.opacity} /></mesh></group>)}{noteCount === 0 && <mesh position={[0, -.05, .06]}><planeGeometry args={[.5, .3]} />{mat('#fffaf0')}</mesh>}</>
   }
   if (item.type === 'string-lights') return <StringLightsArt lit={lit} preview={preview} tint={material.color} opacity={material.opacity} />
-  // wall downlight: a small sconce near the top of its cell, throwing light down the wall
-  if (item.type === 'wall-downlight') return <>
-    <mesh castShadow position={[0, .3, .03]}><boxGeometry args={[.16, .1, .06]} />{mat('#4c4038')}</mesh>
-    <mesh castShadow position={[0, .24, .1]} rotation={[Math.PI, 0, 0]}><coneGeometry args={[.11, .16, 12, 1, true]} /><meshStandardMaterial color={material.color ?? '#5a4c3f'} side={2} transparent={material.transparent} opacity={material.opacity} /></mesh>
-    <mesh position={[0, .19, .1]}><sphereGeometry args={[.05, 10, 8]} /><meshStandardMaterial color="#ffe6b8" emissive={lit ? '#ffe6b8' : '#000000'} emissiveIntensity={lit ? 1.2 : 0} transparent={material.transparent} opacity={material.opacity} /></mesh>
-    {lit && !preview && <>
-      <mesh position={[0, -.35, .08]}><coneGeometry args={[.4, .95, 16, 1, true]} /><meshBasicMaterial color="#ffe6b8" transparent opacity={.13} depthWrite={false} side={2} /></mesh>
-      <pointLight color="#ffc66d" intensity={5} distance={2.2} position={[0, -.1, .3]} />
-    </>}
-  </>
   if (item.type === 'wall-sconce-2') return <>
     <mesh position={[0, 0, .035]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[.24, .24, .07, 24]} />{mat('#b9894f')}</mesh>
     <mesh position={[0, 0, .15]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[.045, .055, .24, 12]} />{mat('#8f6438')}</mesh>
