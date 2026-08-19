@@ -173,11 +173,11 @@ div.art-view { aspect-ratio: 3 / 4; }
 .art-panel .guest-form button { align-self: stretch; justify-self: auto; white-space: nowrap; }
 .guest-list { display: grid; padding-top: 12px; }
 .guest-note { padding: 12px 0; border-bottom: 1px solid #e0e0dd; }
-.item-comments { width: min(360px, calc(100vw - 32px)); height: min(360px, calc(100dvh - 32px)); max-height: none; grid-template-rows: auto auto minmax(0, 1fr); overflow: hidden; border-radius: 4px; box-shadow: none; }
-.item-comments .guest-form { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+.item-comments { width: min(420px, calc(100vw - 16px)); height: min(360px, calc(100dvh - 32px)); max-height: none; grid-template-rows: auto auto minmax(0, 1fr); gap: 8px; overflow: hidden; border-radius: 4px; box-shadow: none; }
+.item-comments .guest-form { grid-template-columns: minmax(0, 1fr) auto; align-items: end; padding-bottom: 8px; }
 .item-comments .guest-form button { align-self: stretch; justify-self: auto; white-space: nowrap; }
-.item-comments .guest-list { grid-row: 3; width: 100%; min-height: 0; overflow-y: auto; padding-right: 3px; }
-.item-comments .guest-note { width: 100%; }
+.item-comments .guest-list { grid-row: 3; width: 100%; min-height: 0; overflow-y: auto; padding-top: 0; padding-right: 3px; }
+.item-comments .guest-note { width: 100%; padding-block: 8px; }
 
 /* Every comment surface shares its type scale here. */
 .comment-ui { --comment-font-size: 12pt; font-family: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", sans-serif; }
