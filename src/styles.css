@@ -480,6 +480,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .video-link button { border: 1px solid #c2c2be; border-radius: 4px; padding: 6px 10px; font-size: 12px; color: #403f3d; background: #ffffff; cursor: pointer; }
 .video-link .banner-input button { border-color: #3a3a38; color: #ffffff; background: #3a3a38; }
 .video-link-error { color: #b3563f; font-size: 12px; }
+.video-link-kinds { color: #8a8a86; font-size: 12px; line-height: 1.6; margin-top: 4px; }
 .art-view.round { width: 190px; height: 190px; margin: 0 auto; border-radius: 50%; object-fit: cover; }
 .art-view.round.blank { background: #e2d6c6; }
 .clip-preview { width: 100%; margin-top: 10px; border-radius: 8px; background: #20262b; display: block; }

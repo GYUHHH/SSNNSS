@@ -13,19 +13,29 @@ export const artworkKindOf = (type: string) => type === 'photo' || type === 'eas
 export default function ArtworkOverlay() {
   const { selectedObject, artworks, furniture, videoFrames, videoLinks } = useRoomStore()
   const [drawing, setDrawing] = useState(false)
-  useEffect(() => setDrawing(false), [selectedObject])
+  const [videoStep, setVideoStep] = useState<'choose' | 'link' | 'file'>('choose')
+  useEffect(() => { setDrawing(false); setVideoStep('choose') }, [selectedObject])
   if (!selectedObject) return null
   const item = furniture.find((value) => value.id === selectedObject)
   const kind = artworkKindOf(item?.type ?? '')
   if (!kind) return null
   if (kind === 'guestbook') return <Guestbook id={selectedObject} />
   if (kind === 'video') return <>
-    <header><strong>{item?.name ?? '영상 액자'}</strong></header>
+    <header>{!isVisiting() && videoStep !== 'choose' && <button className="diary-back" type="button" aria-label="이전" onClick={() => setVideoStep('choose')}>←</button>}<strong>{item?.name ?? '영상 액자'}</strong></header>
     {videoLinks[selectedObject] && <DockSpace />}
     <ClipPreview id={selectedObject} />
-    {!isVisiting() && <><VideoLinkInput id={selectedObject} />
-    <PlaylistOrderEditor id={selectedObject} />
-    <div className="art-actions"><VideoPickButton id={selectedObject} /></div></>}
+    {!isVisiting() && <>
+      {videoStep === 'choose' && <div className="art-actions">
+        <button type="button" onClick={() => setVideoStep('link')}>Youtube Link</button>
+        <button type="button" onClick={() => setVideoStep('file')}>Video File</button>
+      </div>}
+      {videoStep === 'link' && <>
+        <VideoLinkInput id={selectedObject} />
+        <small className="video-link-kinds">- Youtube Video<br />- Youtube Playlist</small>
+        <PlaylistOrderEditor id={selectedObject} />
+      </>}
+      {videoStep === 'file' && <div className="art-actions"><VideoPickButton id={selectedObject} /></div>}
+    </>}
   </>
   const frame = kind === 'frame'
   const art = artworks[selectedObject]
