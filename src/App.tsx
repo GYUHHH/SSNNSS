@@ -19,13 +19,14 @@ import { isSignedIn, isVisiting, myHandle } from './services/social'
 import { thumbnailFor } from './services/thumbnails'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 267
+const BUILD = 268
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget } = useRoomStore()
   const [confirmingReset, setConfirmingReset] = useState(false)
   const [confirmingRoom, setConfirmingRoom] = useState<string | null>(null)
   const [inventoryOpen, setInventoryOpen] = useState(false)
+  const [sheetDragging, setSheetDragging] = useState(false)
   const [dragPointer, setDragPointer] = useState<{ x: number; y: number; overStorage: boolean } | null>(null)
   const [dragThumbnail, setDragThumbnail] = useState<string | null>(null)
   useEffect(() => {
@@ -64,6 +65,7 @@ function Interface() {
     // let an inner scroll keep the gesture unless it is already at the very top
     if (!panel || panel.scrollTop > 0) return
     drag.current = { y: event.clientY, at: performance.now(), travel: 0 }
+    setSheetDragging(true)
   }
   const sheetMove = (event: React.PointerEvent) => {
     const held = drag.current
@@ -78,6 +80,7 @@ function Interface() {
   const sheetUp = (event: React.PointerEvent) => {
     const held = drag.current
     drag.current = null
+    setSheetDragging(false)
     if (!held || !sheet.current) return
     sheet.current.style.transition = ''
     sheet.current.style.transform = ''
@@ -87,7 +90,7 @@ function Interface() {
     else setProgress(1)
     event.stopPropagation()
   }
-  return <main className={artOpen ? 'app art-open' : 'app'}>
+  return <main className={`app${artOpen ? ' art-open' : ''}${sheetDragging ? ' sheet-dragging' : ''}`}>
     <div className="scene" onContextMenu={(event) => event.preventDefault()}><Room /></div>
     <span className="build-tag" aria-hidden="true">{BUILD}</span>
     {myHandle() && <span className="me-tag">{myHandle()}</span>}
