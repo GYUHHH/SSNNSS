@@ -1,6 +1,6 @@
 import { Html, RoundedBox, Text } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useLayoutEffect, useMemo } from 'react'
 import { CanvasTexture, SRGBColorSpace, type Texture, TextureLoader, VideoTexture, type PointLight } from 'three'
 import { BannerTextInput, useArtTexture } from './ArtEditor'
 import { isVisiting } from '../services/social'
@@ -516,6 +516,7 @@ function RockingGroup({ children }: { children: ReactNode }) {
 
 function FridgeDoor({ open, children }: { open: boolean; children: ReactNode }) {
   const hinge = useRef<Group>(null)
+  useLayoutEffect(() => { if (hinge.current) hinge.current.rotation.y = open ? -1.5 : 0 }, [])
   useFrame((_, delta) => { if (hinge.current) hinge.current.rotation.y += ((open ? -1.5 : 0) - hinge.current.rotation.y) * Math.min(1, delta * 6) })
   return <group ref={hinge} position={[-.26, .44, .27]}>{children}</group>
 }
