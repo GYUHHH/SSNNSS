@@ -4,6 +4,7 @@ import BookShelfPanel from './components/BookShelfPanel'
 import DiaryDialog from './components/DiaryDialog'
 import InventoryPanel from './components/InventoryPanel'
 import ProfileCard from './components/ProfileCard'
+import NotificationPopup from './components/NotificationPopup'
 import SoundHub from './components/SoundHub'
 import HandleSetup from './components/HandleSetup'
 import ReactionPopup from './components/ReactionPopup'
@@ -18,7 +19,7 @@ import { isSignedIn, isVisiting, myHandle } from './services/social'
 import { thumbnailFor } from './services/thumbnails'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 342
+const BUILD = 343
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget } = useRoomStore()
@@ -104,6 +105,7 @@ function Interface() {
     <HandleSetup />
     <PanelHistory />
     <ReactionPopup />
+    <NotificationPopup />
     <ReactionPicker />
     <ItemComments />
     <ProfileCard />

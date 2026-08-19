@@ -122,6 +122,7 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
   { type: 'led-lamp', name: 'LED 램프', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop'] },
   { type: 'star-projector', name: '별 프로젝터', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop'] },
   { type: 'guestbook', name: '방명록', category: 'wallItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['wall'] },
+  { type: 'notification-box', name: '알림함', category: 'wallItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'profile-board', name: '내 프로필', category: 'wallItem', movable: true, interactable: true, footprint: { width: 2, depth: 3 }, size: [2, 3], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'video-frame-3', name: '영상 액자 4×3', category: 'wallItem', movable: true, interactable: true, footprint: { width: 4, depth: 3 }, size: [4, 3], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'video-frame-5', name: '영상 액자 6×5', category: 'wallItem', movable: true, interactable: true, footprint: { width: 6, depth: 5 }, size: [6, 5], scale: 1, allowedSurfaces: ['wall'] },
@@ -430,6 +431,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const selectObject = (object: Exclude<SelectedObject, null>) => { const target = furniture.find((value) => value.id === object); const type = target?.type ?? object; if (mode === 'edit') { if (object !== 'character' && object !== 'book') setSelectedFurnitureId(object); return } if (type.startsWith('video-frame') && videoLinks[object]) { if (!playingFrames.includes(object)) { setFrameMuted(object, false); setPlayingFrames((prev) => [...prev, object]) } return }
     if (isVisiting() && type.startsWith('video-frame')) return
     if (type === 'profile-board') { closePanels(); setSelectedObject(object); setProfileOpen(true); return }
+    if (type === 'notification-box') { if (!isVisiting()) { closePanels(); setSelectedObject(object) }; return }
     if (type === 'character') { if (!isVisiting()) setCharacterState((state) => ({ idle: 'sittingFloor', sittingFloor: 'wave', wave: 'idle' } as Partial<Record<CharacterState, CharacterState>>)[state] ?? 'idle'); return } if (type === 'bed' && selectedObject === object) return clearSelection(); closePanels(); setFloorTarget(null); setSelectedObject(object); if (type === 'bookshelf') setBookshelfOpen(true); const sidePanelOnly = type === 'bookshelf' || type === 'guestbook' || type === 'photo' || type === 'poster' || type === 'easel-photo' || type === 'whiteboard' || type.startsWith('photo-frame') || type.startsWith('wall-art'); if (sidePanelOnly) return; if (type === 'computer') setComputerOn((on) => !on); if (['lamp', 'floor-lamp', 'fireplace', 'candle', 'tv', 'string-lights', 'wall-sconce-2', 'christmas-tree', 'star-projector', 'mini-fridge', 'led-lamp', 'wardrobe', 'cabinet', 'bin'].includes(type)) setToggledOn((prev) => { const next = new Set(prev); if (next.has(object)) next.delete(object); else next.add(object); return next }); if (type === 'cup') setCupHeld(true); if (POSED_TYPES.has(type) && !isVisiting()) setCharacterState('walking') }
   const showMoveNotice = () => { if (noticeTimer.current) window.clearTimeout(noticeTimer.current); setMoveNotice(true); noticeTimer.current = window.setTimeout(() => { noticeTimer.current = 0; setMoveNotice(false) }, 1600) }
   // clicking an empty floor cell in NORMAL mode: walk (with the normal walking motion) to that cell's center,
@@ -831,6 +833,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   // Anything that can be clicked routes through here, so a new piece of furniture inherits the behaviour
   // without repeating it — returns true when it handled the click.
   const openObject = (id: FurnitureId): boolean => {
+    if (furniture.find((item) => item.id === id)?.type === 'notification-box') return false
     const me = myVisitorId()
     if ((guestbook[id] ?? []).some((comment) => comment.visitor && comment.visitor !== me)) { markReactionsSeen(id); closePanels(); setCommentTarget(id); return true }
     if (pendingReactions[id]) { markReactionsSeen(id); closePanels(); setReactionTarget(id); return true }

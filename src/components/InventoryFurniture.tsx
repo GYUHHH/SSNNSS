@@ -48,6 +48,17 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     const noteCount = Math.min(6, store?.guestbook[item.id]?.length ?? 0)
     return <><RoundedBox castShadow args={[1.34, 1.34, .05]} radius={.03} smoothness={2} position={[0, 0, .025]}>{mat('#8a6048')}</RoundedBox><mesh position={[0, 0, .055]}><planeGeometry args={[1.18, 1.18]} />{mat('#c9a06c')}</mesh><mesh position={[0, .47, .06]}><planeGeometry args={[.62, .16]} />{mat('#f3ead9')}</mesh>{Array.from({ length: noteCount }, (_, index) => <group key={index} position={[-.36 + (index % 3) * .36, .16 - Math.floor(index / 3) * .42, .06]} rotation={[0, 0, (index % 2 ? 1 : -1) * .06]}><mesh><planeGeometry args={[.26, .26]} /><meshStandardMaterial color={['#fffaf0', '#f9e9c8', '#e8f0dd'][index % 3]} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh position={[0, .11, .005]}><circleGeometry args={[.022, 8]} /><meshStandardMaterial color="#b3563f" transparent={material.transparent} opacity={material.opacity} /></mesh></group>)}{noteCount === 0 && <mesh position={[0, -.05, .06]}><planeGeometry args={[.5, .3]} />{mat('#fffaf0')}</mesh>}</>
   }
+  if (item.type === 'notification-box') {
+    const unread = Object.values(store?.pendingReactions ?? {}).reduce((total, count) => total + count, 0)
+    return <>
+      <RoundedBox castShadow args={[1.34, 1.34, .08]} radius={.035} smoothness={2} position={[0, 0, .04]}>{mat('#8a6048')}</RoundedBox>
+      <RoundedBox castShadow args={[1.02, .7, .16]} radius={.04} smoothness={2} position={[0, -.12, .14]}>{mat('#b9855d')}</RoundedBox>
+      <mesh position={[0, .08, .235]}><planeGeometry args={[.7, .42]} />{mat('#fffaf0')}</mesh>
+      {[-1, 1].map((side) => <mesh key={side} position={[side * .17, .03, .241]} rotation={[0, 0, side * .58]}><boxGeometry args={[.42, .025, .012]} />{mat('#c9a98c')}</mesh>)}
+      <mesh position={[0, -.28, .235]}><boxGeometry args={[.7, .035, .02]} />{mat('#6b4c39')}</mesh>
+      {!preview && unread > 0 && <mesh position={[.5, .49, .15]}><sphereGeometry args={[.09, 12, 10]} /><meshStandardMaterial color="#c1121f" /></mesh>}
+    </>
+  }
   if (item.type === 'string-lights') return <StringLightsArt lit={lit} preview={preview} tint={material.color} opacity={material.opacity} />
   if (item.type === 'wall-sconce-2') return <>
     <mesh position={[0, 0, .035]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[.24, .24, .07, 24]} />{mat('#b9894f')}</mesh>
