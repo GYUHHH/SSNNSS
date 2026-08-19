@@ -1,4 +1,5 @@
 import { autosize } from '../services/autosize'
+import { timeAgo } from '../services/timeAgo'
 import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from 'react'
 import { type Book, type Entry, type EntryDraft, type Visibility, useRoomStore } from '../store'
 import { HeartIcon, CommentIcon } from './ReactionIcons'
@@ -130,7 +131,7 @@ function EntryComments({ entry, inputRef }: { entry: Entry; inputRef: React.RefO
       <textarea ref={inputRef} rows={1} maxLength={200} value={text} onChange={(event) => { setText(event.target.value); autosize(event.currentTarget) }} placeholder="댓글" />
       <button type="submit">전송</button>
     </form>
-    <div className="entry-comment-list">{comments.map((comment) => <article key={comment.id} className="entry-comment"><header><strong>{comment.name}{comment.verified && ' ✓'}</strong><time>{comment.createdAt.slice(0, 10)}</time>{(!isVisiting() || comment.visitor === mine) && <button type="button" aria-label="댓글 삭제" onClick={() => removeGuestComment(entry.id, comment.id)}>×</button>}</header><p>{comment.text}</p></article>)}</div>
+    <div className="entry-comment-list">{comments.map((comment) => <article key={comment.id} className="entry-comment"><header><strong>{comment.name}</strong><time>{timeAgo(comment.createdAt)}</time>{(!isVisiting() || comment.visitor === mine) && <button type="button" aria-label="댓글 삭제" onClick={() => removeGuestComment(entry.id, comment.id)}>×</button>}</header><p>{comment.text}</p></article>)}</div>
   </section>
 }
 

@@ -1,3 +1,4 @@
+import { timeAgo } from '../services/timeAgo'
 import { autosize } from '../services/autosize'
 import { useState } from 'react'
 import { useRoomStore } from '../store'
@@ -23,7 +24,7 @@ export default function ItemComments() {
       </div>
       <div className="guest-list">
         {comments.map((comment) => <article key={comment.id} className="guest-note">
-          <header><strong>{comment.name}{comment.verified && ' ✓'}</strong><time>{comment.createdAt.slice(0, 10)}</time>{(!isVisiting() || comment.visitor === mine) && <button type="button" aria-label="삭제" onClick={() => removeGuestComment(commentTarget, comment.id)}>×</button>}</header>
+          <header><strong>{comment.name}</strong><time>{timeAgo(comment.createdAt)}</time>{(!isVisiting() || comment.visitor === mine) && <button type="button" aria-label="삭제" onClick={() => removeGuestComment(commentTarget, comment.id)}>×</button>}</header>
           <p>{comment.text}</p>
         </article>)}
       </div>

@@ -168,7 +168,7 @@ div.art-view { aspect-ratio: 3 / 4; }
 .entry-editor-foot .entry-editor-delete { color: var(--ui-red); }
 .entry-editor-foot button[type="submit"] { border-color: var(--ui-blue); color: #fff; background: var(--ui-blue); }
 .entry-item-head { display: flex; align-items: center; justify-content: space-between; }.entry-item-head button { border: 0; color: #8a7465; background: transparent; cursor: pointer; font-size: 11px; }.entry-delete-confirm { margin: 7px 0 10px; }
-.entry-comments { margin-top: 16px; padding-top: 13px; border-top: 1px solid #e0e0dd; text-align: left; }.entry-comment-form { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 5px; }.entry-comment-form input, .entry-comment-form textarea { min-width: 0; border: 1px solid #c2c2be; border-radius: 4px; padding: 7px 8px; color: #403f3d; background: #ffffff; font: inherit; font-size: 12px; }.entry-comment-form textarea { height: 34px; max-height: calc(4.5em + 16px); overflow-y: auto; line-height: 1.5; resize: none; }.entry-comment-form button { align-self: start; height: 34px; border: 1px solid #3a3a38; border-radius: 4px; padding: 0 10px; color: #ffffff; background: #3a3a38; cursor: pointer; font-size: 13px; }.entry-comment-list { display: grid; }.entry-comment { padding: 10px 0; border-bottom: 1px solid #e3d8ca; text-align: left; }.entry-comment header { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }.entry-comment header strong { font-size: 12px; }.entry-comment time { color: #84847e; font-size: 10px; }.entry-comment header button { margin-left: auto; border: 0; color: #9a8777; background: transparent; cursor: pointer; }.entry-comment p { margin: 0; font-size: 12px; line-height: 1.55; text-align: left; }
+.entry-comments { margin-top: 16px; padding-top: 13px; border-top: 1px solid #e0e0dd; text-align: left; }.entry-comment-form { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 5px; }.entry-comment-form input, .entry-comment-form textarea { min-width: 0; border: 1px solid #c2c2be; border-radius: 4px; padding: 7px 8px; color: #403f3d; background: #ffffff; font: inherit; font-size: 12px; }.entry-comment-form textarea { height: 34px; max-height: calc(4.5em + 16px); overflow-y: auto; line-height: 1.5; resize: none; }.entry-comment-form button { align-self: start; height: 34px; border: 1px solid #3a3a38; border-radius: 4px; padding: 0 10px; color: #ffffff; background: #3a3a38; cursor: pointer; font-size: 13px; }.entry-comment-list { display: grid; }.entry-comment { padding: 10px 0; border-bottom: 1px solid #e3d8ca; text-align: left; }.entry-comment header { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }.entry-comment header strong { font-size: 11px; }.entry-comment time { color: #84847e; font-size: 11px; }.entry-comment header button { margin-left: auto; border: 0; color: #9a8777; background: transparent; cursor: pointer; }.entry-comment p { margin: 0; font-size: 11px; line-height: 1.55; text-align: left; }
 .entry-empty { padding: 24px 4px; color: #75756f; }
 .diary-actions.top { padding: 10px 0 4px; border-top: 0; }
 .room-ui, .room-controls { transition: right .42s cubic-bezier(.4, 0, .2, 1); }
@@ -180,10 +180,10 @@ div.art-view { aspect-ratio: 3 / 4; }
 .guest-list { display: grid; padding-top: 12px; }
 .guest-note { padding: 12px 0; border-bottom: 1px solid #e0e0dd; text-align: left; }
 .guest-note header { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
-.guest-note header strong { font-size: 13px; }
+.guest-note header strong { font-size: 11px; }
 .guest-note time { color: #84847e; font-size: 11px; }
 .guest-note header button { margin-left: auto; border: 0; background: none; color: #a49381; cursor: pointer; font-size: 13px; }
-.guest-note p { margin: 0; font-size: 13px; line-height: 1.6; text-align: left; white-space: pre-wrap; }
+.guest-note p { margin: 0; font-size: 11px; line-height: 1.6; text-align: left; white-space: pre-wrap; }
 
 @media (max-width: 719px), (max-height: 520px) and (pointer: coarse) {
   body { min-width: 0; overscroll-behavior: none; }
