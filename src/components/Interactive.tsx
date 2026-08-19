@@ -37,13 +37,17 @@ const padOverruled = (event: { object: Object3D; intersections: { object: Object
 
 type Props = {
   id: Exclude<SelectedObject, null>
+  // A piece whose OWN children are the click targets opts out of the forgiving hit box: the pad wraps the whole
+  // piece, and for the bookshelf that meant one box sitting in front of every book spine, so the individual book
+  // that used to pop out and open could no longer be picked out from the shelf around it.
+  pad?: boolean
   position: [number, number, number]
   rotation?: [number, number, number]
   scale?: number
   children: ReactNode
 }
 
-export default function Interactive({ id, position, rotation = [0, 0, 0], scale: baseScale = 1, children }: Props) {
+export default function Interactive({ id, position, rotation = [0, 0, 0], scale: baseScale = 1, pad: padded = true, children }: Props) {
   const group = useRef<Group>(null)
   const content = useRef<Group>(null)
   const pad = useRef<Mesh>(null)
@@ -94,9 +98,9 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
     <group ref={content}>{children}</group>
     {/* the forgiving hit area. Never drawn, but three's raycaster tests layers rather than `visible`, so it is
         still a target — which is the whole point. Sized from the contents by fitPad above. */}
-    <mesh ref={pad} visible={false} scale={0} userData={{ hitPad: true }}>
+    {padded && <mesh ref={pad} visible={false} scale={0} userData={{ hitPad: true }}>
       <boxGeometry />
       <meshBasicMaterial />
-    </mesh>
+    </mesh>}
   </group>
 }

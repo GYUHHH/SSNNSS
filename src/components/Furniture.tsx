@@ -19,7 +19,7 @@ export default function Furniture({ id, children }: { id: FurnitureId; children:
   if (!item || item.removed) return null
   const fitted = <FittedMesh item={item}>{children}</FittedMesh>
   const content = item.category === 'wallItem' ? <group rotation={wallSurfaces[item.wallId ?? 'leftWall'].rotation}><group rotation={[0, 0, item.rotation[1]]}>{fitted}</group></group> : fitted
-  if (mode === 'normal') return <Interactive id={id} position={item.position} rotation={item.category === 'wallItem' ? [0, 0, 0] : item.rotation} scale={item.scale}>{content}</Interactive>
+  if (mode === 'normal') return <Interactive id={id} position={item.position} rotation={item.category === 'wallItem' ? [0, 0, 0] : item.rotation} scale={item.scale} pad={id !== 'bookshelf'}>{content}</Interactive>
   return <EditableFurniture id={id}>{content}</EditableFurniture>
 }
 
