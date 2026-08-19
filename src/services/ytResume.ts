@@ -11,6 +11,17 @@ export const videoResume: Record<string, number> = persisted?.time ?? {}
 // so resuming must go through /embed/{videoId}?list= with the actual video id
 export const playlistVideoResume: Record<string, string> = persisted?.video ?? {}
 export const videoResumeKey = (handle: string | null, frameId: string) => `${handle ?? 'lobby'}:${frameId}`
+// An earlier release briefly wrote resume entries using only the frame id. Keep that old value as a read fallback:
+// the current room-scoped key prevents two rooms from colliding, while existing viewers do not lose the
+// position they already had just because the key format changed.
+const storedResumeAt = (resumeKey: string) => {
+  if (videoResume[resumeKey] !== undefined) return videoResume[resumeKey]
+  return videoResume[resumeKey.slice(resumeKey.indexOf(':') + 1)]
+}
+const storedPlaylistVideo = (resumeKey: string) => {
+  if (playlistVideoResume[resumeKey]) return playlistVideoResume[resumeKey]
+  return playlistVideoResume[resumeKey.slice(resumeKey.indexOf(':') + 1)]
+}
 // last known player state per frame (1 playing, 2 paused, 3 buffering) — read when the tab hides so a
 // visibility return restores exactly what was happening, instead of blindly commanding playback
 export const framePlayerStates: Record<string, number> = {}
@@ -224,14 +235,14 @@ const videoEmbedSrc = (videoId: string, start: number, extra: string) =>
   `https://www.youtube.com/embed/${videoId}?enablejsapi=1&loop=1&playlist=${videoId}&start=${start}&${extra}`
 
 const playlistEmbedSrc = (playlistId: string, startVideo: string | undefined, urlIndex: number | undefined, resumeKey: string, start: number, extra: string) => {
-  const current = playlistVideoResume[resumeKey] ?? startVideo
+  const current = storedPlaylistVideo(resumeKey) ?? startVideo
   if (current) return `https://www.youtube.com/embed/${current}?list=${playlistId}&enablejsapi=1&loop=1&start=${start}&${extra}`
   const at = urlIndex === undefined ? '' : `&index=${urlIndex}`
   return `https://www.youtube.com/embed/videoseries?list=${playlistId}${at}&enablejsapi=1&loop=1&start=${start}&${extra}`
 }
 
 export const embedSrc = (stored: string, resumeKey: string, extra: string) => {
-  const start = Math.max(0, Math.floor(videoResume[resumeKey] ?? 0))
+  const start = Math.max(0, Math.floor(storedResumeAt(resumeKey) ?? 0))
   // captions stay off: cc_load_policy=0 covers the embed default, and unloadCaptions (below) handles the
   // viewer whose YouTube account forces subtitles on, which the URL parameter alone does not override
   const base = `cc_load_policy=0&${extra}`
