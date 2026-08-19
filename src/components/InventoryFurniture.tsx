@@ -13,7 +13,8 @@ import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
 import { PRETENDARD_WOFF } from '../services/fonts'
 import { getVideo, registerClipPlayer } from '../services/mediaStore'
-import { playlistVideoResume } from '../services/ytResume'
+import { resumedPlaylistVideo } from '../services/ytResume'
+import { playbackKey, playbackState, savePlayback } from '../services/playbackSession'
 import { Swing } from './motion'
 
 export function InventoryFurniture() {
@@ -561,6 +562,8 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
   const version = store?.videoFrames[id] ?? 0
   const link = store?.videoLinks[id]
   const clip = store?.videoClips[id]
+  const youtubeSession = playbackKey(store?.currentHandle ?? null, store?.activeRoomId ?? 'default', id, 'youtube')
+  const fileSession = playbackKey(store?.currentHandle ?? null, store?.activeRoomId ?? 'default', id, 'file')
   const [texture, setTexture] = useState<Texture | null>(null)
   const preview = useRef<{ element: HTMLVideoElement; canvas: HTMLCanvasElement; texture: CanvasTexture } | null>(null)
   const previewDrawAt = useRef(-Infinity)
@@ -575,12 +578,13 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
   // stored `@start` video is only the entry point and stops being true after the first track change, so it is a
   // fallback rather than the answer. Resolved outside the effect and listed in its deps so the picture updates
   // when the playlist moves on instead of staying on whatever it showed at mount.
-  const posterId = link && (link.startsWith('pl:') ? playlistVideoResume[id] || link.split('@')[1] : link)
+  const posterId = link && (link.startsWith('pl:') ? (!store?.readOnly && resumedPlaylistVideo(youtubeSession)) || link.split('@')[1] : link)
   useEffect(() => {
     let live = true
     let url: string | null = null
     let element: HTMLVideoElement | null = null
     let unregister = () => {}
+    let stopProgress = () => {}
     setTexture(null)
     const start = (source: string) => {
       element = document.createElement('video')
@@ -590,6 +594,20 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
       element.playsInline = true
       element.crossOrigin = 'anonymous'
       if (!store?.readOnly) unregister = registerClipPlayer(id, element)
+      if (!store?.readOnly) {
+        const restore = () => {
+          const saved = playbackState(fileSession).time
+          if (saved <= 0 || !element) return
+          const end = Number.isFinite(element.duration) ? Math.max(0, element.duration - .25) : saved
+          element.currentTime = Math.min(saved, end)
+        }
+        const remember = () => { if (element) savePlayback(fileSession, { time: element.currentTime }) }
+        const rememberNow = () => { if (element) savePlayback(fileSession, { time: element.currentTime }, true) }
+        element.addEventListener('loadedmetadata', restore, { once: true })
+        element.addEventListener('timeupdate', remember)
+        element.addEventListener('pause', rememberNow)
+        stopProgress = () => { element?.removeEventListener('timeupdate', remember); element?.removeEventListener('pause', rememberNow) }
+      }
       element.play().catch(() => { /* autoplay may wait for a gesture */ })
       if (store && !store.readOnly && loadAudioPrefs(store.activeRoomId)[id] === true) store.setFrameMuted(id, false, false)
       if (store?.readOnly) {
@@ -625,11 +643,13 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
     return () => {
       live = false
       unregister()
+      if (element && !store?.readOnly && element.readyState >= HTMLMediaElement.HAVE_METADATA) savePlayback(fileSession, { time: element.currentTime }, true)
+      stopProgress()
       element?.pause()
       if (preview.current?.element === element) { preview.current.texture.dispose(); preview.current = null }
       if (url) URL.revokeObjectURL(url)
     }
-  }, [id, version, link, clip, posterId])
+  }, [id, version, link, clip, posterId, fileSession])
   return <>{!store?.playingFrames.includes(id) && <mesh position={[0, 0, .042]}>
     <planeGeometry args={[width, height]} />
     {texture
