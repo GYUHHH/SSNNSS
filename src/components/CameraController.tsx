@@ -40,6 +40,7 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
   const lastZoomTarget = useRef(59)
   // while now is before this, the entry line holds against further zooming out — the detent's grip
   const entryHold = useRef(0)
+  const entryZoomAt = useRef(0)
   const targetGoal = useRef(new Vector3(0, 3.5, 0))
   // set while gliding back to the straight-on view after a room is entered, then cleared so the user owns the angle
   const angleGoal = useRef<{ azimuth: number; polar: number; life: number } | null>(null)
@@ -93,7 +94,9 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
     targetGoal.current.set(focusRoom.position[0], focusRoom.position[1] + 3.5, focusRoom.position[2])
     // Entry is the user's own zoom-in now, so the standard framing is a floor rather than an override — forcing
     // the zoom back to it would fight the wheel that is still turning. Wind past it and the extra is kept.
-    zoomTarget.current = Math.max(zoomTarget.current, baseZoom)
+    const enteringFromExplorer = !shift && focusRoom.position.some((value) => Math.abs(value) > .01)
+    entryZoomAt.current = enteringFromExplorer ? performance.now() + 320 : 0
+    if (!enteringFromExplorer) zoomTarget.current = Math.max(zoomTarget.current, baseZoom)
     // whatever the explorer was left rotated or panned to, entering a room lands dead-centre on the 45° view
     angleGoal.current = { azimuth: DEFAULT_AZIMUTH, polar: DEFAULT_POLAR, life: 2 }
   }, [baseZoom, camera, focusRoom?.token])
@@ -166,6 +169,10 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
 
   useFrame((_, delta) => {
     const camera2d = camera as OrthographicCamera
+    if (entryZoomAt.current && performance.now() >= entryZoomAt.current) {
+      entryZoomAt.current = 0
+      zoomTarget.current = Math.max(zoomTarget.current, baseZoom)
+    }
     // The stretch between the explorer floor and the entry line is a hallway, not a place: nothing useful lives at
     // zoom 43. So the GOAL is never allowed to settle there — any input that lands it inside the band is carried
     // to whichever end it was heading for, and the camera glides through in one motion: wind out of a room and it
@@ -216,10 +223,11 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
     // the user zooms back in the damping picks up again and carries them to its middle rather than leaving them
     // parked wherever the panning happened to end.
     if (fullyOut) { orbit.update(); return }
+    const targetDamping = entryZoomAt.current ? 14 : 6
     const nextTarget = new Vector3(
-      MathUtils.damp(target.x, targetGoal.current.x, 6, delta),
-      MathUtils.damp(target.y, targetGoal.current.y, 6, delta),
-      MathUtils.damp(target.z, targetGoal.current.z, 6, delta),
+      MathUtils.damp(target.x, targetGoal.current.x, targetDamping, delta),
+      MathUtils.damp(target.y, targetGoal.current.y, targetDamping, delta),
+      MathUtils.damp(target.z, targetGoal.current.z, targetDamping, delta),
     )
     camera.position.add(nextTarget.clone().sub(target))
     target.copy(nextTarget)

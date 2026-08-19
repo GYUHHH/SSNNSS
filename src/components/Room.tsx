@@ -425,6 +425,7 @@ function RoomWorld() {
   // entry into whatever was picked at the time — on touch, the middle-of-screen room, so a tapped outer room
   // flashed up and then bounced to the centre one.
   const entryLatched = useRef(false)
+  const requestedEntry = useRef(false)
   useEffect(() => {
     let live = true
     void fetchRoomDirectory().then((found) => {
@@ -480,10 +481,19 @@ function RoomWorld() {
     // the clicked room becomes the pick, so the highlight and the fade exemption follow the room actually entered
     picked.current = slot
     // the lobby is not on the server — going back to it is a local reset that walks the same listener path
-    if (slot.handle === LOBBY) { enterLobby(); return }
+    if (slot.handle === LOBBY) { enterLobby(); requestedEntry.current = false; return }
     opening.current = true
     await enterRoom(slot.handle)
     opening.current = false
+    requestedEntry.current = false
+  }
+  const beginEntry = (slot: RoomSlot) => {
+    if (opening.current || requestedEntry.current || !canEnter(slot.handle)) return
+    requestedEntry.current = true
+    picked.current = slot
+    centred.current = slot.handle
+    setCentredHandle(slot.handle)
+    setFocusRoom({ position: slot.position, token: performance.now() })
   }
   useFrame(({ camera, pointer, size }) => {
     const floor = exploreMinZoom(size.width, size.height)
@@ -494,7 +504,7 @@ function RoomWorld() {
     // The pick keeps updating through the first half of the transit band — the user can still steer onto a
     // different room while the fade has already begun — and only freezes for the short stretch before the entry
     // line, which is what keeps the choice from flapping while the camera is actively pulling it to the middle.
-    if (mode === 'normal' && camera.zoom <= (floor + entryZoom(size.width, size.height)) / 2) {
+    if (mode === 'normal' && !requestedEntry.current && camera.zoom <= (floor + entryZoom(size.width, size.height)) / 2) {
       // Measured in pixels off a projected centre rather than in world space: the cluster is stacked across storeys
       // and panning slides the target in the screen plane, so world distance disagrees with what is on screen. The
       // room already being viewed competes as well, and its winning means nothing is picked — zooming back into the
@@ -542,7 +552,7 @@ function RoomWorld() {
   // the picked room, or the one already being viewed when nothing is picked — what the camera should be aiming at
   const aim = useMemo(() => (slots.find((slot) => slot.handle === centredHandle) ?? active)?.position ?? null, [slots, active, centredHandle])
   return <>
-    {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY) && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} fresh={freshBundles[slot.handle]} open={() => void open(slot)} />)}
+    {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY) && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} />)}
     <group position={active.position}><Inert off={exploring}><RoomRoot /></Inert></group>
     <CameraController focusRoom={focusRoom} aim={aim} />
   </>
