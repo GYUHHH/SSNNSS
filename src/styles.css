@@ -429,6 +429,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .time-controls { bottom: calc(10px + env(safe-area-inset-bottom)); left: calc(10px + env(safe-area-inset-left)); }
   .time-controls button { min-width: 0; min-height: 38px; padding: 6px 10px; }
   .room-controls { right: calc(10px + env(safe-area-inset-right)); bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .sound-hub { bottom: calc(10px + env(safe-area-inset-bottom)); }
   .art-panel { --art-pad: calc(16px + env(safe-area-inset-left)); padding: calc(16px + env(safe-area-inset-top)) var(--art-pad) calc(20px + env(safe-area-inset-bottom)); background: var(--ui-bg); }
   .art-panel > header { background: var(--ui-bg); }
   .edit-toolbar { border-color: var(--ui-line); background: var(--ui-bg); }
