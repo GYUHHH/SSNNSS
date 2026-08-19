@@ -8,7 +8,6 @@ import { deleteVideo, listVideoIds, loadClipUrls, loadVideoLinks, putVideo, save
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic, syncPendingTracks } from './services/music'
 import { purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myProfilePhoto, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, removeStored, subscribeRealtime, uploadMedia, writeStored, type RemoteGuestComment } from './services/social'
 import { cancelSoundRequest, muteFrame, requestSound } from './services/ytResume'
-import { clearPlayback, playbackKey } from './services/playbackSession'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id, photo: row.photo })
 
@@ -624,13 +623,11 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     if (isVisiting()) return false
     const target = url ? youTubeTarget(url) : null
     if (url && !target) return false
-    clearPlayback(playbackKey(currentRoomHandle(), activeRoomId, id, 'youtube'))
     setVideoLinks((prev) => { const next = { ...prev }; if (target) next[id] = encodeTarget(target); else delete next[id]; saveVideoLinks(next); return next })
     return true
   }
   const setVideoClip = (id: string, file: File | null) => {
     if (isVisiting()) return
-    clearPlayback(playbackKey(currentRoomHandle(), activeRoomId, id, 'file'))
     if (!file) { deleteVideo(id); saveClipUrl(id, null); setVideoFrames(({ [id]: _removed, ...rest }) => rest); return }
     putVideo(id, file).then(() => setVideoFrames((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 })))
     void uploadMedia(`clips/${crypto.randomUUID()}`, file).then((url) => { if (url) saveClipUrl(id, url) })

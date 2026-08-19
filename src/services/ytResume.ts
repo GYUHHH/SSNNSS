@@ -1,25 +1,29 @@
 import { loadOrders, onOrderChange, syncOrder } from './playlistOrder'
-import { flushPlayback, playbackState, savePlayback, seedPlayback } from './playbackSession'
 
 // The wall player and the panel player are different iframes, so moving between them starts a fresh embed.
 // YouTube's iframe API broadcasts currentTime while playing (after a "listening" handshake); we remember the
 // last position per frame and hand it to the next embed as its start point, so the switch resumes instead of
 // rewinding to zero. Persisted to localStorage so a page reload also picks up where playback left off.
-const legacyResume = (() => { try { return JSON.parse(localStorage.getItem('my-room-video-resume-v1') ?? '') } catch { return null } })()
-const LEGACY_CLAIMS_KEY = 'my-room-video-resume-claims-v2'
-const legacyClaims: Record<string, string> = (() => { try { return JSON.parse(localStorage.getItem(LEGACY_CLAIMS_KEY) ?? '{}') } catch { return {} } })()
-const seedLegacyResume = (frameId: string, sessionKey: string) => {
-  if (!legacyResume) return
-  if (!legacyClaims[frameId]) {
-    legacyClaims[frameId] = sessionKey
-    try { localStorage.setItem(LEGACY_CLAIMS_KEY, JSON.stringify(legacyClaims)) } catch { /* storage unavailable */ }
-  }
-  if (legacyClaims[frameId] === sessionKey) seedPlayback(sessionKey, { time: Number(legacyResume?.time?.[frameId]) || 0, videoId: legacyResume?.video?.[frameId] })
-}
-export const resumedPlaylistVideo = (key: string) => playbackState(key).videoId
+const STORAGE_KEY = 'my-room-video-resume-v1'
+const persisted = (() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '') } catch { return null } })()
+export const videoResume: Record<string, number> = persisted?.time ?? {}
+// which video of a playlist was on screen — YouTube ignores index= on /embed/videoseries,
+// so resuming must go through /embed/{videoId}?list= with the actual video id
+export const playlistVideoResume: Record<string, string> = persisted?.video ?? {}
 // last known player state per frame (1 playing, 2 paused, 3 buffering) — read when the tab hides so a
 // visibility return restores exactly what was happening, instead of blindly commanding playback
 export const framePlayerStates: Record<string, number> = {}
+let saveTimer: ReturnType<typeof setTimeout> | undefined
+const flushResume = () => {
+  clearTimeout(saveTimer)
+  saveTimer = undefined
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ time: videoResume, video: playlistVideoResume }))
+}
+const persist = () => {
+  if (saveTimer) return
+  saveTimer = setTimeout(flushResume, 1000)
+}
+window.addEventListener('pagehide', flushResume)
 // Videos the player has actually refused. YouTube reports this over the same postMessage channel as an onError:
 // 101 and 150 are "the owner disabled playback outside YouTube", 100 is deleted or private, 2 is a malformed id
 // and 5 is a player failure. All of them mean the same thing here — this one cannot be shown on a wall.
@@ -38,20 +42,20 @@ const activeIframes: Record<string, HTMLIFrameElement> = {}
 const soundRequestCancels: Record<string, () => void> = {}
 export const cancelSoundRequest = (frameId: string) => soundRequestCancels[frameId]?.()
 
-export function trackIframe(iframe: HTMLIFrameElement, frameId: string, sessionKey: string): () => void {
+export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => void {
   const onMessage = (event: MessageEvent) => {
     if (event.source !== iframe.contentWindow) return
     try {
       const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
       const currentTime = data?.info?.currentTime
-      if (typeof currentTime === 'number') savePlayback(sessionKey, { time: currentTime }, data?.info?.playerState === 2)
+      if (typeof currentTime === 'number') { videoResume[frameId] = currentTime; data?.info?.playerState === 2 ? flushResume() : persist() }
       if (typeof data?.info?.playerState === 'number') {
         framePlayerStates[frameId] = data.info.playerState
         // something played, so the run of failures is over and a later dud may skip afresh
         if (data.info.playerState === 1) delete skipRun[frameId]
       }
       if (data?.event === 'onError' || typeof data?.info?.errorCode === 'number') {
-        const failed = playbackState(sessionKey).videoId
+        const failed = playlistVideoResume[frameId]
         if (failed) {
           if (!blockedVideos.has(failed)) { blockedVideos.add(failed); blockedListeners.forEach((listener) => listener()) }
           const run = (skipRun[frameId] ??= new Set())
@@ -64,7 +68,9 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string, sessionK
       const currentVideo = data?.info?.videoData?.video_id
       if (typeof currentVideo === 'string' && currentVideo && currentVideo !== 'videoseries') {
         // a new video can bring its own captions back on, so drop them again whenever the track changes
-        if (playbackState(sessionKey).videoId !== currentVideo) { captionsCleared.delete(frameId); savePlayback(sessionKey, { videoId: currentVideo, time: typeof currentTime === 'number' ? currentTime : 0 }) }
+        if (playlistVideoResume[frameId] !== currentVideo) captionsCleared.delete(frameId)
+        playlistVideoResume[frameId] = currentVideo
+        persist()
       }
       // onApiChange is the moment YouTube reports a module with an exposed API has just been LOADED — which
       // is exactly when the captions module appears and can turn itself on from the account's settings. Every
@@ -82,7 +88,6 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string, sessionK
   hello()
   activeIframes[frameId] = iframe
   return () => {
-    flushPlayback()
     window.removeEventListener('message', onMessage)
     iframe.removeEventListener('load', hello)
     if (activeIframes[frameId] === iframe) delete activeIframes[frameId]
@@ -216,21 +221,20 @@ export const playlistControls = (frameId: string) => ({
 const videoEmbedSrc = (videoId: string, start: number, extra: string) =>
   `https://www.youtube.com/embed/${videoId}?enablejsapi=1&loop=1&playlist=${videoId}&start=${start}&${extra}`
 
-const playlistEmbedSrc = (playlistId: string, startVideo: string | undefined, urlIndex: number | undefined, sessionKey: string, start: number, extra: string) => {
-  const current = resumedPlaylistVideo(sessionKey) ?? startVideo
+const playlistEmbedSrc = (playlistId: string, startVideo: string | undefined, urlIndex: number | undefined, frameId: string, start: number, extra: string) => {
+  const current = playlistVideoResume[frameId] ?? startVideo
   if (current) return `https://www.youtube.com/embed/${current}?list=${playlistId}&enablejsapi=1&loop=1&start=${start}&${extra}`
   const at = urlIndex === undefined ? '' : `&index=${urlIndex}`
   return `https://www.youtube.com/embed/videoseries?list=${playlistId}${at}&enablejsapi=1&loop=1&start=${start}&${extra}`
 }
 
-export const embedSrc = (stored: string, frameId: string, sessionKey: string, extra: string) => {
-  seedLegacyResume(frameId, sessionKey)
-  const start = Math.max(0, Math.floor(playbackState(sessionKey).time))
+export const embedSrc = (stored: string, frameId: string, extra: string) => {
+  const start = Math.max(0, Math.floor(videoResume[frameId] ?? 0))
   // captions stay off: cc_load_policy=0 covers the embed default, and unloadCaptions (below) handles the
   // viewer whose YouTube account forces subtitles on, which the URL parameter alone does not override
   const base = `cc_load_policy=0&${extra}`
   const params = typeof location === 'undefined' ? base : `${base}&origin=${encodeURIComponent(location.origin)}`
   if (!stored.startsWith('pl:')) return videoEmbedSrc(stored, start, params)
   const [playlistId, startVideo, index] = stored.slice(3).split('@')
-  return playlistEmbedSrc(playlistId, startVideo || undefined, index ? Number(index) : undefined, sessionKey, start, params)
+  return playlistEmbedSrc(playlistId, startVideo || undefined, index ? Number(index) : undefined, frameId, start, params)
 }
