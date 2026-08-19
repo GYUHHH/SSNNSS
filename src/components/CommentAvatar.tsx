@@ -1,7 +1,7 @@
-import { currentRoomHandle, enterRoom } from '../services/social'
+import { currentRoomHandle, roomPath } from '../services/social'
 
 const isHandle = (name: string) => /^[a-z0-9_]{3,20}$/.test(name)
-const visit = (name: string) => { if (isHandle(name) && currentRoomHandle() !== name) void enterRoom(name) }
+const visit = (name: string) => { if (isHandle(name) && currentRoomHandle() !== name) location.assign(roomPath(name)) }
 
 export default function CommentAvatar({ name, photo }: { name: string; photo?: string }) {
   const face = <><span>{name.slice(0, 1).toUpperCase()}</span>{photo && <img src={photo} alt="" onError={(event) => event.currentTarget.remove()} />}</>
