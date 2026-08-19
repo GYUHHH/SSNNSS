@@ -1,4 +1,20 @@
-:root { font-family: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; color: #3a3a38; background: #f4efe6; }
+@font-face {
+  font-family: "Jones UI";
+  src: url("/fonts/Jones-Book.otf") format("opentype");
+  font-style: normal;
+  font-weight: 100 500;
+  font-display: swap;
+  unicode-range: U+0000-024F, U+1E00-1EFF, U+2000-206F;
+}
+@font-face {
+  font-family: "Jones UI";
+  src: url("/fonts/Jones-Bold.otf") format("opentype");
+  font-style: normal;
+  font-weight: 600 900;
+  font-display: swap;
+  unicode-range: U+0000-024F, U+1E00-1EFF, U+2000-206F;
+}
+:root { --font-ui: "Jones UI", "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; font-family: var(--font-ui); color: #3a3a38; background: #f4efe6; }
 * { box-sizing: border-box; }
 html, body, #root { width: 100%; height: 100%; }
 body { margin: 0; min-width: 720px; overflow: hidden; }
@@ -197,7 +213,7 @@ body.exploring :is(.room-controls, .room-slots, .entry-buttons, .me-tag, .build-
 .item-comments .guest-note { width: 100%; padding-block: 8px; }
 
 /* Every comment surface shares its type scale here. */
-.comment-ui { --comment-font-size: 12pt; font-family: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", sans-serif; }
+.comment-ui { --comment-font-size: 12pt; font-family: var(--font-ui); }
 .comment-ui :is(.comment-item, textarea, input, .guest-form button, .entry-comment-form button, .entry-empty) { font-size: var(--comment-font-size); }
 .comment-ui :is(button, input, textarea) { font-family: inherit; }
 .comment-item { display: grid; grid-template: auto auto / 32px minmax(0, 1fr); column-gap: 10px; color: var(--ui-text); text-align: left; }
@@ -262,7 +278,7 @@ body.exploring :is(.room-controls, .room-slots, .entry-buttons, .me-tag, .build-
 
 /* Instagram-inspired interface chrome. The room canvas itself stays untouched. */
 :root {
-  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple SD Gothic Neo", sans-serif;
+  font-family: var(--font-ui);
   color: #000;
   background: #fafafa;
   --ui-bg: #fff;
@@ -275,7 +291,7 @@ body.exploring :is(.room-controls, .room-slots, .entry-buttons, .me-tag, .build-
   --ui-red: #ed4956;
 }
 
-button, input, textarea, select { font-family: inherit; }
+button, input, textarea, select { font-family: var(--font-ui); }
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #0095f6; outline-offset: 1px; }
 
 .room-slots,
