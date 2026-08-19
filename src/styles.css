@@ -527,6 +527,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
    shifts, driven by the same --sheet progress the sheet itself uses, so pushing the sheet up pushes the room
    up and dragging it down brings the room back in step. */
 @media (max-width: 719px) {
+  input:not([type="range"]), textarea, select { font-size: 16px; }
   .art-panel { top: auto; right: 0; left: 0; width: auto; max-height: 68vh; padding: 8px 16px calc(20px + env(safe-area-inset-bottom)); border-left: 0; border-top: 1px solid var(--ui-line); border-radius: 14px 14px 0 0; transform: translateY(100%); transition: transform .42s cubic-bezier(.22, 1.2, .36, 1); overscroll-behavior: contain; }
   .art-panel.open { transform: translateY(0); }
   .sheet-handle { display: block; width: 38px; height: 4px; margin: 2px auto 10px; border-radius: 999px; background: var(--ui-line); }
