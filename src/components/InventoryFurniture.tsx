@@ -59,6 +59,13 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
       <pointLight color="#ffc66d" intensity={5} distance={2.2} position={[0, -.1, .3]} />
     </>}
   </>
+  if (item.type === 'wall-sconce-2') return <>
+    <mesh position={[0, 0, .035]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[.24, .24, .07, 24]} />{mat('#b9894f')}</mesh>
+    <mesh position={[0, 0, .15]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[.045, .055, .24, 12]} />{mat('#8f6438')}</mesh>
+    <mesh position={[0, 0, .29]} scale={[1, .92, .78]}><sphereGeometry args={[.19, 20, 14]} /><meshStandardMaterial color="#fff6df" emissive={lit ? '#ffe8b8' : '#000000'} emissiveIntensity={lit ? 1.15 : 0} roughness={.35} transparent opacity={preview ? material.opacity : .92} /></mesh>
+    <mesh position={[0, 0, .44]}><torusGeometry args={[.105, .018, 8, 20]} />{mat('#b9894f')}</mesh>
+    {lit && !preview && <pointLight color="#ffe2ad" intensity={3.4} distance={7} decay={1.35} position={[0, 0, .58]} />}
+  </>
   if (item.type === 'calendar') return <><RoundedBox castShadow args={[.6, .68, .04]} radius={.02} smoothness={2} position={[0, 0, .02]}>{mat('#f3ead9')}</RoundedBox>{!preview && <CalendarArt />}</>
   if (item.type === 'christmas-tree') return <>
     <mesh castShadow position={[0, .16, 0]}><cylinderGeometry args={[.09, .12, .32, 8]} />{mat('#6b4c39')}</mesh>
