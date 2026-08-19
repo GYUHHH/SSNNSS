@@ -13,7 +13,7 @@ import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
 import { PRETENDARD_WOFF } from '../services/fonts'
 import { getVideo, registerClipPlayer } from '../services/mediaStore'
-import { playlistVideoResume } from '../services/ytResume'
+import { playlistVideoResume, videoResumeKey } from '../services/ytResume'
 import { Swing } from './motion'
 
 export function InventoryFurniture() {
@@ -575,7 +575,8 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
   // stored `@start` video is only the entry point and stops being true after the first track change, so it is a
   // fallback rather than the answer. Resolved outside the effect and listed in its deps so the picture updates
   // when the playlist moves on instead of staying on whatever it showed at mount.
-  const posterId = link && (link.startsWith('pl:') ? playlistVideoResume[id] || link.split('@')[1] : link)
+  const resumeKey = videoResumeKey(store?.currentHandle ?? null, store?.activeRoomId ?? 'default', id)
+  const posterId = link && (link.startsWith('pl:') ? playlistVideoResume[resumeKey] || link.split('@')[1] : link)
   useEffect(() => {
     let live = true
     let url: string | null = null
