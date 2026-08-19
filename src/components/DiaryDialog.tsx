@@ -1,8 +1,9 @@
 import { autosize } from '../services/autosize'
-import { type ChangeEvent, type FormEvent, useRef, useState } from 'react'
+import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from 'react'
 import { type Book, type Entry, type EntryDraft, type Visibility, useRoomStore } from '../store'
 import { HeartIcon, CommentIcon } from './ReactionIcons'
-import { currentRoomHandle, isVisiting, myVisitorId, requireHandle, roomPath, toggleLike, uploadMedia } from '../services/social'
+import { currentRoomHandle, isVisiting, myVisitorId, requireHandle, roomPath, toggleLike, uploadDataUrl, uploadMedia } from '../services/social'
+import { PhotoCropEditor } from './PhotoCropEditor'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -59,7 +60,7 @@ function EntryItem({ bookId, entry }: { bookId: string; entry: Entry }) {
     setTimeout(() => setShared(false), 1400)
   }
   return <article className="entry-item">
-    {entry.images[0] && <img src={assetUrl(entry.images[0])} alt="기록 사진" />}
+    <EntryGallery images={entry.images} />
     <div className="entry-actions">
       <button type="button" className={`${likes.liked ? 'liked' : ''}${pop ? ' pop' : ''}`} aria-label="좋아요" onAnimationEnd={() => setPop(false)} onClick={like}><HeartIcon filled={likes.liked} />{likes.count > 0 && <span>{likes.count}</span>}</button>
       <button type="button" aria-label="댓글" onClick={() => commentInput.current?.focus()}><CommentIcon />{(guestbook[entry.id] ?? []).length > 0 && <span>{(guestbook[entry.id] ?? []).length}</span>}</button>
@@ -78,11 +79,12 @@ function EntryEditor({ bookId, entry, onClose }: { bookId: string; entry: Entry;
   const { updateEntry, deleteEntry } = useRoomStore()
   const [content, setContent] = useState(entry.content)
   const [images, setImages] = useState<string[]>(entry.images)
+  const [editing, setEditing] = useState<number | null>(null)
   const [visibility, setVisibility] = useState<Visibility>(entry.visibility)
   const [confirming, setConfirming] = useState(false)
   const pick = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) void uploadMedia(`records/${crypto.randomUUID()}`, file).then((url) => { if (url) setImages([url]) })
+    const files = [...(event.target.files ?? [])]
+    if (files.length) void Promise.all(files.map((file) => uploadMedia(`records/${crypto.randomUUID()}`, file))).then((sources) => setImages((current) => [...current, ...sources.filter((source): source is string => !!source)]))
     event.target.value = ''
   }
   const save = (event: FormEvent) => { event.preventDefault(); updateEntry(bookId, entry.id, { content, images, visibility }); onClose() }
@@ -90,8 +92,8 @@ function EntryEditor({ bookId, entry, onClose }: { bookId: string; entry: Entry;
     <form className="entry-editor" onSubmit={save}>
       <button className="close-ui" type="button" aria-label="닫기" onClick={onClose}>×</button>
       <strong>기록 수정</strong>
-      {images[0] && <img src={assetUrl(images[0])} alt="기록 사진" />}
-      <label className="entry-editor-file">사진 바꾸기<input type="file" accept="image/*" onChange={pick} /></label>
+      <DraftImages images={images} onEdit={setEditing} onRemove={(index) => setImages((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
+      <label className="entry-editor-file">사진 추가<input type="file" accept="image/*" multiple onChange={pick} /></label>
       <textarea ref={autosize} rows={1} value={content} onChange={(event) => { setContent(event.target.value); autosize(event.currentTarget) }} placeholder="내용" />
       <fieldset><legend>공개 설정</legend><label><input type="radio" checked={visibility === 'public'} onChange={() => setVisibility('public')} /> 공개</label><label><input type="radio" checked={visibility === 'private'} onChange={() => setVisibility('private')} /> 비공개</label></fieldset>
       <div className="entry-editor-foot">
@@ -100,6 +102,7 @@ function EntryEditor({ bookId, entry, onClose }: { bookId: string; entry: Entry;
       </div>
       {confirming && <div className="delete-confirm"><span>이 기록을 삭제할까요?</span><button type="button" onClick={() => setConfirming(false)}>취소</button><button type="button" onClick={() => { deleteEntry(bookId, entry.id); onClose() }}>삭제</button></div>}
     </form>
+    {editing !== null && images[editing] && <PhotoCropEditor source={assetUrl(images[editing])} onClose={() => setEditing(null)} onApply={(edited) => { const index = editing; setImages((current) => current.map((image, itemIndex) => itemIndex === index ? edited : image)); setEditing(null); void uploadDataUrl('records', edited).then((url) => { if (url) setImages((current) => current.map((image, itemIndex) => itemIndex === index && image === edited ? url : image)) }) }} />}
   </div>
 }
 
@@ -122,40 +125,39 @@ function EntryForm({ book, onSave }: { book: Book; onSave: (entry: EntryDraft) =
   const [content, setContent] = useState('')
   const [visibility, setVisibility] = useState<Visibility>(book.visibility)
   const [images, setImages] = useState<string[]>([])
-  const [editing, setEditing] = useState<string | null>(null)
+  const [editing, setEditing] = useState<number | null>(null)
   const addImages = (event: ChangeEvent<HTMLInputElement>) => {
     const files = [...(event.target.files ?? [])]
     // upload first, keep the URL — a data URL here would be megabytes inside the room's saved data
     Promise.all(files.map((file) => uploadMedia(`records/${crypto.randomUUID()}`, file).then((url) => url ?? '')))
-      .then((sources) => setImages((current) => [...current, ...sources.filter(Boolean)]))
+      .then((sources) => setImages((current) => [...current, ...sources.filter((source): source is string => !!source)]))
     event.target.value = ''
   }
   // a record is its photo and its words now — no title, and the date is simply the day it was written
   const submit = (event: FormEvent) => { event.preventDefault(); if (!content.trim() && images.length === 0) return; onSave({ title: '', content, date: today(), images, visibility }) }
   return <form className="entry-form" onSubmit={submit}>
     <label>사진<input type="file" accept="image/*" multiple onChange={addImages} /></label>
-    {images.length > 0 && <div className="draft-images">{images.map((image, index) => <button key={image} type="button" onClick={() => setEditing(image)}><img src={image} alt={`추가한 사진 ${index + 1}`} /></button>)}</div>}
+    <DraftImages images={images} onEdit={setEditing} onRemove={(index) => setImages((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
     <label>내용<textarea ref={autosize} rows={1} value={content} onChange={(event) => { setContent(event.target.value); autosize(event.currentTarget) }} /></label>
     <fieldset><legend>공개 설정</legend><label><input type="radio" checked={visibility === 'public'} onChange={() => setVisibility('public')} /> 공개</label><label><input type="radio" checked={visibility === 'private'} onChange={() => setVisibility('private')} /> 비공개</label></fieldset>
     <button className="save-entry" type="submit">저장</button>
-    {editing && <PhotoEditor source={editing} onClose={() => setEditing(null)} onApply={(edited) => { setImages((current) => current.map((image) => image === editing ? edited : image)); setEditing(null) }} />}
+    {editing !== null && images[editing] && <PhotoCropEditor source={assetUrl(images[editing])} onClose={() => setEditing(null)} onApply={(edited) => { const index = editing; setImages((current) => current.map((image, itemIndex) => itemIndex === index ? edited : image)); setEditing(null); void uploadDataUrl('records', edited).then((url) => { if (url) setImages((current) => current.map((image, itemIndex) => itemIndex === index && image === edited ? url : image)) }) }} />}
   </form>
 }
 
-function PhotoEditor({ source, onClose, onApply }: { source: string; onClose: () => void; onApply: (image: string) => void }) {
-  const crop = useRef<HTMLDivElement>(null)
-  const image = useRef<HTMLImageElement>(null)
-  const [scale, setScale] = useState(1)
-  const [position, setPosition] = useState({ x: 0, y: 0 })
-  const start = useRef<{ x: number; y: number } | null>(null)
-  const apply = () => {
-    if (!crop.current || !image.current) return
-    const canvas = document.createElement('canvas'); canvas.width = 800; canvas.height = 600
-    const factor = canvas.width / crop.current.clientWidth
-    const base = Math.max(crop.current.clientWidth / image.current.naturalWidth, crop.current.clientHeight / image.current.naturalHeight)
-    const width = image.current.naturalWidth * base * scale * factor; const height = image.current.naturalHeight * base * scale * factor
-    canvas.getContext('2d')?.drawImage(image.current, canvas.width / 2 + position.x * factor - width / 2, canvas.height / 2 + position.y * factor - height / 2, width, height)
-    onApply(canvas.toDataURL('image/jpeg', 0.92))
-  }
-  return <div className="photo-editor-overlay"><section className="photo-editor"><button className="close-ui" type="button" aria-label="닫기" onClick={onClose}>×</button><div ref={crop} className="crop-area" onPointerDown={(event) => { start.current = { x: event.clientX - position.x, y: event.clientY - position.y }; event.currentTarget.setPointerCapture(event.pointerId) }} onPointerMove={(event) => start.current && setPosition({ x: event.clientX - start.current.x, y: event.clientY - start.current.y })} onPointerUp={() => { start.current = null }}><img ref={image} src={source} alt="사진 조정" style={{ transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px)) scale(${scale})` }} /></div><label>확대<input type="range" min="1" max="2.5" step="0.01" value={scale} onChange={(event) => setScale(Number(event.target.value))} /></label><button type="button" onClick={apply}>적용</button></section></div>
+function DraftImages({ images, onEdit, onRemove }: { images: string[]; onEdit: (index: number) => void; onRemove: (index: number) => void }) {
+  if (!images.length) return null
+  return <div className="draft-images">{images.map((image, index) => <div className="draft-image" key={`${image}-${index}`}><button type="button" onClick={() => onEdit(index)}><img src={assetUrl(image)} alt={`추가한 사진 ${index + 1}`} /></button><button className="draft-image-remove" type="button" aria-label={`사진 ${index + 1} 제거`} onClick={() => onRemove(index)}>×</button></div>)}</div>
+}
+
+function EntryGallery({ images }: { images: string[] }) {
+  const [index, setIndex] = useState(0)
+  const start = useRef<number | null>(null)
+  useEffect(() => setIndex((current) => Math.min(current, Math.max(0, images.length - 1))), [images.length])
+  if (!images.length) return null
+  const move = (step: number) => setIndex((current) => Math.max(0, Math.min(images.length - 1, current + step)))
+  return <div className="entry-gallery" onPointerDown={(event) => { start.current = event.clientX; event.currentTarget.setPointerCapture(event.pointerId) }} onPointerUp={(event) => { if (start.current !== null) { const distance = event.clientX - start.current; if (Math.abs(distance) > 36) move(distance < 0 ? 1 : -1) } start.current = null }} onPointerCancel={() => { start.current = null }}>
+    <img src={assetUrl(images[index])} alt={`기록 사진 ${index + 1}`} />
+    {images.length > 1 && <><button className="entry-gallery-prev" type="button" aria-label="이전 사진" disabled={index === 0} onClick={() => move(-1)}>‹</button><button className="entry-gallery-next" type="button" aria-label="다음 사진" disabled={index === images.length - 1} onClick={() => move(1)}>›</button><span>{index + 1} / {images.length}</span></>}
+  </div>
 }

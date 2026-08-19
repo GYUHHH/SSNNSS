@@ -4,6 +4,7 @@ import { useOptionalRoomStore, useRoomStore } from '../store'
 import { getVideo } from '../services/mediaStore'
 import { loadOrders, onOrderChange, saveOrder } from '../services/playlistOrder'
 import { isBlockedVideo, onBlockedVideos } from '../services/ytResume'
+import { PhotoCropEditor } from './PhotoCropEditor'
 
 const PAPER = '#f6efe2'
 const COLORS = ['#3f3a33', '#b96b52', '#d9a441', '#8a9c82', '#607b93', '#a06a8c', '#e8b4a0', '#f3ead9']
@@ -69,23 +70,14 @@ export function DrawingEditor({ id, width, height, onClose }: { id: string; widt
 export function PhotoPickButton({ id, width, height }: { id: string; width: number; height: number }) {
   const { artworks, setArtwork } = useRoomStore()
   const inputRef = useRef<HTMLInputElement>(null)
-  const pick = (file: File) => {
-    const img = new Image()
-    img.onload = () => {
-      // center-crop the photo to the frame's aspect, downscaled so localStorage stays small
-      const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height
-      const ctx = canvas.getContext('2d')!
-      const scale = Math.max(width / img.width, height / img.height)
-      ctx.drawImage(img, (width - img.width * scale) / 2, (height - img.height * scale) / 2, img.width * scale, img.height * scale)
-      setArtwork(id, canvas.toDataURL('image/jpeg', 0.85))
-      URL.revokeObjectURL(img.src)
-    }
-    img.src = URL.createObjectURL(file)
-  }
+  const [editing, setEditing] = useState<string | null>(null)
+  const closeEditor = () => setEditing((source) => { if (source) URL.revokeObjectURL(source); return null })
+  const pick = (file: File) => setEditing(URL.createObjectURL(file))
   return <>
     <button type="button" onClick={() => inputRef.current?.click()}>사진 넣기</button>
     {artworks[id] && <button type="button" onClick={() => setArtwork(id, null)}>사진 제거</button>}
     <input ref={inputRef} type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) pick(file); event.target.value = '' }} />
+    {editing && <PhotoCropEditor source={editing} aspect={width / height} output={[width, height]} onClose={closeEditor} onApply={(image) => { setArtwork(id, image); closeEditor() }} />}
   </>
 }
 
