@@ -82,7 +82,6 @@ function TimeLayerLights({ time }: { time: TimeOfDay }) {
 function RenderGovernor() {
   const activeUntil = useRef(0)
   const skip = useRef(false)
-  const explorerDrawAt = useRef(0)
   useEffect(() => {
     activeUntil.current = performance.now() + 3000 // full rate through boot, while everything is still settling
     const wake = () => { activeUntil.current = performance.now() + 1000 }
@@ -91,13 +90,7 @@ function RenderGovernor() {
     return () => inputs.forEach((name) => window.removeEventListener(name, wake))
   }, [])
   useFrame(({ gl, scene, camera, size }) => {
-    // The explorer is a preview, not a place to operate furniture. Keep all room animation alive, but only draw
-    // its combined view at 15fps so several rooms do not cost a full-rate scene while the user is browsing.
-    const now = performance.now()
-    const exploring = camera.zoom <= exploreMinZoom(size.width, size.height) + .5
-    if (exploring && now - explorerDrawAt.current < 1000 / 15) return
-    if (exploring) explorerDrawAt.current = now
-    if (!exploring && now >= activeUntil.current) {
+    if (performance.now() >= activeUntil.current) {
       skip.current = !skip.current
       if (skip.current) return
     } else skip.current = false

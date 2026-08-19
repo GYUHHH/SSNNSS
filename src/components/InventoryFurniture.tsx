@@ -561,6 +561,15 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
   const version = store?.videoFrames[id] ?? 0
   const link = store?.videoLinks[id]
   const [texture, setTexture] = useState<Texture | null>(null)
+  const preview = useRef<{ element: HTMLVideoElement; canvas: HTMLCanvasElement; texture: CanvasTexture } | null>(null)
+  const previewDrawAt = useRef(-Infinity)
+  useFrame(({ clock }) => {
+    const current = preview.current
+    if (!current || clock.elapsedTime - previewDrawAt.current < 1 / 12 || current.element.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return
+    previewDrawAt.current = clock.elapsedTime
+    current.canvas.getContext('2d')?.drawImage(current.element, 0, 0, current.canvas.width, current.canvas.height)
+    current.texture.needsUpdate = true
+  })
   // A playlist's thumbnail follows whatever it was last left on, which is what the frame will resume to. The
   // stored `@start` video is only the entry point and stops being true after the first track change, so it is a
   // fallback rather than the answer. Resolved outside the effect and listed in its deps so the picture updates
@@ -579,21 +588,34 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
       element.muted = true
       element.playsInline = true
       element.crossOrigin = 'anonymous'
-      unregister = registerClipPlayer(id, element)
+      if (!store?.readOnly) unregister = registerClipPlayer(id, element)
       element.play().catch(() => { /* autoplay may wait for a gesture */ })
-      if (store && loadAudioPrefs(store.activeRoomId)[id] === true) store.setFrameMuted(id, false, false)
-      const video = new VideoTexture(element)
-      video.colorSpace = SRGBColorSpace
-      setTexture(video)
+      if (store && !store.readOnly && loadAudioPrefs(store.activeRoomId)[id] === true) store.setFrameMuted(id, false, false)
+      if (store?.readOnly) {
+        const canvas = document.createElement('canvas')
+        canvas.width = 240; canvas.height = 180
+        canvas.getContext('2d')?.fillRect(0, 0, canvas.width, canvas.height)
+        const video = new CanvasTexture(canvas)
+        video.colorSpace = SRGBColorSpace
+        preview.current = { element, canvas, texture: video }
+        setTexture(video)
+      } else {
+        const video = new VideoTexture(element)
+        video.colorSpace = SRGBColorSpace
+        setTexture(video)
+      }
     }
     if (posterId) new TextureLoader().setCrossOrigin('anonymous').loadAsync(`https://img.youtube.com/vi/${posterId}/hqdefault.jpg`).then((poster) => {
       if (!live) return
       poster.colorSpace = SRGBColorSpace
       setTexture(poster)
     }).catch(() => { /* thumbnail unavailable */ })
-    // a neighbour room in the explorer has no clips of its own to read, and the local ones belong to the viewer,
-    // not to that room — so its frames stay empty rather than borrowing whatever this browser happens to hold
-    else if (!store?.readOnly) getVideo(id).then((blob) => {
+    // Explorer previews stream only that room's already-uploaded clip, always muted. A small canvas receives
+    // one frame every 1/12s, avoiding a full-rate texture upload for every visible neighbour.
+    else if (store?.readOnly) {
+      const remote = loadClipUrls()[id]
+      if (remote) start(remote)
+    } else getVideo(id).then((blob) => {
       if (!live) return
       if (blob) { url = URL.createObjectURL(blob); start(url); return }
       // no local copy (a visitor, or another device) — stream the uploaded clip from storage. Nothing uploaded
@@ -605,6 +627,7 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
       live = false
       unregister()
       element?.pause()
+      if (preview.current?.element === element) { preview.current.texture.dispose(); preview.current = null }
       if (url) URL.revokeObjectURL(url)
     }
   }, [id, version, link, posterId])
