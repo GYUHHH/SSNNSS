@@ -25,6 +25,7 @@ export default function ArtworkOverlay() {
     {videoLinks[selectedObject] && <DockSpace />}
     <ClipPreview id={selectedObject} />
     {!isVisiting() && <>
+      {videoLinks[selectedObject]?.startsWith('pl:') && <PlaylistOrderEditor id={selectedObject} />}
       {videoStep === 'choose' && <div className="art-actions">
         <button type="button" onClick={() => setVideoStep('link')}>Youtube Link</button>
         <button type="button" onClick={() => setVideoStep('file')}>Video File</button>
@@ -33,7 +34,6 @@ export default function ArtworkOverlay() {
       {videoStep === 'link' && <>
         <VideoLinkInput id={selectedObject} />
         <small className="video-link-kinds">- Youtube Video<br />- Youtube Playlist</small>
-        <PlaylistOrderEditor id={selectedObject} />
       </>}
       {videoStep === 'file' && <div className="art-actions"><VideoPickButton id={selectedObject} /></div>}
     </>}
