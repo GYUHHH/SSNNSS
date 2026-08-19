@@ -67,8 +67,13 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
   const resumeAt = Math.max(0, Math.floor(storedResumeAt(frameId) ?? 0))
   const resumeVideo = storedPlaylistVideo(frameId)
   let seeked = false
+  let kicks = 0
   let kickTimer: ReturnType<typeof setTimeout> | undefined
-  const armKick = () => { clearTimeout(kickTimer); kickTimer = setTimeout(() => command(frameId, 'playVideo'), 2500) }
+  // Kicks repeat: one playVideo is not always enough — an embed served in click-to-play mode can swallow
+  // the first commands and accept a later one. Bounded so a player that truly refuses is left alone.
+  const kick = () => { kickTimer = undefined; if (kicks >= 8) return; kicks++; command(frameId, 'playVideo'); kickTimer = setTimeout(kick, 3000) }
+  const armKick = () => { if (!kickTimer) kickTimer = setTimeout(kick, 2500) }
+  const cancelKick = () => { clearTimeout(kickTimer); kickTimer = undefined; kicks = 0 }
   const onMessage = (event: MessageEvent) => {
     if (event.source !== iframe.contentWindow) return
     clearInterval(helloTimer)
@@ -82,7 +87,7 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
         if (data.info.playerState === 1) delete skipRun[frameId]
         // -1 unstarted / 5 cued = autoplay refused; anything else calls the kick off (2 = a real pause stays paused)
         if (data.info.playerState === -1 || data.info.playerState === 5) armKick()
-        else clearTimeout(kickTimer)
+        else cancelKick()
         if (data.info.playerState === 1 && !seeked) {
           seeked = true
           // only back onto the SAME video — a playlist that already skipped to another track keeps its place
