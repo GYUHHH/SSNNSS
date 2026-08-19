@@ -171,7 +171,7 @@ div.art-view { aspect-ratio: 3 / 4; }
 .guest-form button { justify-self: end; border: 1px solid #3a3a38; border-radius: 4px; padding: 7px 14px; color: #ffffff; background: #3a3a38; cursor: pointer; }
 .art-panel .guest-form { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
 .art-panel .guest-form button { align-self: stretch; justify-self: auto; white-space: nowrap; }
-.guest-list { display: grid; padding-top: 12px; }
+.guest-list { display: grid; align-content: start; padding-top: 12px; }
 .guest-note { padding: 12px 0; border-bottom: 1px solid #e0e0dd; }
 .item-comments { width: min(420px, calc(100vw - 16px)); height: min(360px, calc(100dvh - 32px)); max-height: none; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; overflow: hidden; border-radius: 4px; box-shadow: none; }
 .item-comments .guest-form { grid-row: 3; grid-template-columns: minmax(0, 1fr) auto; align-items: end; padding: 8px 0 0; }
