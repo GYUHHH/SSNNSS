@@ -15,8 +15,7 @@ const flushClipResume = () => {
   clipResumeTimer = undefined
   try { localStorage.setItem(clipResumeKey, JSON.stringify(clipResume)) } catch { /* storage unavailable */ }
 }
-export const clipSessionKey = (_handle: string | null, id: string) => id
-// See ytResume: room-scoped keys from earlier releases remain readable.
+// See ytResume: keyed by frame id alone; room-scoped keys from earlier releases remain readable.
 export const clipResumeAt = (key: string) => clipResume[key] ?? Object.entries(clipResume).find(([saved]) => saved.endsWith(`:${key}`))?.[1] ?? 0
 export const rememberClipAt = (key: string, time: number, immediate = false) => {
   clipResume[key] = time

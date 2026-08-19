@@ -10,17 +10,15 @@ export const videoResume: Record<string, number> = persisted?.time ?? {}
 // which video of a playlist was on screen — YouTube ignores index= on /embed/videoseries,
 // so resuming must go through /embed/{videoId}?list= with the actual video id
 export const playlistVideoResume: Record<string, string> = persisted?.video ?? {}
-// Frame ids are already unique. Depending on the asynchronously changing room handle made a room transition
-// occasionally save under the room being left and restore under the room being entered.
-export const videoResumeKey = (_handle: string | null, frameId: string) => frameId
-// Room-scoped keys from earlier releases remain readable, so this fix does not discard saved positions.
-const storedResumeAt = (resumeKey: string) => {
-  if (videoResume[resumeKey] !== undefined) return videoResume[resumeKey]
-  return Object.entries(videoResume).find(([key]) => key.endsWith(`:${resumeKey}`))?.[1]
+// Frame ids are already unique, so positions are keyed by frame id alone.
+// Room-scoped keys from earlier releases remain readable, so saved positions are not discarded.
+const storedResumeAt = (frameId: string) => {
+  if (videoResume[frameId] !== undefined) return videoResume[frameId]
+  return Object.entries(videoResume).find(([key]) => key.endsWith(`:${frameId}`))?.[1]
 }
-const storedPlaylistVideo = (resumeKey: string) => {
-  if (playlistVideoResume[resumeKey]) return playlistVideoResume[resumeKey]
-  return Object.entries(playlistVideoResume).find(([key]) => key.endsWith(`:${resumeKey}`))?.[1]
+const storedPlaylistVideo = (frameId: string) => {
+  if (playlistVideoResume[frameId]) return playlistVideoResume[frameId]
+  return Object.entries(playlistVideoResume).find(([key]) => key.endsWith(`:${frameId}`))?.[1]
 }
 // last known player state per frame (1 playing, 2 paused, 3 buffering) — read when the tab hides so a
 // visibility return restores exactly what was happening, instead of blindly commanding playback
@@ -54,7 +52,7 @@ const activeIframes: Record<string, HTMLIFrameElement> = {}
 const soundRequestCancels: Record<string, () => void> = {}
 export const cancelSoundRequest = (frameId: string) => soundRequestCancels[frameId]?.()
 
-export function trackIframe(iframe: HTMLIFrameElement, frameId: string, resumeKey: string): () => void {
+export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => void {
   // The widget module inside the embed boots asynchronously after the document loads, so a one-shot
   // 'listening' can arrive too early and be dropped — then the player plays on screen but never reports
   // currentTime, and the resume position silently freezes at its old value (verified live). The official
@@ -67,14 +65,14 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string, resumeKe
     try {
       const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
       const currentTime = data?.info?.currentTime
-      if (typeof currentTime === 'number') { videoResume[resumeKey] = currentTime; data?.info?.playerState === 2 ? flushResume() : persist() }
+      if (typeof currentTime === 'number') { videoResume[frameId] = currentTime; data?.info?.playerState === 2 ? flushResume() : persist() }
       if (typeof data?.info?.playerState === 'number') {
         framePlayerStates[frameId] = data.info.playerState
         // something played, so the run of failures is over and a later dud may skip afresh
         if (data.info.playerState === 1) delete skipRun[frameId]
       }
       if (data?.event === 'onError' || typeof data?.info?.errorCode === 'number') {
-        const failed = playlistVideoResume[resumeKey]
+        const failed = playlistVideoResume[frameId]
         if (failed) {
           if (!blockedVideos.has(failed)) { blockedVideos.add(failed); blockedListeners.forEach((listener) => listener()) }
           const run = (skipRun[frameId] ??= new Set())
@@ -87,8 +85,8 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string, resumeKe
       const currentVideo = data?.info?.videoData?.video_id
       if (typeof currentVideo === 'string' && currentVideo && currentVideo !== 'videoseries') {
         // a new video can bring its own captions back on, so drop them again whenever the track changes
-        if (playlistVideoResume[resumeKey] !== currentVideo) captionsCleared.delete(frameId)
-        playlistVideoResume[resumeKey] = currentVideo
+        if (playlistVideoResume[frameId] !== currentVideo) captionsCleared.delete(frameId)
+        playlistVideoResume[frameId] = currentVideo
         persist()
       }
       // onApiChange is the moment YouTube reports a module with an exposed API has just been LOADED — which
@@ -244,20 +242,20 @@ export const playlistControls = (frameId: string) => ({
 const videoEmbedSrc = (videoId: string, start: number, extra: string) =>
   `https://www.youtube.com/embed/${videoId}?enablejsapi=1&loop=1&playlist=${videoId}&start=${start}&${extra}`
 
-const playlistEmbedSrc = (playlistId: string, startVideo: string | undefined, urlIndex: number | undefined, resumeKey: string, start: number, extra: string) => {
-  const current = storedPlaylistVideo(resumeKey) ?? startVideo
+const playlistEmbedSrc = (playlistId: string, startVideo: string | undefined, urlIndex: number | undefined, frameId: string, start: number, extra: string) => {
+  const current = storedPlaylistVideo(frameId) ?? startVideo
   if (current) return `https://www.youtube.com/embed/${current}?list=${playlistId}&enablejsapi=1&loop=1&start=${start}&${extra}`
   const at = urlIndex === undefined ? '' : `&index=${urlIndex}`
   return `https://www.youtube.com/embed/videoseries?list=${playlistId}${at}&enablejsapi=1&loop=1&start=${start}&${extra}`
 }
 
-export const embedSrc = (stored: string, resumeKey: string, extra: string) => {
-  const start = Math.max(0, Math.floor(storedResumeAt(resumeKey) ?? 0))
+export const embedSrc = (stored: string, frameId: string, extra: string) => {
+  const start = Math.max(0, Math.floor(storedResumeAt(frameId) ?? 0))
   // captions stay off: cc_load_policy=0 covers the embed default, and unloadCaptions (below) handles the
   // viewer whose YouTube account forces subtitles on, which the URL parameter alone does not override
   const base = `cc_load_policy=0&${extra}`
   const params = typeof location === 'undefined' ? base : `${base}&origin=${encodeURIComponent(location.origin)}`
   if (!stored.startsWith('pl:')) return videoEmbedSrc(stored, start, params)
   const [playlistId, startVideo, index] = stored.slice(3).split('@')
-  return playlistEmbedSrc(playlistId, startVideo || undefined, index ? Number(index) : undefined, resumeKey, start, params)
+  return playlistEmbedSrc(playlistId, startVideo || undefined, index ? Number(index) : undefined, frameId, start, params)
 }

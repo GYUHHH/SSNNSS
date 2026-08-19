@@ -12,8 +12,8 @@ import { loadAudioPrefs, type FurnitureItem, useOptionalRoomStore, useRoomStore 
 import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
 import { PRETENDARD_WOFF } from '../services/fonts'
-import { clipResumeAt, clipSessionKey, getVideo, registerClipPlayer, rememberClipAt } from '../services/mediaStore'
-import { playlistVideoResume, videoResumeKey } from '../services/ytResume'
+import { clipResumeAt, getVideo, registerClipPlayer, rememberClipAt } from '../services/mediaStore'
+import { playlistVideoResume } from '../services/ytResume'
 import { Swing } from './motion'
 
 export function InventoryFurniture() {
@@ -577,7 +577,6 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
   const version = store?.videoFrames[id] ?? 0
   const link = store?.videoLinks[id]
   const clip = store?.videoClips[id]
-  const clipSession = clipSessionKey(store?.currentHandle ?? null, id)
   const [texture, setTexture] = useState<Texture | null>(null)
   const preview = useRef<{ element: HTMLVideoElement; canvas: HTMLCanvasElement; texture: CanvasTexture } | null>(null)
   const previewDrawAt = useRef(-Infinity)
@@ -592,8 +591,7 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
   // stored `@start` video is only the entry point and stops being true after the first track change, so it is a
   // fallback rather than the answer. Resolved outside the effect and listed in its deps so the picture updates
   // when the playlist moves on instead of staying on whatever it showed at mount.
-  const youtubeSession = videoResumeKey(store?.currentHandle ?? null, id)
-  const posterId = link && (link.startsWith('pl:') ? playlistVideoResume[youtubeSession] || link.split('@')[1] : link)
+  const posterId = link && (link.startsWith('pl:') ? playlistVideoResume[id] || link.split('@')[1] : link)
   useEffect(() => {
     let live = true
     let url: string | null = null
@@ -612,10 +610,10 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
       if (!store?.readOnly) {
         const restore = () => {
           if (!element) return
-          const saved = clipResumeAt(clipSession)
+          const saved = clipResumeAt(id)
           if (saved > 0) element.currentTime = Math.min(saved, Math.max(0, element.duration - .25))
         }
-        const remember = () => { if (element) rememberClipAt(clipSession, element.currentTime) }
+        const remember = () => { if (element) rememberClipAt(id, element.currentTime) }
         element.addEventListener('loadedmetadata', restore, { once: true })
         element.addEventListener('timeupdate', remember)
         stopResume = () => element?.removeEventListener('timeupdate', remember)
@@ -655,13 +653,13 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
     return () => {
       live = false
       unregister()
-      if (element?.readyState && !store?.readOnly) rememberClipAt(clipSession, element.currentTime, true)
+      if (element?.readyState && !store?.readOnly) rememberClipAt(id, element.currentTime, true)
       stopResume()
       element?.pause()
       if (preview.current?.element === element) { preview.current.texture.dispose(); preview.current = null }
       if (url) URL.revokeObjectURL(url)
     }
-  }, [id, version, link, clip, posterId, clipSession])
+  }, [id, version, link, clip, posterId])
   return <>{!store?.playingFrames.includes(id) && <mesh position={[0, 0, .042]}>
     <planeGeometry args={[width, height]} />
     {texture

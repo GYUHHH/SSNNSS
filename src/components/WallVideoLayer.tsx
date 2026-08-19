@@ -7,7 +7,7 @@ import { loadAudioPrefs, useRoomStore } from '../store'
 import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
 import { isVisiting } from '../services/social'
 import { openReactionPicker } from './ReactionPicker'
-import { embedSrc, trackIframe, playlistVideoResume, videoResumeKey, watchPlaylistOrder, playFrame, framePlayerStates } from '../services/ytResume'
+import { embedSrc, trackIframe, playlistVideoResume, watchPlaylistOrder, playFrame, framePlayerStates } from '../services/ytResume'
 import { clipIsPlaying, loadClipUrls, playClip } from '../services/mediaStore'
 
 // The playing iframes live here, OUTSIDE the furniture tree: entering edit mode swaps every piece into a
@@ -135,13 +135,10 @@ export default function WallVideoLayer() {
     document.addEventListener('visibilitychange', onVisibility)
     return () => document.removeEventListener('visibilitychange', onVisibility)
   }, [])
-  return <>{playingFrames.map((id) => {
-    const resumeKey = videoResumeKey(currentHandle, id)
-    return <WallVideo key={resumeKey} frameId={id} resumeKey={resumeKey} />
-  })}</>
+  return <>{playingFrames.map((id) => <WallVideo key={id} frameId={id} />)}</>
 }
 
-function WallVideo({ frameId, resumeKey }: { frameId: string; resumeKey: string }) {
+function WallVideo({ frameId }: { frameId: string }) {
   const { videoLinks, selectedObject, furniture, openVideoPanel, mode, openObject, enterEditFurniture } = useRoomStore()
   const item = furniture.find((entry) => entry.id === frameId)
   const videoId = videoLinks[frameId]
@@ -159,7 +156,7 @@ function WallVideo({ frameId, resumeKey }: { frameId: string; resumeKey: string 
   useEffect(() => {
     if (!active || !videoId) return
     let live = true
-    const lookupId = videoId.startsWith('pl:') ? (playlistVideoResume[resumeKey] ?? videoId.split('@')[1]) : videoId
+    const lookupId = videoId.startsWith('pl:') ? (playlistVideoResume[frameId] ?? videoId.split('@')[1]) : videoId
     if (!lookupId) return
     videoAspect(lookupId).then((aspect) => {
       if (!live || !aspect) return
@@ -167,7 +164,7 @@ function WallVideo({ frameId, resumeKey }: { frameId: string; resumeKey: string 
       setCrop(Math.round(Math.max(0, Math.min(60, (divHeight - contentHeight) / 2))))
     })
     return () => { live = false }
-  }, [active, videoId, resumeKey, divHeight])
+  }, [active, videoId, frameId, divHeight])
   // the shields cover the screen, so without this a hold would only register on the frame's edge
   const holdTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const held = useRef(false)
@@ -190,7 +187,7 @@ function WallVideo({ frameId, resumeKey }: { frameId: string; resumeKey: string 
         <div className="wall-video" style={{ width: 640, height: divHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
           {/* controls=0 keeps YouTube's control bar from popping over the wall screen (it auto-shows on tab
               return); the expanded panel player keeps its controls */}
-          <ResumingIframe key={resumeKey} videoId={videoId} frameId={frameId} resumeKey={resumeKey} extra="autoplay=1&playsinline=1&mute=1&controls=0" frameStyle={{ ...(crop ? { width: 640, top: -crop, height: divHeight + crop * 2 } : { width: 640, height: divHeight }), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} />
+          <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra="autoplay=1&playsinline=1&mute=1&controls=0" frameStyle={{ ...(crop ? { width: 640, top: -crop, height: divHeight + crop * 2 } : { width: 640, height: divHeight }), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} />
           {/* the two shields carry the open-the-panel click and together cover everything but YouTube's own
               skip-ad corner, which is left live so the visitor can press it themselves */}
           {mode !== 'edit' && ['top', 'rest'].map((part) => <div key={part} className={`wall-video-shield ${part}`}
@@ -219,9 +216,9 @@ function FollowFit({ fitName, children }: { fitName: string; children: React.Rea
 }
 
 // src is fixed at mount (recomputing it would reload the embed); the tracker keeps the resume point fresh
-export function ResumingIframe({ videoId, frameId, resumeKey, extra, frameStyle }: { videoId: string; frameId: string; resumeKey: string; extra: string; frameStyle?: React.CSSProperties }) {
+export function ResumingIframe({ videoId, frameId, extra, frameStyle }: { videoId: string; frameId: string; extra: string; frameStyle?: React.CSSProperties }) {
   const frame = useRef<HTMLIFrameElement>(null)
-  const [src] = useState(() => embedSrc(videoId, resumeKey, extra))
-  useEffect(() => { if (frame.current) return trackIframe(frame.current, frameId, resumeKey) }, [frameId, resumeKey])
+  const [src] = useState(() => embedSrc(videoId, frameId, extra))
+  useEffect(() => { if (frame.current) return trackIframe(frame.current, frameId) }, [frameId])
   return <iframe ref={frame} title="유튜브 재생" src={src} style={frameStyle} referrerPolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
 }
