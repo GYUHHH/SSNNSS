@@ -210,8 +210,9 @@ div.art-view { aspect-ratio: 3 / 4; }
   .art-view { max-height: calc(100dvh - 150px); object-fit: contain; }
   .draw-dialog.inline canvas { max-height: calc(100dvh - 280px); }
   .diary-head { flex-wrap: wrap; gap: 12px; padding: 0 4px 12px; }
-  .diary-head-actions { width: 100%; justify-content: space-between; }
-  .diary-head-actions button, .diary-head select { min-height: 40px; }
+  .diary-head-actions { margin-left: auto; justify-content: flex-end; }
+  .diary-head-actions select { min-height: 40px; }
+  .diary-head-actions button { min-height: 34px; font-size: 12px; padding: 0 9px; }
   .diary-pages { grid-template-columns: 1fr; }
   .diary-pages section { padding: 16px 4px; }
   .left-page { border-right: 0; border-bottom: 1px solid #e0e0dd; }
