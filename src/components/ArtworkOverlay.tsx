@@ -11,7 +11,7 @@ export const artworkKindOf = (type: string) => type === 'photo' || type === 'eas
 
 // side panel on the right — the room slides left while it is open; tall artwork scrolls instead of cropping
 export default function ArtworkOverlay() {
-  const { selectedObject, artworks, furniture, videoFrames, videoLinks, setVideoClip } = useRoomStore()
+  const { selectedObject, artworks, furniture, videoFrames, videoClips, videoLinks, setVideoClip } = useRoomStore()
   const [drawing, setDrawing] = useState(false)
   const [videoStep, setVideoStep] = useState<'choose' | 'link' | 'file'>('choose')
   useEffect(() => { setDrawing(false); setVideoStep('choose') }, [selectedObject])
@@ -29,7 +29,7 @@ export default function ArtworkOverlay() {
       {videoStep === 'choose' && <div className="art-actions">
         <button type="button" onClick={() => setVideoStep('link')}>Youtube Link</button>
         <button type="button" onClick={() => setVideoStep('file')}>Video File</button>
-        {videoFrames[selectedObject] && <button type="button" onClick={() => setVideoClip(selectedObject, null)}>영상 삭제</button>}
+        {!!(videoFrames[selectedObject] || videoClips[selectedObject]) && <button type="button" onClick={() => setVideoClip(selectedObject, null)}>영상 삭제</button>}
       </div>}
       {videoStep === 'link' && <>
         <VideoLinkInput id={selectedObject} />

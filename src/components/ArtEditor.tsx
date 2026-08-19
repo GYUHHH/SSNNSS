@@ -93,11 +93,11 @@ export function BannerTextInput({ id, artwork, saveArtwork }: { id: string; artw
 }
 
 export function VideoPickButton({ id }: { id: string }) {
-  const { videoFrames, setVideoClip } = useRoomStore()
+  const { videoFrames, videoClips, setVideoClip } = useRoomStore()
   const inputRef = useRef<HTMLInputElement>(null)
   return <>
     <button type="button" onClick={() => inputRef.current?.click()}>영상 넣기</button>
-    {videoFrames[id] && <button type="button" onClick={() => setVideoClip(id, null)}>영상 삭제</button>}
+    {!!(videoFrames[id] || videoClips[id]) && <button type="button" onClick={() => setVideoClip(id, null)}>영상 삭제</button>}
     <input ref={inputRef} type="file" accept="video/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) setVideoClip(id, file); event.target.value = '' }} />
   </>
 }
@@ -120,20 +120,23 @@ export function VideoLinkInput({ id }: { id: string }) {
 
 // the clip plays in the panel too, so it keeps running while you are looking at its settings
 export function ClipPreview({ id }: { id: string }) {
-  const { videoFrames } = useRoomStore()
+  // videoFrames only knows clips set THIS session — after a reload the clip lives in IndexedDB (or as the
+  // uploaded url in videoClips), so existence is checked there, the same way the wall screen loads it
+  const { videoFrames, videoClips } = useRoomStore()
   const version = videoFrames[id]
+  const clip = videoClips[id]
   const [url, setUrl] = useState<string | null>(null)
   useEffect(() => {
     let live = true
     let created: string | null = null
     setUrl(null)
-    if (version) getVideo(id).then((blob) => {
-      if (!live || !blob) return
-      created = URL.createObjectURL(blob)
-      setUrl(created)
+    getVideo(id).then((blob) => {
+      if (!live) return
+      if (blob) { created = URL.createObjectURL(blob); setUrl(created); return }
+      if (clip) setUrl(clip)
     })
     return () => { live = false; if (created) URL.revokeObjectURL(created) }
-  }, [id, version])
+  }, [id, version, clip])
   if (!url) return null
   return <video className="clip-preview" src={url} autoPlay muted loop playsInline controls />
 }
