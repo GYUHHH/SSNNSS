@@ -97,7 +97,7 @@ export function VideoPickButton({ id }: { id: string }) {
   const inputRef = useRef<HTMLInputElement>(null)
   return <>
     <button type="button" onClick={() => inputRef.current?.click()}>영상 넣기</button>
-    {videoFrames[id] && <button type="button" onClick={() => setVideoClip(id, null)}>영상 제거</button>}
+    {videoFrames[id] && <button type="button" onClick={() => setVideoClip(id, null)}>영상 삭제</button>}
     <input ref={inputRef} type="file" accept="video/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) setVideoClip(id, file); event.target.value = '' }} />
   </>
 }
