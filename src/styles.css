@@ -78,9 +78,9 @@ input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-
 .reaction-comments { display: grid; gap: 8px; }
 .reaction-comments article { padding: 8px 10px; border-radius: 8px; background: #f7f7f5; }
 .reaction-comments header { display: flex; justify-content: space-between; gap: 8px; }
-.reaction-comments b { font-size: 12px; color: #3a3a38; }
-.reaction-comments time { font-size: 10px; color: #9a9a95; }
-.reaction-comments p { margin: 4px 0 0; font-size: 12px; color: #55554f; }
+.reaction-comments b { font-size: 11px; color: #3a3a38; }
+.reaction-comments time { font-size: 11px; color: #9a9a95; }
+.reaction-comments p { margin: 4px 0 0; font-size: 11px; color: #55554f; }
 /* on small screens the full-width inventory sheet would hide the room while placing — collapse it to just
    the placement bar during a preview; it comes back as soon as the piece is placed or cancelled */
 @media (max-width: 719px), (max-height: 520px) and (pointer: coarse) {
