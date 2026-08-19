@@ -10,17 +10,17 @@ export const videoResume: Record<string, number> = persisted?.time ?? {}
 // which video of a playlist was on screen — YouTube ignores index= on /embed/videoseries,
 // so resuming must go through /embed/{videoId}?list= with the actual video id
 export const playlistVideoResume: Record<string, string> = persisted?.video ?? {}
-export const videoResumeKey = (handle: string | null, frameId: string) => `${handle ?? 'lobby'}:${frameId}`
-// An earlier release briefly wrote resume entries using only the frame id. Keep that old value as a read fallback:
-// the current room-scoped key prevents two rooms from colliding, while existing viewers do not lose the
-// position they already had just because the key format changed.
+// Frame ids are already unique. Depending on the asynchronously changing room handle made a room transition
+// occasionally save under the room being left and restore under the room being entered.
+export const videoResumeKey = (_handle: string | null, frameId: string) => frameId
+// Room-scoped keys from earlier releases remain readable, so this fix does not discard saved positions.
 const storedResumeAt = (resumeKey: string) => {
   if (videoResume[resumeKey] !== undefined) return videoResume[resumeKey]
-  return videoResume[resumeKey.slice(resumeKey.indexOf(':') + 1)]
+  return Object.entries(videoResume).find(([key]) => key.endsWith(`:${resumeKey}`))?.[1]
 }
 const storedPlaylistVideo = (resumeKey: string) => {
   if (playlistVideoResume[resumeKey]) return playlistVideoResume[resumeKey]
-  return playlistVideoResume[resumeKey.slice(resumeKey.indexOf(':') + 1)]
+  return Object.entries(playlistVideoResume).find(([key]) => key.endsWith(`:${resumeKey}`))?.[1]
 }
 // last known player state per frame (1 playing, 2 paused, 3 buffering) — read when the tab hides so a
 // visibility return restores exactly what was happening, instead of blindly commanding playback

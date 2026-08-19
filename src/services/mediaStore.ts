@@ -15,10 +15,9 @@ const flushClipResume = () => {
   clipResumeTimer = undefined
   try { localStorage.setItem(clipResumeKey, JSON.stringify(clipResume)) } catch { /* storage unavailable */ }
 }
-export const clipSessionKey = (handle: string | null, id: string) => `${handle ?? 'lobby'}:${id}`
-// See ytResume: older releases stored this with only the furniture id. Reads stay compatible, but new
-// writes remain room-scoped so two rooms' frames never overwrite one another.
-export const clipResumeAt = (key: string) => clipResume[key] ?? clipResume[key.slice(key.indexOf(':') + 1)] ?? 0
+export const clipSessionKey = (_handle: string | null, id: string) => id
+// See ytResume: room-scoped keys from earlier releases remain readable.
+export const clipResumeAt = (key: string) => clipResume[key] ?? Object.entries(clipResume).find(([saved]) => saved.endsWith(`:${key}`))?.[1] ?? 0
 export const rememberClipAt = (key: string, time: number, immediate = false) => {
   clipResume[key] = time
   if (immediate) return flushClipResume()
