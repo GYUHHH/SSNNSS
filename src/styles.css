@@ -174,7 +174,7 @@ div.art-view { aspect-ratio: 3 / 4; }
 .art-panel .guest-form button { align-self: stretch; justify-self: auto; white-space: nowrap; }
 .guest-list { display: grid; padding-top: 12px; }
 .guest-note { padding: 12px 0; border-bottom: 1px solid #e0e0dd; }
-.item-comments { width: min(300px, calc(100vw - 32px)); height: min(360px, calc(100dvh - 32px)); max-height: none; grid-template-rows: auto auto minmax(0, 1fr); overflow: hidden; border-radius: 4px; box-shadow: none; }
+.item-comments { width: min(360px, calc(100vw - 32px)); height: min(360px, calc(100dvh - 32px)); max-height: none; grid-template-rows: auto auto minmax(0, 1fr); overflow: hidden; border-radius: 4px; box-shadow: none; }
 .item-comments .guest-form { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
 .item-comments .guest-form button { align-self: stretch; justify-self: auto; white-space: nowrap; }
 .item-comments .guest-list { min-height: 0; overflow-y: auto; padding-right: 3px; }
