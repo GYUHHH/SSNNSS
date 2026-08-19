@@ -41,9 +41,7 @@ export function FittedMesh({ item, children }: { item: FurnitureItem; children: 
     const fitted: [number, number, number] = (surface.type !== 'wall'
       ? resolutionFor(item) === 'subgrid2'
         ? [uniformScale, uniformScale, uniformScale]
-        : item.type === 'mirror'
-          ? [uniformScale, 1, uniformScale]
-          : [width / size.x, 1, height / size.z]
+        : [width / size.x, 1, height / size.z]
       : item.type === 'wall-shelf'
         ? [width / size.x, 1, 1]
         : [width / size.x, height / size.y, 1])

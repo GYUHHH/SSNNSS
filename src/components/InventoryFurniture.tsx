@@ -14,7 +14,6 @@ import { colorPresets } from '../services/styles'
 import { PRETENDARD_WOFF } from '../services/fonts'
 import { getVideo, loadClipUrls } from '../services/mediaStore'
 import { playlistVideoResume } from '../services/ytResume'
-import MirrorGlass from './MirrorGlass'
 import { Swing } from './motion'
 
 export function InventoryFurniture() {
@@ -229,13 +228,6 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
       <mesh position={[.06, .95, .31]}><cylinderGeometry args={[.014, .014, .16, 6]} />{mat('#4c4036')}</mesh>
     </Swing>
   </>
-  if (item.type === 'mirror') return <group rotation={[-.09, 0, 0]}>
-    <RoundedBox castShadow args={[.52, 1.52, .06]} radius={.03} smoothness={2} position={[0, .78, 0]}>{mat('#8a6048')}</RoundedBox>
-    <mesh position={[0, .78, .033]}><planeGeometry args={[.42, 1.4]} />
-      <meshStandardMaterial color={material.color ?? '#cfdce2'} metalness={.7} roughness={.15} transparent={material.transparent} opacity={material.opacity} />
-    </mesh>
-    {store && !preview && <group position={[0, .78, .04]}><MirrorGlass width={.42} height={1.4} /></group>}
-  </group>
   if (item.type === 'fish-tank') return <>
     <mesh position={[0, .06, 0]}><boxGeometry args={[.64, .06, .3]} /><meshStandardMaterial color="#d9c9ae" transparent={material.transparent} opacity={material.opacity} /></mesh>
     <mesh position={[0, .24, 0]}><boxGeometry args={[.62, .3, .27]} /><meshStandardMaterial color="#4a7d8f" transparent opacity={preview ? material.opacity : .45} /></mesh>
