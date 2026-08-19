@@ -12,14 +12,14 @@ const ShareIcon = () => <svg viewBox="0 0 24 24" width="27" height="27" fill="no
 const assetUrl = (source: string) => source.startsWith('/') ? `${import.meta.env.BASE_URL}${source.slice(1)}` : source
 
 export default function DiaryDialog() {
-  const { books, openBookId, closeBook, addEntry, updateBookVisibility } = useRoomStore()
+  const { books, openBookId, closeBook, addEntry } = useRoomStore()
   const book = books.find((item) => item.id === openBookId)
   const [writing, setWriting] = useState(false)
   if (!book) return null
   return <>
     <section className="diary" aria-label={book.title}>
       <button className="close-ui" type="button" aria-label="닫기" onClick={closeBook}>×</button>
-      <header className="diary-head"><div className="diary-title">{writing && <button className="diary-back" type="button" aria-label="뒤로" onClick={() => setWriting(false)}>←</button>}<div><span>기록장</span><h2>{book.title}</h2></div></div>{!isVisiting() && <div className="diary-head-actions">{!writing && <button type="button" onClick={() => setWriting(true)}>새 기록 작성</button>}<label>책 공개 설정 <select value={book.visibility} onChange={(event) => updateBookVisibility(book.id, event.target.value as Visibility)}><option value="private">비공개</option><option value="public">공개</option></select></label></div>}</header>
+      <header className="diary-head"><div className="diary-title"><button className="diary-back" type="button" aria-label={writing ? '기록 목록으로' : '책장으로'} onClick={() => writing ? setWriting(false) : closeBook()}>←</button><h2>{book.title}</h2></div>{!isVisiting() && !writing && <div className="diary-head-actions"><button type="button" onClick={() => setWriting(true)}>새 기록 작성</button></div>}</header>
       {writing ? <EntryForm book={book} onSave={(draft) => { addEntry(book.id, draft); setWriting(false) }} /> : <EntryList bookId={book.id} entries={book.entries} />}
     </section>
   </>

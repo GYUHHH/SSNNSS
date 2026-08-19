@@ -447,6 +447,26 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .profile-visits i { margin: 0 6px; color: #c3b6a6; font-style: normal; }
 .profile-friends { margin: 0; color: #54544f; font-size: 14px; }
 .profile-friends b { font-size: 17px; color: #3f3a33; margin-left: 4px; }
+
+/* bookshelf management stays hidden until the bottom-right pencil is opened. */
+.bookshelf-panel { padding-bottom: 62px; }
+.book-row-wrap { grid-template-columns: 1fr auto; }
+.book-controls, .bookshelf-tools { display: flex; align-items: center; gap: 5px; }
+.book-controls button, .bookshelf-tools button { display: grid; place-items: center; min-width: 32px; min-height: 32px; padding: 5px 7px; border: 0; color: var(--ui-text); background: transparent; cursor: pointer; font-size: 12px; }
+.book-controls .book-delete { color: var(--ui-red); }
+.bookshelf-tools { position: absolute; right: 16px; bottom: 12px; }
+.bookshelf-tools button { min-width: 34px; font-size: 22px; line-height: 1; }
+.bookshelf-tools button:last-child { font-size: 20px; }
+.new-book { grid-template-columns: 1fr auto; margin: 0 0 10px; }
+.diary-head { padding: 0 0 16px; }
+.diary-title h2 { margin: 0; }
+.diary-head-actions { margin-left: auto; }
+
+@media (max-width: 719px) {
+  .new-book { grid-template-columns: 1fr auto; }
+  .new-book button { grid-column: auto; }
+  .diary-head { padding: 0 0 12px; }
+}
 .video-link { display: grid; gap: 8px; margin-top: 12px; }
 .video-link iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 8px; background: #20262b; }
 .video-link button { border: 1px solid #c2c2be; border-radius: 4px; padding: 6px 10px; font-size: 12px; color: #403f3d; background: #ffffff; cursor: pointer; }
