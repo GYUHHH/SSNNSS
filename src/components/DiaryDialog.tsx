@@ -2,7 +2,7 @@ import { autosize } from '../services/autosize'
 import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from 'react'
 import { type Book, type Entry, type EntryDraft, type Visibility, useRoomStore } from '../store'
 import { HeartIcon, CommentIcon } from './ReactionIcons'
-import { currentRoomHandle, isVisiting, myVisitorId, requireHandle, roomPath, toggleLike, uploadDataUrl, uploadMedia } from '../services/social'
+import { currentRoomHandle, isVisiting, myVisitorId, requireHandle, roomPath, toggleLike, uploadDataUrl } from '../services/social'
 import { PhotoCropEditor } from './PhotoCropEditor'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -10,6 +10,25 @@ const today = () => new Date().toISOString().slice(0, 10)
 const EditIcon = () => <svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16.4 3.6a2.3 2.3 0 0 1 3.2 3.2L7.5 18.9l-4.2 1 1-4.2Z" /><path d="M14.6 5.4l4 4" /></svg>
 const ShareIcon = () => <svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21.5 3.5 2.5 10.2l7.6 2.9 2.9 7.6Z" /><path d="M10.1 13.1 21.5 3.5" /></svg>
 const assetUrl = (source: string) => source.startsWith('/') ? `${import.meta.env.BASE_URL}${source.slice(1)}` : source
+
+function RecordPhotoPicker({ className, label, onAdd, onReplace }: { className?: string; label: string; onAdd: (image: string) => void; onReplace: (before: string, after: string) => void }) {
+  const [queue, setQueue] = useState<string[]>([])
+  const queueRef = useRef(queue); queueRef.current = queue
+  useEffect(() => () => queueRef.current.forEach(URL.revokeObjectURL), [])
+  const next = () => setQueue((current) => { URL.revokeObjectURL(current[0]); return current.slice(1) })
+  const pick = (event: ChangeEvent<HTMLInputElement>) => {
+    setQueue((current) => [...current, ...[...(event.target.files ?? [])].map((file) => URL.createObjectURL(file))])
+    event.target.value = ''
+  }
+  const apply = (edited: string) => {
+    onAdd(edited); next()
+    void uploadDataUrl('records', edited).then((url) => { if (url) onReplace(edited, url) })
+  }
+  return <>
+    <label className={className}>{label}<input type="file" accept="image/*" multiple onChange={pick} /></label>
+    {queue[0] && <PhotoCropEditor source={queue[0]} onClose={next} onApply={apply} />}
+  </>
+}
 
 export default function DiaryDialog() {
   const { books, openBookId, closeBook, addEntry } = useRoomStore()
@@ -81,18 +100,13 @@ function EntryEditor({ bookId, entry, onClose }: { bookId: string; entry: Entry;
   const [editing, setEditing] = useState<number | null>(null)
   const [visibility, setVisibility] = useState<Visibility>(entry.visibility)
   const [confirming, setConfirming] = useState(false)
-  const pick = (event: ChangeEvent<HTMLInputElement>) => {
-    const files = [...(event.target.files ?? [])]
-    if (files.length) void Promise.all(files.map((file) => uploadMedia(`records/${crypto.randomUUID()}`, file))).then((sources) => setImages((current) => [...current, ...sources.filter((source): source is string => !!source)]))
-    event.target.value = ''
-  }
   const save = (event: FormEvent) => { event.preventDefault(); updateEntry(bookId, entry.id, { content, images, visibility }); onClose() }
   return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && onClose()}>
     <form className="entry-editor" onSubmit={save}>
       <button className="close-ui" type="button" aria-label="닫기" onClick={onClose}>×</button>
       <strong>기록 수정</strong>
       <DraftImages images={images} onEdit={setEditing} onRemove={(index) => setImages((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
-      <label className="entry-editor-file">사진 추가<input type="file" accept="image/*" multiple onChange={pick} /></label>
+      <RecordPhotoPicker className="entry-editor-file" label="사진 추가" onAdd={(image) => setImages((current) => [...current, image])} onReplace={(before, after) => setImages((current) => current.map((image) => image === before ? after : image))} />
       <textarea ref={autosize} rows={1} value={content} onChange={(event) => { setContent(event.target.value); autosize(event.currentTarget) }} placeholder="내용" />
       <fieldset><legend>공개 설정</legend><label><input type="radio" checked={visibility === 'public'} onChange={() => setVisibility('public')} /> 공개</label><label><input type="radio" checked={visibility === 'private'} onChange={() => setVisibility('private')} /> 비공개</label></fieldset>
       <div className="entry-editor-foot">
@@ -125,17 +139,10 @@ function EntryForm({ book, onSave }: { book: Book; onSave: (entry: EntryDraft) =
   const [visibility, setVisibility] = useState<Visibility>(book.visibility)
   const [images, setImages] = useState<string[]>([])
   const [editing, setEditing] = useState<number | null>(null)
-  const addImages = (event: ChangeEvent<HTMLInputElement>) => {
-    const files = [...(event.target.files ?? [])]
-    // upload first, keep the URL — a data URL here would be megabytes inside the room's saved data
-    Promise.all(files.map((file) => uploadMedia(`records/${crypto.randomUUID()}`, file).then((url) => url ?? '')))
-      .then((sources) => setImages((current) => [...current, ...sources.filter((source): source is string => !!source)]))
-    event.target.value = ''
-  }
   // a record is its photo and its words now — no title, and the date is simply the day it was written
   const submit = (event: FormEvent) => { event.preventDefault(); if (!content.trim() && images.length === 0) return; onSave({ title: '', content, date: today(), images, visibility }) }
   return <form className="entry-form" onSubmit={submit}>
-    <label>사진<input type="file" accept="image/*" multiple onChange={addImages} /></label>
+    <RecordPhotoPicker label="사진" onAdd={(image) => setImages((current) => [...current, image])} onReplace={(before, after) => setImages((current) => current.map((image) => image === before ? after : image))} />
     <DraftImages images={images} onEdit={setEditing} onRemove={(index) => setImages((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
     <label>내용<textarea ref={autosize} rows={1} value={content} onChange={(event) => { setContent(event.target.value); autosize(event.currentTarget) }} /></label>
     <fieldset><legend>공개 설정</legend><label><input type="radio" checked={visibility === 'public'} onChange={() => setVisibility('public')} /> 공개</label><label><input type="radio" checked={visibility === 'private'} onChange={() => setVisibility('private')} /> 비공개</label></fieldset>
