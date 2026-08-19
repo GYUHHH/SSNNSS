@@ -8,7 +8,7 @@ import { type ReactNode, useRef, useState } from 'react'
 import type { Group, MeshStandardMaterial } from 'three'
 import Furniture, { FittedMesh } from './Furniture'
 import MusicPanel from './MusicPanel'
-import { type FurnitureItem, useOptionalRoomStore, useRoomStore } from '../store'
+import { loadAudioPrefs, type FurnitureItem, useOptionalRoomStore, useRoomStore } from '../store'
 import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
 import { PRETENDARD_WOFF } from '../services/fonts'
@@ -581,6 +581,7 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
       element.crossOrigin = 'anonymous'
       unregister = registerClipPlayer(id, element)
       element.play().catch(() => { /* autoplay may wait for a gesture */ })
+      if (store && loadAudioPrefs(store.activeRoomId)[id] === true) store.setFrameMuted(id, false, false)
       const video = new VideoTexture(element)
       video.colorSpace = SRGBColorSpace
       setTexture(video)

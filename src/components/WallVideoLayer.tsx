@@ -8,6 +8,7 @@ import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
 import { isVisiting } from '../services/social'
 import { openReactionPicker } from './ReactionPicker'
 import { embedSrc, trackIframe, playlistVideoResume, watchPlaylistOrder, playFrame, framePlayerStates } from '../services/ytResume'
+import { clipIsPlaying, loadClipUrls, playClip } from '../services/mediaStore'
 
 // The playing iframes live here, OUTSIDE the furniture tree: entering edit mode swaps every piece into a
 // different wrapper, which would unmount an iframe rendered inside it and reload the video. This layer stays
@@ -56,7 +57,9 @@ export function videoAspect(id: string): Promise<number | null> {
 }
 
 export default function WallVideoLayer() {
-  const { playingFrames, setFrameMuted, videoLinks, activeRoomId, currentHandle } = useRoomStore()
+  const { playingFrames, setFrameMuted, videoLinks, activeRoomId, currentHandle, furniture, videoFrames } = useRoomStore()
+  const clipIds = new Set([...Object.keys(videoFrames), ...Object.keys(loadClipUrls())])
+  const directFrames = furniture.filter((item) => !item.removed && item.type.startsWith('video-frame') && !videoLinks[item.id] && clipIds.has(item.id)).map((item) => item.id)
   // one order-keeper per playing playlist frame, alive across wall<->panel switches (it follows whichever
   // iframe is currently registered for the frame), enforcing the site's custom order and syncing the id list
   useEffect(() => {
@@ -68,13 +71,13 @@ export default function WallVideoLayer() {
   }, [playingFrames, videoLinks])
   // A page gesture may unlock sound, but it never decides which videos should make sound. Only frames the
   // visitor explicitly enabled before are retried, and that retry does not rewrite the saved preference.
-  const latest = useRef({ playingFrames, setFrameMuted, activeRoomId })
-  latest.current = { playingFrames, setFrameMuted, activeRoomId }
+  const latest = useRef({ playingFrames, directFrames, setFrameMuted, activeRoomId })
+  latest.current = { playingFrames, directFrames, setFrameMuted, activeRoomId }
   useEffect(() => {
     let used = false
     const restoreSound = () => {
       const prefs = loadAudioPrefs(latest.current.activeRoomId)
-      for (const id of latest.current.playingFrames) {
+      for (const id of [...latest.current.playingFrames, ...latest.current.directFrames]) {
         if (prefs[id] === true) latest.current.setFrameMuted(id, false, false)
       }
     }
@@ -103,16 +106,22 @@ export default function WallVideoLayer() {
   // Mobile browsers pause media while the screen is off and the embeds do not resume by themselves.
   // The state right before hiding is snapshotted, and on return ONLY frames that were actually playing get
   // nudged back — a video the user paused stays paused, and no commands go to players that need none.
-  const playingBeforeHide = useRef<string[]>([])
+  const playingBeforeHide = useRef({ frames: [] as string[], clips: [] as string[] })
   useEffect(() => {
     // mobile only: desktop browsers keep background tabs playing, so PC gets no intervention at all
     if (!window.matchMedia('(pointer: coarse)').matches) return
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') {
-        playingBeforeHide.current = latest.current.playingFrames.filter((id) => framePlayerStates[id] === 1 || framePlayerStates[id] === 3)
+        playingBeforeHide.current = {
+          frames: latest.current.playingFrames.filter((id) => framePlayerStates[id] === 1 || framePlayerStates[id] === 3),
+          clips: latest.current.directFrames.filter(clipIsPlaying),
+        }
         return
       }
-      const nudge = () => playingBeforeHide.current.forEach((id) => { if (framePlayerStates[id] !== 1) playFrame(id) })
+      const nudge = () => {
+        playingBeforeHide.current.frames.forEach((id) => { if (framePlayerStates[id] !== 1) playFrame(id) })
+        playingBeforeHide.current.clips.forEach(playClip)
+      }
       nudge()
       setTimeout(nudge, 1200)
     }

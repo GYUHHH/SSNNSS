@@ -16,6 +16,11 @@ export const setClipMuted = (id: string, muted: boolean) => {
   player.muted = muted
   if (!muted) { player.volume = .7; void player.play().catch(() => { player.muted = true }) }
 }
+export const clipIsPlaying = (id: string) => {
+  const player = clipPlayers.get(id)
+  return !!player && !player.paused && !player.ended
+}
+export const playClip = (id: string) => { void clipPlayers.get(id)?.play().catch(() => {}) }
 
 const open = (): Promise<IDBDatabase> => new Promise((resolve, reject) => {
   const request = indexedDB.open(dbName, 1)

@@ -18,6 +18,10 @@ export default function SoundHub() {
   const { playingFrames, mutedFrames, setFrameMuted, furniture, mode, videoFrames, videoLinks, activeRoomId } = useRoomStore()
   const [open, setOpen] = useState(false)
   const hub = useRef<HTMLDivElement>(null)
+  const clipIds = new Set([...Object.keys(videoFrames), ...Object.keys(loadClipUrls())])
+  const audioPrefs = loadAudioPrefs(activeRoomId)
+  const frames = [...new Set([...playingFrames, ...clipIds])].map((id) => furniture.find((item) => item.id === id && !item.removed && item.type.startsWith('video-frame'))).flatMap((item) => item ? [item] : [])
+  const muted = (id: string) => !videoLinks[id] ? mutedFrames.includes(id) || audioPrefs[id] !== true : mutedFrames.includes(id)
   // clicking anywhere outside the hub closes the list
   useEffect(() => {
     if (!open) return
@@ -27,20 +31,20 @@ export default function SoundHub() {
   }, [open])
   // M only restores the frames it muted itself. It must never turn every video on just because none was loud.
   const restore = useRef<string[]>([])
-  const latest = useRef({ playingFrames, mutedFrames, setFrameMuted })
-  latest.current = { playingFrames, mutedFrames, setFrameMuted }
+  const latest = useRef({ frameIds: frames.map((item) => item.id), mutedFrames, setFrameMuted, videoLinks, audioPrefs })
+  latest.current = { frameIds: frames.map((item) => item.id), mutedFrames, setFrameMuted, videoLinks, audioPrefs }
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.code !== 'KeyM' || event.metaKey || event.ctrlKey || event.altKey) return
       const target = event.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
-      const { playingFrames: playing, mutedFrames: mutedList, setFrameMuted: setMuted } = latest.current
-      const loud = playing.filter((id) => !mutedList.includes(id))
+      const { frameIds, mutedFrames: mutedList, setFrameMuted: setMuted, videoLinks: links, audioPrefs: prefs } = latest.current
+      const loud = frameIds.filter((id) => links[id] ? !mutedList.includes(id) : !mutedList.includes(id) && prefs[id] === true)
       if (loud.length) {
         restore.current = loud
         loud.forEach((id) => setMuted(id, true, false))
       } else {
-        const back = restore.current.filter((id) => playing.includes(id))
+        const back = restore.current.filter((id) => frameIds.includes(id))
         back.forEach((id) => setMuted(id, false, false))
         restore.current = []
       }
@@ -48,11 +52,7 @@ export default function SoundHub() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
-  const clipIds = new Set([...Object.keys(videoFrames), ...Object.keys(loadClipUrls())])
-  const audioPrefs = loadAudioPrefs(activeRoomId)
-  const frames = [...new Set([...playingFrames, ...clipIds])].map((id) => furniture.find((item) => item.id === id && !item.removed && item.type.startsWith('video-frame'))).flatMap((item) => item ? [item] : [])
   if (!frames.length || mode === 'edit') return null
-  const muted = (id: string) => !videoLinks[id] ? mutedFrames.includes(id) || audioPrefs[id] !== true : mutedFrames.includes(id)
   const anySound = frames.some((item) => !muted(item.id))
   const toggle = (id: string, muted: boolean) => setFrameMuted(id, !muted)
   return <div ref={hub} className="sound-hub">
