@@ -55,8 +55,15 @@ const soundRequestCancels: Record<string, () => void> = {}
 export const cancelSoundRequest = (frameId: string) => soundRequestCancels[frameId]?.()
 
 export function trackIframe(iframe: HTMLIFrameElement, frameId: string, resumeKey: string): () => void {
+  // The widget module inside the embed boots asynchronously after the document loads, so a one-shot
+  // 'listening' can arrive too early and be dropped — then the player plays on screen but never reports
+  // currentTime, and the resume position silently freezes at its old value (verified live). The official
+  // IFrame API resends 'listening' every 250ms until the player answers; do the same, stopping on the
+  // first message back from this iframe.
+  let helloTimer: ReturnType<typeof setInterval> | undefined
   const onMessage = (event: MessageEvent) => {
     if (event.source !== iframe.contentWindow) return
+    clearInterval(helloTimer)
     try {
       const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
       const currentTime = data?.info?.currentTime
@@ -94,13 +101,16 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string, resumeKe
       if (data?.info?.playerState === 1 && !captionsCleared.has(frameId)) { captionsCleared.add(frameId); unloadCaptions(frameId) }
     } catch { /* not a youtube message */ }
   }
-  const hello = () => { captionsCleared.delete(frameId); iframe.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: frameId }), '*') }
+  const say = () => iframe.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: frameId }), '*')
+  // a 'load' means a fresh document, so the handshake starts over
+  const hello = () => { captionsCleared.delete(frameId); clearInterval(helloTimer); helloTimer = setInterval(say, 250); say() }
   window.addEventListener('message', onMessage)
   iframe.addEventListener('load', hello)
   hello()
   activeIframes[frameId] = iframe
   return () => {
     flushResume()
+    clearInterval(helloTimer)
     window.removeEventListener('message', onMessage)
     iframe.removeEventListener('load', hello)
     if (activeIframes[frameId] === iframe) delete activeIframes[frameId]
