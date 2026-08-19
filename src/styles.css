@@ -90,7 +90,6 @@ input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-
 .overlay { position: fixed; z-index: 60; inset: 0; display: grid; place-items: center; background: rgb(57 48 41 / 34%); }
 .bookshelf-panel, .diary, .artwork { position: relative; border: 1px solid #b3b3ae; border-radius: 7px; background: #ffffff; }
 .bookshelf-panel { width: min(390px, calc(100vw - 32px)); padding: 28px 22px 22px; }.bookshelf-panel h2 { margin: 0 0 15px; font-size: 21px; letter-spacing: -.06em; }
-.close-ui { position: absolute; top: 10px; right: 11px; border: 0; color: #4f443a; background: transparent; font-size: 23px; line-height: 1; cursor: pointer; }
 .book-list { display: grid; gap: 6px; max-height: 270px; overflow: auto; }.book-row-wrap { display: grid; grid-template-columns: 1fr auto auto; gap: 4px; }.book-shelf-pick { border: 1px solid #c9c9c5; border-radius: 4px; color: #777771; background: #ffffff; cursor: pointer; font-size: 11px; }.book-row { display: grid; grid-template-columns: 12px 1fr auto; align-items: center; gap: 9px; width: 100%; padding: 8px; border: 1px solid #e0e0dd; border-radius: 4px; text-align: left; color: #403f3d; background: #ffffff; cursor: pointer; }.book-row i { display: block; height: 31px; border-radius: 2px; }.book-row small { color: #7c7c76; font-size: 11px; }.book-delete { border: 1px solid #c9c9c5; border-radius: 4px; color: #777771; background: #ffffff; cursor: pointer; font-size: 11px; }
 .delete-confirm { grid-column: 1 / -1; display: flex; align-items: center; gap: 5px; padding: 7px 8px; border: 1px solid #d5c7b7; border-radius: 4px; background: #f5eee3; }.delete-confirm span { flex: 1; font-size: 12px; }.delete-confirm button { border: 1px solid #c2c2be; border-radius: 4px; padding: 5px 7px; color: #54483e; background: #ffffff; cursor: pointer; font-size: 11px; }.delete-confirm button:last-child { border-color: #745448; color: #ffffff; background: #745448; }
 .new-book { display: grid; grid-template-columns: 1fr 88px auto; gap: 6px; margin-top: 13px; }.new-book input, .new-book select, .new-book button, .entry-form input, .entry-form select, .entry-form textarea, .entry-form button, .diary-actions button { border: 1px solid #c2c2be; border-radius: 4px; padding: 8px; color: #433931; background: #ffffff; }.new-book button, .save-entry { background: #3a3a38 !important; border-color: #3a3a38 !important; color: #ffffff !important; cursor: pointer; }
@@ -125,7 +124,6 @@ img.art-image { object-fit: contain; width: 100%; }
 .art-panel:not(.open) { pointer-events: none; }
 .art-panel > header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .art-panel > header strong { font-size: 16pt; }
-.art-panel > header .close-ui { position: static; }
 .art-view { display: block; width: 100%; height: auto; border: 10px solid #8f684e; box-sizing: border-box; }
 div.art-view { aspect-ratio: 3 / 4; }
 .art-panel > p, .art-panel > .art-meta p { margin: 12px 0 0; color: #54544f; }
@@ -138,7 +136,6 @@ div.art-view { aspect-ratio: 3 / 4; }
 .art-open .room-controls { right: calc(min(480px, 92vw) + 24px); }
 .draw-dialog.inline { width: 100%; margin-top: 12px; padding: 12px 0 0; border: 0; border-top: 1px solid #e0e0dd; border-radius: 0; background: transparent; }
 .draw-dialog.inline canvas { align-self: center; width: auto; max-width: 100%; max-height: calc(100vh - 240px); }
-.draw-dialog.inline header .close-ui { position: static; }
 .art-panel .bookshelf-panel, .art-panel .diary { position: static; width: auto; min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
 .art-panel .diary-pages { grid-template-columns: 1fr; min-height: 0; }
 .art-panel .left-page { border-right: 0; border-bottom: 1px solid #e0e0dd; }
@@ -359,8 +356,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 
 .reset-confirm, .bookshelf-panel, .diary, .photo-editor, .draw-dialog, .artwork { border-color: var(--ui-line); border-radius: 5px; background: var(--ui-bg); }
 .reset-confirm { padding: 22px; }
-.close-ui { color: var(--ui-text); font-size: 25px; font-weight: 300; }
-.close-ui:hover { color: var(--ui-muted); }
 .bookshelf-panel h2, .diary-head h2, .right-page h3, .entry-item h3 { letter-spacing: -.025em; }
 .book-list { gap: 0; border-top: 1px solid var(--ui-line); }
 .book-row-wrap { gap: 0; border-bottom: 1px solid var(--ui-line); }

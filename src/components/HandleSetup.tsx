@@ -130,7 +130,6 @@ export default function HandleSetup() {
   }
   return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && close()}>
     <section className="login-card" aria-label="가입">
-      <button className="close-ui" type="button" aria-label="닫기" onClick={close}>×</button>
       {!session && !intent && <>
         <strong>시작하기</strong>
         <div className="login-form">

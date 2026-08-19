@@ -17,7 +17,6 @@ export default function ItemComments() {
   const submit = () => { if (!text.trim() || !requireHandle()) return; addGuestComment(commentTarget, text.trim()); setText('') }
   return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setCommentTarget(null)}>
     <section className="reaction-card comment-ui" aria-label="댓글">
-      <button className="close-ui" type="button" aria-label="닫기" onClick={() => setCommentTarget(null)}>×</button>
       <strong>{item?.name ?? ''}</strong>
       <div className="guest-form">
         <textarea ref={autosize} rows={1} maxLength={200} value={text} onChange={(event) => { setText(event.target.value); autosize(event.currentTarget) }} placeholder="한마디 남겨주세요" onKeyDown={(event) => { if (event.nativeEvent.isComposing) return; if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() } }} />

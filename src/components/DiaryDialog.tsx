@@ -105,7 +105,6 @@ function EntryEditor({ bookId, entry, onClose }: { bookId: string; entry: Entry;
   const save = (event: FormEvent) => { event.preventDefault(); updateEntry(bookId, entry.id, { content, images, visibility }); onClose() }
   return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && onClose()}>
     <form className="entry-editor" onSubmit={save}>
-      <button className="close-ui" type="button" aria-label="닫기" onClick={onClose}>×</button>
       <strong>기록 수정</strong>
       <DraftImages images={images} onEdit={setEditing} onRemove={(index) => setImages((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
       <RecordPhotoPicker className="entry-editor-file" label="사진 추가" onAdd={(image) => setImages((current) => [...current, image])} onReplace={(before, after) => setImages((current) => current.map((image) => image === before ? after : image))} />

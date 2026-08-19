@@ -46,7 +46,7 @@ export function DrawingEditor({ id, width, height, onClose }: { id: string; widt
     ctx.beginPath(); ctx.moveTo(from[0], from[1]); ctx.lineTo(to[0], to[1]); ctx.stroke()
   }
   return <section className="draw-dialog inline">
-      <header><strong>그림 그리기</strong><button className="close-ui" type="button" aria-label="닫기" onClick={onClose}>×</button></header>
+      <header><strong>그림 그리기</strong></header>
       <canvas ref={canvasRef} width={width} height={height}
         onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); const p = point(event); last.current = p; stroke(p, p) }}
         onPointerMove={(event) => { if (!last.current) return; const p = point(event); stroke(last.current, p); last.current = p }}
