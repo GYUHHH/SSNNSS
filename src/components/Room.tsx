@@ -39,6 +39,7 @@ const shiftAwareEvents: NonNullable<Parameters<typeof Canvas>[0]['events']> = (s
   compute(event, state) {
     const rect = state.gl.domElement.getBoundingClientRect()
     state.pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1)
+    state.raycaster.layers.mask = EXPLORER_LAYER_MASK
     state.raycaster.setFromCamera(state.pointer, state.camera)
   },
 })
