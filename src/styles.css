@@ -376,7 +376,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .new-book input::placeholder, .entry-form textarea::placeholder, .entry-comment-form input::placeholder, .entry-comment-form textarea::placeholder, .guest-form input::placeholder, .guest-form textarea::placeholder, .banner-input input::placeholder { color: var(--ui-muted); }
 
 .diary-head { border-bottom-color: var(--ui-line); }
-.diary-head-actions button { padding: 8px 11px; }
+.diary-head-actions button { display: inline-flex; align-items: center; justify-content: center; padding: 0 11px; }
 .diary-pages section { padding: 24px; }
 .left-page { border-right-color: var(--ui-line); }
 .left-page img, .empty-photo, .draft-images img, .entry-item img { border-color: var(--ui-line); background: var(--ui-soft); }
