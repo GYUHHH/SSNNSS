@@ -12,7 +12,7 @@ import { loadAudioPrefs, type FurnitureItem, useOptionalRoomStore, useRoomStore 
 import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
 import { PRETENDARD_WOFF } from '../services/fonts'
-import { getVideo, loadClipUrls, registerClipPlayer } from '../services/mediaStore'
+import { getVideo, registerClipPlayer } from '../services/mediaStore'
 import { playlistVideoResume } from '../services/ytResume'
 import { Swing } from './motion'
 
@@ -560,6 +560,7 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
   const store = useOptionalRoomStore()
   const version = store?.videoFrames[id] ?? 0
   const link = store?.videoLinks[id]
+  const clip = store?.videoClips[id]
   const [texture, setTexture] = useState<Texture | null>(null)
   const preview = useRef<{ element: HTMLVideoElement; canvas: HTMLCanvasElement; texture: CanvasTexture } | null>(null)
   const previewDrawAt = useRef(-Infinity)
@@ -613,15 +614,13 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
     // Explorer previews stream only that room's already-uploaded clip, always muted. A small canvas receives
     // one frame every 1/12s, avoiding a full-rate texture upload for every visible neighbour.
     else if (store?.readOnly) {
-      const remote = loadClipUrls()[id]
-      if (remote) start(remote)
+      if (clip) start(clip)
     } else getVideo(id).then((blob) => {
       if (!live) return
       if (blob) { url = URL.createObjectURL(blob); start(url); return }
       // no local copy (a visitor, or another device) — stream the uploaded clip from storage. Nothing uploaded
       // means an empty frame: it stays on the dark screen below instead of playing filler.
-      const remote = loadClipUrls()[id]
-      if (remote) start(remote)
+      if (clip) start(clip)
     })
     return () => {
       live = false
@@ -630,7 +629,7 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
       if (preview.current?.element === element) { preview.current.texture.dispose(); preview.current = null }
       if (url) URL.revokeObjectURL(url)
     }
-  }, [id, version, link, posterId])
+  }, [id, version, link, clip, posterId])
   return <>{!store?.playingFrames.includes(id) && <mesh position={[0, 0, .042]}>
     <planeGeometry args={[width, height]} />
     {texture
