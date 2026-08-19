@@ -52,7 +52,7 @@ function Guestbook({ id }: { id: string }) {
     <header><strong>방명록</strong></header>
     <div className="guest-form comment-ui">
       <textarea ref={autosize} rows={1} maxLength={200} value={text} onChange={(event) => { setText(event.target.value); autosize(event.currentTarget) }} placeholder="한마디 남겨주세요" onKeyDown={(event) => { if (event.nativeEvent.isComposing) return; if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() } }} />
-      <button type="button" onClick={submit}>남기기</button>
+      <button type="button" onClick={submit}>게시</button>
     </div>
     <div className="guest-list comment-ui">
       {comments.length === 0 && <p className="entry-empty">댓글 없음</p>}
