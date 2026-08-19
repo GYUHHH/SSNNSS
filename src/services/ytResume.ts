@@ -59,6 +59,16 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
   // IFrame API resends 'listening' every 250ms until the player answers; do the same, stopping on the
   // first message back from this iframe.
   let helloTimer: ReturnType<typeof setInterval> | undefined
+  // YouTube sometimes refuses the URL-level autoplay=1 (verified live: a bare visible muted embed sat
+  // unstarted), and a player started late — by API or by YouTube itself — drops the URL start= and begins
+  // somewhere else entirely. So the resume position is enforced over the API instead: an unstarted/cued
+  // player gets a playVideo kick (muted embeds obey it with no gesture), and the first actual play is
+  // seeked back to the saved spot if it came up somewhere else.
+  const resumeAt = Math.max(0, Math.floor(storedResumeAt(frameId) ?? 0))
+  const resumeVideo = storedPlaylistVideo(frameId)
+  let seeked = false
+  let kickTimer: ReturnType<typeof setTimeout> | undefined
+  const armKick = () => { clearTimeout(kickTimer); kickTimer = setTimeout(() => command(frameId, 'playVideo'), 2500) }
   const onMessage = (event: MessageEvent) => {
     if (event.source !== iframe.contentWindow) return
     clearInterval(helloTimer)
@@ -70,6 +80,15 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
         framePlayerStates[frameId] = data.info.playerState
         // something played, so the run of failures is over and a later dud may skip afresh
         if (data.info.playerState === 1) delete skipRun[frameId]
+        // -1 unstarted / 5 cued = autoplay refused; anything else calls the kick off (2 = a real pause stays paused)
+        if (data.info.playerState === -1 || data.info.playerState === 5) armKick()
+        else clearTimeout(kickTimer)
+        if (data.info.playerState === 1 && !seeked) {
+          seeked = true
+          // only back onto the SAME video — a playlist that already skipped to another track keeps its place
+          const sameVideo = !resumeVideo || playlistVideoResume[frameId] === resumeVideo
+          if (resumeAt > 0 && sameVideo && typeof currentTime === 'number' && Math.abs(currentTime - resumeAt) > 3) command(frameId, 'seekTo', [resumeAt, true])
+        }
       }
       if (data?.event === 'onError' || typeof data?.info?.errorCode === 'number') {
         const failed = playlistVideoResume[frameId]
@@ -109,6 +128,7 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
   return () => {
     flushResume()
     clearInterval(helloTimer)
+    clearTimeout(kickTimer)
     window.removeEventListener('message', onMessage)
     iframe.removeEventListener('load', hello)
     if (activeIframes[frameId] === iframe) delete activeIframes[frameId]
