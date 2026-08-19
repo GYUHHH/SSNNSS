@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import ArtworkOverlay, { artworkKindOf } from './components/ArtworkOverlay'
 import BookShelfPanel from './components/BookShelfPanel'
 import DiaryDialog from './components/DiaryDialog'
@@ -19,7 +19,7 @@ import { isSignedIn, isVisiting, myHandle } from './services/social'
 import { thumbnailFor } from './services/thumbnails'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 270
+const BUILD = 271
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget } = useRoomStore()
@@ -55,9 +55,21 @@ function Interface() {
   const artOpen = (!!selectedItem && !!artworkKindOf(selectedItem.type)) || bookshelfOpen || !!openBookId
   const sheet = useRef<HTMLElement>(null)
   const drag = useRef<{ y: number; at: number; travel: number } | null>(null)
-  // 0 = closed, 1 = fully open. The scene reads the same number, so dragging the sheet drags the room with it.
-  const setProgress = (value: number) => document.documentElement.style.setProperty('--sheet', String(value))
-  useEffect(() => { setProgress(artOpen ? 1 : 0) }, [artOpen])
+  // Move the room by the sheet's real height: their two edges stay joined for short and tall panel contents alike.
+  const setProgress = (value: number) => {
+    const root = document.documentElement.style
+    root.setProperty('--sheet', String(value))
+    root.setProperty('--sheet-shift', `${-(sheet.current?.offsetHeight ?? 0) * value}px`)
+  }
+  useLayoutEffect(() => {
+    const panel = sheet.current
+    if (!panel) return
+    const sync = () => setProgress(artOpen ? 1 : 0)
+    sync()
+    const observer = new ResizeObserver(sync)
+    observer.observe(panel)
+    return () => observer.disconnect()
+  }, [artOpen])
   const isSheet = () => window.matchMedia('(max-width: 719px)').matches
   const sheetDown = (event: React.PointerEvent) => {
     if (!artOpen || !isSheet()) return
