@@ -197,10 +197,17 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'window') return <><mesh castShadow position={[0, 0, .03]}><boxGeometry args={[2.02, 1.38, .06]} />{mat('#8a6048')}</mesh>{preview ? <mesh position={[0, 0, .062]}><planeGeometry args={[1.86, 1.22]} />{mat('#bcd6e8')}</mesh> : <WindowView />}<mesh position={[0, 0, .07]}><boxGeometry args={[.05, 1.32, .02]} />{mat('#8a6048')}</mesh><mesh position={[0, 0, .07]}><boxGeometry args={[1.92, .05, .02]} />{mat('#8a6048')}</mesh></>
   if (item.type === 'curtain') return <><mesh castShadow position={[0, 1.33, .08]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[.035, .035, 1.52, 8]} />{mat('#6b4c39')}</mesh>{[-.58, -.29, 0, .3, .58].map((x, index) => <RoundedBox key={x} castShadow args={[.3, 2.58, .1]} radius={.045} smoothness={2} position={[x, -.05, .04 + (index % 2) * .025]}>{mat(index % 2 ? '#d9c1a8' : '#c9a98c')}</RoundedBox>)}</>
   if (item.type === 'fireplace') return <>
-    <RoundedBox castShadow args={[1.3, .95, .5]} radius={.03} smoothness={2} position={[0, .475, 0]}>{mat('#9c5b45')}</RoundedBox>
-    <RoundedBox castShadow args={[1.44, .1, .58]} radius={.03} smoothness={2} position={[0, .98, 0]}>{mat('#6b4c39')}</RoundedBox>
-    <mesh position={[0, .38, .21]}><boxGeometry args={[.78, .58, .12]} /><meshStandardMaterial color="#241b16" transparent={material.transparent} opacity={material.opacity} /></mesh>
-    {[-.18, .02, .18].map((x, index) => <mesh castShadow key={x} position={[x, .17, .24]} rotation={[0, index * .5, Math.PI / 2 - .12 + index * .1]}><cylinderGeometry args={[.045, .045, .34, 7]} /><meshStandardMaterial color="#4c3428" transparent={material.transparent} opacity={material.opacity} /></mesh>)}
+    <RoundedBox args={[1.46, .1, .66]} radius={.025} smoothness={2} position={[0, .05, .04]}>{mat('#6f4938')}</RoundedBox>
+    <RoundedBox args={[1.28, .88, .48]} radius={.035} smoothness={2} position={[0, .52, 0]}>{mat('#9c5b45')}</RoundedBox>
+    {[.2, .48, .74].map((y) => <mesh key={`joint-${y}`} position={[0, y, .245]}><boxGeometry args={[1.2, .018, .012]} />{mat('#754437')}</mesh>)}
+    {[[-.42, .18], [.42, .38], [-.42, .58], [.42, .78]].map(([x, y]) => <mesh key={`${x}:${y}`} position={[x, y, .252]}><boxGeometry args={[.018, .18, .012]} />{mat('#754437')}</mesh>)}
+    <RoundedBox args={[.78, .62, .12]} radius={.14} smoothness={3} position={[0, .39, .245]}>{mat('#241b16')}</RoundedBox>
+    {[-.5, .5].map((x) => <RoundedBox key={x} args={[.2, .72, .12]} radius={.025} smoothness={2} position={[x, .43, .285]}>{mat('#c8a982')}</RoundedBox>)}
+    <RoundedBox args={[1.18, .15, .13]} radius={.025} smoothness={2} position={[0, .8, .29]}>{mat('#c8a982')}</RoundedBox>
+    <RoundedBox args={[1.48, .12, .62]} radius={.025} smoothness={2} position={[0, 1.01, .015]}>{mat('#6b4c39')}</RoundedBox>
+    <mesh position={[0, .18, .34]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[.018, .018, .62, 8]} />{mat('#342a25')}</mesh>
+    {[-.22, 0, .22].map((x) => <mesh key={x} position={[x, .23, .34]}><cylinderGeometry args={[.012, .012, .18, 6]} />{mat('#342a25')}</mesh>)}
+    {[-.18, .02, .18].map((x, index) => <mesh key={`log-${x}`} position={[x, .2, .36]} rotation={[0, index * .5, Math.PI / 2 - .12 + index * .1]}><cylinderGeometry args={[.05, .05, .36, 8]} /><meshStandardMaterial color="#4c3428" transparent={material.transparent} opacity={material.opacity} /></mesh>)}
     {lit && <FireArt />}
     {lit && <FlickerLight position={[0, .45, .38]} color="#ff9a3c" base={3.2} amp={.9} distance={2.6} />}
   </>
@@ -384,7 +391,7 @@ function FireArt() {
   }, [])
   const skip = usePreviewFrameSkip()
   useFrame(({ clock }) => { if (skip(clock.elapsedTime)) return; drawFire(texture.image as HTMLCanvasElement, clock.elapsedTime); texture.needsUpdate = true })
-  return <mesh position={[0, .4, .285]}><planeGeometry args={[.6, .5]} /><meshBasicMaterial map={texture} transparent depthWrite={false} /></mesh>
+  return <mesh position={[0, .4, .33]}><planeGeometry args={[.6, .5]} /><meshBasicMaterial map={texture} transparent depthWrite={false} /></mesh>
 }
 
 // the view through the window follows the room's time of day; day and dusk drift clouds, night reuses the star field
