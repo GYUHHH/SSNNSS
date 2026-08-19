@@ -199,14 +199,10 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'fireplace') return <>
     <RoundedBox args={[1.46, .1, .66]} radius={.025} smoothness={2} position={[0, .05, .04]}>{mat('#6f4938')}</RoundedBox>
     <RoundedBox args={[1.28, .88, .48]} radius={.035} smoothness={2} position={[0, .52, 0]}>{mat('#9c5b45')}</RoundedBox>
-    {[.2, .48, .74].map((y) => <mesh key={`joint-${y}`} position={[0, y, .245]}><boxGeometry args={[1.2, .018, .012]} />{mat('#754437')}</mesh>)}
-    {[[-.42, .18], [.42, .38], [-.42, .58], [.42, .78]].map(([x, y]) => <mesh key={`${x}:${y}`} position={[x, y, .252]}><boxGeometry args={[.018, .18, .012]} />{mat('#754437')}</mesh>)}
     <RoundedBox args={[.78, .62, .12]} radius={.14} smoothness={3} position={[0, .39, .245]}>{mat('#241b16')}</RoundedBox>
     {[-.5, .5].map((x) => <RoundedBox key={x} args={[.2, .72, .12]} radius={.025} smoothness={2} position={[x, .43, .285]}>{mat('#c8a982')}</RoundedBox>)}
     <RoundedBox args={[1.18, .15, .13]} radius={.025} smoothness={2} position={[0, .8, .29]}>{mat('#c8a982')}</RoundedBox>
     <RoundedBox args={[1.48, .12, .62]} radius={.025} smoothness={2} position={[0, 1.01, .015]}>{mat('#6b4c39')}</RoundedBox>
-    <mesh position={[0, .18, .34]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[.018, .018, .62, 8]} />{mat('#342a25')}</mesh>
-    {[-.22, 0, .22].map((x) => <mesh key={x} position={[x, .23, .34]}><cylinderGeometry args={[.012, .012, .18, 6]} />{mat('#342a25')}</mesh>)}
     {[-.18, .02, .18].map((x, index) => <mesh key={`log-${x}`} position={[x, .2, .36]} rotation={[0, index * .5, Math.PI / 2 - .12 + index * .1]}><cylinderGeometry args={[.05, .05, .36, 8]} /><meshStandardMaterial color="#4c3428" transparent={material.transparent} opacity={material.opacity} /></mesh>)}
     {lit && <FireArt />}
     {lit && <FlickerLight position={[0, .45, .38]} color="#ff9a3c" base={3.2} amp={.9} distance={2.6} />}
@@ -366,20 +362,26 @@ function drawFire(canvas: HTMLCanvasElement, t: number) {
   const ctx = canvas.getContext('2d')!
   const w = canvas.width, h = canvas.height
   ctx.clearRect(0, 0, w, h)
-  const flames: [number, number, string][] = [[.3, 1.15, '#ff8a2b'], [.7, .95, '#ff9a3c'], [.5, 1.35, '#ffc25e']]
-  flames.forEach(([fx, scale, color], index) => {
-    const wob = Math.sin(t * (9 + index * 2.4) + index * 2) * .06
-    const fh = h * .62 * scale * (1 + Math.sin(t * (11 + index * 3) + index) * .1)
-    const cx = w * (fx + wob)
-    const grad = ctx.createLinearGradient(0, h, 0, h - fh)
-    grad.addColorStop(0, color); grad.addColorStop(1, 'rgba(255, 220, 120, 0)')
+  const glow = ctx.createRadialGradient(w * .5, h * .88, 0, w * .5, h * .88, w * .48)
+  glow.addColorStop(0, 'rgba(255, 118, 28, .6)'); glow.addColorStop(1, 'rgba(255, 80, 18, 0)')
+  ctx.fillStyle = glow; ctx.fillRect(0, h * .45, w, h * .55)
+  ctx.globalCompositeOperation = 'lighter'
+  const flames: [number, number, number, string][] = [[.2, .22, .58, '#ff7a25'], [.4, .25, .82, '#ff9a32'], [.58, .28, .95, '#ffd06a'], [.78, .2, .64, '#ff7929']]
+  flames.forEach(([x, width, height, color], index) => {
+    const phase = index * 1.7
+    const sway = (Math.sin(t * (3.2 + index * .35) + phase) + Math.sin(t * 5.7 + phase) * .35) * w * .045
+    const flameHeight = h * height * (.76 + Math.sin(t * (4.4 + index * .4) + phase) * .1 + Math.sin(t * 7.3 + phase) * .04)
+    const baseX = w * x, baseY = h * .96, tipX = baseX + sway
+    const grad = ctx.createLinearGradient(0, baseY, 0, baseY - flameHeight)
+    grad.addColorStop(0, '#ff4818'); grad.addColorStop(.5, color); grad.addColorStop(1, 'rgba(255, 226, 135, .08)')
     ctx.fillStyle = grad
     ctx.beginPath()
-    ctx.moveTo(cx - w * .16 * scale, h)
-    ctx.quadraticCurveTo(cx - w * .1, h - fh * .55, cx, h - fh)
-    ctx.quadraticCurveTo(cx + w * .1, h - fh * .55, cx + w * .16 * scale, h)
+    ctx.moveTo(baseX - w * width / 2, baseY)
+    ctx.bezierCurveTo(baseX - w * width * .65, baseY - flameHeight * .36, tipX - w * width * .18, baseY - flameHeight * .72, tipX, baseY - flameHeight)
+    ctx.bezierCurveTo(tipX + w * width * .28, baseY - flameHeight * .68, baseX + w * width * .62, baseY - flameHeight * .3, baseX + w * width / 2, baseY)
     ctx.closePath(); ctx.fill()
   })
+  ctx.globalCompositeOperation = 'source-over'
 }
 
 function FireArt() {
