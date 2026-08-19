@@ -7,7 +7,7 @@ import { PhotoCropEditor } from './PhotoCropEditor'
 const SignOutIcon = () => <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" /><path d="M10 16l-4-4 4-4" /><path d="M6 12h9" /></svg>
 
 export default function ProfileCard() {
-  const { profileOpen, closeProfile, profile, setProfilePhoto, setProfileHandle, remoteVisits } = useRoomStore()
+  const { profileOpen, closeProfile, profile, setProfilePhoto, remoteVisits } = useRoomStore()
   const inputRef = useRef<HTMLInputElement>(null)
   const [signedIn, setSignedIn] = useState(false)
   const [editingPhoto, setEditingPhoto] = useState<string | null>(null)
@@ -29,7 +29,7 @@ export default function ProfileCard() {
             {profile.photo ? <img src={profile.photo} alt="프로필 사진" /> : <span>사진</span>}
           </button>}
         <div className="profile-info">
-          <input className="profile-handle" aria-label="아이디" value={profile.handle ?? ''} placeholder="ID" disabled={isVisiting()} onChange={(event) => setProfileHandle(event.target.value)} />
+          <p className="profile-handle">{profile.handle ?? 'ID'}</p>
           <p className="profile-visits">Total <b>{remoteVisits?.total ?? profile.total}</b> <i>|</i> Today <b>{remoteVisits?.today ?? profile.today}</b></p>
           <p className="profile-friends">친구 <b>{profile.friends}</b></p>
         </div>
