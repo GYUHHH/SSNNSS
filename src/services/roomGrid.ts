@@ -59,7 +59,7 @@ export type SurfaceHost = { id: string; type: string; position: [number, number,
 // grid) turn together with the owner. subCellSize stays exactly GRID_SIZE/2: (footprint*GRID_SIZE)/(footprint*2)
 // The bookshelf grows with its tiers: 2 by default, one more whenever a book sits on the current top tier.
 // Its cap (and anything placed on top) follows the tier count.
-export const bookshelfTiers = (shelves: number[]) => Math.min(3, Math.max(2, Math.max(-1, ...shelves) + 2))
+export const bookshelfTiers = (shelves: number[]) => Math.min(10, Math.max(2, Math.max(-1, ...shelves) + 2))
 export const bookshelfCapY = (tiers: number) => 0.18 + (tiers - 1) * 0.62 + 0.84
 // ponytail: module-level mutable set by the store each render — the bookshelf is a singleton, so one shared
 // offset beats threading book state through every surface call site; revisit if shelves become per-instance
