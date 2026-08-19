@@ -1,36 +1,54 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import { artworkKindOf } from './ArtworkOverlay'
 import { useRoomStore } from '../store'
 
-// Panels are navigation, so the browser's back button should walk back through them instead of leaving the
-// site. Each layer that opens pushes one history entry; back closes the topmost layer; closing a layer from
-// the UI walks history back by the same amount, so the two never drift apart. Only when every panel is shut
-// does back finally leave the page.
+type PanelState = { selectedObject?: string; openBookId?: string; commentTarget?: string; reactionTarget?: string }
+
+// Store the actual panel state in browser history so forward can reopen the exact panel that back closed.
 export default function PanelHistory() {
-  const { selectedObject, bookshelfOpen, openBookId, commentTarget, reactionTarget, clearSelection, closeBook, setCommentTarget, setReactionTarget } = useRoomStore()
-  const layers = [selectedObject || bookshelfOpen, openBookId, commentTarget || reactionTarget].filter(Boolean).length
-  const previous = useRef(0)
-  const popping = useRef(false)
-  const closeTop = useRef(() => { /* replaced every render with the current state */ })
-  closeTop.current = () => {
-    if (commentTarget) return setCommentTarget(null)
-    if (reactionTarget) return setReactionTarget(null)
-    if (openBookId) return closeBook()
-    if (selectedObject || bookshelfOpen) return clearSelection()
+  const { selectedObject, bookshelfOpen, openBookId, commentTarget, reactionTarget, furniture, clearSelection, selectObject, openBook, openVideoPanel, setCommentTarget, setReactionTarget } = useRoomStore()
+  const item = furniture.find((entry) => entry.id === selectedObject)
+  const isPanelObject = !!selectedObject && (selectedObject === 'book' || !!artworkKindOf(item?.type ?? ''))
+  const state = useMemo<PanelState>(() => ({
+    ...(isPanelObject ? { selectedObject: selectedObject! } : bookshelfOpen ? { selectedObject: 'bookshelf' } : {}),
+    ...(openBookId ? { openBookId } : {}),
+    ...(commentTarget ? { commentTarget } : {}),
+    ...(reactionTarget ? { reactionTarget } : {}),
+  }), [isPanelObject, selectedObject, bookshelfOpen, openBookId, commentTarget, reactionTarget])
+  const key = JSON.stringify(state)
+  const depth = Object.keys(state).length
+  const previous = useRef<{ key: string; depth: number } | null>(null)
+  const restore = useRef((next: PanelState) => {})
+
+  restore.current = (next) => {
+    setCommentTarget(null)
+    setReactionTarget(null)
+    if (next.openBookId) openBook(next.openBookId)
+    else if (next.selectedObject) {
+      const target = furniture.find((entry) => entry.id === next.selectedObject)
+      target?.type.startsWith('video-frame') ? openVideoPanel(next.selectedObject) : selectObject(next.selectedObject as Parameters<typeof selectObject>[0])
+    } else clearSelection()
+    if (next.commentTarget) setCommentTarget(next.commentTarget)
+    if (next.reactionTarget) setReactionTarget(next.reactionTarget)
   }
+
   useEffect(() => {
-    const onPop = () => { if (previous.current > 0) { popping.current = true; closeTop.current() } }
+    const onPop = (event: PopStateEvent) => {
+      const next = (event.state?.ssnnssPanel ?? {}) as PanelState
+      previous.current = { key: JSON.stringify(next), depth: Object.keys(next).length }
+      restore.current(next)
+    }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
+
   useEffect(() => {
     const before = previous.current
-    previous.current = layers
-    if (layers > before) for (let step = before; step < layers; step++) history.pushState({ panel: step + 1 }, '', location.href)
-    else if (layers < before) {
-      // a back button already moved the history cursor; anything else (a close button, an outside click) has to
-      if (popping.current) popping.current = false
-      else history.go(-(before - layers))
-    }
-  }, [layers])
+    if (!before) { previous.current = { key, depth }; return }
+    if (key === before.key) return
+    previous.current = { key, depth }
+    if (depth >= before.depth) history.pushState({ ssnnssPanel: state }, '', location.href)
+    else history.go(-(before.depth - depth))
+  }, [key, depth, state])
   return null
 }
