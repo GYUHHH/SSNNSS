@@ -178,6 +178,8 @@ body.exploring :is(.room-controls, .room-slots, .entry-buttons, .me-tag, .build-
 .guest-list { display: grid; align-content: start; padding-top: 12px; }
 .guest-note { padding: 12px 0; border-bottom: 1px solid #e0e0dd; }
 .item-comments { width: min(420px, calc(100vw - 16px)); height: min(360px, calc(100dvh - 32px)); max-height: none; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; overflow: hidden; border-radius: 4px; box-shadow: none; }
+.item-comments .comment-head { display: flex; align-items: center; justify-content: space-between; }
+.item-comments .edit-frame { border: 0; padding: 2px 4px; color: #75756f; background: transparent; font-size: 15px; line-height: 1; cursor: pointer; }
 .item-comments .guest-form { grid-row: 3; grid-template-columns: minmax(0, 1fr) auto; align-items: end; padding: 8px 0 0; }
 .item-comments .guest-form button { align-self: stretch; justify-self: auto; white-space: nowrap; }
 .item-comments .guest-list { grid-row: 2; width: 100%; min-height: 0; overflow-y: auto; padding-top: 0; padding-right: 3px; }
