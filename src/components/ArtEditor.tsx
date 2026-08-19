@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { SRGBColorSpace, type Texture, TextureLoader } from 'three'
 import { useOptionalRoomStore, useRoomStore } from '../store'
 import { getVideo } from '../services/mediaStore'
-import { loadOrders, onOrderChange, saveOrder } from '../services/playlistOrder'
-import { isBlockedVideo, onBlockedVideos } from '../services/ytResume'
+import { hideVideo, loadOrders, onOrderChange, saveOrder } from '../services/playlistOrder'
+import { isBlockedVideo, onBlockedVideos, playlistControls, playlistVideoResume } from '../services/ytResume'
 import { PhotoCropEditor } from './PhotoCropEditor'
 
 const PAPER = '#f6efe2'
@@ -144,11 +144,12 @@ export function ClipPreview({ id }: { id: string }) {
 // way with a transition; the new order commits (and saves) on release. Playback picks the change up from the
 // NEXT video, and the id list itself arrives from playback sync (watchPlaylistOrder).
 const titleCache: Record<string, string> = {}
-function OrderRow({ videoId, title, blocked, dragging, shift, onHandleDown }: { videoId: string; title: string; blocked: boolean; dragging: boolean; shift: number; onHandleDown: (event: React.PointerEvent) => void }) {
+function OrderRow({ videoId, title, blocked, dragging, shift, onHandleDown, onDelete }: { videoId: string; title: string; blocked: boolean; dragging: boolean; shift: number; onHandleDown: (event: React.PointerEvent) => void; onDelete: () => void }) {
   return <li className={`order-row${dragging ? ' dragging' : ''}${blocked ? ' blocked' : ''}`} style={{ transform: shift ? `translateY(${shift}px)` : undefined }}>
     <img src={`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`} alt="" draggable={false} />
     <span>{title || videoId}</span>
     {blocked && <span className="order-warn" aria-label="재생 불가">!</span>}
+    <button type="button" className="order-delete" aria-label="목록에서 삭제" onClick={onDelete}>×</button>
     <button type="button" className="order-handle" aria-label="순서 이동" onPointerDown={onHandleDown}>≡</button>
   </li>
 }
@@ -182,6 +183,12 @@ export function PlaylistOrderEditor({ id }: { id: string }) {
   }, [order])
   if (!playlistId) return null
   if (!order.length) return null
+  // site-side delete: the YouTube playlist keeps the video, our order drops it and playback skips it.
+  // Deleting the one currently on screen moves on right away instead of letting it finish.
+  const remove = (videoId: string) => {
+    hideVideo(playlistId, videoId)
+    if (playlistVideoResume[id] === videoId) playlistControls(id).nextVideo()
+  }
   const target = drag ? Math.min(order.length - 1, Math.max(0, drag.index + Math.round(drag.delta / rowStep.current))) : null
   const startDrag = (index: number) => (event: React.PointerEvent) => {
     event.preventDefault()
@@ -215,7 +222,7 @@ export function PlaylistOrderEditor({ id }: { id: string }) {
         if (index > drag.index && index <= target) shift = -rowStep.current
         else if (index < drag.index && index >= target) shift = rowStep.current
       }
-      return <OrderRow key={videoId} videoId={videoId} title={titles[videoId] ?? titleCache[videoId] ?? ''} blocked={isBlockedVideo(videoId)} dragging={dragging} shift={dragging ? drag.delta : shift} onHandleDown={startDrag(index)} />
+      return <OrderRow key={videoId} videoId={videoId} title={titles[videoId] ?? titleCache[videoId] ?? ''} blocked={isBlockedVideo(videoId)} dragging={dragging} shift={dragging ? drag.delta : shift} onHandleDown={startDrag(index)} onDelete={() => remove(videoId)} />
     })}
     {/* said once rather than repeated on every marked row — the markers show WHICH, this says WHY */}
     {order.some((videoId) => isBlockedVideo(videoId)) && <li className="order-note">이 영상은 외부 재생이 불가합니다.</li>}

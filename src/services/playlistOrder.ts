@@ -16,6 +16,21 @@ export const saveOrder = (playlistId: string, order: string[]) => {
   listeners.forEach((listener) => listener(playlistId))
 }
 
+// Site-side deletion: the video stays in the YouTube playlist but is dropped from our order and never
+// re-appended by syncOrder, and the order watcher then skips past it whenever YouTube reaches it naturally.
+const HIDDEN_KEY = 'my-room-playlist-hidden-v1'
+export const loadHidden = (): Record<string, string[]> => {
+  try { const saved = JSON.parse(readStored(HIDDEN_KEY) ?? 'null'); if (saved && typeof saved === 'object') return saved } catch { /* storage may be unavailable */ }
+  return {}
+}
+export const hideVideo = (playlistId: string, videoId: string) => {
+  if (isVisiting()) return
+  const hidden = loadHidden()
+  hidden[playlistId] = [...new Set([...(hidden[playlistId] ?? []), videoId])]
+  writeStored(HIDDEN_KEY, JSON.stringify(hidden))
+  saveOrder(playlistId, (loadOrders()[playlistId] ?? []).filter((id) => id !== videoId))
+}
+
 // panel UI re-renders its list when playback syncs new videos in
 const listeners = new Set<(playlistId: string) => void>()
 export const onOrderChange = (listener: (playlistId: string) => void) => { listeners.add(listener); return () => { listeners.delete(listener) } }
@@ -24,8 +39,9 @@ export const onOrderChange = (listener: (playlistId: string) => void) => { liste
 // new videos append at the end, deleted videos disappear
 export const syncOrder = (playlistId: string, liveIds: string[]): string[] => {
   const stored = loadOrders()[playlistId] ?? []
+  const hidden = loadHidden()[playlistId] ?? []
   const kept = stored.filter((id) => liveIds.includes(id))
-  const merged = [...kept, ...liveIds.filter((id) => !kept.includes(id))]
+  const merged = [...kept, ...liveIds.filter((id) => !kept.includes(id) && !hidden.includes(id))]
   if (merged.length !== stored.length || merged.some((id, index) => stored[index] !== id)) saveOrder(playlistId, merged)
   return merged
 }

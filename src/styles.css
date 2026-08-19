@@ -32,7 +32,8 @@ input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-
 .room-color-row > span { font-size: 12px; color: #6b6b65; }
 .room-color-row .style-swatches { margin-top: 4px; }
 .order-list { display: grid; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; max-height: 240px; overflow-y: auto; }
-.order-row { display: grid; grid-template-columns: 64px 1fr 34px; align-items: center; gap: 8px; padding: 4px; border-radius: 4px; background: #f7f7f5; transition: transform .18s ease; user-select: none; }
+.order-row { display: grid; grid-template-columns: 64px 1fr 24px 34px; align-items: center; gap: 8px; padding: 4px; border-radius: 4px; background: #f7f7f5; transition: transform .18s ease; user-select: none; }
+.order-delete { border: 0; padding: 8px 2px; color: #84847e; background: transparent; font-size: 15px; line-height: 1; cursor: pointer; }
 .order-row.dragging { transition: none; position: relative; z-index: 2; background: #ffffff; box-shadow: 0 8px 22px rgb(0 0 0 / 22%); }
 .order-row img { display: block; width: 64px; height: 36px; object-fit: cover; border-radius: 3px; }
 /* A video the player has refused. The marker sits on the thumbnail rather than taking a grid column, so the row
