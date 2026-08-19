@@ -9,16 +9,16 @@ export const artworkKindOf = (type: string) => type === 'photo' || type === 'eas
 
 // side panel on the right — the room slides left while it is open; tall artwork scrolls instead of cropping
 export default function ArtworkOverlay() {
-  const { selectedObject, clearSelection, artworks, furniture, videoFrames, videoLinks } = useRoomStore()
+  const { selectedObject, artworks, furniture, videoFrames, videoLinks } = useRoomStore()
   const [drawing, setDrawing] = useState(false)
   useEffect(() => setDrawing(false), [selectedObject])
   if (!selectedObject) return null
   const item = furniture.find((value) => value.id === selectedObject)
   const kind = artworkKindOf(item?.type ?? '')
   if (!kind) return null
-  if (kind === 'guestbook') return <Guestbook id={selectedObject} onClose={clearSelection} />
+  if (kind === 'guestbook') return <Guestbook id={selectedObject} />
   if (kind === 'video') return <>
-    <header><strong>{item?.name ?? '영상 액자'}</strong><button className="close-ui" type="button" aria-label="닫기" onClick={clearSelection}>×</button></header>
+    <header><strong>{item?.name ?? '영상 액자'}</strong></header>
     {videoLinks[selectedObject] && <DockSpace />}
     <ClipPreview id={selectedObject} />
     {!isVisiting() && <><VideoLinkInput id={selectedObject} />
@@ -31,7 +31,7 @@ export default function ArtworkOverlay() {
     ? item?.type === 'photo' ? [464, 336] : [400, 400]
     : item?.type === 'poster' ? [360, 555] : item?.type === 'whiteboard' ? [420, 300] : item?.type === 'easel-photo' ? [360, 460] : [360, Math.round(360 * (item?.footprint.depth ?? 3) / (item?.footprint.width ?? 2))]
   return <>
-    <header><strong>{item?.name ?? (frame ? '사진' : '포스터')}</strong><button className="close-ui" type="button" aria-label="닫기" onClick={clearSelection}>×</button></header>
+    <header><strong>{item?.name ?? (frame ? '사진' : '포스터')}</strong></header>
     {drawing
       ? <DrawingEditor id={selectedObject} width={width} height={height} onClose={() => setDrawing(false)} />
       : <>
@@ -41,13 +41,13 @@ export default function ArtworkOverlay() {
   </>
 }
 
-function Guestbook({ id, onClose }: { id: string; onClose: () => void }) {
+function Guestbook({ id }: { id: string }) {
   const { guestbook, addGuestComment, removeGuestComment } = useRoomStore()
   const [text, setText] = useState('')
   const comments = guestbook[id] ?? []
   const submit = () => { if (!text.trim() || !requireHandle()) return; addGuestComment(id, text.trim()); setText('') }
   return <>
-    <header><strong>방명록</strong><button className="close-ui" type="button" aria-label="닫기" onClick={onClose}>×</button></header>
+    <header><strong>방명록</strong></header>
     <div className="guest-form">
       <textarea ref={autosize} rows={1} maxLength={200} value={text} onChange={(event) => { setText(event.target.value); autosize(event.currentTarget) }} placeholder="한마디 남겨주세요" onKeyDown={(event) => { if (event.nativeEvent.isComposing) return; if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() } }} />
       <button type="button" onClick={submit}>남기기</button>

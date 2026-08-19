@@ -6,7 +6,7 @@ import { isVisiting } from '../services/social'
 const PencilIcon = () => <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m4 20 4.3-1 10-10a2.1 2.1 0 0 0-3-3l-10 10Z" /><path d="m13.8 7.5 3 3" /></svg>
 
 export default function BookShelfPanel() {
-  const { bookshelfOpen, books, openBook, addBook, deleteBook, updateBookVisibility, setBookShelf, clearSelection } = useRoomStore()
+  const { bookshelfOpen, books, openBook, addBook, deleteBook, updateBookVisibility, setBookShelf } = useRoomStore()
   const [title, setTitle] = useState('')
   const [adding, setAdding] = useState(false)
   const [managing, setManaging] = useState(false)
@@ -23,7 +23,6 @@ export default function BookShelfPanel() {
   }
   return <>
     <section className="bookshelf-panel" aria-label="책장">
-      <button className="close-ui" type="button" aria-label="닫기" onClick={clearSelection}>×</button>
       {!isVisiting() && adding && <form className="new-book" onSubmit={submit}>
         <input aria-label="새 책 제목" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="새 책 제목" />
         <button type="submit">책 만들기</button>

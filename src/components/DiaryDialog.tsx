@@ -18,7 +18,6 @@ export default function DiaryDialog() {
   if (!book) return null
   return <>
     <section className="diary" aria-label={book.title}>
-      <button className="close-ui" type="button" aria-label="닫기" onClick={closeBook}>×</button>
       <header className="diary-head"><div className="diary-title"><button className="diary-back" type="button" aria-label={writing ? '기록 목록으로' : '책장으로'} onClick={() => writing ? setWriting(false) : closeBook()}>←</button><h2>{book.title}</h2></div>{!isVisiting() && !writing && <div className="diary-head-actions"><button type="button" onClick={() => setWriting(true)}>새 기록 작성</button></div>}</header>
       {writing ? <EntryForm book={book} onSave={(draft) => { addEntry(book.id, draft); setWriting(false) }} /> : <EntryList bookId={book.id} entries={book.entries} />}
     </section>
