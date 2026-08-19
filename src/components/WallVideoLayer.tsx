@@ -56,7 +56,7 @@ export function videoAspect(id: string): Promise<number | null> {
 }
 
 export default function WallVideoLayer() {
-  const { playingFrames, setFrameMuted, videoLinks, activeRoomId } = useRoomStore()
+  const { playingFrames, setFrameMuted, videoLinks, activeRoomId, currentHandle } = useRoomStore()
   // one order-keeper per playing playlist frame, alive across wall<->panel switches (it follows whichever
   // iframe is currently registered for the frame), enforcing the site's custom order and syncing the id list
   useEffect(() => {
@@ -72,17 +72,19 @@ export default function WallVideoLayer() {
   latest.current = { playingFrames, setFrameMuted, activeRoomId }
   useEffect(() => {
     let used = false
-    const onFirstGesture = () => {
-      if (used) return
-      used = true
+    const restoreSound = () => {
       const prefs = loadAudioPrefs(latest.current.activeRoomId)
       for (const id of latest.current.playingFrames) {
         if (prefs[id] === true) latest.current.setFrameMuted(id, false, false)
       }
     }
+    // Returning to a room retries its saved sound choice as soon as the new room iframe is mounted. If autoplay
+    // policy blocks it, the next real gesture retries the same choice without changing the preference.
+    restoreSound()
+    const onFirstGesture = () => { if (!used) { used = true; restoreSound() } }
     window.addEventListener('pointerdown', onFirstGesture, { capture: true })
     return () => window.removeEventListener('pointerdown', onFirstGesture, true)
-  }, [activeRoomId])
+  }, [activeRoomId, currentHandle])
   // Focus guard: if a wall iframe holds focus when the tab is left, the browser re-focuses it on return and
   // the YouTube player mistakes that for user activity, waking its control overlay. Whenever focus lands on a
   // wall iframe (window 'blur' fires the moment it does, and also on real tab-leave) it is released right away,
@@ -117,7 +119,7 @@ export default function WallVideoLayer() {
     document.addEventListener('visibilitychange', onVisibility)
     return () => document.removeEventListener('visibilitychange', onVisibility)
   }, [])
-  return <>{playingFrames.map((id) => <WallVideo key={id} frameId={id} />)}</>
+  return <>{playingFrames.map((id) => <WallVideo key={`${currentHandle ?? 'lobby'}:${activeRoomId}:${id}`} frameId={id} />)}</>
 }
 
 function WallVideo({ frameId }: { frameId: string }) {

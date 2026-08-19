@@ -186,12 +186,6 @@ const withVacancies = (handles: string[]) => handles.length >= CLUSTER_SIZE ? ha
   : [...handles, ...Array.from({ length: CLUSTER_SIZE - handles.length }, (_, index) => `${VACANT}${index}`)]
 const isEnterable = (handle: string) => handle !== LOBBY && !handle.startsWith(VACANT)
 
-// Fully zoomed out a drag pans the explorer, and the browser still fires a click when the press ends — which
-// would drop the user into whichever room happened to be under the pointer. So a room only counts as picked if
-// the press that produced the click stayed put. One tracker for the whole cluster: the press belongs to the
-// gesture, not to a room.
-let pressAt: { x: number; y: number } | null = null
-const pressWandered = (event: { clientX: number; clientY: number }) => !!pressAt && Math.hypot(event.clientX - pressAt.x, event.clientY - pressAt.y) > 6
 // what a zoom-in may land in: real rooms always, and the lobby too for whoever has no room of their own —
 // signed out, the default room is home, and home has to be somewhere you can go back to
 const canEnter = (handle: string) => isEnterable(handle) || (handle === LOBBY && !isSignedIn())
@@ -259,6 +253,7 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
   const opacity = useRef(0)
   const materials = useRef<Faded[]>([])
   const glow = useRef(0)
+  const press = useRef<{ x: number; y: number; pointerId: number } | null>(null)
   // The lobby — the default room a signed-out visitor starts in — has no server bundle to wait for: an empty
   // bundle IS its look. Without this the cell went permanently blank the moment such a visitor entered a real
   // room, because the room they had just come from could never be drawn as a neighbour.
@@ -368,7 +363,10 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
     }
   })
   return <group ref={group} position={slot.position} visible={false}
-    onClick={(event) => { if (opacity.current < .65 || pressWandered(event)) return; event.stopPropagation(); open() }}>
+    onPointerDown={(event) => { if (opacity.current >= .65) press.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId } }}
+    onPointerMove={(event) => { if (press.current?.pointerId === event.pointerId && Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 10) press.current = null }}
+    onPointerUp={(event) => { const down = press.current; press.current = null; if (!down || down.pointerId !== event.pointerId || opacity.current < .65) return; event.stopPropagation(); open() }}
+    onPointerCancel={() => { press.current = null }}>
     {/* its own boundary: a neighbour's font or texture must never suspend the live room out of view */}
     <Suspense fallback={null}>
       {/* Nothing is drawn until the room's own layout is in hand: rendering the provider with a null bundle
@@ -398,12 +396,6 @@ function RoomWorld() {
   // bundles pushed by the realtime stream, keyed by handle — each RoomContainer picks up its own
   const [freshBundles, setFreshBundles] = useState<Record<string, Record<string, string>>>({})
   useEffect(() => subscribeRoomBundles(handles.filter(isEnterable), (handle, data) => setFreshBundles((prev) => ({ ...prev, [handle]: data }))), [handles])
-  // capture-phase so the press lands before OrbitControls or any room handler sees the gesture
-  useEffect(() => {
-    const down = (event: PointerEvent) => { pressAt = { x: event.clientX, y: event.clientY } }
-    window.addEventListener('pointerdown', down, true)
-    return () => window.removeEventListener('pointerdown', down, true)
-  }, [])
   // What is being VIEWED — not the hub while visiting someone else. Derived from the STORE's own commit rather
   // than kept as separate state here: the store lives on the DOM root and this world on the canvas root, and two
   // roots may paint their commits apart — with separate state, one frame could show the new room's data still

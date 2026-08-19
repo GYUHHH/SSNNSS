@@ -839,7 +839,11 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const openRoom = (id: string) => {
     setActiveSlot(id)
     setActiveRoomId(id)
-    setFurniture(hydrateFurniture(slotItems(id)))
+    const items = hydrateFurniture(slotItems(id))
+    setFurniture(items)
+    const playing = framesToPlay(items, videoLinks)
+    setPlayingFrames(playing)
+    setMutedFrames(framesToMute(playing))
     setHistory([])
     const style = slotStyle(id) ?? {}
     setWallStyleState(style)
