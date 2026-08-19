@@ -51,13 +51,23 @@ const skipRun: Record<string, Set<string>> = {}
 const activeIframes: Record<string, HTMLIFrameElement> = {}
 const soundRequestCancels: Record<string, () => void> = {}
 const snapshotRequests: Record<string, Set<() => void>> = {}
+const frameClocks: Record<string, { time: number; at: number; state: number; rate: number; video?: string }> = {}
 export const cancelSoundRequest = (frameId: string) => soundRequestCancels[frameId]?.()
+
+const liveClockTime = (clock: (typeof frameClocks)[string]) => clock.time + (clock.state === 1 ? (performance.now() - clock.at) / 1000 * clock.rate : 0)
 
 // Read the live player once before React replaces its iframe. Passive infoDelivery can be several seconds
 // behind during a fresh embed, which made a quick wall -> panel -> wall switch reopen at an older position.
 export function snapshotFrame(frameId: string): Promise<void> {
   const iframe = activeIframes[frameId]
   if (!iframe) { flushResume(); return Promise.resolve() }
+  const clock = frameClocks[frameId]
+  if (clock) {
+    videoResume[frameId] = liveClockTime(clock)
+    if (clock.video) playlistVideoResume[frameId] = clock.video
+    flushResume()
+    return Promise.resolve()
+  }
   return new Promise((resolve) => {
     const requests = (snapshotRequests[frameId] ??= new Set())
     let timer: ReturnType<typeof setTimeout>
@@ -104,6 +114,8 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
     try {
       const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
       const currentTime = data?.info?.currentTime
+      const playerState = data?.info?.playerState
+      const playbackRate = typeof data?.info?.playbackRate === 'number' ? data.info.playbackRate : undefined
       const currentVideo = data?.info?.videoData?.video_id
       const validVideo = typeof currentVideo === 'string' && currentVideo && currentVideo !== 'videoseries' ? currentVideo : undefined
       const sameVideo = !resumeVideo || !validVideo || validVideo === resumeVideo
@@ -120,8 +132,12 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
       if (restored && typeof currentTime === 'number') {
         videoResume[frameId] = currentTime
         if (validVideo) playlistVideoResume[frameId] = validVideo
+        frameClocks[frameId] = { time: currentTime, at: performance.now(), state: typeof playerState === 'number' ? playerState : frameClocks[frameId]?.state ?? -1, rate: playbackRate ?? frameClocks[frameId]?.rate ?? 1, video: validVideo ?? frameClocks[frameId]?.video }
         data?.info?.playerState === 2 ? flushResume() : persist()
         snapshotRequests[frameId]?.forEach((finish) => finish())
+      } else if (restored && typeof playerState === 'number' && frameClocks[frameId]) {
+        const clock = frameClocks[frameId]
+        frameClocks[frameId] = { ...clock, time: liveClockTime(clock), at: performance.now(), state: playerState, rate: playbackRate ?? clock.rate, video: validVideo ?? clock.video }
       }
       if (typeof data?.info?.playerState === 'number') {
         framePlayerStates[frameId] = data.info.playerState
@@ -149,6 +165,7 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
         // a new video can bring its own captions back on, so drop them again whenever the track changes
         if (playlistVideoResume[frameId] !== validVideo) captionsCleared.delete(frameId)
         playlistVideoResume[frameId] = validVideo
+        if (frameClocks[frameId]) frameClocks[frameId].video = validVideo
         persist()
       }
       // onApiChange is the moment YouTube reports a module with an exposed API has just been LOADED — which
