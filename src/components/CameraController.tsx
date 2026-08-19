@@ -195,7 +195,8 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
     // on it — so this read as "fully zoomed out", switched panning on, and a one-finger drag shoved the room away
     // while the user was arranging furniture.
     const fullyOut = mode === 'normal' && zoomTarget.current <= minZoom + .01
-    if (fullyOut !== wasAtMinZoom.current) { wasAtMinZoom.current = fullyOut; setAtMinZoom(fullyOut) }
+    // the DOM chrome lives on another React root, so the explorer state travels as a body class for CSS to fade on
+    if (fullyOut !== wasAtMinZoom.current) { wasAtMinZoom.current = fullyOut; setAtMinZoom(fullyOut); document.body.classList.toggle('exploring', fullyOut) }
     // the glide through the explorer band is the room-to-explorer transition itself, so it gets a gentler pace
     // than ordinary zooming — inside the band only, everything else keeps the usual snap
     const inBand = mode === 'normal' && camera2d.zoom < entryZoom(size.width, size.height) && camera2d.zoom > minZoom + .01
