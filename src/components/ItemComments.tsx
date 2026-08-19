@@ -16,11 +16,11 @@ export default function ItemComments() {
   const mine = myVisitorId()
   const submit = () => { if (!text.trim() || !requireHandle()) return; addGuestComment(commentTarget, text.trim()); setText('') }
   return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setCommentTarget(null)}>
-    <section className="reaction-card comment-ui" aria-label="댓글">
+    <section className="reaction-card item-comments comment-ui" aria-label="댓글">
       <strong>{item?.name ?? ''}</strong>
       <div className="guest-form">
         <textarea ref={autosize} rows={1} maxLength={200} value={text} onChange={(event) => { setText(event.target.value); autosize(event.currentTarget) }} placeholder="한마디 남겨주세요" onKeyDown={(event) => { if (event.nativeEvent.isComposing) return; if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() } }} />
-        <button type="button" onClick={submit}>남기기</button>
+        <button type="button" onClick={submit}>게시</button>
       </div>
       <div className="guest-list">
         {comments.map((comment) => <article key={comment.id} className="guest-note comment-item">
