@@ -189,7 +189,9 @@ div.art-view { aspect-ratio: 3 / 4; }
 .comment-item header { grid-column: 2; display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
 .comment-item :is(strong, b) { color: var(--ui-text); font-size: inherit; font-weight: 700; }
 .comment-item time { color: var(--ui-muted); font-size: inherit; }
-.comment-item header button { margin-left: auto; border: 0; color: var(--ui-muted); background: transparent; cursor: pointer; font-size: inherit; }
+.comment-profile-link { padding: 0; border: 0; color: inherit; background: transparent; font: inherit; text-align: left; cursor: pointer; }
+.comment-avatar.comment-profile-link { display: grid; }
+.comment-item header > button:not(.comment-profile-link) { margin-left: auto; border: 0; color: var(--ui-muted); background: transparent; cursor: pointer; font-size: inherit; }
 .comment-item p { grid-column: 2; margin: 0; color: var(--ui-text); font-size: inherit; line-height: 1.55; text-align: left; white-space: pre-wrap; }
 
 @media (max-width: 719px), (max-height: 520px) and (pointer: coarse) {

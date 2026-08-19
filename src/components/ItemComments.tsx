@@ -3,7 +3,7 @@ import { autosize } from '../services/autosize'
 import { useState } from 'react'
 import { useRoomStore } from '../store'
 import { isVisiting, myVisitorId, requireHandle } from '../services/social'
-import CommentAvatar from './CommentAvatar'
+import CommentAvatar, { CommentName } from './CommentAvatar'
 
 // The comment box a long press opens on a piece of furniture. Same storage and the same look as the guestbook
 // — it is the guestbook, just keyed to this object.
@@ -25,7 +25,7 @@ export default function ItemComments() {
       <div className="guest-list">
         {comments.map((comment) => <article key={comment.id} className="guest-note comment-item">
           <CommentAvatar name={comment.name} photo={comment.photo} />
-          <header><strong>{comment.name}</strong><time>{timeAgo(comment.createdAt)}</time>{(!isVisiting() || comment.visitor === mine) && <button type="button" aria-label="삭제" onClick={() => removeGuestComment(commentTarget, comment.id)}>×</button>}</header>
+          <header><CommentName name={comment.name} /><time>{timeAgo(comment.createdAt)}</time>{(!isVisiting() || comment.visitor === mine) && <button type="button" aria-label="삭제" onClick={() => removeGuestComment(commentTarget, comment.id)}>×</button>}</header>
           <p>{comment.text}</p>
         </article>)}
       </div>

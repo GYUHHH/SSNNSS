@@ -1,7 +1,7 @@
 import { useRoomStore } from '../store'
 import { myVisitorId } from '../services/social'
 import { timeAgo } from '../services/timeAgo'
-import CommentAvatar from './CommentAvatar'
+import CommentAvatar, { CommentName } from './CommentAvatar'
 
 // The badge's popup: everything other people left on this object — like count and their comments.
 export default function ReactionPopup() {
@@ -21,7 +21,7 @@ export default function ReactionPopup() {
       {comments.length > 0 && <div className="reaction-comments">
         {comments.map((comment) => <article key={comment.id} className="comment-item">
           <CommentAvatar name={comment.name} photo={comment.photo} />
-          <header><b>{comment.name}</b><time>{timeAgo(comment.createdAt)}</time></header>
+          <header><CommentName name={comment.name} /><time>{timeAgo(comment.createdAt)}</time></header>
           <p>{comment.text}</p>
         </article>)}
       </div>}
