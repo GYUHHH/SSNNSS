@@ -12,7 +12,7 @@ import { type FurnitureItem, useOptionalRoomStore, useRoomStore } from '../store
 import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
 import { PRETENDARD_WOFF } from '../services/fonts'
-import { getVideo, loadClipUrls } from '../services/mediaStore'
+import { getVideo, loadClipUrls, registerClipPlayer } from '../services/mediaStore'
 import { playlistVideoResume } from '../services/ytResume'
 import { Swing } from './motion'
 
@@ -570,6 +570,7 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
     let live = true
     let url: string | null = null
     let element: HTMLVideoElement | null = null
+    let unregister = () => {}
     setTexture(null)
     const start = (source: string) => {
       element = document.createElement('video')
@@ -578,6 +579,7 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
       element.muted = true
       element.playsInline = true
       element.crossOrigin = 'anonymous'
+      unregister = registerClipPlayer(id, element)
       element.play().catch(() => { /* autoplay may wait for a gesture */ })
       const video = new VideoTexture(element)
       video.colorSpace = SRGBColorSpace
@@ -600,6 +602,7 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
     })
     return () => {
       live = false
+      unregister()
       element?.pause()
       if (url) URL.revokeObjectURL(url)
     }

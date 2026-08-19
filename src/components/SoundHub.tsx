@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { useRoomStore } from '../store'
+import { loadAudioPrefs, useRoomStore } from '../store'
 import { setExternalHover } from './Interactive'
+import { loadClipUrls } from '../services/mediaStore'
 
 function SpeakerIcon({ muted, size }: { muted: boolean; size: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -14,7 +15,7 @@ function SpeakerIcon({ muted, size }: { muted: boolean; size: number }) {
 // One screen-fixed sound button (bottom center of the viewport, not tied to the room) that opens a list of
 // every playing wall video, each with its own mute toggle. Hovering a row spotlights its frame in the room.
 export default function SoundHub() {
-  const { playingFrames, mutedFrames, setFrameMuted, furniture, mode } = useRoomStore()
+  const { playingFrames, mutedFrames, setFrameMuted, furniture, mode, videoFrames, videoLinks, activeRoomId } = useRoomStore()
   const [open, setOpen] = useState(false)
   const hub = useRef<HTMLDivElement>(null)
   // clicking anywhere outside the hub closes the list
@@ -47,18 +48,21 @@ export default function SoundHub() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
-  const frames = playingFrames.map((id) => furniture.find((item) => item.id === id && !item.removed)).flatMap((item) => item ? [item] : [])
+  const clipIds = new Set([...Object.keys(videoFrames), ...Object.keys(loadClipUrls())])
+  const audioPrefs = loadAudioPrefs(activeRoomId)
+  const frames = [...new Set([...playingFrames, ...clipIds])].map((id) => furniture.find((item) => item.id === id && !item.removed && item.type.startsWith('video-frame'))).flatMap((item) => item ? [item] : [])
   if (!frames.length || mode === 'edit') return null
-  const anySound = frames.some((item) => !mutedFrames.includes(item.id))
+  const muted = (id: string) => !videoLinks[id] ? mutedFrames.includes(id) || audioPrefs[id] !== true : mutedFrames.includes(id)
+  const anySound = frames.some((item) => !muted(item.id))
   const toggle = (id: string, muted: boolean) => setFrameMuted(id, !muted)
   return <div ref={hub} className="sound-hub">
     {open && <ul className="sound-hub-list" aria-label="영상 소리">
       {frames.map((item, index) => {
-        const muted = mutedFrames.includes(item.id)
+        const isMuted = muted(item.id)
         return <li key={item.id}>
-          <button type="button" className={muted ? 'muted' : ''} onClick={() => toggle(item.id, muted)}
+          <button type="button" className={isMuted ? 'muted' : ''} onClick={() => toggle(item.id, isMuted)}
             onMouseEnter={() => setExternalHover(item.id)} onMouseLeave={() => setExternalHover(null)}>
-            <SpeakerIcon muted={muted} size={20} />
+            <SpeakerIcon muted={isMuted} size={20} />
             <span>{item.name}{frames.filter((other) => other.type === item.type).length > 1 ? ` ${frames.filter((other, at) => other.type === item.type && at <= index).length}` : ''}</span>
           </button>
         </li>

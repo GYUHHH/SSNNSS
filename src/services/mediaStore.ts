@@ -4,6 +4,18 @@ import { isReadingBundle, isVisiting, readStored, uploadMedia, writeStored } fro
 // down with it), so they live in IndexedDB as blobs keyed by the frame's furniture id.
 const dbName = 'my-room-media'
 const storeName = 'videos'
+const clipPlayers = new Map<string, HTMLVideoElement>()
+
+export const registerClipPlayer = (id: string, player: HTMLVideoElement) => {
+  clipPlayers.set(id, player)
+  return () => { if (clipPlayers.get(id) === player) clipPlayers.delete(id) }
+}
+export const setClipMuted = (id: string, muted: boolean) => {
+  const player = clipPlayers.get(id)
+  if (!player) return
+  player.muted = muted
+  if (!muted) { player.volume = .7; void player.play().catch(() => { player.muted = true }) }
+}
 
 const open = (): Promise<IDBDatabase> => new Promise((resolve, reject) => {
   const request = indexedDB.open(dbName, 1)

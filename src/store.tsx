@@ -4,7 +4,7 @@ import { bookshelfCapY, bookshelfTiers, canPlaceItem, cellsFor, clampGrid, floor
 import { characterPosition } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
 import { loadOrders } from './services/playlistOrder'
-import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, syncPendingClips, encodeTarget, youTubeTarget } from './services/mediaStore'
+import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, setClipMuted, syncPendingClips, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic, syncPendingTracks } from './services/music'
 import { purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myProfilePhoto, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, removeStored, subscribeRealtime, uploadMedia, writeStored, type RemoteGuestComment } from './services/social'
 import { cancelSoundRequest, muteFrame, requestSound } from './services/ytResume'
@@ -367,7 +367,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   // persist=false changes only the live player state (master mute, browser retry, etc.).
   const setFrameMuted = (id: string, muted: boolean, persist = true) => {
     applyFrameMuted(id, muted)
-    if (muted) { cancelSoundRequest(id); muteFrame(id) }
+    if (!videoLinks[id]) setClipMuted(id, muted)
+    else if (muted) { cancelSoundRequest(id); muteFrame(id) }
     else requestSound(id, () => applyFrameMuted(id, true), () => applyFrameMuted(id, false))
     if (persist) saveAudioPref(activeRoomId, id, !muted)
   }
