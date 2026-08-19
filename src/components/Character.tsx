@@ -80,7 +80,7 @@ export default function Character({ appearance: customAppearance }: { appearance
   // resting anything at y=0 clips into it), legs swung fully horizontal so calves/feet also stay above 0.035
   // seated y=-0.56 puts the pelvis (local y .56) exactly AT the seat anchor height — the anchor itself is the
   // seat's physical top, so the butt rests on it instead of hovering
-  const pose = resting ? { y: 0, rotation: [-Math.PI / 2, 0, 0] as [number, number, number], legBend: 0 } : floorSitting ? { y: -0.47, rotation: [0, 0, 0] as [number, number, number], legBend: -Math.PI / 2 } : seated ? { y: -0.56, rotation: [0, 0, 0] as [number, number, number], legBend: -1.15 } : { y: 0, rotation: [0, 0, 0] as [number, number, number], legBend: 0 }
+  const pose = resting ? { y: 0, rotation: [-Math.PI / 2, 0, 0] as [number, number, number], legBend: 0 } : floorSitting ? { y: -0.47, rotation: [0, 0, 0] as [number, number, number], legBend: -Math.PI / 2 } : seated ? { y: -0.56, rotation: [0, 0, 0] as [number, number, number], legBend: -Math.PI / 2 } : { y: 0, rotation: [0, 0, 0] as [number, number, number], legBend: 0 }
 
   useFrame((_, delta) => {
     if (!actor.current) return
