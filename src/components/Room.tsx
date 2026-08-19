@@ -254,6 +254,7 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
   const materials = useRef<Faded[]>([])
   const glow = useRef(0)
   const press = useRef<{ x: number; y: number; pointerId: number } | null>(null)
+  const openedAt = useRef(0)
   // The lobby — the default room a signed-out visitor starts in — has no server bundle to wait for: an empty
   // bundle IS its look. Without this the cell went permanently blank the moment such a visitor entered a real
   // room, because the room they had just come from could never be drawn as a neighbour.
@@ -364,8 +365,9 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
   })
   return <group ref={group} position={slot.position} visible={false}
     onPointerDown={(event) => { if (opacity.current >= .65) press.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId } }}
-    onPointerMove={(event) => { if (press.current?.pointerId === event.pointerId && Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 10) press.current = null }}
-    onPointerUp={(event) => { const down = press.current; press.current = null; if (!down || down.pointerId !== event.pointerId || opacity.current < .65) return; event.stopPropagation(); open() }}
+    onPointerMove={(event) => { if (press.current?.pointerId === event.pointerId && Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 18) press.current = null }}
+    onPointerUp={(event) => { const down = press.current; press.current = null; if (!down || down.pointerId !== event.pointerId || opacity.current < .65) return; openedAt.current = performance.now(); event.stopPropagation(); open() }}
+    onClick={(event) => { if (performance.now() - openedAt.current < 500 || opacity.current < .65 || event.delta > 18) return; event.stopPropagation(); open() }}
     onPointerCancel={() => { press.current = null }}>
     {/* its own boundary: a neighbour's font or texture must never suspend the live room out of view */}
     <Suspense fallback={null}>

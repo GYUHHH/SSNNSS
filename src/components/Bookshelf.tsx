@@ -43,7 +43,7 @@ export default function Bookshelf() {
 
 function DiaryBook({ book, index, slot, floorY }: { book: Book; index: number; slot: number; floorY: number }) {
   const [hovered, setHovered] = useState(false)
-  const { mode, selectFurniture, openBook } = useRoomStore()
+  const { readOnly, mode, selectFurniture, openBook } = useRoomStore()
   useCursor(hovered)
   const { width, height, depth } = bookDims(index)
   const gap = SHELF_INNER_WIDTH / BOOKS_PER_SHELF
@@ -52,9 +52,9 @@ function DiaryBook({ book, index, slot, floorY }: { book: Book; index: number; s
   const z = 0.16
   return <group
     position={[x, y, hovered ? z + 0.05 : z]}
-    onPointerOver={(event) => { event.stopPropagation(); setHovered(true) }}
+    onPointerOver={(event) => { if (readOnly) return; event.stopPropagation(); setHovered(true) }}
     onPointerOut={() => setHovered(false)}
-    onClick={(event) => { event.stopPropagation(); mode === 'edit' ? selectFurniture('bookshelf') : openBook(book.id) }}
+    onClick={(event) => { if (readOnly) return; event.stopPropagation(); mode === 'edit' ? selectFurniture('bookshelf') : openBook(book.id) }}
   >
     <mesh castShadow><boxGeometry args={[width, height, depth]} /><meshStandardMaterial color={book.coverColor} roughness={0.8} emissive={hovered ? book.coverColor : '#000000'} emissiveIntensity={hovered ? 0.25 : 0} /></mesh>
     <Text font={PRETENDARD_WOFF} position={[0, 0, depth / 2 + 0.004]} rotation={[0, 0, Math.PI / 2]} fontSize={0.045} maxWidth={height * 0.85} color={palette.linen} anchorX="center" anchorY="middle" overflowWrap="break-word">{book.title.length > 8 ? `${book.title.slice(0, 8)}…` : book.title}</Text>
