@@ -74,17 +74,19 @@ const loadPlayerApi = () => apiReady ??= new Promise<YouTubeApi>((resolve) => {
 
 const snapshotOfficialPlayer = (frameId: string) => {
   const entry = apiPlayers[frameId]
-  if (!entry?.ready || !entry.restored()) return false
-  const time = entry.player.getCurrentTime()
-  if (!Number.isFinite(time)) return false
-  const state = entry.player.getPlayerState()
-  const video = entry.player.getVideoData()?.video_id
-  const rate = entry.player.getPlaybackRate() || 1
-  videoResume[frameId] = time
-  if (video) playlistVideoResume[frameId] = video
-  framePlayerStates[frameId] = state
-  frameClocks[frameId] = { time, at: performance.now(), state, rate, video: video || undefined }
-  return true
+  if (!entry?.restored()) return false
+  try {
+    const time = entry.player.getCurrentTime()
+    const state = entry.player.getPlayerState()
+    const video = entry.player.getVideoData()?.video_id
+    if (!Number.isFinite(time) || !video || ![1, 2, 3].includes(state)) return false
+    const rate = entry.player.getPlaybackRate() || 1
+    videoResume[frameId] = time
+    playlistVideoResume[frameId] = video
+    framePlayerStates[frameId] = state
+    frameClocks[frameId] = { time, at: performance.now(), state, rate, video }
+    return true
+  } catch { return false }
 }
 
 function flushLiveResume() {
