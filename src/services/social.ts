@@ -71,7 +71,8 @@ const clearRoomCache = () => {
   ownerPersisted = false
   dirtyKeys.clear()
   deletedKeys.clear()
-  try { for (let index = localStorage.length - 1; index >= 0; index--) { const key = localStorage.key(index); if (key?.startsWith('my-room-')) localStorage.removeItem(key) } } catch { /* storage may be unavailable */ }
+  const playbackMemory = new Set(['my-room-video-audio-v1', 'my-room-video-resume-v1', 'my-room-clip-resume-v1'])
+  try { for (let index = localStorage.length - 1; index >= 0; index--) { const key = localStorage.key(index); if (key?.startsWith('my-room-') && !playbackMemory.has(key)) localStorage.removeItem(key) } } catch { /* storage may be unavailable */ }
 }
 
 // Drawing a neighbour's room needs that room's own storage, not this one's. Every content read in the app funnels
