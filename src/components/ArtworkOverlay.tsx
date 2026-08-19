@@ -1,6 +1,6 @@
 import { timeAgo } from '../services/timeAgo'
 import { autosize } from '../services/autosize'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRoomStore } from '../store'
 import { ClipPreview, DrawingEditor, PhotoPickButton, PlaylistOrderEditor, VideoLinkInput, VideoPickButton } from './ArtEditor'
 import { isVisiting, myVisitorId, requireHandle } from '../services/social'
@@ -22,7 +22,6 @@ export default function ArtworkOverlay() {
   if (kind === 'guestbook') return <Guestbook id={selectedObject} />
   if (kind === 'video') return <>
     <header>{!isVisiting() && videoStep !== 'choose' && <button className="diary-back" type="button" aria-label="이전" onClick={() => setVideoStep('choose')}>←</button>}<strong>{item?.name ?? '영상 액자'}</strong></header>
-    {videoLinks[selectedObject] && <DockSpace />}
     <ClipPreview id={selectedObject} />
     {!isVisiting() && <>
       {videoLinks[selectedObject]?.startsWith('pl:') && <PlaylistOrderEditor id={selectedObject} />}
@@ -74,41 +73,4 @@ function Guestbook({ id }: { id: string }) {
       </article>)}
     </div>
   </>
-}
-
-// The player is fixed-position — moving it in the DOM would reload the video — so instead the panel measures the
-// gap it leaves and hands the coordinates over, keeping the two exactly aligned on any screen.
-function DockSpace() {
-  const space = useRef<HTMLDivElement>(null)
-  useLayoutEffect(() => {
-    const element = space.current
-    if (!element) return
-    const apply = () => {
-      const box = element.getBoundingClientRect()
-      const style = document.documentElement.style
-      style.setProperty('--yt-dock-top', `${box.top}px`)
-      style.setProperty('--yt-dock-left', `${box.left}px`)
-      style.setProperty('--yt-dock-width', `${box.width}px`)
-    }
-    apply()
-    const observer = new ResizeObserver(apply)
-    observer.observe(element)
-    window.addEventListener('resize', apply)
-    const panel = element.closest('.art-panel')
-    panel?.addEventListener('scroll', apply)
-    panel?.addEventListener('transitionend', apply)
-    const until = performance.now() + 700
-    let frame = requestAnimationFrame(function follow() {
-      apply()
-      if (performance.now() < until) frame = requestAnimationFrame(follow)
-    })
-    return () => {
-      cancelAnimationFrame(frame)
-      observer.disconnect()
-      window.removeEventListener('resize', apply)
-      panel?.removeEventListener('scroll', apply)
-      panel?.removeEventListener('transitionend', apply)
-    }
-  }, [])
-  return <div ref={space} className="yt-dock-space" aria-hidden />
 }
