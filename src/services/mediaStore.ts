@@ -5,6 +5,24 @@ import { isReadingBundle, isVisiting, readStored, uploadMedia, writeStored } fro
 const dbName = 'my-room-media'
 const storeName = 'videos'
 const clipPlayers = new Map<string, HTMLVideoElement>()
+const clipResumeKey = 'my-room-clip-resume-v1'
+const clipResume: Record<string, number> = (() => {
+  try { return JSON.parse(localStorage.getItem(clipResumeKey) ?? '{}') } catch { return {} }
+})()
+let clipResumeTimer: ReturnType<typeof setTimeout> | undefined
+const flushClipResume = () => {
+  clearTimeout(clipResumeTimer)
+  clipResumeTimer = undefined
+  try { localStorage.setItem(clipResumeKey, JSON.stringify(clipResume)) } catch { /* storage unavailable */ }
+}
+export const clipSessionKey = (handle: string | null, id: string) => `${handle ?? 'lobby'}:${id}`
+export const clipResumeAt = (key: string) => clipResume[key] ?? 0
+export const rememberClipAt = (key: string, time: number, immediate = false) => {
+  clipResume[key] = time
+  if (immediate) return flushClipResume()
+  if (!clipResumeTimer) clipResumeTimer = setTimeout(flushClipResume, 1000)
+}
+window.addEventListener('pagehide', flushClipResume)
 
 export const registerClipPlayer = (id: string, player: HTMLVideoElement) => {
   clipPlayers.set(id, player)
