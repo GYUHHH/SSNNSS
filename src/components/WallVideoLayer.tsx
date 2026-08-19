@@ -57,7 +57,7 @@ export function videoAspect(id: string): Promise<number | null> {
 }
 
 export default function WallVideoLayer() {
-  const { playingFrames, setFrameMuted, videoLinks, activeRoomId, currentHandle, furniture, videoFrames } = useRoomStore()
+  const { playingFrames, mutedFrames, setFrameMuted, videoLinks, activeRoomId, currentHandle, selectedObject, furniture, videoFrames } = useRoomStore()
   const clipIds = new Set([...Object.keys(videoFrames), ...Object.keys(loadClipUrls())])
   const directFrames = furniture.filter((item) => !item.removed && item.type.startsWith('video-frame') && !videoLinks[item.id] && clipIds.has(item.id)).map((item) => item.id)
   // one order-keeper per playing playlist frame, alive across wall<->panel switches (it follows whichever
@@ -69,6 +69,13 @@ export default function WallVideoLayer() {
       .map((entry) => watchPlaylistOrder(entry.id, entry.link.slice(3).split('@')[0]))
     return () => stops.forEach((stop) => stop())
   }, [playingFrames, videoLinks])
+  // Closing the panel replaces its iframe with the wall iframe. The replacement always boots muted, so reapply
+  // only the sound choices that were already on after the wall player has mounted.
+  useEffect(() => {
+    if (typeof selectedObject === 'string' && playingFrames.includes(selectedObject)) return
+    const retry = window.setTimeout(() => playingFrames.filter((id) => !mutedFrames.includes(id)).forEach((id) => setFrameMuted(id, false, false)))
+    return () => window.clearTimeout(retry)
+  }, [selectedObject, playingFrames, mutedFrames, setFrameMuted])
   // A page gesture may unlock sound, but it never decides which videos should make sound. Only frames the
   // visitor explicitly enabled before are retried, and that retry does not rewrite the saved preference.
   const latest = useRef({ playingFrames, directFrames, setFrameMuted, activeRoomId })
