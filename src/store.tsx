@@ -7,7 +7,7 @@ import { loadOrders } from './services/playlistOrder'
 import { deleteVideo, listVideoIds, loadClipUrls, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, setClipMuted, syncPendingClips, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic, syncPendingTracks } from './services/music'
 import { purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myProfilePhoto, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, removeStored, subscribeRealtime, uploadMedia, writeStored, type RemoteGuestComment } from './services/social'
-import { cancelSoundRequest, muteFrame, requestSound } from './services/ytResume'
+import { cancelSoundRequest, muteFrame, requestSound, snapshotActiveFrames, snapshotFrame } from './services/ytResume'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id, photo: row.photo })
 
@@ -422,7 +422,11 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }), [furniture, shelfTierCount])
   const persist = (next: FurnitureItem[]) => saveSlotItems(activeRoomId, next.map(toPlacement))
   const commit = (next: FurnitureItem[], previous = furniture) => { if (!same(next, previous)) setHistory((items) => [...items.slice(-19), previous]); setFurniture(next); persist(next) }
-  const clearSelection = () => { setSelectedObject(null); setStyleTarget(null); setFloorTarget(null); setCupHeld(false); setBookshelfOpen(false); setOpenBookId(null); setSelectedFurnitureId(null) }
+  const clearSelection = () => {
+    const clear = () => { setSelectedObject(null); setStyleTarget(null); setFloorTarget(null); setCupHeld(false); setBookshelfOpen(false); setOpenBookId(null); setSelectedFurnitureId(null) }
+    if (typeof selectedObject === 'string' && playingFrames.includes(selectedObject)) void snapshotFrame(selectedObject).then(clear)
+    else clear()
+  }
   // One panel at a time. Every opener used to clear only the pieces it happened to know about, so a panel left
   // showing — the bookshelf, the profile card, a comment box — stayed on screen beside whatever was opened next.
   // Anything that opens something calls this first, and gaining a new panel can never leave an old one behind.
@@ -839,7 +843,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const markReactionsSeen = (id: FurnitureId) => { markReactionSeen(id, countReactions(reactionIdsFor(id))); setSeenTick((value) => value + 1) }
   // you own one of each, wherever it stands — a piece placed in another room is not available in this one
   const availableCount = (type: string) => Math.max(0, ownedCountOf(type) - furniture.filter((item) => item.type === type && !item.removed).length - (placedElsewhere[type] ?? 0))
-  const openRoom = (id: string) => {
+  const applyRoom = (id: string) => {
     setActiveSlot(id)
     setActiveRoomId(id)
     const items = hydrateFurniture(slotItems(id))
@@ -856,6 +860,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     setMode('normal'); setSelectedObject(null); setSelectedFurnitureId(null); setStyleTarget(null)
     setBookshelfOpen(false); setOpenBookId(null); setFloorTarget(null); setCharacterState('idle')
   }
+  const openRoom = (id: string) => { void snapshotActiveFrames().then(() => applyRoom(id)) }
   // a new room starts bare: your furniture is still standing wherever you left it
   const createRoom = () => {
     if (rooms.length >= MAX_ROOMS) return
@@ -885,7 +890,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       if (url) setArtworks((prev) => prev[id] === dataURL ? { ...prev, [id]: url } : prev)
     })
   }
-  return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, profile, profileOpen, openProfile: () => setProfileOpen(true), closeProfile: () => setProfileOpen(false), setProfilePhoto, setProfileHandle, videoFrames, videoClips: loadClipUrls(), setVideoClip, videoLinks, setVideoLink, playingFrames, stopFrame: (id: string) => setPlayingFrames((prev) => prev.filter((value) => value !== id)), mutedFrames, setFrameMuted, highlightFrame, setHighlightFrame, openVideoPanel: (id: string) => { if (isVisiting()) return; setFrameMuted(id, false); closePanels(); setSelectedObject(id) }, rooms, activeRoomId, openRoom, createRoom, removeRoom, availableCount, guestbook, addGuestComment, removeGuestComment, remoteVisits, othersLikes, likeTotals, myLikes, pendingReactions, markReactionsSeen, openObject, reactionIdsFor, reactionTarget, setReactionTarget, commentTarget, setCommentTarget, timeOfDay, setTimeOfDay, books: visibleBooks, openBookId, bookshelfOpen, readOnly: false, characterHome: characterSnapshot.position, characterPose: characterSnapshot, characterWritable: !isVisiting(), characterLook, setCharacterLook, currentHandle, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, setMusicVolume, musicVolume, selectObject, clearSelection, finishCharacterAction, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject('bookshelf'); setBookshelfOpen(true) }, addBook, deleteBook, updateBook, addEntry, deleteEntry, updateEntry, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
+  return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, profile, profileOpen, openProfile: () => setProfileOpen(true), closeProfile: () => setProfileOpen(false), setProfilePhoto, setProfileHandle, videoFrames, videoClips: loadClipUrls(), setVideoClip, videoLinks, setVideoLink, playingFrames, stopFrame: (id: string) => setPlayingFrames((prev) => prev.filter((value) => value !== id)), mutedFrames, setFrameMuted, highlightFrame, setHighlightFrame, openVideoPanel: (id: string) => { if (isVisiting()) return; void snapshotFrame(id).then(() => { setFrameMuted(id, false); closePanels(); setSelectedObject(id) }) }, rooms, activeRoomId, openRoom, createRoom, removeRoom, availableCount, guestbook, addGuestComment, removeGuestComment, remoteVisits, othersLikes, likeTotals, myLikes, pendingReactions, markReactionsSeen, openObject, reactionIdsFor, reactionTarget, setReactionTarget, commentTarget, setCommentTarget, timeOfDay, setTimeOfDay, books: visibleBooks, openBookId, bookshelfOpen, readOnly: false, characterHome: characterSnapshot.position, characterPose: characterSnapshot, characterWritable: !isVisiting(), characterLook, setCharacterLook, currentHandle, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, setMusicVolume, musicVolume, selectObject, clearSelection, finishCharacterAction, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject('bookshelf'); setBookshelfOpen(true) }, addBook, deleteBook, updateBook, addEntry, deleteEntry, updateEntry, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
 }
 // A neighbour room in the zoom-out explorer, drawn from that room's own published bundle with the SAME furniture
 // components as the live room — so it is the real room, not a stand-in. Read-only by construction: there is no

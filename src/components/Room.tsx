@@ -4,6 +4,7 @@ import { type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, 
 import { type AmbientLight, Color, type DirectionalLight, type Group, type Material, MathUtils, type Mesh, Vector3 } from 'three'
 import { NeighbourRoomProvider, useRoomStore } from '../store'
 import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDirectory, isSignedIn, myHandle, subscribeRoomBundles } from '../services/social'
+import { snapshotActiveFrames } from '../services/ytResume'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
 import CameraController, { entryZoom, exploreMinZoom } from './CameraController'
@@ -481,8 +482,9 @@ function RoomWorld() {
     // the clicked room becomes the pick, so the highlight and the fade exemption follow the room actually entered
     picked.current = slot
     // the lobby is not on the server — going back to it is a local reset that walks the same listener path
-    if (slot.handle === LOBBY) { enterLobby(); requestedEntry.current = false; return }
+    if (slot.handle === LOBBY) { await snapshotActiveFrames(); enterLobby(); requestedEntry.current = false; return }
     opening.current = true
+    await snapshotActiveFrames()
     await enterRoom(slot.handle)
     opening.current = false
     requestedEntry.current = false

@@ -50,7 +50,31 @@ const skipRun: Record<string, Set<string>> = {}
 // the live iframe per frame, so playlist controls can reach the player that is actually on the wall
 const activeIframes: Record<string, HTMLIFrameElement> = {}
 const soundRequestCancels: Record<string, () => void> = {}
+const snapshotRequests: Record<string, Set<() => void>> = {}
 export const cancelSoundRequest = (frameId: string) => soundRequestCancels[frameId]?.()
+
+// Read the live player once before React replaces its iframe. Passive infoDelivery can be several seconds
+// behind during a fresh embed, which made a quick wall -> panel -> wall switch reopen at an older position.
+export function snapshotFrame(frameId: string): Promise<void> {
+  const iframe = activeIframes[frameId]
+  if (!iframe) { flushResume(); return Promise.resolve() }
+  return new Promise((resolve) => {
+    const requests = (snapshotRequests[frameId] ??= new Set())
+    let timer: ReturnType<typeof setTimeout>
+    const finish = () => {
+      clearTimeout(timer)
+      requests.delete(finish)
+      if (!requests.size) delete snapshotRequests[frameId]
+      flushResume()
+      resolve()
+    }
+    requests.add(finish)
+    timer = setTimeout(finish, 800)
+    iframe.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: frameId }), '*')
+  })
+}
+
+export const snapshotActiveFrames = () => Promise.all(Object.keys(activeIframes).map(snapshotFrame)).then(() => undefined)
 
 export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => void {
   // The widget module inside the embed boots asynchronously after the document loads, so a one-shot
@@ -66,7 +90,7 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
   // seeked back to the saved spot if it came up somewhere else.
   const resumeAt = Math.max(0, Math.floor(storedResumeAt(frameId) ?? 0))
   const resumeVideo = storedPlaylistVideo(frameId)
-  let seeked = false
+  let restored = resumeAt === 0 && !resumeVideo
   let kicks = 0
   let kickTimer: ReturnType<typeof setTimeout> | undefined
   // Kicks repeat: one playVideo is not always enough — an embed served in click-to-play mode can swallow
@@ -80,20 +104,35 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
     try {
       const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
       const currentTime = data?.info?.currentTime
-      if (typeof currentTime === 'number') { videoResume[frameId] = currentTime; data?.info?.playerState === 2 ? flushResume() : persist() }
+      const currentVideo = data?.info?.videoData?.video_id
+      const validVideo = typeof currentVideo === 'string' && currentVideo && currentVideo !== 'videoseries' ? currentVideo : undefined
+      const sameVideo = !resumeVideo || !validVideo || validVideo === resumeVideo
+      if (!restored && resumeVideo && validVideo && validVideo !== resumeVideo) {
+        const playlist = data?.info?.playlist
+        const index = Array.isArray(playlist) ? playlist.indexOf(resumeVideo) : -1
+        if (index >= 0) { command(frameId, 'playVideoAt', [index]); armKick() }
+      } else if (!restored && sameVideo && typeof currentTime === 'number') {
+        if (Math.abs(currentTime - resumeAt) <= 2) restored = true
+        else { if (resumeAt > 0) command(frameId, 'seekTo', [resumeAt, true]); command(frameId, 'playVideo'); armKick() }
+      }
+      // A replacement iframe may initially report 0 or an unrelated playlist item. Keep the last good
+      // position immutable until the requested video and seek have both been observed.
+      if (restored && typeof currentTime === 'number') {
+        videoResume[frameId] = currentTime
+        if (validVideo) playlistVideoResume[frameId] = validVideo
+        data?.info?.playerState === 2 ? flushResume() : persist()
+        snapshotRequests[frameId]?.forEach((finish) => finish())
+      }
       if (typeof data?.info?.playerState === 'number') {
         framePlayerStates[frameId] = data.info.playerState
         // something played, so the run of failures is over and a later dud may skip afresh
         if (data.info.playerState === 1) delete skipRun[frameId]
         // -1 unstarted / 5 cued = autoplay refused; anything else calls the kick off (2 = a real pause stays paused)
-        if (data.info.playerState === -1 || data.info.playerState === 5) armKick()
-        else cancelKick()
-        if (data.info.playerState === 1 && !seeked) {
-          seeked = true
-          // only back onto the SAME video — a playlist that already skipped to another track keeps its place
-          const sameVideo = !resumeVideo || playlistVideoResume[frameId] === resumeVideo
-          if (resumeAt > 0 && sameVideo && typeof currentTime === 'number' && Math.abs(currentTime - resumeAt) > 3) command(frameId, 'seekTo', [resumeAt, true])
+        if (!restored || data.info.playerState === -1 || data.info.playerState === 5) {
+          if (resumeAt > 0 && sameVideo) command(frameId, 'seekTo', [resumeAt, true])
+          armKick()
         }
+        else cancelKick()
       }
       if (data?.event === 'onError' || typeof data?.info?.errorCode === 'number') {
         const failed = playlistVideoResume[frameId]
@@ -106,11 +145,10 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
         command(frameId, 'nextVideo')
         return
       }
-      const currentVideo = data?.info?.videoData?.video_id
-      if (typeof currentVideo === 'string' && currentVideo && currentVideo !== 'videoseries') {
+      if (validVideo && (restored || !resumeVideo)) {
         // a new video can bring its own captions back on, so drop them again whenever the track changes
-        if (playlistVideoResume[frameId] !== currentVideo) captionsCleared.delete(frameId)
-        playlistVideoResume[frameId] = currentVideo
+        if (playlistVideoResume[frameId] !== validVideo) captionsCleared.delete(frameId)
+        playlistVideoResume[frameId] = validVideo
         persist()
       }
       // onApiChange is the moment YouTube reports a module with an exposed API has just been LOADED — which
@@ -134,6 +172,7 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
     flushResume()
     clearInterval(helloTimer)
     clearTimeout(kickTimer)
+    snapshotRequests[frameId]?.forEach((finish) => finish())
     window.removeEventListener('message', onMessage)
     iframe.removeEventListener('load', hello)
     if (activeIframes[frameId] === iframe) delete activeIframes[frameId]
