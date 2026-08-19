@@ -37,17 +37,6 @@ export function interactionAnchorsFor(item: FurnitureItem, typeOverride?: Intera
     approach: { position: [0, 0, .75], rotation: 0 },
     action: { position: [0, topHeight(item) - .02, .12], rotation: 0 },
   }
-  // the room camera never moves, so a mirror only shows you when you stand OFF to one side — dead centre puts
-  // your reflection outside the frame. Solve for the offset that lands it in the glass from that fixed view.
-  if (item.type === 'mirror') {
-    const distance = item.footprint.depth * GRID_SIZE / 2 + .5
-    const yaw = item.rotation[1]
-    const localX = VIEW_DIR.x * Math.cos(yaw) - VIEW_DIR.z * Math.sin(yaw)
-    const localZ = VIEW_DIR.x * Math.sin(yaw) + VIEW_DIR.z * Math.cos(yaw)
-    const offset = localZ < -.1 ? Math.max(-1.3, Math.min(1.3, -distance * (localX / localZ) * 1.35)) : 0
-    const anchor: LocalInteractionAnchor = { position: [offset, 0, distance], rotation: 0 }
-    return { type: 'interact', approach: anchor, action: anchor }
-  }
   if (item.type === 'rocking-chair' || item.type === 'beanbag') return {
     type: 'sit',
     approach: { position: [0, 0, .75], rotation: 0 },
@@ -72,8 +61,6 @@ const nearestChair = (desk: FurnitureItem, furniture: FurnitureItem[]) => furnit
   .sort((a, b) => new Vector3(...a.position).distanceToSquared(new Vector3(...desk.position)) - new Vector3(...b.position).distanceToSquared(new Vector3(...desk.position)))[0]
 const facePosition = (from: [number, number, number], to: [number, number, number]) => Math.atan2(to[0] - from[0], to[2] - from[2])
 
-// matches CameraController's fixed viewpoint
-const VIEW_DIR = new Vector3(-9.5, -5, -10).normalize()
 const CELL = { width: 1, depth: 1 }
 // the configured approach anchor assumes an empty room — if furniture now covers that spot, or a moved/rotated
 // target pushed it outside the floor grid, snap it to the nearest free in-bounds cell around the target so the
