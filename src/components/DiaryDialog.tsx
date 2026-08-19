@@ -126,12 +126,12 @@ function EntryComments({ entry, inputRef }: { entry: Entry; inputRef: React.RefO
   const comments = guestbook[entry.id] ?? []
   const mine = myVisitorId()
   const submit = (event: FormEvent) => { event.preventDefault(); if (!text.trim() || !requireHandle()) return; addGuestComment(entry.id, text.trim()); setText(''); if (inputRef.current) inputRef.current.style.height = 'auto' }
-  return <section className="entry-comments" aria-label="댓글">
+  return <section className="entry-comments comment-ui" aria-label="댓글">
     <form className="entry-comment-form" onSubmit={submit}>
       <textarea ref={inputRef} rows={1} maxLength={200} value={text} onChange={(event) => { setText(event.target.value); autosize(event.currentTarget) }} placeholder="댓글" />
       <button type="submit">전송</button>
     </form>
-    <div className="entry-comment-list">{comments.map((comment) => <article key={comment.id} className="entry-comment"><header><strong>{comment.name}</strong><time>{timeAgo(comment.createdAt)}</time>{(!isVisiting() || comment.visitor === mine) && <button type="button" aria-label="댓글 삭제" onClick={() => removeGuestComment(entry.id, comment.id)}>×</button>}</header><p>{comment.text}</p></article>)}</div>
+    <div className="entry-comment-list">{comments.map((comment) => <article key={comment.id} className="entry-comment comment-item"><header><strong>{comment.name}</strong><time>{timeAgo(comment.createdAt)}</time>{(!isVisiting() || comment.visitor === mine) && <button type="button" aria-label="댓글 삭제" onClick={() => removeGuestComment(entry.id, comment.id)}>×</button>}</header><p>{comment.text}</p></article>)}</div>
   </section>
 }
 

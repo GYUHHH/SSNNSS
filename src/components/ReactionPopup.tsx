@@ -14,12 +14,12 @@ export default function ReactionPopup() {
   const comments = ids.flatMap((id) => (guestbook[id] ?? []).filter((comment) => comment.visitor && comment.visitor !== mine))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setReactionTarget(null)}>
-    <section className="reaction-card" aria-label="반응">
+    <section className="reaction-card comment-ui" aria-label="반응">
       <button className="close-ui" type="button" aria-label="닫기" onClick={() => setReactionTarget(null)}>×</button>
       <strong>{item?.name ?? ''}</strong>
       {likeCount > 0 && <p className="reaction-likes">♥ {likeCount}</p>}
       {comments.length > 0 && <div className="reaction-comments">
-        {comments.map((comment) => <article key={comment.id}>
+        {comments.map((comment) => <article key={comment.id} className="comment-item">
           <header><b>{comment.name}</b><time>{timeAgo(comment.createdAt)}</time></header>
           <p>{comment.text}</p>
         </article>)}

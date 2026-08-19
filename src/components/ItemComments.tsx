@@ -15,7 +15,7 @@ export default function ItemComments() {
   const mine = myVisitorId()
   const submit = () => { if (!text.trim() || !requireHandle()) return; addGuestComment(commentTarget, text.trim()); setText('') }
   return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setCommentTarget(null)}>
-    <section className="reaction-card" aria-label="댓글">
+    <section className="reaction-card comment-ui" aria-label="댓글">
       <button className="close-ui" type="button" aria-label="닫기" onClick={() => setCommentTarget(null)}>×</button>
       <strong>{item?.name ?? ''}</strong>
       <div className="guest-form">
@@ -23,7 +23,7 @@ export default function ItemComments() {
         <button type="button" onClick={submit}>남기기</button>
       </div>
       <div className="guest-list">
-        {comments.map((comment) => <article key={comment.id} className="guest-note">
+        {comments.map((comment) => <article key={comment.id} className="guest-note comment-item">
           <header><strong>{comment.name}</strong><time>{timeAgo(comment.createdAt)}</time>{(!isVisiting() || comment.visitor === mine) && <button type="button" aria-label="삭제" onClick={() => removeGuestComment(commentTarget, comment.id)}>×</button>}</header>
           <p>{comment.text}</p>
         </article>)}

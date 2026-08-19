@@ -77,10 +77,6 @@ input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-
 .reaction-likes { margin: 0; color: #c1121f; font-size: 14px; font-weight: 700; }
 .reaction-comments { display: grid; gap: 8px; }
 .reaction-comments article { padding: 8px 10px; border-radius: 8px; background: #f7f7f5; }
-.reaction-comments header { display: flex; justify-content: space-between; gap: 8px; }
-.reaction-comments b { font-size: 11px; font-weight: 400; color: #3a3a38; }
-.reaction-comments time { font-size: 11px; color: #9a9a95; }
-.reaction-comments p { margin: 4px 0 0; font-size: 11px; color: #55554f; }
 /* on small screens the full-width inventory sheet would hide the room while placing — collapse it to just
    the placement bar during a preview; it comes back as soon as the piece is placed or cancelled */
 @media (max-width: 719px), (max-height: 520px) and (pointer: coarse) {
@@ -127,12 +123,12 @@ img.art-image { object-fit: contain; width: 100%; }
 .art-panel { position: fixed; z-index: 5; top: 0; right: 0; bottom: 0; width: min(480px, 92vw); padding: 18px 22px 24px; overflow-y: auto; border-left: 1px solid #b3b3ae; background: #ffffff; transform: translateX(100%); transition: transform .42s cubic-bezier(.4, 0, .2, 1); }
 .art-panel.open { transform: translateX(0); }
 .art-panel:not(.open) { pointer-events: none; }
-.art-panel header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.art-panel header strong { font-size: 18px; }
-.art-panel header .close-ui { position: static; }
+.art-panel > header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.art-panel > header strong { font-size: 18px; }
+.art-panel > header .close-ui { position: static; }
 .art-view { display: block; width: 100%; height: auto; border: 10px solid #8f684e; box-sizing: border-box; }
 div.art-view { aspect-ratio: 3 / 4; }
-.art-panel p { margin: 12px 0 0; color: #54544f; }
+.art-panel > p, .art-panel > .art-meta p { margin: 12px 0 0; color: #54544f; }
 .art-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
 .art-meta p { margin: 0; text-align: left; }
 .art-panel .art-actions { justify-content: flex-start; margin-top: 0; }
@@ -168,22 +164,27 @@ div.art-view { aspect-ratio: 3 / 4; }
 .entry-editor-foot .entry-editor-delete { color: var(--ui-red); }
 .entry-editor-foot button[type="submit"] { border-color: var(--ui-blue); color: #fff; background: var(--ui-blue); }
 .entry-item-head { display: flex; align-items: center; justify-content: space-between; }.entry-item-head button { border: 0; color: #8a7465; background: transparent; cursor: pointer; font-size: 11px; }.entry-delete-confirm { margin: 7px 0 10px; }
-.entry-comments { margin-top: 16px; padding-top: 13px; border-top: 1px solid #e0e0dd; text-align: left; }.entry-comment-form { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 5px; }.entry-comment-form input, .entry-comment-form textarea { min-width: 0; border: 1px solid #c2c2be; border-radius: 4px; padding: 7px 8px; color: #403f3d; background: #ffffff; font: inherit; font-size: 12px; }.entry-comment-form textarea { height: 34px; max-height: calc(4.5em + 16px); overflow-y: auto; line-height: 1.5; resize: none; }.entry-comment-form button { align-self: start; height: 34px; border: 1px solid #3a3a38; border-radius: 4px; padding: 0 10px; color: #ffffff; background: #3a3a38; cursor: pointer; font-size: 13px; }.entry-comment-list { display: grid; }.entry-comment { padding: 10px 0; border-bottom: 1px solid #e3d8ca; text-align: left; }.entry-comment header { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }.entry-comment header strong { font-size: 11px; font-weight: 400; }.entry-comment time { color: #84847e; font-size: 11px; }.entry-comment header button { margin-left: auto; border: 0; color: #9a8777; background: transparent; cursor: pointer; }.entry-comment p { margin: 0; font-size: 11px; line-height: 1.55; text-align: left; }
+.entry-comments { margin-top: 16px; padding-top: 13px; border-top: 1px solid #e0e0dd; text-align: left; }.entry-comment-form { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 5px; }.entry-comment-form input, .entry-comment-form textarea { min-width: 0; border: 1px solid #c2c2be; border-radius: 4px; padding: 7px 8px; color: #403f3d; background: #ffffff; font: inherit; }.entry-comment-form textarea { height: 34px; max-height: calc(4.5em + 16px); overflow-y: auto; line-height: 1.5; resize: none; }.entry-comment-form button { align-self: start; height: 34px; border: 1px solid #3a3a38; border-radius: 4px; padding: 0 10px; color: #ffffff; background: #3a3a38; cursor: pointer; }.entry-comment-list { display: grid; }.entry-comment { padding: 10px 0; border-bottom: 1px solid #e3d8ca; }
 .entry-empty { padding: 24px 4px; color: #75756f; }
 .diary-actions.top { padding: 10px 0 4px; border-top: 0; }
 .room-ui, .room-controls { transition: right .42s cubic-bezier(.4, 0, .2, 1); }
 @media (max-width: 521px) { .art-open .scene { transform: translate3d(-46vw, 0, 0); } }
 .guest-form { display: grid; gap: 6px; padding-bottom: 14px; border-bottom: 1px solid #e0e0dd; }
-.guest-form input, .guest-form textarea { border: 1px solid #c2c2be; border-radius: 4px; padding: 7px 9px; font-size: 13px; color: #403f3d; background: #ffffff; font-family: inherit; }
+.guest-form input, .guest-form textarea { border: 1px solid #c2c2be; border-radius: 4px; padding: 7px 9px; color: #403f3d; background: #ffffff; font-family: inherit; }
 .guest-form textarea { overflow: hidden; resize: none; }
-.guest-form button { justify-self: end; border: 1px solid #3a3a38; border-radius: 4px; padding: 7px 14px; font-size: 12px; color: #ffffff; background: #3a3a38; cursor: pointer; }
+.guest-form button { justify-self: end; border: 1px solid #3a3a38; border-radius: 4px; padding: 7px 14px; color: #ffffff; background: #3a3a38; cursor: pointer; }
 .guest-list { display: grid; padding-top: 12px; }
-.guest-note { padding: 12px 0; border-bottom: 1px solid #e0e0dd; text-align: left; }
-.guest-note header { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
-.guest-note header strong { font-size: 11px; font-weight: 400; }
-.guest-note time { color: #84847e; font-size: 11px; }
-.guest-note header button { margin-left: auto; border: 0; background: none; color: #a49381; cursor: pointer; font-size: 13px; }
-.guest-note p { margin: 0; font-size: 11px; line-height: 1.6; text-align: left; white-space: pre-wrap; }
+.guest-note { padding: 12px 0; border-bottom: 1px solid #e0e0dd; }
+
+/* Every comment surface shares its type scale here. */
+.comment-ui { --comment-font-size: 12pt; }
+.comment-ui :is(.comment-item, textarea, input, .guest-form button, .entry-comment-form button, .entry-empty) { font-size: var(--comment-font-size); }
+.comment-item { color: var(--ui-text); text-align: left; }
+.comment-item header { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
+.comment-item :is(strong, b) { color: var(--ui-text); font-size: inherit; font-weight: 400; }
+.comment-item time { color: var(--ui-muted); font-size: inherit; }
+.comment-item header button { margin-left: auto; border: 0; color: var(--ui-muted); background: transparent; cursor: pointer; font-size: inherit; }
+.comment-item p { margin: 0; color: var(--ui-text); font-size: inherit; line-height: 1.55; text-align: left; white-space: pre-wrap; }
 
 @media (max-width: 719px), (max-height: 520px) and (pointer: coarse) {
   body { min-width: 0; overscroll-behavior: none; }
@@ -391,8 +392,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .draw-dialog.inline { border-top-color: var(--ui-line); }
 
 .art-panel { --art-pad: 24px; width: min(480px, 92vw); overflow-x: hidden; padding: 22px var(--art-pad) 28px; border-left: 1px solid var(--ui-line); background: var(--ui-bg); transition-timing-function: cubic-bezier(.22, 1, .36, 1); }
-.art-panel header strong { font-size: 18px; }
-.art-panel p { color: var(--ui-text); }
+.art-panel > header strong { font-size: 18px; }
+.art-panel > p, .art-panel > .art-meta p { color: var(--ui-text); }
 .art-panel .art-actions button { color: var(--ui-blue); border-color: transparent; background: transparent; }
 .art-panel .art-actions button:hover { background: var(--ui-hover); }
 .art-panel .left-page, .entry-item, .entry-comments, .entry-comment, .guest-form, .guest-note { border-color: var(--ui-line); }
@@ -412,9 +413,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .entry-actions .entry-edit { margin-left: auto; }
 .entry-item-head button { color: var(--ui-red); font-weight: 600; }
 .entry-comment-form button, .guest-form button { padding-inline: 12px; }
-.entry-comment header strong, .guest-note header strong { color: var(--ui-text); }
-.entry-comment time, .guest-note time { color: var(--ui-muted); }
-.guest-note header button, .entry-comment header button { color: var(--ui-muted); }
 .art-view { border-width: 8px; }
 
 @media (max-width: 719px), (max-height: 520px) and (pointer: coarse) {
