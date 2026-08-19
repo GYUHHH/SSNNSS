@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { type Book, useRoomStore } from '../store'
 import { bookshelfTiers } from '../services/roomGrid'
 import { isVisiting } from '../services/social'
@@ -13,6 +13,10 @@ export default function BookShelfPanel() {
   const [managing, setManaging] = useState(false)
   const [drafts, setDrafts] = useState<Record<string, BookDraft>>({})
   const [deleting, setDeleting] = useState<string | null>(null)
+  // Closing the panel only stops it being drawn — the component stays mounted, so manage mode, its drafts and any
+  // half-finished delete survived until the next open, and every book row came back as a title field instead of
+  // the button that opens it. Reopening is a fresh start.
+  useEffect(() => { if (!bookshelfOpen) { setManaging(false); setDrafts({}); setDeleting(null); setAdding(false) } }, [bookshelfOpen])
   if (!bookshelfOpen) return null
   const draftOf = (book: Book): BookDraft => drafts[book.id] ?? { title: book.title, visibility: book.visibility, shelf: book.shelf ?? 0 }
   const tiers = bookshelfTiers(books.map((book) => draftOf(book).shelf))
