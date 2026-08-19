@@ -177,14 +177,17 @@ div.art-view { aspect-ratio: 3 / 4; }
 .guest-note { padding: 12px 0; border-bottom: 1px solid #e0e0dd; }
 
 /* Every comment surface shares its type scale here. */
-.comment-ui { --comment-font-size: 12pt; }
+.comment-ui { --comment-font-size: 12pt; font-family: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", sans-serif; }
 .comment-ui :is(.comment-item, textarea, input, .guest-form button, .entry-comment-form button, .entry-empty) { font-size: var(--comment-font-size); }
-.comment-item { color: var(--ui-text); text-align: left; }
-.comment-item header { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
-.comment-item :is(strong, b) { color: var(--ui-text); font-size: inherit; font-weight: 400; }
+.comment-ui :is(button, input, textarea) { font-family: inherit; }
+.comment-item { display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 10px; color: var(--ui-text); text-align: left; }
+.comment-avatar { position: relative; grid-row: 1 / span 2; display: grid; place-items: center; width: 32px; height: 32px; overflow: hidden; border-radius: 50%; color: var(--ui-muted); background: var(--ui-soft); font-size: 10pt; font-weight: 700; }
+.comment-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.comment-item header { grid-column: 2; display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
+.comment-item :is(strong, b) { color: var(--ui-text); font-size: inherit; font-weight: 700; }
 .comment-item time { color: var(--ui-muted); font-size: inherit; }
 .comment-item header button { margin-left: auto; border: 0; color: var(--ui-muted); background: transparent; cursor: pointer; font-size: inherit; }
-.comment-item p { margin: 0; color: var(--ui-text); font-size: inherit; line-height: 1.55; text-align: left; white-space: pre-wrap; }
+.comment-item p { grid-column: 2; margin: 0; color: var(--ui-text); font-size: inherit; line-height: 1.55; text-align: left; white-space: pre-wrap; }
 
 @media (max-width: 719px), (max-height: 520px) and (pointer: coarse) {
   body { min-width: 0; overscroll-behavior: none; }

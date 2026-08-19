@@ -5,6 +5,7 @@ import { type Book, type Entry, type EntryDraft, type Visibility, useRoomStore }
 import { HeartIcon, CommentIcon } from './ReactionIcons'
 import { currentRoomHandle, isVisiting, myVisitorId, requireHandle, roomPath, toggleLike, uploadDataUrl } from '../services/social'
 import { PhotoCropEditor } from './PhotoCropEditor'
+import CommentAvatar from './CommentAvatar'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -131,7 +132,7 @@ function EntryComments({ entry, inputRef }: { entry: Entry; inputRef: React.RefO
       <textarea ref={inputRef} rows={1} maxLength={200} value={text} onChange={(event) => { setText(event.target.value); autosize(event.currentTarget) }} placeholder="댓글" />
       <button type="submit">전송</button>
     </form>
-    <div className="entry-comment-list">{comments.map((comment) => <article key={comment.id} className="entry-comment comment-item"><header><strong>{comment.name}</strong><time>{timeAgo(comment.createdAt)}</time>{(!isVisiting() || comment.visitor === mine) && <button type="button" aria-label="댓글 삭제" onClick={() => removeGuestComment(entry.id, comment.id)}>×</button>}</header><p>{comment.text}</p></article>)}</div>
+    <div className="entry-comment-list">{comments.map((comment) => <article key={comment.id} className="entry-comment comment-item"><CommentAvatar name={comment.name} photo={comment.photo} /><header><strong>{comment.name}</strong><time>{timeAgo(comment.createdAt)}</time>{(!isVisiting() || comment.visitor === mine) && <button type="button" aria-label="댓글 삭제" onClick={() => removeGuestComment(entry.id, comment.id)}>×</button>}</header><p>{comment.text}</p></article>)}</div>
   </section>
 }
 

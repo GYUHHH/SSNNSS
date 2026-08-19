@@ -131,6 +131,10 @@ const ownHandle = () => ownerHandle
 export const currentRoomHandle = () => (isVisiting() ? visitHandle : ownHandle())
 // the writer's OWN id, even while visiting someone else's room (reads the local profile directly)
 export const myHandle = () => plainRoot ? null : ownHandle()
+const profilePhoto = (bundle: Record<string, string>) => {
+  try { const photo = JSON.parse(bundle['my-room-profile-v1'] ?? '{}')?.photo; return typeof photo === 'string' && photo ? photo : undefined } catch { return undefined }
+}
+export const myProfilePhoto = () => profilePhoto(ownerData)
 // Whether this browser has an account at all. myHandle() reports null at the plain root on purpose, and
 // isPlainRoot() only says which address is open — neither answers "is this person signed in", which is what the
 // entry buttons need: they must stay up while a signed-out visitor is looking at somebody else's room too.
@@ -293,7 +297,7 @@ export async function uploadDataUrl(prefix: string, dataUrl: string): Promise<st
 
 // Guestbook lives on the server as soon as the room has a handle: visitors can write, and deletion is allowed
 // to the room owner (device secret) or the comment's own author (visitor id), enforced inside the SQL function.
-export type RemoteGuestComment = { id: string; item_id: string; name: string; text: string; visitor: string; user_id?: string | null; created_at: string }
+export type RemoteGuestComment = { id: string; item_id: string; name: string; text: string; visitor: string; user_id?: string | null; created_at: string; photo?: string }
 
 export async function fetchGuestbook(): Promise<RemoteGuestComment[] | null> {
   const room = currentRoomHandle()
@@ -301,7 +305,17 @@ export async function fetchGuestbook(): Promise<RemoteGuestComment[] | null> {
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/guestbook?room=eq.${escape(room)}&select=id,item_id,name,text,visitor,user_id,created_at&order=created_at.desc`, { headers })
     const rows = await response.json()
-    return Array.isArray(rows) ? rows : null
+    if (!Array.isArray(rows)) return null
+    const handles = [...new Set(rows.map((row) => row?.name).filter((name): name is string => /^[a-z0-9_]{3,20}$/.test(name)))]
+    if (!handles.length) return rows
+    try {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=in.(${handles.join(',')})&select=handle,data`, { headers })
+      const rooms = await response.json()
+      if (!response.ok || !Array.isArray(rooms)) return rows
+      const photos = new Map<string, string>()
+      for (const room of rooms) if (typeof room?.handle === 'string' && room?.data && typeof room.data === 'object') { const photo = profilePhoto(room.data); if (photo) photos.set(room.handle, photo) }
+      return rows.map((row) => ({ ...row, photo: photos.get(row.name) }))
+    } catch { return rows }
   } catch { return null }
 }
 
@@ -315,7 +329,7 @@ export async function addRemoteComment(itemId: string, name: string, text: strin
       body: JSON.stringify({ room, item_id: itemId, name, text, visitor: visitorId() }),
     })
     const rows = await response.json()
-    return Array.isArray(rows) ? rows[0] ?? null : null
+    return Array.isArray(rows) && rows[0] ? { ...rows[0], photo: myProfilePhoto() } : null
   } catch { return null }
 }
 

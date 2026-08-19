@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useRoomStore } from '../store'
 import { ClipPreview, DrawingEditor, PhotoPickButton, PlaylistOrderEditor, VideoLinkInput, VideoPickButton } from './ArtEditor'
 import { isVisiting, myVisitorId, requireHandle } from '../services/social'
+import CommentAvatar from './CommentAvatar'
 
 // which artwork panel a furniture type opens (null → none)
 export const artworkKindOf = (type: string) => type === 'photo' || type === 'easel-photo' || type.startsWith('photo-frame') ? 'frame' : type === 'poster' || type.startsWith('wall-art') ? 'poster' : type.startsWith('video-frame') ? 'video' : type === 'guestbook' ? 'guestbook' : type === 'whiteboard' ? 'poster' : null
@@ -56,6 +57,7 @@ function Guestbook({ id }: { id: string }) {
     <div className="guest-list comment-ui">
       {comments.length === 0 && <p className="entry-empty">댓글 없음</p>}
       {comments.map((comment) => <article key={comment.id} className="guest-note comment-item">
+        <CommentAvatar name={comment.name} photo={comment.photo} />
         <header><strong>{comment.name}</strong><time>{timeAgo(comment.createdAt)}</time>{(!isVisiting() || comment.visitor === myVisitorId()) && <button type="button" aria-label="삭제" onClick={() => removeGuestComment(id, comment.id)}>×</button>}</header>
         <p>{comment.text}</p>
       </article>)}

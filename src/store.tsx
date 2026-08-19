@@ -6,10 +6,10 @@ import { publicBase } from './services/publicBase'
 import { loadOrders } from './services/playlistOrder'
 import { deleteVideo, listVideoIds, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, syncPendingClips, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic, syncPendingTracks } from './services/music'
-import { purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, removeStored, subscribeRealtime, uploadMedia, writeStored, type RemoteGuestComment } from './services/social'
+import { purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myProfilePhoto, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, removeStored, subscribeRealtime, uploadMedia, writeStored, type RemoteGuestComment } from './services/social'
 import { cancelSoundRequest, muteFrame, requestSound } from './services/ytResume'
 
-const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id })
+const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id, photo: row.photo })
 
 export type SelectedObject = string | null
 export type FurnitureId = string
@@ -315,7 +315,7 @@ export type TimeOfDay = 'day' | 'evening' | 'night'
 // decor, lights, toggles, plain props — must leave the character exactly as it is. Whitelist on purpose: new
 // furniture is inert until it earns a pose here.
 export const POSED_TYPES = new Set(['bed', 'sofa', 'chair', 'desk', 'bookshelf', 'rocking-chair', 'beanbag', 'cup', 'plant', 'cabinet', 'side-table', 'coffee-table', 'wardrobe', 'hanger', 'mirror', 'rug', 'bin', 'glass-shelf'])
-export type GuestComment = { id: string; name: string; text: string; createdAt: string; visitor?: string; verified?: boolean }
+export type GuestComment = { id: string; name: string; text: string; createdAt: string; visitor?: string; verified?: boolean; photo?: string }
 const toPlacement = ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, allowedSurfaces, styleId, removed, updatedAt }: FurnitureItem): FurniturePlacement => ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, resolution: resolutionFor({ allowedSurfaces }), styleId, removed, updatedAt })
 // every catalogue piece exists exactly once for now; a future account would supply real per-user counts
 const OWNED_PER_TYPE = 1
@@ -633,7 +633,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   // comments are signed with the writer's own profile id — no free-text name
   const addGuestComment = (id: string, text: string) => {
     const cleanName = myHandle() ?? '익명'
-    setGuestbook((prev) => ({ ...prev, [id]: [{ id: `gc-${Date.now()}`, name: cleanName, text, createdAt: new Date().toISOString() }, ...(prev[id] ?? [])] }))
+    setGuestbook((prev) => ({ ...prev, [id]: [{ id: `gc-${Date.now()}`, name: cleanName, text, createdAt: new Date().toISOString(), photo: myProfilePhoto() }, ...(prev[id] ?? [])] }))
     if (currentRoomHandle()) void addRemoteComment(id, cleanName, text).then((row) => { if (row) setGuestbook((prev) => ({ ...prev, [id]: [remoteToComment(row), ...(prev[id] ?? []).filter((comment) => !comment.id.startsWith('gc-'))] })) })
   }
   const removeGuestComment = (id: string, commentId: string) => {
