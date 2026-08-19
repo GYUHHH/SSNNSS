@@ -124,7 +124,7 @@ img.art-image { object-fit: contain; width: 100%; }
 .art-panel.open { transform: translateX(0); }
 .art-panel:not(.open) { pointer-events: none; }
 .art-panel > header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.art-panel > header strong { font-size: 18px; }
+.art-panel > header strong { font-size: 16pt; }
 .art-panel > header .close-ui { position: static; }
 .art-view { display: block; width: 100%; height: auto; border: 10px solid #8f684e; box-sizing: border-box; }
 div.art-view { aspect-ratio: 3 / 4; }
@@ -395,7 +395,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .draw-dialog.inline { border-top-color: var(--ui-line); }
 
 .art-panel { --art-pad: 24px; width: min(480px, 92vw); overflow-x: hidden; padding: 22px var(--art-pad) 28px; border-left: 1px solid var(--ui-line); background: var(--ui-bg); transition-timing-function: cubic-bezier(.22, 1, .36, 1); }
-.art-panel > header strong { font-size: 18px; }
+.art-panel > header strong { font-size: 16pt; }
 .art-panel > p, .art-panel > .art-meta p { color: var(--ui-text); }
 .art-panel .art-actions button { color: var(--ui-blue); border-color: transparent; background: transparent; }
 .art-panel .art-actions button:hover { background: var(--ui-hover); }
