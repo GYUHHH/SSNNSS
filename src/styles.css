@@ -454,9 +454,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .book-controls, .bookshelf-tools { display: flex; align-items: center; gap: 5px; }
 .book-controls button, .bookshelf-tools button { display: grid; place-items: center; min-width: 32px; min-height: 32px; padding: 5px 7px; border: 0; color: var(--ui-text); background: transparent; cursor: pointer; font-size: 12px; }
 .book-controls .book-delete { color: var(--ui-red); }
+.book-title-input { min-width: 0; width: 100%; padding: 7px 4px; border: 0; color: var(--ui-text); background: var(--ui-soft); font: inherit; }
 .bookshelf-tools { position: absolute; right: 16px; bottom: 12px; }
-.bookshelf-tools button { min-width: 34px; font-size: 22px; line-height: 1; }
-.bookshelf-tools button:last-child { font-size: 20px; }
+.bookshelf-tools button { min-width: 34px; line-height: 1; }
+.bookshelf-tools .book-create { font-size: 22px; }
+.bookshelf-tools .book-manage { font-size: 20px; }
+.bookshelf-tools .book-save { padding-inline: 9px; font-size: 12px; font-weight: 600; }
 .new-book { grid-template-columns: 1fr auto; margin: 0 0 10px; }
 .diary-head { padding: 0 0 16px; }
 .diary-title h2 { margin: 0; }
