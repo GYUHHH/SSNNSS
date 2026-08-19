@@ -6,6 +6,7 @@ export function PhotoCropEditor({ source, aspect = 4 / 3, output = [800, 600], o
   const start = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null)
   const [scale, setScale] = useState(1)
   const [position, setPosition] = useState({ x: 0, y: 0 })
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null)
   const clamp = (next: { x: number; y: number }, zoom = scale) => {
     const area = crop.current; const photo = image.current
     if (!area || !photo?.naturalWidth) return next
@@ -26,7 +27,7 @@ export function PhotoCropEditor({ source, aspect = 4 / 3, output = [800, 600], o
     <section className="photo-editor">
       <button className="close-ui" type="button" aria-label="닫기" onClick={onClose}>×</button>
       <div ref={crop} className="crop-area" style={{ aspectRatio: String(aspect) }} onPointerDown={(event) => { start.current = { x: event.clientX, y: event.clientY, offsetX: position.x, offsetY: position.y }; event.currentTarget.setPointerCapture(event.pointerId) }} onPointerMove={(event) => { if (start.current) setPosition(clamp({ x: start.current.offsetX + (event.clientX - start.current.x) * 1.25, y: start.current.offsetY + (event.clientY - start.current.y) * 1.25 })) }} onPointerUp={() => { start.current = null }} onPointerCancel={() => { start.current = null }}>
-        <img ref={image} crossOrigin="anonymous" src={source} alt="사진 조정" style={{ transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px)) scale(${scale})` }} />
+        <img ref={image} crossOrigin="anonymous" src={source} alt="사진 조정" onLoad={() => { const area = crop.current; const photo = image.current; if (!area || !photo) return; const base = Math.max(area.clientWidth / photo.naturalWidth, area.clientHeight / photo.naturalHeight); setSize({ width: photo.naturalWidth * base, height: photo.naturalHeight * base }) }} style={{ width: size?.width, height: size?.height, opacity: size ? 1 : 0, transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px)) scale(${scale})` }} />
       </div>
       <label>확대<input type="range" min="1" max="2.5" step="0.01" value={scale} onChange={(event) => { const zoom = Number(event.target.value); setScale(zoom); setPosition((current) => clamp(current, zoom)) }} /></label>
       <button type="button" onClick={apply}>적용</button>
