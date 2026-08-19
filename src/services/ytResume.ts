@@ -10,7 +10,9 @@ export const videoResume: Record<string, number> = persisted?.time ?? {}
 // which video of a playlist was on screen — YouTube ignores index= on /embed/videoseries,
 // so resuming must go through /embed/{videoId}?list= with the actual video id
 export const playlistVideoResume: Record<string, string> = persisted?.video ?? {}
-export const videoResumeKey = (handle: string | null, frameId: string) => `${handle ?? 'lobby'}:${frameId}`
+// frame ids are timestamp-based and unique across rooms and owners, so the id alone is the key —
+// prefixing the handle orphaned every previously saved position whenever the handle differed
+export const videoResumeKey = (_handle: string | null, frameId: string) => frameId
 // last known player state per frame (1 playing, 2 paused, 3 buffering) — read when the tab hides so a
 // visibility return restores exactly what was happening, instead of blindly commanding playback
 export const framePlayerStates: Record<string, number> = {}

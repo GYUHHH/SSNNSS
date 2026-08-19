@@ -15,7 +15,8 @@ const flushClipResume = () => {
   clipResumeTimer = undefined
   try { localStorage.setItem(clipResumeKey, JSON.stringify(clipResume)) } catch { /* storage unavailable */ }
 }
-export const clipSessionKey = (handle: string | null, id: string) => `${handle ?? 'lobby'}:${id}`
+// same as videoResumeKey: the frame id is already globally unique, a handle prefix only breaks old saves
+export const clipSessionKey = (_handle: string | null, id: string) => id
 export const clipResumeAt = (key: string) => clipResume[key] ?? 0
 export const rememberClipAt = (key: string, time: number, immediate = false) => {
   clipResume[key] = time
