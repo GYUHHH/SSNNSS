@@ -33,7 +33,7 @@ const persist = () => {
   if (saveTimer) return
   saveTimer = setTimeout(flushResume, 1000)
 }
-window.addEventListener('pagehide', flushResume)
+window.addEventListener('pagehide', flushLiveResume)
 // Videos the player has actually refused. YouTube reports this over the same postMessage channel as an onError:
 // 101 and 150 are "the owner disabled playback outside YouTube", 100 is deleted or private, 2 is a malformed id
 // and 5 is a player failure. All of them mean the same thing here — this one cannot be shown on a wall.
@@ -52,15 +52,52 @@ const activeIframes: Record<string, HTMLIFrameElement> = {}
 const soundRequestCancels: Record<string, () => void> = {}
 const snapshotRequests: Record<string, Set<() => void>> = {}
 const frameClocks: Record<string, { time: number; at: number; state: number; rate: number; video?: string }> = {}
+type PlayerApi = { getCurrentTime: () => number; getPlayerState: () => number; getPlaybackRate: () => number; getVideoData: () => { video_id?: string }; getPlaylist: () => string[] | null; playVideo: () => void; playVideoAt: (index: number) => void; seekTo: (seconds: number, allowSeekAhead: boolean) => void }
+type YouTubeApi = { Player: new (iframe: HTMLIFrameElement, options: { events: { onReady: () => void } }) => PlayerApi }
+const apiPlayers: Record<string, { iframe: HTMLIFrameElement; player: PlayerApi; ready: boolean; restored: () => boolean }> = {}
+let apiReady: Promise<YouTubeApi> | undefined
 export const cancelSoundRequest = (frameId: string) => soundRequestCancels[frameId]?.()
 
 const liveClockTime = (clock: (typeof frameClocks)[string]) => clock.time + (clock.state === 1 ? (performance.now() - clock.at) / 1000 * clock.rate : 0)
+
+const loadPlayerApi = () => apiReady ??= new Promise<YouTubeApi>((resolve) => {
+  const root = window as typeof window & { YT?: YouTubeApi; onYouTubeIframeAPIReady?: () => void }
+  if (root.YT?.Player) { resolve(root.YT); return }
+  const previous = root.onYouTubeIframeAPIReady
+  root.onYouTubeIframeAPIReady = () => { previous?.(); if (root.YT?.Player) resolve(root.YT) }
+  if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+    const script = document.createElement('script')
+    script.src = 'https://www.youtube.com/iframe_api'
+    document.head.append(script)
+  }
+})
+
+const snapshotOfficialPlayer = (frameId: string) => {
+  const entry = apiPlayers[frameId]
+  if (!entry?.ready || !entry.restored()) return false
+  const time = entry.player.getCurrentTime()
+  if (!Number.isFinite(time)) return false
+  const state = entry.player.getPlayerState()
+  const video = entry.player.getVideoData()?.video_id
+  const rate = entry.player.getPlaybackRate() || 1
+  videoResume[frameId] = time
+  if (video) playlistVideoResume[frameId] = video
+  framePlayerStates[frameId] = state
+  frameClocks[frameId] = { time, at: performance.now(), state, rate, video: video || undefined }
+  return true
+}
+
+function flushLiveResume() {
+  Object.keys(activeIframes).forEach((frameId) => { if (!snapshotOfficialPlayer(frameId) && frameClocks[frameId]) videoResume[frameId] = liveClockTime(frameClocks[frameId]) })
+  flushResume()
+}
 
 // Read the live player once before React replaces its iframe. Passive infoDelivery can be several seconds
 // behind during a fresh embed, which made a quick wall -> panel -> wall switch reopen at an older position.
 export function snapshotFrame(frameId: string): Promise<void> {
   const iframe = activeIframes[frameId]
   if (!iframe) { flushResume(); return Promise.resolve() }
+  if (snapshotOfficialPlayer(frameId)) { flushResume(); return Promise.resolve() }
   const clock = frameClocks[frameId]
   if (clock) {
     videoResume[frameId] = liveClockTime(clock)
@@ -108,6 +145,33 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
   const kick = () => { kickTimer = undefined; if (kicks >= 8) return; kicks++; command(frameId, 'playVideo'); kickTimer = setTimeout(kick, 3000) }
   const armKick = () => { if (!kickTimer) kickTimer = setTimeout(kick, 2500) }
   const cancelKick = () => { clearTimeout(kickTimer); kickTimer = undefined; kicks = 0 }
+  const attachPlayerApi = () => {
+    void loadPlayerApi().then((YT) => {
+      if (activeIframes[frameId] !== iframe) return
+      let entry: (typeof apiPlayers)[string]
+      const player = new YT.Player(iframe, { events: { onReady: () => {
+        entry.ready = true
+        let attempts = 0
+        const restore = () => {
+          if (activeIframes[frameId] !== iframe || restored || attempts++ >= 8) return
+          const currentVideo = player.getVideoData()?.video_id
+          if (resumeVideo && currentVideo && currentVideo !== resumeVideo) {
+            const index = player.getPlaylist()?.indexOf(resumeVideo) ?? -1
+            if (index >= 0) player.playVideoAt(index)
+          } else {
+            const currentTime = player.getCurrentTime()
+            if (resumeAt === 0 || Math.abs(currentTime - resumeAt) <= 2) restored = true
+            else player.seekTo(resumeAt, true)
+          }
+          if (!restored) { player.playVideo(); setTimeout(restore, 300) }
+          else snapshotOfficialPlayer(frameId)
+        }
+        restore()
+      } } })
+      entry = { iframe, player, ready: false, restored: () => restored }
+      apiPlayers[frameId] = entry
+    }).catch(() => { /* raw postMessage tracker remains the fallback */ })
+  }
   const onMessage = (event: MessageEvent) => {
     if (event.source !== iframe.contentWindow) return
     clearInterval(helloTimer)
@@ -185,6 +249,7 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
   iframe.addEventListener('load', hello)
   hello()
   activeIframes[frameId] = iframe
+  attachPlayerApi()
   return () => {
     flushResume()
     clearInterval(helloTimer)
@@ -193,6 +258,7 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
     window.removeEventListener('message', onMessage)
     iframe.removeEventListener('load', hello)
     if (activeIframes[frameId] === iframe) delete activeIframes[frameId]
+    if (apiPlayers[frameId]?.iframe === iframe) delete apiPlayers[frameId]
   }
 }
 
