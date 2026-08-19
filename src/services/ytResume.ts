@@ -14,10 +14,16 @@ export const playlistVideoResume: Record<string, string> = persisted?.video ?? {
 // visibility return restores exactly what was happening, instead of blindly commanding playback
 export const framePlayerStates: Record<string, number> = {}
 let saveTimer: ReturnType<typeof setTimeout> | undefined
+const flushResume = () => {
+  clearTimeout(saveTimer)
+  saveTimer = undefined
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ time: videoResume, video: playlistVideoResume }))
+}
 const persist = () => {
   if (saveTimer) return
-  saveTimer = setTimeout(() => { saveTimer = undefined; localStorage.setItem(STORAGE_KEY, JSON.stringify({ time: videoResume, video: playlistVideoResume })) }, 1000)
+  saveTimer = setTimeout(flushResume, 1000)
 }
+window.addEventListener('pagehide', flushResume)
 // Videos the player has actually refused. YouTube reports this over the same postMessage channel as an onError:
 // 101 and 150 are "the owner disabled playback outside YouTube", 100 is deleted or private, 2 is a malformed id
 // and 5 is a player failure. All of them mean the same thing here — this one cannot be shown on a wall.
@@ -42,7 +48,7 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
     try {
       const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
       const currentTime = data?.info?.currentTime
-      if (typeof currentTime === 'number') { videoResume[frameId] = currentTime; persist() }
+      if (typeof currentTime === 'number') { videoResume[frameId] = currentTime; data?.info?.playerState === 2 ? flushResume() : persist() }
       if (typeof data?.info?.playerState === 'number') {
         framePlayerStates[frameId] = data.info.playerState
         // something played, so the run of failures is over and a later dud may skip afresh
