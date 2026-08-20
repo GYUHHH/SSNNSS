@@ -79,15 +79,15 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     const displayText = lines.join('\n')
     const longest = Math.max(4, ...lines.map((line) => Array.from(line).length))
     const bubbleWidth = Math.min(1.7, Math.max(.68, .3 + longest * .085)) * bubbleScale
-    const bubbleHeight = Math.max(.54, .18 + lines.length * .18) * bubbleScale
+    const bubbleHeight = Math.max(.36, .18 + lines.length * .18) * bubbleScale
     const bubbleFont = /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(bubbleText) ? PRETENDARD_WOFF : JONES_BOOK_OTF
     return <>
       <mesh visible={false} raycast={() => {}}><boxGeometry args={[.7, .02, .7]} /><meshBasicMaterial /></mesh>
-      <Billboard position={[0, 1.35, 0]}>
+      <Billboard position={[0, 2.05, 0]}>
         <SpeechBubbleShape width={bubbleWidth} height={bubbleHeight} preview={preview} />
         {!!displayText && <Text userData={{ excludeFromFit: true }} position={[0, 0, .04]} font={bubbleFont} fontSize={.13 * bubbleScale} maxWidth={bubbleWidth - .16 * bubbleScale} lineHeight={1.25} textAlign="center" anchorX="center" anchorY="middle" color="#262626" fillOpacity={preview ? .55 : 1}>{displayText}</Text>}
       </Billboard>
-      {!preview && !isVisiting() && store?.mode === 'normal' && store.selectedObject === item.id && <Html position={[0, 1.65 + bubbleHeight, 0]} center zIndexRange={[4, 0]}>
+      {!preview && !isVisiting() && store?.mode === 'normal' && store.selectedObject === item.id && <Html position={[0, 2.35 + bubbleHeight, 0]} center zIndexRange={[4, 0]}>
         <section className="room-bubble-editor" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
           <SpeechBubbleInput id={item.id} artwork={store.artworks[item.id]} saveArtwork={store.setArtwork} />
         </section>
