@@ -5,13 +5,14 @@ import { useRoomStore } from '../store'
 import { ClipPreview, DrawingEditor, PhotoPickButton, PlaylistOrderEditor, VideoLinkInput, VideoPickButton } from './ArtEditor'
 import { isVisiting, myVisitorId, requireHandle } from '../services/social'
 import CommentAvatar, { CommentName } from './CommentAvatar'
+import { embedSrc } from '../services/ytResume'
 
 // which artwork panel a furniture type opens (null → none)
 export const artworkKindOf = (type: string) => type === 'photo' || type === 'easel-photo' || type.startsWith('photo-frame') ? 'frame' : type === 'poster' || type.startsWith('wall-art') ? 'poster' : type.startsWith('video-frame') ? 'video' : type === 'guestbook' ? 'guestbook' : type === 'whiteboard' ? 'poster' : null
 
 // side panel on the right — the room slides left while it is open; tall artwork scrolls instead of cropping
 export default function ArtworkOverlay() {
-  const { selectedObject, artworks, furniture, videoFrames, videoClips, videoLinks, setVideoClip } = useRoomStore()
+  const { selectedObject, artworks, furniture, videoFrames, videoClips, videoLinks, setVideoClip, setVideoLink, stopFrame } = useRoomStore()
   const [drawing, setDrawing] = useState(false)
   const [videoStep, setVideoStep] = useState<'choose' | 'link' | 'file'>('choose')
   useEffect(() => { setDrawing(false); setVideoStep('choose') }, [selectedObject])
@@ -20,23 +21,30 @@ export default function ArtworkOverlay() {
   const kind = artworkKindOf(item?.type ?? '')
   if (!kind) return null
   if (kind === 'guestbook') return <Guestbook id={selectedObject} />
-  if (kind === 'video') return <>
-    <header>{!isVisiting() && videoStep !== 'choose' && <button className="diary-back" type="button" aria-label="이전" onClick={() => setVideoStep('choose')}>←</button>}<strong>{item?.name ?? '영상 액자'}</strong></header>
-    <ClipPreview id={selectedObject} />
-    {!isVisiting() && <>
-      {videoLinks[selectedObject]?.startsWith('pl:') && <PlaylistOrderEditor id={selectedObject} />}
-      {videoStep === 'choose' && <div className="art-actions">
-        <button type="button" onClick={() => setVideoStep('link')}>Youtube Link</button>
-        <button type="button" onClick={() => setVideoStep('file')}>Video File</button>
-        {!!(videoFrames[selectedObject] || videoClips[selectedObject]) && <button type="button" onClick={() => setVideoClip(selectedObject, null)}>영상 삭제</button>}
-      </div>}
-      {videoStep === 'link' && <>
-        <VideoLinkInput id={selectedObject} />
+  if (kind === 'video') {
+    const link = videoLinks[selectedObject]
+    const hasClip = !!(videoFrames[selectedObject] || videoClips[selectedObject])
+    const hasMedia = !!link || hasClip
+    const removeMedia = () => { stopFrame(selectedObject); setVideoLink(selectedObject, null); setVideoClip(selectedObject, null) }
+    return <>
+      {!isVisiting() && videoStep !== 'choose' && <header><button className="diary-back" type="button" aria-label="이전" onClick={() => setVideoStep('choose')}>←</button></header>}
+      {videoStep === 'choose' && <>
+        {link && <iframe className="video-panel-preview" title="유튜브 영상" src={embedSrc(link, selectedObject, 'playsinline=1&controls=1')} referrerPolicy="strict-origin-when-cross-origin" allow="encrypted-media; picture-in-picture" allowFullScreen />}
+        {!link && hasClip && <ClipPreview id={selectedObject} />}
+        {link?.startsWith('pl:') && <PlaylistOrderEditor id={selectedObject} />}
+        {!isVisiting() && <div className="art-actions">
+          {hasMedia
+            ? <button type="button" onClick={removeMedia}>Delete</button>
+            : <><button type="button" onClick={() => setVideoStep('link')}>Youtube Link</button><button type="button" onClick={() => setVideoStep('file')}>Video File</button></>}
+        </div>}
+      </>}
+      {!isVisiting() && videoStep === 'link' && <>
+        <VideoLinkInput id={selectedObject} onApplied={() => setVideoStep('choose')} />
         <small className="video-link-kinds">- Youtube Video<br />- Youtube Playlist</small>
       </>}
-      {videoStep === 'file' && <div className="art-actions"><VideoPickButton id={selectedObject} /></div>}
-    </>}
-  </>
+      {!isVisiting() && videoStep === 'file' && <div className="art-actions"><VideoPickButton id={selectedObject} onPicked={() => setVideoStep('choose')} /></div>}
+    </>
+  }
   const frame = kind === 'frame'
   const art = artworks[selectedObject]
   const [width, height] = frame

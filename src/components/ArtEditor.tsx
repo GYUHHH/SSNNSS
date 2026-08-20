@@ -102,29 +102,26 @@ export function SpeechBubbleInput({ id, artwork, saveArtwork }: { id: string; ar
   </div>
 }
 
-export function VideoPickButton({ id }: { id: string }) {
-  const { videoFrames, videoClips, setVideoClip } = useRoomStore()
+export function VideoPickButton({ id, onPicked }: { id: string; onPicked?: () => void }) {
+  const { setVideoClip } = useRoomStore()
   const inputRef = useRef<HTMLInputElement>(null)
   return <>
     <button type="button" onClick={() => inputRef.current?.click()}>영상 넣기</button>
-    {!!(videoFrames[id] || videoClips[id]) && <button type="button" onClick={() => setVideoClip(id, null)}>영상 삭제</button>}
-    <input ref={inputRef} type="file" accept="video/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) setVideoClip(id, file); event.target.value = '' }} />
+    <input ref={inputRef} type="file" accept="video/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) { setVideoClip(id, file); onPicked?.() }; event.target.value = '' }} />
   </>
 }
 
-export function VideoLinkInput({ id }: { id: string }) {
-  const { videoLinks, setVideoLink } = useRoomStore()
+export function VideoLinkInput({ id, onApplied }: { id: string; onApplied?: () => void }) {
+  const { setVideoLink } = useRoomStore()
   const [text, setText] = useState('')
   const [failed, setFailed] = useState(false)
-  const current = videoLinks[id]
-  const apply = () => { if (!setVideoLink(id, text)) { setFailed(true); return } setFailed(false); setText('') }
+  const apply = () => { if (!setVideoLink(id, text)) { setFailed(true); return } setFailed(false); setText(''); onApplied?.() }
   return <div className="video-link">
     <div className="banner-input">
       <input type="text" value={text} onChange={(event) => { setText(event.target.value); setFailed(false) }} placeholder="유튜브 링크 붙여넣기" onKeyDown={(event) => { if (event.key === 'Enter') apply() }} />
       <button type="button" onClick={apply}>넣기</button>
     </div>
     {failed && <small className="video-link-error">유튜브 주소를 인식하지 못했어요.</small>}
-    {current && <button type="button" onClick={() => setVideoLink(id, null)}>링크 지우기</button>}
   </div>
 }
 
