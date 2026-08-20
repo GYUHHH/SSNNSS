@@ -240,7 +240,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   </>
   if (item.type === 'profile-board') return <>
     <RoundedBox castShadow args={[1.4, 2.1, .07]} radius={.03} smoothness={2} position={[0, 0, .035]}>{mat('#fbf6ec')}</RoundedBox>
-    <mesh position={[0, .36, .073]}><circleGeometry args={[.47, 30]} />{mat('#e2d6c6')}</mesh>
+    <mesh position={[0, .42, .073]}><circleGeometry args={[.47, 30]} />{mat('#e2d6c6')}</mesh>
     {!preview && <ProfileBoardFace />}
   </>
   if (item.type.startsWith('video-frame')) {
@@ -796,9 +796,9 @@ function ProfileBoardFace() {
   // further away. It drew first, wrote depth, and the board behind it was then rejected, leaving bare wall in its
   // place. renderOrder pins them after the board no matter what the distances work out to.
   return <>
-    {portrait && <mesh renderOrder={1} position={[0, .36, .076]}><circleGeometry args={[.47, 30]} /><meshBasicMaterial map={portrait} /></mesh>}
+    {portrait && <mesh renderOrder={1} position={[0, .42, .076]}><circleGeometry args={[.47, 30]} /><meshBasicMaterial map={portrait} /></mesh>}
     {profile?.handle && <Text renderOrder={1} font={JONES_BOOK_OTF} position={[0, -.22, .076]} fontSize={.13} color="#403f3d" anchorX="center" anchorY="middle">{profile.handle}</Text>}
-    <mesh renderOrder={1} position={[0, -.59, .076]}><planeGeometry args={[1.2, .48]} /><meshBasicMaterial map={texture} transparent /></mesh>
+    <mesh renderOrder={1} position={[0, -.64, .076]}><planeGeometry args={[1.2, .48]} /><meshBasicMaterial map={texture} transparent /></mesh>
   </>
 }
 
