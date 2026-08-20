@@ -9,6 +9,9 @@ import { requireHandle, toggleLike } from '../services/social'
 export type PickerRequest = { id: string; x: number; y: number }
 const OPEN_EVENT = 'reaction-picker'
 export const openReactionPicker = (request: PickerRequest) => window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: request }))
+// While the picker is up, the slide toward an icon must not double as a camera drag — the camera listens to
+// this and holds still for exactly as long as the picker is on screen.
+export const PICKER_HOLD_EVENT = 'reaction-picker-hold'
 
 const LIFT = 66      // how far above the press point the icons sit
 const SPREAD = 28    // how far left/right of it — the two sit almost shoulder to shoulder
@@ -37,6 +40,7 @@ export default function ReactionPicker() {
     window.addEventListener(OPEN_EVENT, onOpen)
     return () => window.removeEventListener(OPEN_EVENT, onOpen)
   }, [])
+  useEffect(() => { window.dispatchEvent(new CustomEvent(PICKER_HOLD_EVENT, { detail: !!at })) }, [!!at])
   useEffect(() => {
     if (!at) return
     const spots = { like: { x: at.x - SPREAD, y: at.y - LIFT }, comment: { x: at.x + SPREAD, y: at.y - LIFT } }

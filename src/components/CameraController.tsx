@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MathUtils, MOUSE, OrthographicCamera, TOUCH, Vector3 } from 'three'
 import { useRoomStore } from '../store'
+import { PICKER_HOLD_EVENT } from './ReactionPicker'
 
 const DESKTOP_DETAIL_MIN_ZOOM = 42
 const MOBILE_DETAIL_MIN_ZOOM = 30
@@ -45,6 +46,15 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
   const dragZoom = useRef<{ identifier: number; startY: number; startZoom: number; lastX: number; lastY: number } | null>(null)
   const controls = useRef<ControlsRef | null>(null)
   const [dragZooming, setDragZooming] = useState(false)
+  // the long-press reaction picker owns the pointer while it is up — the slide toward an icon must not swing
+  // or zoom the camera, so every camera input is held off until the picker closes
+  const [pickerHold, setPickerHold] = useState(false)
+  const pickerHoldRef = useRef(false)
+  useEffect(() => {
+    const onHold = (event: Event) => { const held = !!(event as CustomEvent<boolean>).detail; pickerHoldRef.current = held; setPickerHold(held) }
+    window.addEventListener(PICKER_HOLD_EVENT, onHold)
+    return () => window.removeEventListener(PICKER_HOLD_EVENT, onHold)
+  }, [])
   // fully zoomed out is the room explorer, not a room: swinging the camera there just skews the tiled
   // neighbours, so rotation is locked until the user zooms back in
   const [atMinZoom, setAtMinZoom] = useState(false)
@@ -103,8 +113,9 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
     // become the .canvas-host wrapper, so wheel/touch must listen there
     const element = (gl.domElement.closest('.canvas-host') ?? gl.domElement) as HTMLElement
     const distance = (touches: TouchList) => touches.length < 2 ? 0 : Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY)
-    const onWheel = (event: WheelEvent) => { event.preventDefault(); zoomTarget.current = MathUtils.clamp(zoomTarget.current * Math.exp(-event.deltaY * .0015), minZoom, MAX_ZOOM) }
+    const onWheel = (event: WheelEvent) => { event.preventDefault(); if (pickerHoldRef.current) return; zoomTarget.current = MathUtils.clamp(zoomTarget.current * Math.exp(-event.deltaY * .0015), minZoom, MAX_ZOOM) }
     const onTouchStart = (event: TouchEvent) => {
+      if (pickerHoldRef.current) return
       if (event.touches.length === 2) {
         pinchDistance.current = distance(event.touches)
         lastTap.current.time = 0
@@ -126,6 +137,7 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
       }
     }
     const onTouchMove = (event: TouchEvent) => {
+      if (pickerHoldRef.current) return
       if (event.touches.length === 2) {
         const next = distance(event.touches)
         if (pinchDistance.current) zoomTarget.current = MathUtils.clamp(zoomTarget.current * next / pinchDistance.current, minZoom, MAX_ZOOM)
@@ -232,6 +244,7 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
 
   return <OrbitControls
     ref={controls as never}
+    enabled={!pickerHold}
     enableRotate={mode === 'normal' && !dragZooming && !atMinZoom}
     target={[0, 3.5, 0]}
     // fully zoomed out the view is the explorer, so a drag roams the cluster instead of swinging it
