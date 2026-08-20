@@ -285,6 +285,7 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
     return () => { if (hoverLayerMask === mask) hoverLayerMask = 0 }
   }, [centred, roomTime])
   const nextFetch = useRef(0)
+  const nextCollect = useRef(0)
   const lastRaw = useRef('')
   const mounted = useRef(true)
   // a pushed update from the live stream lands exactly like a fetched one, dedupe included
@@ -354,6 +355,9 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
     // is a few hundred objects and the fade lasts under a second, and it guarantees a material's very first drawn
     // frame already carries the room's opacity.
     if (opacity.current > .01 && opacity.current < .995) collect()
+    // At full view the sweep drops to a slow cadence, purely so materials swapped in later (a photo texture
+    // finishing its download replaces the material object) are still discovered and get their entrance below.
+    else if (opacity.current >= .995 && performance.now() > nextCollect.current) { nextCollect.current = performance.now() + 500; collect() }
     group.current.visible = opacity.current > .01
     // A nudge in size is the whole highlight. The cluster is stacked by storey, so lifting or outlining the picked
     // room would fight that illusion, while 6% reads as hover without moving anything out of its own cell.
@@ -364,11 +368,20 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
     // on — a few thousandths apart — and when the decal won that toss the panel behind it failed the depth test
     // and the wall showed through it. The profile board's stats read as wall-coloured because of it.
     const full = opacity.current > .995
+    const now = performance.now()
     materials.current.forEach((material) => {
-      material.transparent = full ? material.wasTransparent ?? false : true
+      // Entrance: a material starts counting only once it can actually show pixels (its map has image data, or
+      // it has no map), then eases in over 300ms. Without this, a photo texture that finishes downloading during
+      // or just after the reveal POPS in at full strength while everything else faded — the "일부 요소가 뚝
+      // 하고 나타난다" report. Applies at full view too, which is when slow downloads usually land.
+      const map = (material as { map?: { image?: unknown } }).map
+      if (material.userData.readyAt === undefined && (!map || map.image)) material.userData.readyAt = now
+      const entrance = material.userData.readyAt === undefined ? 0 : Math.min(1, (now - material.userData.readyAt) / 300)
+      const settled = full && entrance >= 1
+      material.transparent = settled ? material.wasTransparent ?? false : true
       // trim bars ride the cube of the fade: still smooth, but they only surface once the room is nearly whole,
       // instead of floating over the ghosted room as three hard dark bars for the entire glide
-      material.opacity = full ? 1 : material.userData.lateFade ? opacity.current ** 7 : opacity.current
+      material.opacity = settled ? 1 : (material.userData.lateFade ? opacity.current ** 7 : opacity.current) * entrance
       if (!material.color) return
     })
     // Fetched when the zoom-out first reveals it, and refreshed every so often for as long as it stays on
