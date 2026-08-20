@@ -768,9 +768,6 @@ function drawProfileBoard(canvas: HTMLCanvasElement, total: number, today: numbe
   ctx.fillStyle = '#c3b6a6'
   ctx.font = `26px ${CANVAS_UI_FONT}`
   ctx.fillText('|', w / 2, 42)
-  ctx.strokeStyle = '#e2d6c6'
-  ctx.lineWidth = 2
-  ctx.beginPath(); ctx.moveTo(w * .14, 66); ctx.lineTo(w * .86, 66); ctx.stroke()
   ctx.fillStyle = '#5b4e44'
   ctx.font = `bold 30px ${CANVAS_UI_FONT}`
   ctx.fillText(`친구 ${friends}`, w / 2, 106)
