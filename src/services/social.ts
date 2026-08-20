@@ -253,9 +253,9 @@ export const claimHandleLocally = (handle: string) => {
   ownerPersisted = false
   visitHandle = handle
   plainRoot = false
-  let profile: Record<string, unknown> = {}
-  try { profile = JSON.parse(ownerData['my-room-profile-v1'] ?? '{}') } catch { /* keep empty */ }
-  writeStored('my-room-profile-v1', JSON.stringify({ ...profile, handle }))
+  // A newly claimed account must not inherit the profile left in memory by a previous session. That copied the
+  // old owner's photo and visit numbers into the new room even though its handle itself was replaced correctly.
+  writeStored('my-room-profile-v1', JSON.stringify({ handle, total: 0, today: 0, lastVisit: new Date().toISOString().slice(0, 10), friends: 0 }))
 }
 
 export const myVisitorId = () => visitorId()
