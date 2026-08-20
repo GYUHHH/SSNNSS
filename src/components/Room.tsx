@@ -356,7 +356,9 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
     // The frame a room is first drawn tends to hitch — texture uploads land right then — and the long delta of
     // that one frame used to advance the damp nearly to 1, so the room POPPED instead of fading. Capping the step
     // means a hitch only moves the fade one small notch, and the glide plays out over the frames that follow.
-    opacity.current = MathUtils.damp(opacity.current, wanted, 12, Math.min(delta, 1 / 30))
+    // Leaving is slower than arriving on purpose: the zoom transit is quick, and at the arrival pace the ring
+    // vanished with a blink — the lower rate lets it linger and melt out instead.
+    opacity.current = MathUtils.damp(opacity.current, wanted, wanted < opacity.current ? 5 : 12, Math.min(delta, 1 / 30))
     // Materials keep arriving after the layout effect ran — a suspended font resolves, and a photo or thumbnail
     // texture finishing its load SWAPS IN a whole new material. A newcomer the loop below doesn't know about is
     // drawn at its natural full opacity, which against a half-faded room reads as the photo popping in — and on
