@@ -1,7 +1,7 @@
 import { Billboard, Html, RoundedBox, Text } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useMemo } from 'react'
-import { CanvasTexture, SRGBColorSpace, type Texture, TextureLoader, VideoTexture, type PointLight } from 'three'
+import { CanvasTexture, EdgesGeometry, Shape, ShapeGeometry, SRGBColorSpace, type Texture, TextureLoader, VideoTexture, type PointLight } from 'three'
 import { BannerTextInput, SpeechBubbleInput, useArtTexture } from './ArtEditor'
 import { isVisiting } from '../services/social'
 import { type ReactNode, useRef, useState } from 'react'
@@ -19,6 +19,43 @@ import { Swing } from './motion'
 export function InventoryFurniture() {
   const { furniture } = useRoomStore()
   return <>{furniture.filter((item) => item.id.startsWith('inventory-') && !item.removed).map((item) => <Furniture key={item.id} id={item.id}><ItemVisual item={item} /></Furniture>)}</>
+}
+
+function SpeechBubbleShape({ width, height, preview }: { width: number; height: number; preview: boolean }) {
+  const [shape, outline] = useMemo(() => {
+    const halfW = width / 2
+    const halfH = height / 2
+    const radius = .045
+    const tailX = -width * .24
+    const value = new Shape()
+    value.moveTo(-halfW + radius, halfH)
+    value.lineTo(halfW - radius, halfH)
+    value.quadraticCurveTo(halfW, halfH, halfW, halfH - radius)
+    value.lineTo(halfW, -halfH + radius)
+    value.quadraticCurveTo(halfW, -halfH, halfW - radius, -halfH)
+    value.lineTo(tailX + .11, -halfH)
+    value.lineTo(tailX - .18, -halfH - .28)
+    value.lineTo(tailX - .1, -halfH)
+    value.lineTo(-halfW + radius, -halfH)
+    value.quadraticCurveTo(-halfW, -halfH, -halfW, -halfH + radius)
+    value.lineTo(-halfW, halfH - radius)
+    value.quadraticCurveTo(-halfW, halfH, -halfW + radius, halfH)
+    value.closePath()
+    const flat = new ShapeGeometry(value)
+    const edge = new EdgesGeometry(flat)
+    flat.dispose()
+    return [value, edge]
+  }, [width, height])
+  useEffect(() => () => outline.dispose(), [outline])
+  return <>
+    <mesh userData={{ excludeFromFit: true }}>
+      <shapeGeometry args={[shape]} />
+      <meshBasicMaterial color="#ffffff" side={2} transparent={preview} opacity={preview ? .55 : 1} />
+    </mesh>
+    <lineSegments userData={{ excludeFromFit: true }} geometry={outline} position={[0, 0, .006]}>
+      <lineBasicMaterial color="#262626" transparent={preview} opacity={preview ? .55 : 1} />
+    </lineSegments>
+  </>
 }
 
 export function ItemVisual({ item, preview = false }: { item: FurnitureItem; preview?: boolean }) {
@@ -42,25 +79,11 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     const longest = Math.max(4, ...lines.map((line) => Array.from(line).length))
     const bubbleWidth = Math.min(1.7, Math.max(.68, .3 + longest * .085))
     const bubbleHeight = Math.max(.36, .18 + lines.length * .18)
-    const tailPosition: [number, number, number] = [-bubbleWidth * .28, -bubbleHeight / 2 - .11, 0]
     const bubbleFont = /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(bubbleText) ? PRETENDARD_WOFF : JONES_BOOK_OTF
     return <>
       <mesh visible={false}><boxGeometry args={[.7, .02, .7]} /><meshBasicMaterial /></mesh>
       <Billboard position={[0, 1.35, 0]}>
-        <RoundedBox userData={{ excludeFromFit: true }} args={[bubbleWidth + .04, bubbleHeight + .04, .04]} radius={.045} smoothness={3}>
-          <meshBasicMaterial color="#262626" transparent={preview} opacity={preview ? .55 : 1} />
-        </RoundedBox>
-        <RoundedBox userData={{ excludeFromFit: true }} args={[bubbleWidth, bubbleHeight, .035]} radius={.035} smoothness={3} position={[0, 0, .012]}>
-          <meshBasicMaterial color="#ffffff" transparent={preview} opacity={preview ? .55 : 1} />
-        </RoundedBox>
-        <mesh userData={{ excludeFromFit: true }} position={tailPosition} rotation={[0, 0, -.35]}>
-          <circleGeometry args={[.18, 3]} />
-          <meshBasicMaterial color="#262626" transparent={preview} opacity={preview ? .55 : 1} />
-        </mesh>
-        <mesh userData={{ excludeFromFit: true }} position={[tailPosition[0] + .012, tailPosition[1] + .015, .012]} rotation={[0, 0, -.35]}>
-          <circleGeometry args={[.145, 3]} />
-          <meshBasicMaterial color="#ffffff" transparent={preview} opacity={preview ? .55 : 1} />
-        </mesh>
+        <SpeechBubbleShape width={bubbleWidth} height={bubbleHeight} preview={preview} />
         {!!displayText && <Text userData={{ excludeFromFit: true }} position={[0, 0, .04]} font={bubbleFont} fontSize={.13} maxWidth={bubbleWidth - .16} lineHeight={1.25} textAlign="center" anchorX="center" anchorY="middle" color="#262626" fillOpacity={preview ? .55 : 1}>{displayText}</Text>}
       </Billboard>
       {!preview && !isVisiting() && store?.mode === 'normal' && store.selectedObject === item.id && <Html position={[0, 1.65 + bubbleHeight, 0]} center zIndexRange={[4, 0]}>
