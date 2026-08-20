@@ -150,7 +150,7 @@ img.art-image { object-fit: contain; width: 100%; }
 .room-bubble-input { display: grid; gap: 6px; }
 .room-bubble-input textarea { box-sizing: border-box; width: 100%; min-height: 66px; padding: 7px 8px; border: 0; border-radius: 3px; resize: none; color: #262626; background: #f2f2f2; font: inherit; }
 .room-bubble-input button { justify-self: end; padding: 6px 10px; border: 0; border-radius: 4px; color: #fff; background: #0095f6; font: inherit; font-weight: 600; cursor: pointer; }
-.art-panel { position: fixed; z-index: 5; top: 0; right: 0; bottom: 0; width: min(480px, 92vw); padding: 18px 22px 24px; overflow-y: auto; border-left: 1px solid #b3b3ae; background: #ffffff; transform: translateX(100%); transition: transform .42s cubic-bezier(.4, 0, .2, 1); }
+.art-panel { position: fixed; z-index: 20; top: 0; right: 0; bottom: 0; width: min(480px, 92vw); padding: 18px 22px 24px; overflow-y: auto; border-left: 1px solid #b3b3ae; background: #ffffff; transform: translateX(100%); transition: transform .42s cubic-bezier(.4, 0, .2, 1); }
 .art-panel.open { transform: translateX(0); }
 .art-panel:not(.open) { pointer-events: none; }
 .art-panel > header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }

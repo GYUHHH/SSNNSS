@@ -15,6 +15,7 @@ import { CANVAS_UI_FONT, JONES_BOOK_OTF, PRETENDARD_WOFF, loadCanvasFonts } from
 import { clipResumeAt, getVideo, registerClipPlayer, rememberClipAt } from '../services/mediaStore'
 import { playlistVideoResume } from '../services/ytResume'
 import { Swing } from './motion'
+import { ROOM_HTML_Z_INDEX_RANGE } from '../services/renderOrder'
 
 export function InventoryFurniture() {
   const { furniture } = useRoomStore()
@@ -87,7 +88,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
         <SpeechBubbleShape width={bubbleWidth} height={bubbleHeight} preview={preview} />
         {!!displayText && <Text userData={{ excludeFromFit: true }} position={[0, 0, .04]} font={bubbleFont} fontSize={.13 * bubbleScale} maxWidth={bubbleWidth - .16 * bubbleScale} lineHeight={1.25} textAlign="center" anchorX="center" anchorY="middle" color="#262626" fillOpacity={preview ? .55 : 1}>{displayText}</Text>}
       </Billboard>
-      {!preview && !isVisiting() && store?.mode === 'normal' && store.selectedObject === item.id && <Html position={[0, 2.35 + bubbleHeight, 0]} center zIndexRange={[4, 0]}>
+      {!preview && !isVisiting() && store?.mode === 'normal' && store.selectedObject === item.id && <Html position={[0, 2.35 + bubbleHeight, 0]} center zIndexRange={ROOM_HTML_Z_INDEX_RANGE}>
         <section className="room-bubble-editor" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
           <SpeechBubbleInput id={item.id} artwork={store.artworks[item.id]} saveArtwork={store.setArtwork} />
         </section>
@@ -101,7 +102,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     {[-.4, .4].map((x) => <group key={x}><mesh position={[x, .32, .252]}><circleGeometry args={[.15, 16]} /><meshStandardMaterial color="#3d342c" transparent={material.transparent} opacity={material.opacity} /></mesh><mesh position={[x, .32, .256]}><circleGeometry args={[.05, 12]} /><meshStandardMaterial color="#8a7863" transparent={material.transparent} opacity={material.opacity} /></mesh></group>)}
     <mesh position={[0, .38, .252]}><planeGeometry args={[.3, .12]} /><meshStandardMaterial color="#2b3236" emissive="#4a6a5e" emissiveIntensity={.4} transparent={material.transparent} opacity={material.opacity} /></mesh>
     <mesh position={[0, .24, .252]}><circleGeometry args={[.045, 12]} /><meshStandardMaterial color="#d9c9ae" transparent={material.transparent} opacity={material.opacity} /></mesh>
-    {!preview && musicTrack && <Html position={[0, .75, 0]} center zIndexRange={[3, 0]} style={{ pointerEvents: 'none' }}><div className="music-notes"><span>♪</span><span>♫</span><span>♪</span></div></Html>}
+    {!preview && musicTrack && <Html position={[0, .75, 0]} center zIndexRange={ROOM_HTML_Z_INDEX_RANGE} style={{ pointerEvents: 'none' }}><div className="music-notes"><span>♪</span><span>♫</span><span>♪</span></div></Html>}
     {!preview && <MusicControls id={item.id} y={1.05} />}
   </>
   if (item.type === 'floor-lamp') return <><mesh castShadow position={[0, .06, 0]}><cylinderGeometry args={[.25, .28, .12, 12]} /><meshStandardMaterial color={material.color ?? '#83624f'} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh castShadow position={[0, .66, 0]}><cylinderGeometry args={[.04, .04, 1.08, 8]} /><meshStandardMaterial color={material.color ?? '#83624f'} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh castShadow position={[0, 1.34, 0]}><cylinderGeometry args={[.18, .3, .38, 12, 1, true]} /><meshStandardMaterial color={material.color ?? '#f3d79f'} emissive={lit ? '#ffd9a0' : '#000000'} emissiveIntensity={lit ? .6 : 0} side={2} transparent={material.transparent} opacity={material.opacity} /></mesh>{lit && <mesh position={[0, 1.26, 0]}><sphereGeometry args={[.07, 10, 8]} /><meshStandardMaterial color="#ffe6b8" emissive="#ffe6b8" emissiveIntensity={1.4} /></mesh>}{lit && <pointLight color="#ffc66d" intensity={6} distance={2.4} position={[0, 1.16, 0]} />}</>
@@ -266,7 +267,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     <mesh userData={{ excludeFromFit: true }} castShadow position={[-.34, -1.22, .06]}><cylinderGeometry args={[.035, .045, .1, 8]} />{mat('#c9a06c')}</mesh>
     {!preview && <MusicControls id={item.id} y={1.05} />}
   </>
-  if (item.type === 'banner') return <>{[.285, -.285].map((y) => <RoundedBox key={y} castShadow args={[2.04, .03, .04]} radius={.012} smoothness={2} position={[0, y, .02]}>{mat('#3a332c')}</RoundedBox>)}{[1.005, -1.005].map((x) => <RoundedBox key={x} castShadow args={[.03, .6, .04]} radius={.012} smoothness={2} position={[x, 0, .02]}>{mat('#3a332c')}</RoundedBox>)}{preview ? <mesh position={[0, 0, .03]}><planeGeometry args={[1.98, .54]} />{mat('#5a4a35')}</mesh> : <BannerArt id={item.id} />}{!preview && !isVisiting() && store?.mode === 'normal' && store.selectedObject === item.id && <Html position={[0, .72, .1]} center zIndexRange={[4, 0]}><section className="object-card banner-popup" onPointerDown={(event) => event.stopPropagation()}><BannerTextInput id={item.id} artwork={store.artworks[item.id]} saveArtwork={store.setArtwork} /></section></Html>}</>
+  if (item.type === 'banner') return <>{[.285, -.285].map((y) => <RoundedBox key={y} castShadow args={[2.04, .03, .04]} radius={.012} smoothness={2} position={[0, y, .02]}>{mat('#3a332c')}</RoundedBox>)}{[1.005, -1.005].map((x) => <RoundedBox key={x} castShadow args={[.03, .6, .04]} radius={.012} smoothness={2} position={[x, 0, .02]}>{mat('#3a332c')}</RoundedBox>)}{preview ? <mesh position={[0, 0, .03]}><planeGeometry args={[1.98, .54]} />{mat('#5a4a35')}</mesh> : <BannerArt id={item.id} />}{!preview && !isVisiting() && store?.mode === 'normal' && store.selectedObject === item.id && <Html position={[0, .72, .1]} center zIndexRange={ROOM_HTML_Z_INDEX_RANGE}><section className="object-card banner-popup" onPointerDown={(event) => event.stopPropagation()}><BannerTextInput id={item.id} artwork={store.artworks[item.id]} saveArtwork={store.setArtwork} /></section></Html>}</>
   if (item.type === 'window') return <><mesh castShadow position={[0, 0, .03]}><boxGeometry args={[2.02, 1.38, .06]} />{mat('#8a6048')}</mesh>{preview ? <mesh position={[0, 0, .062]}><planeGeometry args={[1.86, 1.22]} />{mat('#bcd6e8')}</mesh> : <WindowView />}<mesh position={[0, 0, .07]}><boxGeometry args={[.05, 1.32, .02]} />{mat('#8a6048')}</mesh><mesh position={[0, 0, .07]}><boxGeometry args={[1.92, .05, .02]} />{mat('#8a6048')}</mesh></>
   if (item.type === 'curtain') return <><mesh castShadow position={[0, 1.33, .08]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[.035, .035, 1.52, 8]} />{mat('#6b4c39')}</mesh>{[-.58, -.29, 0, .3, .58].map((x, index) => <RoundedBox key={x} castShadow args={[.3, 2.58, .1]} radius={.045} smoothness={2} position={[x, -.05, .04 + (index % 2) * .025]}>{mat(index % 2 ? '#d9c1a8' : '#c9a98c')}</RoundedBox>)}</>
   if (item.type === 'fireplace') return <>
@@ -642,7 +643,7 @@ function CalendarArt() {
 function MusicControls({ id, y }: { id: string; y: number }) {
   const store = useOptionalRoomStore()
   if (!store || store.mode !== 'normal' || store.selectedObject !== id) return null
-  return <Html position={[0, y, 0]} center zIndexRange={[4, 0]}>
+  return <Html position={[0, y, 0]} center zIndexRange={ROOM_HTML_Z_INDEX_RANGE}>
     <div className="music-object-popup" onPointerDown={(event) => event.stopPropagation()}>
       <MusicPanel musicTrack={store.musicTrack} setMusicTrack={store.setMusicTrack} musicVolume={store.musicVolume} setMusicVolume={store.setMusicVolume} />
     </div>

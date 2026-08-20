@@ -6,6 +6,7 @@ import { useRoomStore } from '../store'
 import { findFit } from './Furniture'
 import { setExternalHover } from './Interactive'
 import { isVisiting } from '../services/social'
+import { ROOM_HTML_Z_INDEX_RANGE } from '../services/renderOrder'
 
 // A red dot at the top-right of any object carrying NEW reactions from other people — likes and comments,
 // including those left on the records inside a bookshelf. Owner-only; visitors never see them. The dot rides
@@ -32,7 +33,7 @@ function Badge({ id, count }: { id: string; count: number }) {
   if (mode === 'edit') return null
   // hidden until the first frame has placed it on its object — otherwise it flashes at the room's origin
   return <group ref={holder} visible={false}>
-    <Html center zIndexRange={[5, 0]}>
+    <Html center zIndexRange={ROOM_HTML_Z_INDEX_RANGE}>
       <button
         type="button"
         className="reaction-badge"
