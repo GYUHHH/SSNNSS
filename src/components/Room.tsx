@@ -31,7 +31,11 @@ const LIGHTING = {
 } as const
 type TimeOfDay = keyof typeof LIGHTING
 const TIME_LAYER: Record<TimeOfDay, number> = { day: 1, evening: 2, night: 3 }
-const EXPLORER_LAYER_MASK = (1 << 4) - 1
+// Draw the hovered room once more after the cluster so neighbouring walls and props can never cover it.
+// Separate layers preserve that room's own day/evening/night lighting in the foreground pass.
+const HOVER_LAYER: Record<TimeOfDay, number> = { day: 4, evening: 5, night: 6 }
+const EXPLORER_LAYER_MASK = (1 << 7) - 1
+let hoverLayerMask = 0
 
 // Pointer coords are computed from the canvas's LIVE on-screen rect — the scene slides 240px left while a
 // panel is open, and the default client-coordinate mapping would leave every click/hover offset by that shift.
@@ -71,7 +75,10 @@ function TimeLayerLights({ time }: { time: TimeOfDay }) {
   const dir = useRef<DirectionalLight>(null)
   const preset = LIGHTING[time]
   const layer = TIME_LAYER[time]
-  useLayoutEffect(() => { ambient.current?.layers.set(layer); dir.current?.layers.set(layer) }, [layer])
+  useLayoutEffect(() => {
+    ambient.current?.layers.set(layer); ambient.current?.layers.enable(HOVER_LAYER[time])
+    dir.current?.layers.set(layer); dir.current?.layers.enable(HOVER_LAYER[time])
+  }, [layer, time])
   return <><ambientLight ref={ambient} intensity={preset.ambient} color={preset.ambientColor} /><directionalLight ref={dir} position={[6, 4.5, 2.5]} intensity={preset.dir} color={preset.dirColor} /></>
 }
 
@@ -105,6 +112,11 @@ function RenderGovernor() {
     if (camera.zoom <= entryZoom(size.width, size.height)) {
       gl.autoClear = false
       Object.values(TIME_LAYER).forEach((layer) => { camera.layers.set(layer); gl.render(scene, camera) })
+      if (hoverLayerMask) {
+        gl.clearDepth()
+        camera.layers.mask = hoverLayerMask
+        gl.render(scene, camera)
+      }
     }
     gl.autoClear = originalAutoClear
     camera.layers.mask = EXPLORER_LAYER_MASK
@@ -266,6 +278,12 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
   const savedTime = bundle?.['my-room-time-v1']
   const roomTime: TimeOfDay = savedTime === 'evening' || savedTime === 'night' ? savedTime : 'day'
   const layer = TIME_LAYER[roomTime]
+  useLayoutEffect(() => {
+    if (!centred) return
+    const mask = 1 << HOVER_LAYER[roomTime]
+    hoverLayerMask = mask
+    return () => { if (hoverLayerMask === mask) hoverLayerMask = 0 }
+  }, [centred, roomTime])
   const nextFetch = useRef(0)
   const lastRaw = useRef('')
   const mounted = useRef(true)
@@ -298,6 +316,7 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
     materials.current = []
     group.current?.traverse((object) => {
       object.layers.set(layer)
+      if (centred) object.layers.enable(HOVER_LAYER[roomTime])
       const mesh = object as Mesh
       if (!mesh.isMesh) return
       const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
@@ -309,7 +328,7 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
       })
     })
   }
-  useLayoutEffect(collect, [bundle, layer])
+  useLayoutEffect(collect, [bundle, centred, layer, roomTime])
   useFrame(({ camera, size }, delta) => {
     if (!group.current) return
     // The ring belongs to the explorer, so it starts leaving the moment the zoom lifts off the floor at all rather
@@ -543,7 +562,10 @@ function RoomWorld() {
     // pointed the camera back at the room being left for the whole of a network round trip, so the user watched it
     // zoom toward the old room and then jump. Keeping it AFTER the entry is just as wrong the other way: the aim
     // stays clamped on a room that is no longer the one being viewed and the camera never comes free again.
-    const handle = !zoomedIn || opening.current ? picked.current?.handle ?? null : null
+    // A touch screen may keep the centre room as its zoom-in target, but that passive target is not a hover.
+    // Only a real pointer hover or an explicit tap/entry gets the enlarged foreground treatment.
+    const showHover = fine.current || requestedEntry.current || opening.current
+    const handle = (!zoomedIn || opening.current) && showHover ? picked.current?.handle ?? null : null
     if (handle !== centred.current) { centred.current = handle; setCentredHandle(handle) }
     // the edge, not the state: entering is what crossing the line does, so it fires once per zoom-in — and only
     // when no entry is already underway (the latch covers the camera's own entry zoom crossing this same line)
