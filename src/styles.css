@@ -294,7 +294,8 @@ body.exploring :is(.room-controls, .room-slots, .entry-buttons, .me-tag, .build-
 }
 
 button, input, textarea, select { font-family: var(--font-ui); }
-button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #0095f6; outline-offset: 1px; }
+button:focus-visible { outline: 2px solid #0095f6; outline-offset: 1px; }
+input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-shadow: none; }
 
 .room-slots,
 .time-controls,
