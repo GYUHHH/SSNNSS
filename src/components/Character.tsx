@@ -6,6 +6,7 @@ import { baseFloorCells, useRoomStore, type CharacterTransform } from '../store'
 import { characterPosition } from '../services/characterTracker'
 import { resolveInteraction, stateForInteraction } from '../services/interactionAnchors'
 import { cellsFor, findPath, floorSurface, gridToWorld, type GridPosition, worldToGrid } from '../services/roomGrid'
+import { ROOM_OBJECT_ORDER } from '../services/renderOrder'
 
 const CELL = { width: 1, depth: 1 }
 const WALK_SPEED = 4.8
@@ -184,7 +185,7 @@ export default function Character({ appearance: customAppearance }: { appearance
     if (torso.current) torso.current.scale.y = characterState === 'sleeping' ? 1 + Math.sin(clock.current * 2.2) * 0.02 : 1
   })
 
-  return <group ref={actor} name="CharacterRoot" scale={0.85} onPointerOver={(event) => { if (readOnly) return; event.stopPropagation(); setHovered(true) }} onPointerOut={() => setHovered(false)} onClick={(event) => { if (readOnly) return; event.stopPropagation(); selectObject('character') }}>
+  return <group ref={actor} name="CharacterRoot" renderOrder={ROOM_OBJECT_ORDER} scale={0.85} onPointerOver={(event) => { if (readOnly) return; event.stopPropagation(); setHovered(true) }} onPointerOut={() => setHovered(false)} onClick={(event) => { if (readOnly) return; event.stopPropagation(); selectObject('character') }}>
     <group position={[0, pose.y, 0]} rotation={pose.rotation} scale={hovered ? 1.03 : 1}>
       <group ref={torso} name="Body">
         <group name="BaseBody">
