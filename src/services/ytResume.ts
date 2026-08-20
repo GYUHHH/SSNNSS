@@ -283,36 +283,68 @@ export function requestSound(frameId: string, onBlocked: () => void, onSound?: (
 // it is redirected with playVideoAt. Deliberate jumps (panel clicks to an arbitrary video) don't match the
 // natural-next signature and are respected. The live id list from the player also keeps the stored order in
 // sync (new videos append, deleted ones drop). Never reloads the iframe or touches the current video.
-export function watchPlaylistOrder(frameId: string, playlistId: string): () => void {
+export function watchPlaylistOrder(frameId: string, playlistId: string, iframe?: HTMLIFrameElement): () => void {
   let liveIds: string[] = []
+  let helloTimer: ReturnType<typeof setInterval> | undefined
   // start from the saved order and follow every reorder immediately — waiting for the player's next playlist
   // message would leave this watcher enforcing a stale order after the user rearranges the list
   let order: string[] = loadOrders()[playlistId] ?? []
   const stopOrderSync = onOrderChange((changed) => { if (changed === playlistId) order = loadOrders()[playlistId] ?? [] })
   let current: string | undefined
+  let endedVideo: string | undefined
+  const player = () => iframe ?? activeIframes[frameId]
+  const send = (func: string, args: unknown[] = []) => player()?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
+  const advance = (from: string) => {
+    const at = order.indexOf(from)
+    const next = order[(Math.max(at, -1) + 1) % order.length]
+    if (next && next !== from && liveIds.includes(next)) send('playVideoAt', [liveIds.indexOf(next)])
+  }
   const onMessage = (event: MessageEvent) => {
-    if (event.source !== activeIframes[frameId]?.contentWindow) return
+    if (event.source !== player()?.contentWindow) return
+    clearInterval(helloTimer)
     try {
-      const info = (typeof event.data === 'string' ? JSON.parse(event.data) : event.data)?.info
+      const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
+      const info = data?.info
       if (Array.isArray(info?.playlist) && info.playlist.length && info.playlist.join() !== liveIds.join()) {
         liveIds = info.playlist
         order = syncOrder(playlistId, liveIds)
       }
       const video = info?.videoData?.video_id
-      if (typeof video !== 'string' || !video || video === 'videoseries' || video === current) return
-      const previous = current
-      current = video
-      if (!previous || !order.length || !liveIds.length) return
-      const naturalNext = liveIds[(liveIds.indexOf(previous) + 1) % liveIds.length]
-      const ourNext = order[(order.indexOf(previous) + 1) % order.length]
-      if (video === naturalNext && video !== ourNext && liveIds.includes(ourNext)) {
-        current = ourNext
-        command(frameId, 'playVideoAt', [liveIds.indexOf(ourNext)])
+      const validVideo = typeof video === 'string' && video && video !== 'videoseries' ? video : undefined
+      if (validVideo && validVideo !== current) {
+        const previous = current
+        current = validVideo
+        if (previous && order.length && liveIds.length) {
+          const naturalNext = liveIds[(liveIds.indexOf(previous) + 1) % liveIds.length]
+          const ourNext = order[(order.indexOf(previous) + 1) % order.length]
+          if (validVideo === naturalNext && validVideo !== ourNext && liveIds.includes(ourNext)) {
+            current = ourNext
+            send('playVideoAt', [liveIds.indexOf(ourNext)])
+          }
+        }
+      }
+      // YouTube can repeat its own final item even when the user moved that item into the middle of our order.
+      // Move explicitly at ENDED so both the wall and panel follow the site's saved next item instead.
+      const finished = validVideo ?? current
+      if (info?.playerState === 0 && finished && endedVideo !== finished && order.length && liveIds.length) {
+        endedVideo = finished
+        advance(finished)
+      } else if (info?.playerState === 1 && validVideo && validVideo !== endedVideo) {
+        endedVideo = undefined
       }
     } catch { /* not a youtube message */ }
   }
   window.addEventListener('message', onMessage)
-  return () => { window.removeEventListener('message', onMessage); stopOrderSync() }
+  const hello = () => {
+    if (!iframe) return
+    clearInterval(helloTimer)
+    const say = () => iframe.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: `${frameId}:playlist-order` }), '*')
+    helloTimer = setInterval(say, 250)
+    say()
+  }
+  iframe?.addEventListener('load', hello)
+  hello()
+  return () => { clearInterval(helloTimer); iframe?.removeEventListener('load', hello); window.removeEventListener('message', onMessage); stopOrderSync() }
 }
 
 // playlist state control over the iframe API, addressed by frame id

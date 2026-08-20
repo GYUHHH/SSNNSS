@@ -1,11 +1,11 @@
 import { timeAgo } from '../services/timeAgo'
 import { autosize } from '../services/autosize'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRoomStore } from '../store'
 import { ClipPreview, DrawingEditor, PhotoPickButton, PlaylistOrderEditor, VideoLinkInput, VideoPickButton } from './ArtEditor'
 import { isVisiting, myVisitorId, requireHandle } from '../services/social'
 import CommentAvatar, { CommentName } from './CommentAvatar'
-import { embedSrc } from '../services/ytResume'
+import { embedSrc, watchPlaylistOrder } from '../services/ytResume'
 
 // which artwork panel a furniture type opens (null → none)
 export const artworkKindOf = (type: string) => type === 'photo' || type === 'easel-photo' || type.startsWith('photo-frame') ? 'frame' : type === 'poster' || type.startsWith('wall-art') ? 'poster' : type.startsWith('video-frame') ? 'video' : type === 'guestbook' ? 'guestbook' : type === 'whiteboard' ? 'poster' : null
@@ -29,7 +29,7 @@ export default function ArtworkOverlay() {
     return <>
       {!isVisiting() && videoStep !== 'choose' && <header><button className="diary-back" type="button" aria-label="이전" onClick={() => setVideoStep('choose')}>←</button></header>}
       {videoStep === 'choose' && <>
-        {link && <iframe className="video-panel-preview" title="유튜브 영상" src={embedSrc(link, selectedObject, 'playsinline=1&controls=1')} referrerPolicy="strict-origin-when-cross-origin" allow="encrypted-media; picture-in-picture" allowFullScreen />}
+        {link && <VideoPreview link={link} frameId={selectedObject} />}
         {!link && hasClip && <ClipPreview id={selectedObject} />}
         {link?.startsWith('pl:') && <PlaylistOrderEditor id={selectedObject} />}
         {!isVisiting() && <div className="art-actions">
@@ -59,6 +59,16 @@ export default function ArtworkOverlay() {
         <div className="art-meta"><p>{frame ? (art ? '나의 사진' : item?.type === 'photo' ? '여름의 바다' : '빈 액자') : art ? '나의 그림' : item?.type === 'poster' ? 'SONDÉ' : '빈 포스터'}</p>{!isVisiting() && <div className="art-actions">{frame ? <PhotoPickButton id={selectedObject} width={width} height={height} /> : <button type="button" onClick={() => setDrawing(true)}>그림 그리기</button>}</div>}</div>
       </>}
   </>
+}
+
+function VideoPreview({ link, frameId }: { link: string; frameId: string }) {
+  const iframe = useRef<HTMLIFrameElement>(null)
+  const playlistId = link.startsWith('pl:') ? link.slice(3).split('@')[0] : null
+  useEffect(() => {
+    if (!playlistId || !iframe.current) return
+    return watchPlaylistOrder(frameId, playlistId, iframe.current)
+  }, [frameId, playlistId])
+  return <iframe ref={iframe} className="video-panel-preview" title="유튜브 영상" src={embedSrc(link, frameId, 'playsinline=1&controls=1')} referrerPolicy="strict-origin-when-cross-origin" allow="encrypted-media; picture-in-picture" allowFullScreen />
 }
 
 function Guestbook({ id }: { id: string }) {
