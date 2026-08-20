@@ -52,6 +52,7 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
   const content = useRef<Group>(null)
   const pad = useRef<Mesh>(null)
   const refitIn = useRef(0)
+  const refitsLeft = useRef(4)
   const [hovered, setHovered] = useState(false)
   const press = useRef<{ x: number; y: number; pointerId: number; target: { hasPointerCapture: (pointerId: number) => boolean; releasePointerCapture: (pointerId: number) => void } } | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -61,8 +62,8 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
   const hoverGroup = item && isOwnedSurfaceId(item.surfaceId) ? ownerIdOf(item.surfaceId) : id
   useCursor(hovered)
   const cancelPress = () => { if (timer.current) clearTimeout(timer.current); timer.current = null; press.current = null }
-  // Re-measured on a timer rather than once, because a piece can still be growing after it mounts — a suspended
-  // font resolves, a texture lands, a shelf gains a tier — and a pad fitted to the empty version never catches up.
+  // Measure a few times while suspended content settles, then stop. Recomputing every object's Box3 forever made
+  // them all hitch together every .4 seconds during character movement.
   const fitPad = () => {
     if (!content.current || !pad.current || !group.current) return
     padBox.setFromObject(content.current)
@@ -86,7 +87,7 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
   useFrame((_, delta) => {
     if (!group.current) return
     refitIn.current -= delta
-    if (refitIn.current <= 0) { refitIn.current = .4; fitPad() }
+    if (refitsLeft.current > 0 && refitIn.current <= 0) { refitIn.current = .4; refitsLeft.current -= 1; fitPad() }
     const groupHovered = hoverShared.group === hoverGroup
     const lift = groupHovered ? 0.07 : 0
     group.current.position.y += (position[1] + lift - group.current.position.y) * Math.min(1, delta * 12)

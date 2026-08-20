@@ -82,6 +82,7 @@ function TimeLayerLights({ time }: { time: TimeOfDay }) {
 // full rate again on the very next frame. A positive-priority useFrame takes over rendering in R3F, so the skip
 // is just "don't call render this frame".
 function RenderGovernor() {
+  const { characterState } = useRoomStore()
   const activeUntil = useRef(0)
   const skip = useRef(false)
   useEffect(() => {
@@ -92,7 +93,8 @@ function RenderGovernor() {
     return () => inputs.forEach((name) => window.removeEventListener(name, wake))
   }, [])
   useFrame(({ gl, scene, camera, size }) => {
-    if (performance.now() >= activeUntil.current) {
+    const characterMoving = characterState === 'walking' || characterState === 'aligning'
+    if (!characterMoving && performance.now() >= activeUntil.current) {
       skip.current = !skip.current
       if (skip.current) return
     } else skip.current = false
