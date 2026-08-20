@@ -3,6 +3,7 @@ import ArtworkOverlay, { artworkKindOf } from './components/ArtworkOverlay'
 import BookShelfPanel from './components/BookShelfPanel'
 import DiaryDialog from './components/DiaryDialog'
 import InventoryPanel from './components/InventoryPanel'
+import MusicPanel from './components/MusicPanel'
 import ProfileCard from './components/ProfileCard'
 import NotificationPopup from './components/NotificationPopup'
 import SoundHub from './components/SoundHub'
@@ -19,15 +20,22 @@ import { isSignedIn, isVisiting, myHandle } from './services/social'
 import { thumbnailFor } from './services/thumbnails'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 367
+const BUILD = 368
 
 function Interface() {
-  const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget } = useRoomStore()
+  const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume } = useRoomStore()
   const [confirmingReset, setConfirmingReset] = useState(false)
   const [confirmingRoom, setConfirmingRoom] = useState<string | null>(null)
   const [inventoryOpen, setInventoryOpen] = useState(false)
   const [dragPointer, setDragPointer] = useState<{ x: number; y: number; overStorage: boolean } | null>(null)
   const [dragThumbnail, setDragThumbnail] = useState<string | null>(null)
+  const [mobile, setMobile] = useState(() => window.matchMedia('(max-width: 719px)').matches)
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 719px)')
+    const update = () => setMobile(query.matches)
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
   useEffect(() => {
     if (mode === 'normal' || ((movingFurnitureId || preview) && window.matchMedia('(max-width: 719px), (max-height: 520px) and (pointer: coarse)').matches)) setInventoryOpen(false)
   }, [mode, movingFurnitureId, preview])
@@ -52,11 +60,13 @@ function Interface() {
   const cardControls = selectedObject === 'clock'
   const time = new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit' }).format(new Date())
   const artOpen = (!!selectedItem && !!artworkKindOf(selectedItem.type)) || bookshelfOpen || !!openBookId
+  const musicOpen = mobile && !!selectedItem && ['music-player', 'record-player', 'cd-player'].includes(selectedItem.type)
+  const panelOpen = artOpen || musicOpen
   const sheet = useRef<HTMLElement>(null)
   const drag = useRef<{ y: number; at: number; travel: number } | null>(null)
   const isSheet = () => window.matchMedia('(max-width: 719px)').matches
   const sheetDown = (event: React.PointerEvent) => {
-    if (!artOpen || !isSheet()) return
+    if (!panelOpen || !isSheet() || !(event.target as HTMLElement).closest('.sheet-handle')) return
     const panel = sheet.current
     // let an inner scroll keep the gesture unless it is already at the very top
     if (!panel || panel.scrollTop > 0) return
@@ -82,7 +92,7 @@ function Interface() {
     if (held.travel > height * .3 || speed > .6) clearSelection()
     event.stopPropagation()
   }
-  return <main className={`app${artOpen ? ' art-open' : ''}`}>
+  return <main className={`app${panelOpen ? ' art-open' : ''}`}>
     <div className="scene" onContextMenu={(event) => event.preventDefault()}><Room /></div>
     <span className="build-tag" aria-hidden="true">{BUILD}</span>
     {myHandle() && <span className="me-tag">{myHandle()}</span>}
@@ -109,9 +119,10 @@ function Interface() {
     <ReactionPicker />
     <ItemComments />
     <ProfileCard />
-    <aside ref={sheet} className={artOpen ? 'art-panel open' : 'art-panel'} aria-hidden={!artOpen}
+    <aside ref={sheet} className={panelOpen ? 'art-panel open' : 'art-panel'} aria-hidden={!panelOpen}
       onPointerDown={sheetDown} onPointerMove={sheetMove} onPointerUp={sheetUp} onPointerCancel={sheetUp}>
       <span className="sheet-handle" aria-hidden="true" />
+      {musicOpen && <div className="mobile-music-sheet"><MusicPanel musicTrack={musicTrack} setMusicTrack={setMusicTrack} musicVolume={musicVolume} setMusicVolume={setMusicVolume} /></div>}
       <BookShelfPanel /><DiaryDialog /><ArtworkOverlay />
     </aside>
   </main>

@@ -597,3 +597,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 
 /* the sound button sits at the bottom centre, exactly where a sheet or popup comes up — it steps aside */
 .app.art-open .sound-hub, .app:has(.overlay) .sound-hub, .app:has(.profile-overlay) .sound-hub { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(12px); transition: opacity .18s ease, transform .18s ease; }
+
+.mobile-music-sheet { display: none; }
+@media (max-width: 719px) {
+  html, body, #root, .app { max-width: 100%; overflow: hidden; }
+  .art-panel { max-width: 100%; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .art-panel > * { min-width: 0; max-width: 100%; }
+  .sheet-handle { touch-action: none; }
+  .music-object-popup { display: none; }
+  .mobile-music-sheet { display: block; width: 100%; }
+  .mobile-music-sheet .mini-player { width: 100%; padding: 4px 0 0; border-radius: 0; box-shadow: none; }
+}
