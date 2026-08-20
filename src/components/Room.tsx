@@ -376,7 +376,7 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
     // The frame a room is first drawn tends to hitch — texture uploads land right then — and the long delta of
     // that one frame used to advance the damp nearly to 1, so the room POPPED instead of fading. Capping the step
     // means a hitch only moves the fade one small notch, and the glide plays out over the frames that follow.
-    opacity.current = MathUtils.damp(opacity.current, wanted, 6, Math.min(delta, 1 / 30))
+    opacity.current = MathUtils.damp(opacity.current, wanted, 12, Math.min(delta, 1 / 30))
     group.current.visible = opacity.current > .01
     // A nudge in size is the whole highlight. The cluster is stacked by storey, so lifting or outlining the picked
     // room would fight that illusion, while 6% reads as hover without moving anything out of its own cell.
@@ -398,7 +398,7 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
       const state = fadeStates.current.get(material)
       if (!state) return
       if (state.readyAt === undefined && (!map || map.image)) state.readyAt = now
-      const entrance = state.readyAt === undefined ? 0 : Math.min(1, (now - state.readyAt) / 450)
+      const entrance = state.readyAt === undefined ? 0 : Math.min(1, (now - state.readyAt) / 350)
       const settled = full && entrance >= 1
       material.transparent = settled ? state.transparent : true
       // Every visible part follows the same room alpha. Giving photos/text a steeper curve held them invisible
