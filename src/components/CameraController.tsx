@@ -13,7 +13,12 @@ const MAX_ZOOM = 220
 
 export const isCompactScreen = (width: number, height: number) => width < 720 || (height < 520 && window.matchMedia('(pointer: coarse)').matches)
 // the floor the explorer bottoms out at — the neighbour fade bands are anchored to it so raising one moves the other
-export const exploreMinZoom = (width: number, height: number) => Math.min(EXPLORE_MAX_ZOOM, width / 33, height / 29)
+export const exploreMinZoom = (width: number, height: number) => {
+  const fit = Math.min(EXPLORE_MAX_ZOOM, width / 33, height / 29)
+  // mobile reads too small fully zoomed out, so the floor sits 6 higher there — capped safely under the entry
+  // line (and never below the plain fit) so crossing into a room keeps firing exactly as before
+  return isCompactScreen(width, height) ? Math.min(fit + 6, Math.max(fit, entryZoom(width, height) - 2)) : fit
+}
 // Where zooming in stops being a look and counts as choosing the room in the middle. The flag that locks the
 // explorer flips on the very first wheel tick, far too twitchy to drop someone into a room, so the line sits a
 // little above the floor — desktop 46, mobile 22. The neighbour fade is spent by exactly here, so the ring is
