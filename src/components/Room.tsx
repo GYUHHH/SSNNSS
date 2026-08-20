@@ -315,9 +315,18 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
   }, [bundle, camera, gl, scene])
   const collect = () => {
     materials.current = []
+    let paintOrder = 0
+    const fading = opacity.current < .995
     group.current?.traverse((object) => {
       object.layers.set(layer)
       if (centred) object.layers.enable(HOVER_LAYER[roomTime])
+      // While the room is transparent, the depth SORT decides paint order per object — and a wall's sort point
+      // (its centre) can land nearer the camera than a photo hanging on that wall, so the wall paints after it
+      // and swallows every wall-mounted object a little more as the fade deepens: they visibly faded OUT, then
+      // popped back the frame transparency was restored. Scene-graph order is the truth (walls mount before the
+      // things hung on them), so during the fade paint order is pinned to traversal order; at full view it goes
+      // back to plain depth-tested rendering.
+      object.renderOrder = fading ? ++paintOrder : 0
       const mesh = object as Mesh
       if (!mesh.isMesh) return
       const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
@@ -375,7 +384,10 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
       // or just after the reveal POPS in at full strength while everything else faded — the "일부 요소가 뚝
       // 하고 나타난다" report. Applies at full view too, which is when slow downloads usually land.
       const map = (material as { map?: { image?: unknown } }).map
-      if (material.userData.readyAt === undefined && (!map || map.image)) material.userData.readyAt = now
+      // Discovered at FULL view with its image already showing → it has been on screen since before this sweep
+      // found it, so it enters as already-settled: restarting its entrance made a visible element fade OUT and
+      // back in (the reported dip). The ramp only applies to pixels that were never visible yet.
+      if (material.userData.readyAt === undefined && (!map || map.image)) material.userData.readyAt = full ? now - 300 : now
       const entrance = material.userData.readyAt === undefined ? 0 : Math.min(1, (now - material.userData.readyAt) / 300)
       const settled = full && entrance >= 1
       material.transparent = settled ? material.wasTransparent ?? false : true
