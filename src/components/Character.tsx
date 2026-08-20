@@ -9,12 +9,6 @@ import { cellsFor, findPath, floorSurface, gridToWorld, type GridPosition, world
 import { ROOM_OBJECT_ORDER } from '../services/renderOrder'
 
 const CELL = { width: 1, depth: 1 }
-const WALK_SPEED = 4.8
-const moveTowards = (position: Vector3, target: Vector3, step: number, offset: Vector3) => {
-  const distance = offset.subVectors(target, position).length()
-  if (distance <= step) position.copy(target)
-  else position.addScaledVector(offset, step / distance)
-}
 
 export type CharacterAppearance = {
   skinColor: string
@@ -58,7 +52,6 @@ export default function Character({ appearance: customAppearance }: { appearance
   // them all where THIS browser last left its own character. characterHome is that room's own saved spot.
   const start = useRef(new Vector3(characterHome[0], characterPose?.y ?? 0, characterHome[2])).current
   const route = useRef<Vector3[]>([]); const routeIndex = useRef(0); const routeKey = useRef<string | null>(null)
-  const movement = useRef(new Vector3())
   const interactionStart = useRef<{ key: string | null; position: [number, number, number] }>({ key: null, position: [start.x, 0, start.z] })
   const clock = useRef(0)
   useCursor(hovered)
@@ -133,7 +126,7 @@ export default function Character({ appearance: customAppearance }: { appearance
       const dx = target.x - actor.current.position.x; const dz = target.z - actor.current.position.z
       if (Math.hypot(dx, dz) > 0.03) actor.current.rotation.y = turnToward(actor.current.rotation.y, Math.atan2(dx, dz), Math.min(1, delta * 7))
       actor.current.position.y = 0
-      moveTowards(actor.current.position, target, WALK_SPEED * Math.min(delta, .05), movement.current)
+      actor.current.position.lerp(target, Math.min(1, delta * 6))
       if (actor.current.position.distanceTo(target) < .12) {
         if (routeIndex.current < route.current.length - 1) routeIndex.current += 1
         else finishCharacterAction('aligning', currentTransform(actor.current))
@@ -158,7 +151,7 @@ export default function Character({ appearance: customAppearance }: { appearance
       const dx = target.x - actor.current.position.x; const dz = target.z - actor.current.position.z
       if (Math.hypot(dx, dz) > 0.03) actor.current.rotation.y = turnToward(actor.current.rotation.y, Math.atan2(dx, dz), Math.min(1, delta * 7))
       actor.current.position.y = 0
-      moveTowards(actor.current.position, target, WALK_SPEED * Math.min(delta, .05), movement.current)
+      actor.current.position.lerp(target, Math.min(1, delta * 6))
       if (actor.current.position.distanceTo(target) < .12) {
         if (routeIndex.current < route.current.length - 1) routeIndex.current += 1
         else settleFloorMove(true, currentTransform(actor.current))
