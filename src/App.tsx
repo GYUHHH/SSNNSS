@@ -20,7 +20,7 @@ import { isSignedIn, isVisiting, myHandle } from './services/social'
 import { thumbnailFor } from './services/thumbnails'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 376
+const BUILD = 377
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume } = useRoomStore()
@@ -62,36 +62,56 @@ function Interface() {
   const artOpen = (!!selectedItem && !!artworkKindOf(selectedItem.type)) || bookshelfOpen || !!openBookId
   const musicOpen = mobile && !!selectedItem && ['music-player', 'record-player', 'cd-player'].includes(selectedItem.type)
   const panelOpen = artOpen || musicOpen
+  const [sheetExpanded, setSheetExpanded] = useState(false)
   const sheet = useRef<HTMLElement>(null)
-  const drag = useRef<{ y: number; at: number; travel: number } | null>(null)
+  const drag = useRef<{ y: number; at: number; travel: number; height: number; expanded: boolean } | null>(null)
   const suppressSheetClick = useRef(false)
   const isSheet = () => window.matchMedia('(max-width: 719px)').matches
+  useEffect(() => { if (!panelOpen) setSheetExpanded(false) }, [panelOpen])
   const sheetDown = (event: React.PointerEvent) => {
     if (!panelOpen || !isSheet() || (event.target as HTMLElement).closest('input, textarea, select')) return
     const panel = sheet.current
     // let an inner scroll keep the gesture unless it is already at the very top
     if (!panel || panel.scrollTop > 0) return
-    drag.current = { y: event.clientY, at: performance.now(), travel: 0 }
+    drag.current = { y: event.clientY, at: performance.now(), travel: 0, height: panel.getBoundingClientRect().height, expanded: sheetExpanded }
   }
   const sheetMove = (event: React.PointerEvent) => {
     const held = drag.current
     if (!held || !sheet.current) return
-    const travel = Math.max(0, event.clientY - held.y)
+    const travel = event.clientY - held.y
     held.travel = travel
-    if (travel > 5) suppressSheetClick.current = true
-    const height = sheet.current.offsetHeight || 1
+    if (Math.abs(travel) > 5) suppressSheetClick.current = true
     sheet.current.style.transition = 'none'
-    sheet.current.style.transform = `translateY(${travel}px)`
+    if (!held.expanded && travel < 0) {
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight
+      sheet.current.style.height = `${Math.min(viewportHeight, held.height - travel)}px`
+      sheet.current.style.maxHeight = `${viewportHeight}px`
+      sheet.current.style.transform = ''
+    } else {
+      sheet.current.style.height = ''
+      sheet.current.style.maxHeight = ''
+      sheet.current.style.transform = `translateY(${Math.max(0, travel)}px)`
+    }
+    if (Math.abs(travel) > 5) event.preventDefault()
   }
   const sheetUp = (event: React.PointerEvent) => {
     const held = drag.current
     drag.current = null
     if (!held || !sheet.current) return
-    sheet.current.style.transition = ''
-    sheet.current.style.transform = ''
-    const height = sheet.current.offsetHeight || 1
+    const panel = sheet.current
+    const height = panel.offsetHeight || 1
     const speed = held.travel / Math.max(1, performance.now() - held.at)
-    if (held.travel > height * .3 || speed > .6) clearSelection()
+    if (held.expanded) {
+      if (held.travel > Math.min(100, height * .12) || speed > .6) setSheetExpanded(false)
+    } else if (held.travel < -Math.min(80, (window.visualViewport?.height ?? window.innerHeight) * .08) || speed < -.5) {
+      setSheetExpanded(true)
+    } else if (held.travel > height * .3 || speed > .6) {
+      clearSelection()
+    }
+    panel.style.transition = ''
+    panel.style.transform = ''
+    panel.style.height = ''
+    panel.style.maxHeight = ''
     setTimeout(() => { suppressSheetClick.current = false }, 0)
     event.stopPropagation()
   }
@@ -122,7 +142,7 @@ function Interface() {
     <ReactionPicker />
     <ItemComments />
     <ProfileCard />
-    <aside ref={sheet} className={panelOpen ? 'art-panel open' : 'art-panel'} aria-hidden={!panelOpen}
+    <aside ref={sheet} className={`${panelOpen ? 'art-panel open' : 'art-panel'}${sheetExpanded ? ' expanded' : ''}`} aria-hidden={!panelOpen}
       onClickCapture={(event) => { if (suppressSheetClick.current) { event.preventDefault(); event.stopPropagation() } }}
       onPointerDown={sheetDown} onPointerMove={sheetMove} onPointerUp={sheetUp} onPointerCancel={sheetUp}>
       <span className="sheet-handle" aria-hidden="true" />
