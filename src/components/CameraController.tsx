@@ -31,6 +31,10 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
   const { camera, gl, size } = useThree()
   const { mode } = useRoomStore()
   const zoomTarget = useRef(59)
+  // last frame's goal, so the band snap below can tell which way the user was winding
+  const lastZoomTarget = useRef(59)
+  // while now is before this, the entry line holds against further zooming out — the detent's grip
+  const entryHold = useRef(0)
   const entryZoomAt = useRef(0)
   const targetGoal = useRef(new Vector3(0, 3.5, 0))
   // set while gliding back to the straight-on view after a room is entered, then cleared so the user owns the angle
@@ -164,6 +168,24 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
       entryZoomAt.current = 0
       zoomTarget.current = Math.max(zoomTarget.current, baseZoom)
     }
+    // The stretch between the explorer floor and the entry line is a hallway, not a place: nothing useful lives at
+    // zoom 43. So the GOAL is never allowed to settle there — any input that lands it inside the band is carried
+    // to whichever end it was heading for, and the camera glides through in one motion: wind out of a room and it
+    // runs all the way down to the explorer, wind in from the explorer and it runs all the way into the room. The
+    // camera's actual zoom still passes through the band smoothly, so entry and the fades fire exactly as before.
+    if (mode === 'normal' && zoomTarget.current !== lastZoomTarget.current) {
+      const entry = entryZoom(size.width, size.height)
+      if (zoomTarget.current > minZoom + .01 && zoomTarget.current < entry - .01) {
+        if (zoomTarget.current > lastZoomTarget.current) zoomTarget.current = Math.max(baseZoom, entry)
+        // Zooming out has a detent AT the entry line: the first pull out of a room rests there, and only pulling
+        // again carries on down to the explorer where the ring gathers. The hold is timed rather than a flag
+        // because trackpads and pinches stream deltas continuously — without the grace period one smooth gesture
+        // would touch the stop for a single frame and blow straight through it.
+        else if (lastZoomTarget.current > entry + .01) { zoomTarget.current = entry; entryHold.current = performance.now() + 1000 }
+        else zoomTarget.current = performance.now() < entryHold.current ? entry : minZoom
+      }
+    }
+    lastZoomTarget.current = zoomTarget.current
     // Only in normal mode. Edit mode has its OWN, much higher floor, and on a phone the default zoom sits exactly
     // on it — so this read as "fully zoomed out", switched panning on, and a one-finger drag shoved the room away
     // while the user was arranging furniture.
