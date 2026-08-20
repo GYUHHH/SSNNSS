@@ -546,6 +546,9 @@ function RoomWorld() {
   }
   const beginEntry = (slot: RoomSlot) => {
     if (opening.current || requestedEntry.current || !canEnter(slot.handle)) return
+    // Touch has no hover target. A tapped room enters directly; zooming and panning never infer a room from the
+    // middle of the screen.
+    if (!fine.current) { void open(slot); return }
     requestedEntry.current = true
     picked.current = slot
     centred.current = slot.handle
@@ -561,7 +564,7 @@ function RoomWorld() {
     // The pick keeps updating through the first half of the transit band — the user can still steer onto a
     // different room while the fade has already begun — and only freezes for the short stretch before the entry
     // line, which is what keeps the choice from flapping while the camera is actively pulling it to the middle.
-    if (mode === 'normal' && !requestedEntry.current && camera.zoom <= (floor + entryZoom(size.width, size.height)) / 2) {
+    if (fine.current && mode === 'normal' && !requestedEntry.current && camera.zoom <= (floor + entryZoom(size.width, size.height)) / 2) {
       // Measured in pixels off a projected centre rather than in world space: the cluster is stacked across storeys
       // and panning slides the target in the screen plane, so world distance disagrees with what is on screen. The
       // room already being viewed competes as well, and its winning means nothing is picked — zooming back into the
@@ -579,15 +582,11 @@ function RoomWorld() {
         }
         return { slot: winner === active ? null : winner, offset: best }
       }
-      // Both readings are live on a desktop, and the mouse only takes over where it is actually resting on a room —
-      // a room projects to a 200px box at zoom 20.2, so half of one is 4.95 pixels per unit of zoom. Off the rooms,
-      // or on a touch screen where the last tap is long stale, the middle of the screen is the crosshair.
-      const hover = fine.current ? nearest(pointer.x, pointer.y) : null
-      const overRoom = hover !== null && hover.offset <= camera.zoom * 4.95
       // With a mouse the cursor is the whole story: on a room means that room, off every room means no pick at
-      // all — zooming in just returns to the room being viewed. The middle-of-screen crosshair is for touch,
-      // which has no cursor to read.
-      picked.current = fine.current ? (overRoom ? hover.slot : null) : nearest(0, 0).slot
+      // all — zooming in just returns to the room being viewed.
+      const hover = nearest(pointer.x, pointer.y)
+      const overRoom = hover.offset <= camera.zoom * 4.95
+      picked.current = overRoom ? hover.slot : null
       // the mouse resting on an enterable room is an invitation, and the cursor says so
       const wanted = overRoom && hover.slot !== null
       if (wanted !== cursorOn.current) { cursorOn.current = wanted; document.body.style.cursor = wanted ? 'pointer' : '' }

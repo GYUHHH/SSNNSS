@@ -39,12 +39,8 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
   const targetGoal = useRef(new Vector3(0, 3.5, 0))
   // set while gliding back to the straight-on view after a room is entered, then cleared so the user owns the angle
   const angleGoal = useRef<{ azimuth: number; polar: number; life: number } | null>(null)
-  const touchStart = useRef<{ x: number; y: number; time: number } | null>(null)
   const pinchDistance = useRef(0)
-  const lastTap = useRef({ time: 0, x: 0, y: 0 })
-  const dragZoom = useRef<{ identifier: number; startY: number; startZoom: number; lastX: number; lastY: number } | null>(null)
   const controls = useRef<ControlsRef | null>(null)
-  const [dragZooming, setDragZooming] = useState(false)
   // fully zoomed out is the room explorer, not a room: swinging the camera there just skews the tiled
   // neighbours, so rotation is locked until the user zooms back in
   const [atMinZoom, setAtMinZoom] = useState(false)
@@ -107,22 +103,7 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
     const onTouchStart = (event: TouchEvent) => {
       if (event.touches.length === 2) {
         pinchDistance.current = distance(event.touches)
-        lastTap.current.time = 0
-        dragZoom.current = null
-        setDragZooming(true)
         event.preventDefault()
-        return
-      }
-      if (event.touches.length !== 1) return
-      const touch = event.touches[0]
-      const now = performance.now()
-      const secondTap = mode === 'normal' && compactScreen && now - lastTap.current.time < 320 && Math.hypot(touch.clientX - lastTap.current.x, touch.clientY - lastTap.current.y) < 36
-      touchStart.current = { x: touch.clientX, y: touch.clientY, time: now }
-      if (secondTap) {
-        dragZoom.current = { identifier: touch.identifier, startY: touch.clientY, startZoom: zoomTarget.current, lastX: touch.clientX, lastY: touch.clientY }
-        lastTap.current.time = 0
-        setDragZooming(true)
-        event.preventDefault(); event.stopPropagation()
       }
     }
     const onTouchMove = (event: TouchEvent) => {
@@ -133,34 +114,18 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
         event.preventDefault()
         return
       }
-      if (!dragZoom.current || event.touches.length !== 1 || event.touches[0].identifier !== dragZoom.current.identifier) return
-      event.preventDefault(); event.stopPropagation()
-      zoomTarget.current = MathUtils.clamp(dragZoom.current.startZoom * Math.exp((event.touches[0].clientY - dragZoom.current.startY) * .009), minZoom, MAX_ZOOM)
-      // sideways movement swings the view while vertical movement stays pure zoom
-      const dx = event.touches[0].clientX - dragZoom.current.lastX
-      dragZoom.current.lastX = event.touches[0].clientX
-      if (controls.current && zoomTarget.current > minZoom + .01) controls.current.setAzimuthalAngle(MathUtils.clamp(controls.current.getAzimuthalAngle() - dx * .027, 0, Math.PI / 2))
     }
-    const onTouchEnd = (event: TouchEvent, cancelled = false) => {
-      const touch = event.changedTouches[0]
-      if (dragZoom.current && [...event.changedTouches].some((entry) => entry.identifier === dragZoom.current?.identifier)) {
-        event.preventDefault(); event.stopPropagation()
-        dragZoom.current = null
-        setDragZooming(false)
-      } else if (mode === 'normal' && !cancelled && event.touches.length === 0 && touch && touchStart.current && performance.now() - touchStart.current.time < 350 && Math.hypot(touch.clientX - touchStart.current.x, touch.clientY - touchStart.current.y) < 12) {
-        lastTap.current = { time: performance.now(), x: touch.clientX, y: touch.clientY }
-      } else if (event.touches.length === 0) lastTap.current.time = 0
-      if (event.touches.length < 2) { pinchDistance.current = 0; setDragZooming(false) }
-      if (event.touches.length === 0) touchStart.current = null
+    const onTouchEnd = (event: TouchEvent) => {
+      if (event.touches.length < 2) pinchDistance.current = 0
     }
-    const onTouchCancel = (event: TouchEvent) => onTouchEnd(event, true)
+    const onTouchCancel = onTouchEnd
     element.addEventListener('wheel', onWheel, { passive: false })
     element.addEventListener('touchstart', onTouchStart, { passive: false, capture: true })
     element.addEventListener('touchmove', onTouchMove, { passive: false, capture: true })
     element.addEventListener('touchend', onTouchEnd, { passive: false, capture: true })
     element.addEventListener('touchcancel', onTouchCancel, { passive: false, capture: true })
     return () => { element.removeEventListener('wheel', onWheel); element.removeEventListener('touchstart', onTouchStart, true); element.removeEventListener('touchmove', onTouchMove, true); element.removeEventListener('touchend', onTouchEnd, true); element.removeEventListener('touchcancel', onTouchCancel, true) }
-  }, [compactScreen, gl, minZoom, mode])
+  }, [gl, minZoom])
 
   useFrame((_, delta) => {
     const camera2d = camera as OrthographicCamera
@@ -232,7 +197,7 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
 
   return <OrbitControls
     ref={controls as never}
-    enableRotate={mode === 'normal' && !dragZooming && !atMinZoom}
+    enableRotate={mode === 'normal' && !atMinZoom}
     target={[0, 3.5, 0]}
     // fully zoomed out the view is the explorer, so a drag roams the cluster instead of swinging it
     enablePan={atMinZoom}
