@@ -215,7 +215,7 @@ body.exploring :is(.room-controls, .room-slots, .entry-buttons, .me-tag, .build-
 .item-comments .guest-note { width: 100%; padding-block: 8px; }
 
 /* Every comment surface shares its type scale here. */
-.comment-ui { --comment-font-size: 12pt; font-family: var(--font-ui); }
+.comment-ui { --comment-font-size: 16px; font-family: var(--font-ui); }
 .comment-ui :is(.comment-item, textarea, input, .guest-form button, .entry-comment-form button, .entry-empty) { font-size: var(--comment-font-size); }
 .comment-ui :is(button, input, textarea) { font-family: inherit; }
 .comment-item { display: grid; grid-template: auto auto / 32px minmax(0, 1fr); column-gap: 10px; color: var(--ui-text); text-align: left; }
@@ -247,7 +247,7 @@ body.exploring :is(.room-controls, .room-slots, .entry-buttons, .me-tag, .build-
   .diary-head { flex-wrap: wrap; gap: 12px; padding: 0 4px 12px; }
   .diary-head-actions { margin-left: auto; justify-content: flex-end; }
   .diary-head-actions select { min-height: 40px; }
-  .diary-head-actions button { min-height: 34px; font-size: 12px; padding: 0 9px; }
+  .diary-head-actions button { padding: 0 9px; }
   .diary-pages { grid-template-columns: 1fr; }
   .diary-pages section { padding: 16px 4px; }
   .left-page { border-right: 0; border-bottom: 1px solid #e0e0dd; }
@@ -460,9 +460,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .entry-more-menu > div { display: flex; justify-content: flex-end; gap: 4px; }
 .entry-more-menu > div button { padding: 6px 7px; border: 0; background: transparent; font-size: 12px; cursor: pointer; }
 .entry-more-menu .danger { color: var(--ui-red); }
-.entry-comment-form textarea, .entry-comment-form button { box-sizing: border-box; height: 31px !important; min-height: 31px; }
-.entry-comment-form textarea { padding-block: 4px; overflow-y: auto; line-height: 21px; }
-.entry-comment-form button { align-self: auto; padding-block: 0; line-height: 31px; }
+.diary { --diary-control-height: 34px; --diary-control-font-size: 16px; }
+.diary-head-actions button, .entry-comment-form textarea, .entry-comment-form button { box-sizing: border-box; height: var(--diary-control-height) !important; min-height: var(--diary-control-height); font-family: var(--font-ui); font-size: var(--diary-control-font-size); }
+.entry-comment-form textarea { padding-block: 5px; overflow-y: auto; line-height: 22px; }
+.entry-comment-form button { align-self: auto; display: inline-flex; align-items: center; justify-content: center; padding-block: 0; line-height: 1; }
 .entry-item-head button { color: var(--ui-red); font-weight: 600; }
 .entry-comment-form button, .guest-form button { padding-inline: 12px; }
 .art-view { border-width: 8px; }
