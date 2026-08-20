@@ -70,7 +70,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   const artImage = art?.image as { width?: number; height?: number } | undefined
   const artAspect = artImage?.width && artImage.height ? artImage.width / artImage.height : 1
   if (item.type === 'speech-bubble') {
-    const bubbleScale = 1.2
+    const bubbleScale = 1.8
     const bubbleText = preview ? '말풍선' : store?.artworks[item.id] ?? ''
     const lines = bubbleText.split('\n').flatMap((line) => {
       const chars = Array.from(line)
