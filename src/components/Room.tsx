@@ -403,7 +403,7 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
       material.transparent = settled ? state.transparent : true
       // Every visible part follows the same room alpha. Giving photos/text a steeper curve held them invisible
       // through most of the transition and then made them appear at once near the end.
-      const base = full ? 1 : material.userData.lateFade ? detailAlpha ** 7 : detailAlpha
+      const base = detailAlpha
       material.opacity = settled ? state.opacity : state.opacity * base * entrance
       if (!material.color) return
     })
