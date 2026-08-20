@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { compressImage } from './imageCompress'
+import { markRoomPreviewDirty, ROOM_PREVIEW_KEY } from './roomPreview'
 
 // Supabase-backed social layer: plain fetch against PostgREST, plus the SDK's realtime channel for live updates.
 // - The owner's room state lives in the server bundle. An in-memory copy keeps synchronous loaders simple;
@@ -95,6 +96,7 @@ export const readStored = (key: string): string | null => {
 export const writeStored = (key: string, value: string) => {
   if (isVisiting() || isReadingBundle() || ownerData[key] === value) return
   ownerData[key] = value
+  if (key !== ROOM_PREVIEW_KEY) markRoomPreviewDirty()
   dirtyKeys.add(key)
   deletedKeys.delete(key)
   schedulePublish()
@@ -501,11 +503,14 @@ export function fetchRoomBundle(handle: string, fresh = false): Promise<Record<s
 
 // The explorer only needs public room ids up front; each neighbour's bundle is fetched lazily by fetchRoomBundle
 // once the zoom-out actually reveals it, so a directory of many rooms costs one request until it is looked at.
-export async function fetchRoomDirectory(limit = 37): Promise<string[]> {
+export type RoomDirectoryEntry = { handle: string; previewImageUrl?: string }
+export async function fetchRoomDirectory(limit = 37): Promise<RoomDirectoryEntry[]> {
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?select=handle&order=handle.asc&limit=${limit}`, { headers })
+    // Only the image URL is needed for distant rooms; their full room bundle stays on the server until they enter
+    // the close ring and is then fetched by fetchRoomBundle.
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?select=handle,preview:data-%3E%3Eroom_preview&order=handle.asc&limit=${limit}`, { headers })
     const rows = await response.json()
-    return response.ok && Array.isArray(rows) ? rows.map((row) => row?.handle).filter((handle): handle is string => typeof handle === 'string' && !!handle) : []
+    return response.ok && Array.isArray(rows) ? rows.flatMap((row) => typeof row?.handle === 'string' && row.handle ? [{ handle: row.handle, previewImageUrl: typeof row.preview === 'string' && row.preview ? row.preview : undefined }] : []) : []
   } catch { return [] }
 }
 

@@ -1,9 +1,10 @@
 import { OrthographicCamera } from '@react-three/drei'
-import { Canvas, events, useFrame, useThree } from '@react-three/fiber'
+import { Canvas, events, useFrame, useLoader, useThree } from '@react-three/fiber'
 import { type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { type AmbientLight, Color, type DirectionalLight, type Group, type Material, MathUtils, type Mesh, Vector3 } from 'three'
+import { type AmbientLight, Color, type DirectionalLight, type Group, type Material, MathUtils, type Mesh, OrthographicCamera as ThreeOrthographicCamera, TextureLoader, Vector3, WebGLRenderTarget } from 'three'
 import { NeighbourRoomProvider, useRoomStore } from '../store'
-import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDirectory, isSignedIn, myHandle, subscribeRoomBundles } from '../services/social'
+import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDirectory, isSignedIn, isVisiting, myHandle, subscribeRoomBundles, uploadMedia, writeStored } from '../services/social'
+import { ROOM_PREVIEW_KEY, saveRoomPreview } from '../services/roomPreview'
 import { snapshotActiveFrames } from '../services/ytResume'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
@@ -124,6 +125,60 @@ function RenderGovernor() {
   return null
 }
 
+function RoomPreviewCapture() {
+  const { mode } = useRoomStore()
+  const { gl, scene, camera } = useThree()
+  const target = useRef<WebGLRenderTarget | null>(null)
+  const previewCamera = useRef<ThreeOrthographicCamera | null>(null)
+  useEffect(() => () => target.current?.dispose(), [])
+  useFrame(() => {
+    if (mode !== 'normal' || isVisiting()) return
+    void saveRoomPreview(async () => {
+      const size = 384
+      const renderTarget = target.current ??= new WebGLRenderTarget(size, size)
+      const hidden: Array<{ visible: boolean }> = []
+      const previousTarget = gl.getRenderTarget()
+      const previousMask = camera.layers.mask
+      const previousClear = gl.getClearColor(new Color())
+      const previousAlpha = gl.getClearAlpha()
+      scene.traverse((object) => { if (object.name === 'neighbour-room' && object.visible) { hidden.push(object); object.visible = false } })
+      try {
+        gl.setRenderTarget(renderTarget)
+        gl.setClearColor('#000000', 0)
+        gl.clear(true, true, true)
+        const shotCamera = previewCamera.current ??= new ThreeOrthographicCamera(-6, 6, 6, -6, .1, 100)
+        shotCamera.position.set(10, 8.5, 10)
+        shotCamera.lookAt(0, 3.5, 0)
+        shotCamera.layers.set(0)
+        shotCamera.updateProjectionMatrix()
+        gl.render(scene, shotCamera)
+        const pixels = new Uint8Array(size * size * 4)
+        gl.readRenderTargetPixels(renderTarget, 0, 0, size, size, pixels)
+        const canvas = document.createElement('canvas')
+        canvas.width = size; canvas.height = size
+        const context = canvas.getContext('2d')
+        if (!context) return null
+        const image = context.createImageData(size, size)
+        for (let row = 0; row < size; row += 1) image.data.set(pixels.subarray((size - row - 1) * size * 4, (size - row) * size * 4), row * size * 4)
+        return await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', .66))
+      } finally {
+        hidden.forEach((object) => { object.visible = true })
+        gl.setRenderTarget(previousTarget)
+        gl.setClearColor(previousClear, previousAlpha)
+        camera.layers.mask = previousMask
+      }
+    }, async (blob) => {
+      const handle = currentRoomHandle()
+      if (!handle) return false
+      const url = await uploadMedia(`previews/${handle}/${crypto.randomUUID()}.webp`, blob)
+      if (!url) return false
+      writeStored(ROOM_PREVIEW_KEY, url)
+      return true
+    })
+  }, 2)
+  return null
+}
+
 function Scene() {
   const { clearSelection, mode, toggleEditMode, timeOfDay } = useRoomStore()
   const light = LIGHTING[timeOfDay]
@@ -135,6 +190,7 @@ function Scene() {
   return <div ref={eventHost} className="canvas-host" style={{ background: light.bg }}><Canvas dpr={[1, 2]} gl={{ antialias: true }} eventSource={eventHost} events={shiftAwareEvents} onPointerMissed={(event) => { if (!(event.target as HTMLElement)?.closest?.('.canvas-host')) return; (mode === 'edit' ? toggleEditMode : clearSelection)() }} camera={{ position: [10, 8.5, 10] }}>
     <OrthographicCamera makeDefault position={[10, 8.5, 10]} zoom={59} near={0.1} far={100} />
     <RenderGovernor />
+    <RoomPreviewCapture />
     <CrossfadingLights preset={light} />
     <TimeLayerLights time="day" /><TimeLayerLights time="evening" /><TimeLayerLights time="night" />
     <Suspense fallback={null}>
@@ -174,7 +230,7 @@ const cellPosition = (a: number, b: number): [number, number, number] => [a * CE
 // the six screen directions that leave a room fully visible: two level steps sideways, two a storey up, two down.
 // Straight up/down the screen (a + b = ±2) is deliberately left out — that cell hides directly behind this one.
 const RING = [[1, -1], [-1, 1], [1, 0], [0, 1], [0, -1], [-1, 0]] as const
-type RoomSlot = { handle: string; a: number; b: number; position: [number, number, number] }
+type RoomSlot = { handle: string; a: number; b: number; position: [number, number, number]; previewImageUrl?: string }
 const neighbourCells = (a: number, b: number) => RING.map(([da, db]) => [a + da, b + db] as [number, number])
 // ring steps are (±2, 0) and (±1, ±1) in 100px screen units, so measure the gap in those coordinates:
 // m along the screen's horizontal, n along its vertical
@@ -184,7 +240,7 @@ const ringDistance = (from: Pick<RoomSlot, 'a' | 'b'>, to: Pick<RoomSlot, 'a' | 
   return n + Math.max(0, (m - n) / 2)
 }
 
-const roomSlots = (handles: string[]): RoomSlot[] => {
+const roomSlots = (handles: string[], previews: Record<string, string> = {}): RoomSlot[] => {
   const cells: Array<[number, number]> = [[0, 0]]
   const seen = new Set(['0:0'])
   for (let index = 0; index < cells.length && cells.length < handles.length; index += 1) {
@@ -195,7 +251,7 @@ const roomSlots = (handles: string[]): RoomSlot[] => {
       if (cells.length === handles.length) break
     }
   }
-  return handles.map((handle, index) => { const [a, b] = cells[index]; return { handle, a, b, position: cellPosition(a, b) } })
+  return handles.map((handle, index) => { const [a, b] = cells[index]; return { handle, a, b, position: cellPosition(a, b), previewImageUrl: previews[handle] } })
 }
 // pads the cluster with vacant slots so the ring is always complete; real handles always take the nearest cells
 const withVacancies = (handles: string[]) => handles.length >= CLUSTER_SIZE ? handles
@@ -264,15 +320,17 @@ function NeighbourRoom() {
   return <><Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><Character /></>
 }
 
-// Three flat boxes instead of a complete furnished room. Polygon offset keeps every face behind the full room
-// during the fade, including the thin side faces that a position nudge leaves coplanar.
-function LightweightShell() {
-  const shell = (color: string) => <meshBasicMaterial color={color} transparent opacity={0} polygonOffset polygonOffsetFactor={2} polygonOffsetUnits={2} userData={{ roomShell: true }} />
-  return <>
-    <mesh position={[0, -.11, 0]}><boxGeometry args={[7.22, .22, 7.22]} />{shell('#ece9e2')}</mesh>
-    <mesh position={[-3.61, 3.5, 0]}><boxGeometry args={[.22, 7, 7.22]} />{shell('#f7f5f0')}</mesh>
-    <mesh position={[0, 3.5, -3.61]}><boxGeometry args={[7, 7, .22]} />{shell('#f7f5f0')}</mesh>
-  </>
+function RoomPreviewImage({ url }: { url: string }) {
+  const texture = useLoader(TextureLoader, url)
+  texture.colorSpace = 'srgb'
+  return <sprite position={[0, 3.45, 0]} scale={[12, 12, 1]} renderOrder={-1}>
+    <spriteMaterial map={texture} transparent opacity={0} depthWrite={false} userData={{ roomPreview: true }} />
+  </sprite>
+}
+
+function RoomPreview({ url }: { url?: string }) {
+  if (!url) return null
+  return <Suspense fallback={null}><RoomPreviewImage url={url} /></Suspense>
 }
 
 function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { slot: RoomSlot; distance: number; centred: boolean; fullDetail: boolean; fresh?: Record<string, string>; open: () => void }) {
@@ -282,7 +340,7 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
   const opacity = useRef(0)
   const detailOpacity = useRef(0)
   const materials = useRef<Faded[]>([])
-  const shellMaterials = useRef<Faded[]>([])
+  const previewMaterials = useRef<Faded[]>([])
   const fadingOut = useRef(false)
   const glow = useRef(0)
   const press = useRef<{ x: number; y: number; pointerId: number } | null>(null)
@@ -296,6 +354,7 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
   const unmounting = useRef(false)
   const savedTime = bundle?.['my-room-time-v1']
   const roomTime: TimeOfDay = savedTime === 'evening' || savedTime === 'night' ? savedTime : 'day'
+  const previewUrl = fresh?.[ROOM_PREVIEW_KEY] ?? slot.previewImageUrl
   const layer = TIME_LAYER[roomTime]
   useLayoutEffect(() => {
     if (!centred) return
@@ -315,7 +374,7 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
     setBundle(fresh)
   }, [fresh, detailWanted])
   // Promote immediately so its data starts loading before it is visible. Demotion waits briefly: moving the
-  // camera across a boundary cannot make a room flap between Full and Shell on consecutive frames.
+  // camera across a boundary cannot make a room flap between Full and Preview on consecutive frames.
   useEffect(() => {
     if (fullDetail) { setDetailWanted(true); return }
     const timer = setTimeout(() => setDetailWanted(false), 450)
@@ -346,7 +405,7 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
   }, [bundle, detailMounted, camera, gl, scene])
   const collect = () => {
     materials.current = []
-    shellMaterials.current = []
+    previewMaterials.current = []
     group.current?.traverse((object) => {
       object.layers.set(layer)
       if (centred) object.layers.enable(HOVER_LAYER[roomTime])
@@ -357,7 +416,7 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
         const faded = material as Faded
         // remember what it was, because the fade is only allowed to borrow the flag, not keep it
         if (faded.wasTransparent === undefined) faded.wasTransparent = faded.transparent
-        if (faded.userData.roomShell) shellMaterials.current.push(faded)
+        if (faded.userData.roomPreview) previewMaterials.current.push(faded)
         else materials.current.push(faded)
       })
     })
@@ -403,7 +462,7 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
     // on — a few thousandths apart — and when the decal won that toss the panel behind it failed the depth test
     // and the wall showed through it. The profile board's stats read as wall-coloured because of it.
     const detailAlpha = opacity.current * detailOpacity.current
-    const shellAlpha = opacity.current * (1 - detailOpacity.current)
+    const previewAlpha = opacity.current * (1 - detailOpacity.current)
     const full = detailAlpha > .995
     materials.current.forEach((material) => {
       material.transparent = full ? material.wasTransparent ?? false : true
@@ -412,7 +471,7 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
       material.opacity = full ? 1 : material.userData.lateFade ? detailAlpha ** 7 : detailAlpha
       if (!material.color) return
     })
-    shellMaterials.current.forEach((material) => { material.transparent = true; material.opacity = shellAlpha })
+    previewMaterials.current.forEach((material) => { material.transparent = true; material.opacity = previewAlpha })
     if (detailWanted && !detailMounted && bundle !== null && opacity.current > .005 && !unmounting.current) {
       unmounting.current = true
       setTimeout(() => { if (mounted.current) setDetailMounted(true); unmounting.current = false }, 0)
@@ -435,7 +494,7 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
       })
     }
   })
-  return <group ref={group} position={slot.position} visible={false}
+  return <group ref={group} name="neighbour-room" position={slot.position} visible={false}
     onPointerDown={(event) => { if (opacity.current >= .65) press.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId } }}
     onPointerMove={(event) => { if (press.current?.pointerId === event.pointerId && Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 18) press.current = null }}
     onPointerUp={(event) => { const down = press.current; press.current = null; if (!down || down.pointerId !== event.pointerId || opacity.current < .65) return; openedAt.current = performance.now(); event.stopPropagation(); open() }}
@@ -446,7 +505,7 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
       {/* Nothing is drawn until the room's own layout is in hand: rendering the provider with a null bundle
           shows the DEFAULT room, and a stranger's cell flashing the starter layout before flipping to the real
           one read as broken. With bundles prefetched at directory load the gap is rarely even visible. */}
-      <LightweightShell />
+      {distance <= VISIBLE_RINGS && <RoomPreview url={previewUrl} />}
       {detailMounted && bundle !== null ? <>
       {/* three's raycaster tests layers only, never `visible`, so a faded-out neighbour still swallows the ray.
           That is what stopped a click on empty space from counting as a miss — and in edit mode, where every
@@ -468,6 +527,7 @@ function RoomWorld() {
   // and with it the only way back to where the visitor started.
   const hubHandle = useRef(myHandle() ?? (isSignedIn() ? currentRoomHandle() : null) ?? LOBBY).current
   const [handles, setHandles] = useState(() => withVacancies([hubHandle]))
+  const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({})
   // bundles pushed by the realtime stream, keyed by handle — each RoomContainer picks up its own
   const [freshBundles, setFreshBundles] = useState<Record<string, Record<string, string>>>({})
   // What is being VIEWED — not the hub while visiting someone else. Derived from the STORE's own commit rather
@@ -500,7 +560,11 @@ function RoomWorld() {
     let live = true
     void fetchRoomDirectory().then((found) => {
       if (!live) return
-      const rest = found.filter((handle) => handle !== hubHandle)
+      // A running development tab can hold the old string-only directory module through a hot refresh. Normalise
+      // at this single boundary so either response shape remains safe while the new preview URL rolls out.
+      const entries = found as unknown as Array<string | { handle: string; previewImageUrl?: string }>
+      const rest = entries.map((entry) => typeof entry === 'string' ? entry : entry.handle).filter((handle) => handle !== hubHandle)
+      setPreviewUrls(Object.fromEntries(entries.flatMap((entry) => typeof entry === 'string' || !entry.previewImageUrl ? [] : [[entry.handle, entry.previewImageUrl]])))
       // the room actually being viewed needs a cell of its own even if the directory misses it
       const viewed = currentRoomHandle()
       if (viewed && viewed !== hubHandle && !rest.includes(viewed)) rest.unshift(viewed)
@@ -513,7 +577,7 @@ function RoomWorld() {
   // surfaces at the origin, so entering an offset neighbour put every click outside the 10x10 grid and the room
   // stopped responding. Translating the whole cluster instead keeps the neighbours' relative layout identical.
   const slots = useMemo(() => {
-    const raw = roomSlots(handles)
+    const raw = roomSlots(handles, previewUrls)
     const origin = raw.find((slot) => slot.handle === activeHandle) ?? raw[0]
     if (!origin || (origin.a === 0 && origin.b === 0)) return raw
     return raw.map((slot) => {
@@ -521,10 +585,10 @@ function RoomWorld() {
       const b = slot.b - origin.b
       return { ...slot, a, b, position: cellPosition(a, b) }
     })
-  }, [handles, activeHandle])
+  }, [handles, activeHandle, previewUrls])
   const active = slots.find((slot) => slot.handle === activeHandle) ?? slots[0]
   // LOD only controls explorer rendering. Room navigation stays on enterRoom's single, established data-swap
-  // path; feeding a selected Shell's bundle into that path leaves two competing owners for the live room data.
+  // path; feeding a selected Preview's bundle into that path leaves two competing owners for the live room data.
   const detailHandles = useMemo(() => slots.filter((slot) => slot !== active && isEnterable(slot.handle) && ringDistance(slot, active) <= 1).map((slot) => slot.handle), [active, slots])
   const detailKey = detailHandles.join('\0')
   useEffect(() => {
@@ -630,7 +694,7 @@ function RoomWorld() {
     {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY)).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} fullDetail={ringDistance(slot, active) <= 1} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} />)}
     {/* Furniture ids repeat across rooms. Keying the live root by room identity prevents React from carrying an
         old room's mesh refs, animation state or suspended assets into the room that just replaced it. */}
-    <group position={active.position}><Inert off={exploring}><RoomRoot key={`${activeHandle}:${activeRoomId}`} /></Inert></group>
+    <group name="active-room" position={active.position}><Inert off={exploring}><RoomRoot key={`${activeHandle}:${activeRoomId}`} /></Inert></group>
     <CameraController focusRoom={focusRoom} aim={aim} />
   </>
 }
