@@ -628,11 +628,14 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     const target = url ? youTubeTarget(url) : null
     if (url && !target) return false
     setVideoLinks((prev) => { const next = { ...prev }; if (target) next[id] = encodeTarget(target); else delete next[id]; saveVideoLinks(next); return next })
+    setPlayingFrames((prev) => target ? (prev.includes(id) ? prev : [...prev, id]) : prev.filter((value) => value !== id))
+    if (target) applyFrameMuted(id, true)
     return true
   }
   const setVideoClip = (id: string, file: File | null) => {
     if (isVisiting()) return
     if (!file) { deleteVideo(id); saveClipUrl(id, null); setVideoFrames(({ [id]: _removed, ...rest }) => rest); return }
+    setVideoFrames((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }))
     putVideo(id, file).then(() => setVideoFrames((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 })))
     void uploadMedia(`clips/${crypto.randomUUID()}`, file).then((url) => { if (url) saveClipUrl(id, url) })
   }
