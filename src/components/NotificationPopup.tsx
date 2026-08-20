@@ -22,7 +22,6 @@ export default function NotificationPopup() {
 
   return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && clearSelection()}>
     <section className="notification-card comment-ui" aria-label="전체 알림">
-      <strong>알림</strong>
       {remoteVisits && <section><h2>방문</h2><p className="notification-visits"><b>오늘 {remoteVisits.today}</b><span>전체 {remoteVisits.total}</span></p></section>}
       {likes.length > 0 && <section><h2>좋아요</h2><ul>{likes.map(([id, count]) => <li key={id}><span>{labels.get(id) ?? '가구'}</span><b>{count}</b></li>)}</ul></section>}
       {comments.length > 0 && <section><h2>댓글</h2><div className="notification-comments">{comments.map((comment) => <article key={comment.id} className="comment-item">
