@@ -79,7 +79,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     const displayText = lines.join('\n')
     const longest = Math.max(4, ...lines.map((line) => Array.from(line).length))
     const bubbleWidth = Math.min(1.7, Math.max(.68, .3 + longest * .085)) * bubbleScale
-    const bubbleHeight = Math.max(.36, .18 + lines.length * .18) * bubbleScale
+    const bubbleHeight = Math.max(.54, .18 + lines.length * .18) * bubbleScale
     const bubbleFont = /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(bubbleText) ? PRETENDARD_WOFF : JONES_BOOK_OTF
     return <>
       <mesh visible={false} raycast={() => {}}><boxGeometry args={[.7, .02, .7]} /><meshBasicMaterial /></mesh>
