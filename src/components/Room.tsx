@@ -343,6 +343,11 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
     })
   }
   useLayoutEffect(collect, [bundle, detailMounted, layer])
+  useEffect(() => {
+    const first = setTimeout(collect, 0)
+    const later = setTimeout(collect, 350)
+    return () => { clearTimeout(first); clearTimeout(later) }
+  }, [bundle, detailMounted, layer])
   useFrame(({ camera, size }, delta) => {
     if (!group.current) return
     // The ring belongs to the explorer, so it starts leaving the moment the zoom lifts off the floor at all rather
@@ -363,13 +368,6 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
     opacity.current = MathUtils.damp(opacity.current, wanted, 12, Math.min(delta, 1 / 30))
     const detailTarget = detailWanted && detailMounted && bundle !== null ? 1 : 0
     detailOpacity.current = MathUtils.damp(detailOpacity.current, detailTarget, 8, Math.min(delta, 1 / 30))
-    // Materials keep arriving after the layout effect ran — a suspended font resolves, and a photo or thumbnail
-    // texture finishing its load SWAPS IN a whole new material. A newcomer the loop below doesn't know about is
-    // drawn at its natural full opacity, which against a half-faded room reads as the photo popping in — and on
-    // the way out, popping off. So while the room is mid-fade the collection is rebuilt every frame: the traverse
-    // is a few hundred objects and the fade lasts under a second, and it guarantees a material's very first drawn
-    // frame already carries the room's opacity.
-    if ((opacity.current > .01 && opacity.current < .995) || (detailOpacity.current > .005 && detailOpacity.current < .995)) collect()
     group.current.visible = opacity.current > .01
     // A nudge in size is the whole highlight. The cluster is stacked by storey, so lifting or outlining the picked
     // room would fight that illusion, while 6% reads as hover without moving anything out of its own cell.
@@ -539,6 +537,11 @@ function RoomWorld() {
     if (slot.handle === LOBBY) { await snapshotActiveFrames(); enterLobby(); requestedEntry.current = false; setEntryHandle(null); return }
     opening.current = true
     await snapshotActiveFrames()
+    if (isEnterable(slot.handle)) {
+      setEntryHandle(slot.handle)
+      const bundle = await fetchRoomBundle(slot.handle)
+      if (bundle) setFreshBundles((previous) => ({ ...previous, [slot.handle]: bundle }))
+    }
     await enterRoom(slot.handle)
     opening.current = false
     requestedEntry.current = false
