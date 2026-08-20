@@ -269,6 +269,7 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
   const opacity = useRef(0)
   const materials = useRef<Faded[]>([])
   const fadingOut = useRef(false)
+  const nextCollect = useRef(0)
   const glow = useRef(0)
   const press = useRef<{ x: number; y: number; pointerId: number } | null>(null)
   const openedAt = useRef(0)
@@ -354,6 +355,11 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
     // explorer-entry stutter this LOD exists to avoid.
     if (wanted < .995 && !fadingOut.current) { fadingOut.current = true; collect() }
     else if (wanted >= .995) fadingOut.current = false
+    // Re-collect on a slow cadence while the room is on screen: photos, posters and video previews mount their
+    // materials whenever their textures happen to arrive, and anything not in the list would pop in and refuse
+    // to fade. Per-frame traversal caused the explorer stutter; every 400ms is 1/24th of that and never misses
+    // a reveal for more than a blink.
+    if (opacity.current > .02 && performance.now() > nextCollect.current) { nextCollect.current = performance.now() + 400; collect() }
     // The frame a room is first drawn tends to hitch — texture uploads land right then — and the long delta of
     // that one frame used to advance the damp nearly to 1, so the room POPPED instead of fading. Capping the step
     // means a hitch only moves the fade one small notch, and the glide plays out over the frames that follow.
@@ -369,11 +375,22 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
     // and the wall showed through it. The profile board's stats read as wall-coloured because of it.
     const detailAlpha = opacity.current
     const full = opacity.current > .995
+    const now = performance.now()
     materials.current.forEach((material) => {
-      material.transparent = full ? material.wasTransparent ?? false : true
-      // trim bars ride the cube of the fade: still smooth, but they only surface once the room is nearly whole,
-      // instead of floating over the ghosted room as three hard dark bars for the entire glide
-      material.opacity = full ? 1 : material.userData.lateFade ? detailAlpha ** 7 : detailAlpha
+      // Per-material entrance: a material only starts counting once it can actually show something (its map has
+      // pixel data, or it has no map at all), then eases in over 350ms. This is what turns the late arrivals —
+      // photos, video posters, fonts — from a pop into a fade, both out in the explorer and mid-view, and it
+      // keeps working for any material added later because collect() above re-discovers the tree continuously.
+      const map = (material as { map?: { image?: unknown } }).map
+      if (material.userData.readyAt === undefined && (!map || map.image)) material.userData.readyAt = now
+      const entrance = material.userData.readyAt === undefined ? 0 : Math.min(1, (now - material.userData.readyAt) / 350)
+      const settled = full && entrance >= 1
+      material.transparent = settled ? material.wasTransparent ?? false : true
+      // Trim bars ride a steep curve of the fade, and every textured surface (photos, posters, screens) rides a
+      // cubed one: overlays are drawn ON TOP of the already-fading wall, so at the same opacity they read about
+      // twice as solid — the steeper curve is what makes them visually leave WITH the room instead of after it.
+      const base = full ? 1 : material.userData.lateFade ? detailAlpha ** 7 : map ? detailAlpha ** 3 : detailAlpha
+      material.opacity = settled ? 1 : base * entrance
       if (!material.color) return
     })
     // Fetched when the zoom-out first reveals it, and refreshed every so often for as long as it stays on
