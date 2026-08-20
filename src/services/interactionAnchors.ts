@@ -44,7 +44,7 @@ export function interactionAnchorsFor(item: FurnitureItem, typeOverride?: Intera
   }
   if (item.type === 'chair') return {
     type: typeOverride ?? 'sit',
-    approach: { position: [0, 0, -.7], rotation: 0 },
+    approach: { position: [0, 0, .7], rotation: 0 },
     action: { position: [0, topHeight(item), 0], rotation: 0 },
   }
   const approach = defaultApproach(item)
