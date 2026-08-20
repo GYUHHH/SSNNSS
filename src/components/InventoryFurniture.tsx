@@ -34,20 +34,36 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   const artAspect = artImage?.width && artImage.height ? artImage.width / artImage.height : 1
   if (item.type === 'speech-bubble') {
     const bubbleText = preview ? '말풍선' : store?.artworks[item.id] ?? ''
+    const lines = bubbleText.split('\n').flatMap((line) => {
+      const chars = Array.from(line)
+      return chars.length ? Array.from({ length: Math.ceil(chars.length / 16) }, (_, index) => chars.slice(index * 16, index * 16 + 16).join('')) : ['']
+    })
+    const displayText = lines.join('\n')
+    const longest = Math.max(4, ...lines.map((line) => Array.from(line).length))
+    const bubbleWidth = Math.min(1.7, Math.max(.68, .3 + longest * .085))
+    const bubbleHeight = Math.max(.36, .18 + lines.length * .18)
+    const tailPosition: [number, number, number] = [-bubbleWidth * .28, -bubbleHeight / 2 - .11, 0]
     const bubbleFont = /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(bubbleText) ? PRETENDARD_WOFF : JONES_BOOK_OTF
     return <>
       <mesh visible={false}><boxGeometry args={[.7, .02, .7]} /><meshBasicMaterial /></mesh>
       <Billboard position={[0, 1.35, 0]}>
-        <RoundedBox userData={{ excludeFromFit: true }} args={[1.35, .62, .035]} radius={.06} smoothness={3}>
-          <meshBasicMaterial color="#ffffff" transparent={preview} opacity={preview ? .55 : .96} />
+        <RoundedBox userData={{ excludeFromFit: true }} args={[bubbleWidth + .04, bubbleHeight + .04, .04]} radius={.045} smoothness={3}>
+          <meshBasicMaterial color="#262626" transparent={preview} opacity={preview ? .55 : 1} />
         </RoundedBox>
-        <mesh userData={{ excludeFromFit: true }} position={[-.43, -.37, 0]} rotation={[0, 0, -.35]}>
-          <circleGeometry args={[.17, 3]} />
-          <meshBasicMaterial color="#ffffff" transparent={preview} opacity={preview ? .55 : .96} />
+        <RoundedBox userData={{ excludeFromFit: true }} args={[bubbleWidth, bubbleHeight, .035]} radius={.035} smoothness={3} position={[0, 0, .012]}>
+          <meshBasicMaterial color="#ffffff" transparent={preview} opacity={preview ? .55 : 1} />
+        </RoundedBox>
+        <mesh userData={{ excludeFromFit: true }} position={tailPosition} rotation={[0, 0, -.35]}>
+          <circleGeometry args={[.18, 3]} />
+          <meshBasicMaterial color="#262626" transparent={preview} opacity={preview ? .55 : 1} />
         </mesh>
-        {!!bubbleText && <Text userData={{ excludeFromFit: true }} position={[0, 0, .025]} font={bubbleFont} fontSize={.13} maxWidth={1.08} lineHeight={1.25} textAlign="center" anchorX="center" anchorY="middle" color="#262626" fillOpacity={preview ? .55 : 1}>{bubbleText}</Text>}
+        <mesh userData={{ excludeFromFit: true }} position={[tailPosition[0] + .012, tailPosition[1] + .015, .012]} rotation={[0, 0, -.35]}>
+          <circleGeometry args={[.145, 3]} />
+          <meshBasicMaterial color="#ffffff" transparent={preview} opacity={preview ? .55 : 1} />
+        </mesh>
+        {!!displayText && <Text userData={{ excludeFromFit: true }} position={[0, 0, .04]} font={bubbleFont} fontSize={.13} maxWidth={bubbleWidth - .16} lineHeight={1.25} textAlign="center" anchorX="center" anchorY="middle" color="#262626" fillOpacity={preview ? .55 : 1}>{displayText}</Text>}
       </Billboard>
-      {!preview && !isVisiting() && store?.mode === 'normal' && store.selectedObject === item.id && <Html position={[0, 2.05, 0]} center zIndexRange={[4, 0]}>
+      {!preview && !isVisiting() && store?.mode === 'normal' && store.selectedObject === item.id && <Html position={[0, 1.65 + bubbleHeight, 0]} center zIndexRange={[4, 0]}>
         <section className="room-bubble-editor" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
           <SpeechBubbleInput id={item.id} artwork={store.artworks[item.id]} saveArtwork={store.setArtwork} />
         </section>
