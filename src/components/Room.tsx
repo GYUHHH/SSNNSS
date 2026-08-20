@@ -271,6 +271,7 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
   const detailOpacity = useRef(0)
   const materials = useRef<Faded[]>([])
   const shellMaterials = useRef<Faded[]>([])
+  const fadingOut = useRef(false)
   const glow = useRef(0)
   const press = useRef<{ x: number; y: number; pointerId: number } | null>(null)
   const openedAt = useRef(0)
@@ -362,6 +363,11 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
     // colour flicker on every entry. It holds full strength until the live room takes its place; everyone else
     // in the ring still clears out on the way in.
     const wanted = mode !== 'normal' || distance > VISIBLE_RINGS ? 0 : centred ? 1 : MathUtils.clamp(1 - (camera.zoom - floor) / span, 0, 1)
+    // Photos, video posters and fonts can finish loading long after the layout effects above. Refresh once when
+    // this room starts leaving so every late material fades with the room; traversing every fade frame caused the
+    // explorer-entry stutter this LOD exists to avoid.
+    if (wanted < .995 && !fadingOut.current) { fadingOut.current = true; collect() }
+    else if (wanted >= .995) fadingOut.current = false
     // The frame a room is first drawn tends to hitch — texture uploads land right then — and the long delta of
     // that one frame used to advance the damp nearly to 1, so the room POPPED instead of fading. Capping the step
     // means a hitch only moves the fade one small notch, and the glide plays out over the frames that follow.
@@ -434,7 +440,7 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
 }
 
 function RoomWorld() {
-  const { mode } = useRoomStore()
+  const { mode, activeRoomId, currentHandle } = useRoomStore()
   // The cluster is centred on the signed-in user's OWN room — it is their neighbourhood, so their room is the hub
   // the others ring around, whichever room they happen to be looking at. Signed out there is no own room, so the
   // room in the address (or the lobby) takes the middle instead.
@@ -450,14 +456,11 @@ function RoomWorld() {
   // roots may paint their commits apart — with separate state, one frame could show the new room's data still
   // standing in the old room's cell (the flash every entry had). Reading the handle out of the same context value
   // that carries the data makes the re-base and the content swap indivisible.
-  const { currentHandle } = useRoomStore()
   const activeHandle = currentHandle ?? hubHandle
   const [focusRoom, setFocusRoom] = useState<{ position: [number, number, number]; token: number; shift?: [number, number, number] }>({ position: [0, 0, 0], token: 0 })
   const opening = useRef(false)
   // which room is under the middle of the screen, and therefore the one a zoom-in would take the user into
   const [centredHandle, setCentredHandle] = useState<string | null>(null)
-  // A hover is cheap; only an actual entry request promotes an outer Shell and starts its bundle subscription.
-  const [entryHandle, setEntryHandle] = useState<string | null>(null)
   const centred = useRef<string | null>(null)
   const probe = useRef(new Vector3()).current
   // the room chosen at the zoom floor, held until it has been entered
@@ -501,9 +504,9 @@ function RoomWorld() {
     })
   }, [handles, activeHandle])
   const active = slots.find((slot) => slot.handle === activeHandle) ?? slots[0]
-  // Only the active room's first ring receives full bundles and realtime updates. The outer ring stays a Shell
-  // until it is selected; the selected room is added early so its real data is ready during the zoom-in.
-  const detailHandles = useMemo(() => slots.filter((slot) => slot !== active && isEnterable(slot.handle) && (ringDistance(slot, active) <= 1 || slot.handle === entryHandle)).map((slot) => slot.handle), [active, entryHandle, slots])
+  // LOD only controls explorer rendering. Room navigation stays on enterRoom's single, established data-swap
+  // path; feeding a selected Shell's bundle into that path leaves two competing owners for the live room data.
+  const detailHandles = useMemo(() => slots.filter((slot) => slot !== active && isEnterable(slot.handle) && ringDistance(slot, active) <= 1).map((slot) => slot.handle), [active, slots])
   const detailKey = detailHandles.join('\0')
   useEffect(() => {
     detailHandles.forEach((handle) => void fetchRoomBundle(handle))
@@ -534,29 +537,20 @@ function RoomWorld() {
     // the clicked room becomes the pick, so the highlight and the fade exemption follow the room actually entered
     picked.current = slot
     // the lobby is not on the server — going back to it is a local reset that walks the same listener path
-    if (slot.handle === LOBBY) { await snapshotActiveFrames(); enterLobby(); requestedEntry.current = false; setEntryHandle(null); return }
+    if (slot.handle === LOBBY) { await snapshotActiveFrames(); enterLobby(); requestedEntry.current = false; return }
     opening.current = true
     await snapshotActiveFrames()
-    if (isEnterable(slot.handle)) {
-      setEntryHandle(slot.handle)
-      const bundle = await fetchRoomBundle(slot.handle)
-      if (bundle) setFreshBundles((previous) => ({ ...previous, [slot.handle]: bundle }))
-    }
     await enterRoom(slot.handle)
     opening.current = false
     requestedEntry.current = false
-    setEntryHandle(null)
   }
   const beginEntry = (slot: RoomSlot) => {
     if (opening.current || requestedEntry.current || !canEnter(slot.handle)) return
     requestedEntry.current = true
-    setEntryHandle(slot.handle)
     picked.current = slot
     centred.current = slot.handle
     setCentredHandle(slot.handle)
-    const focus = () => { if (requestedEntry.current && picked.current?.handle === slot.handle) setFocusRoom({ position: slot.position, token: performance.now() }) }
-    if (isEnterable(slot.handle) && ringDistance(slot, active) > 1) void fetchRoomBundle(slot.handle).finally(focus)
-    else focus()
+    setFocusRoom({ position: slot.position, token: performance.now() })
   }
   useFrame(({ camera, pointer, size }) => {
     const floor = exploreMinZoom(size.width, size.height)
@@ -615,8 +609,10 @@ function RoomWorld() {
   // the picked room, or the one already being viewed when nothing is picked — what the camera should be aiming at
   const aim = useMemo(() => (slots.find((slot) => slot.handle === centredHandle) ?? active)?.position ?? null, [slots, active, centredHandle])
   return <>
-    {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY)).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} fullDetail={ringDistance(slot, active) <= 1 || slot.handle === entryHandle} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} />)}
-    <group position={active.position}><Inert off={exploring}><RoomRoot /></Inert></group>
+    {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY)).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} fullDetail={ringDistance(slot, active) <= 1} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} />)}
+    {/* Furniture ids repeat across rooms. Keying the live root by room identity prevents React from carrying an
+        old room's mesh refs, animation state or suspended assets into the room that just replaced it. */}
+    <group position={active.position}><Inert off={exploring}><RoomRoot key={`${activeHandle}:${activeRoomId}`} /></Inert></group>
     <CameraController focusRoom={focusRoom} aim={aim} />
   </>
 }
