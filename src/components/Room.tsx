@@ -281,7 +281,7 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
   // The lobby — the default room a signed-out visitor starts in — has no server bundle to wait for: an empty
   // bundle IS its look. Without this the cell went permanently blank the moment such a visitor entered a real
   // room, because the room they had just come from could never be drawn as a neighbour.
-  const [bundle, setBundle] = useState<Record<string, string> | null>(slot.handle === LOBBY ? {} : null)
+  const [bundle, setBundle] = useState<Record<string, string> | null>(slot.handle === LOBBY ? {} : fresh ?? null)
   const savedTime = bundle?.['my-room-time-v1']
   const roomTime: TimeOfDay = savedTime === 'evening' || savedTime === 'night' ? savedTime : 'day'
   const layer = TIME_LAYER[roomTime]
@@ -376,9 +376,7 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
     // The frame a room is first drawn tends to hitch — texture uploads land right then — and the long delta of
     // that one frame used to advance the damp nearly to 1, so the room POPPED instead of fading. Capping the step
     // means a hitch only moves the fade one small notch, and the glide plays out over the frames that follow.
-    // Only gathering gets the slower fade. Entry/zoom behaviour and the existing fade-out speed stay untouched.
-    const fadeSpeed = wanted > opacity.current ? 5 : 12
-    opacity.current = MathUtils.damp(opacity.current, wanted, fadeSpeed, Math.min(delta, 1 / 30))
+    opacity.current = MathUtils.damp(opacity.current, wanted, 12, Math.min(delta, 1 / 30))
     group.current.visible = opacity.current > .01
     // A nudge in size is the whole highlight. The cluster is stacked by storey, so lifting or outlining the picked
     // room would fight that illusion, while 6% reads as hover without moving anything out of its own cell.
@@ -489,12 +487,16 @@ function RoomWorld() {
     let live = true
     void fetchRoomDirectory().then((found) => {
       if (!live) return
-      const rest = found.filter((handle) => handle !== hubHandle)
+      const bundles = Object.fromEntries(found.map(({ handle, data }) => [handle, data]))
+      const rest = found.map(({ handle }) => handle).filter((handle) => handle !== hubHandle)
       // the room actually being viewed needs a cell of its own even if the directory misses it
       const viewed = currentRoomHandle()
       if (viewed && viewed !== hubHandle && !rest.includes(viewed)) rest.unshift(viewed)
+      // Commit ids and their room data together. A newly mounted RoomContainer can therefore build its walls,
+      // furniture and photos while still invisible, before the explorer transition begins.
+      setFreshBundles((previous) => ({ ...bundles, ...previous }))
       setHandles(withVacancies([hubHandle, ...rest]))
-      rest.filter(isEnterable).forEach((handle) => void fetchRoomBundle(handle))
+      if (viewed && !bundles[viewed]) void fetchRoomBundle(viewed).then((data) => { if (live && data) setFreshBundles((previous) => ({ ...previous, [viewed]: data })) })
     })
     return () => { live = false }
   }, [hubHandle])
