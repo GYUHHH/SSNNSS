@@ -186,9 +186,8 @@ div.art-view { aspect-ratio: 3 / 4; }
 .entry-editor fieldset { display: flex; gap: 14px; padding: 0; border: 0; color: var(--ui-text); font-size: 13px; }
 .entry-editor legend { padding: 0; color: var(--ui-muted); font-size: 12px; }
 .entry-editor-file { color: var(--ui-muted); font-size: 12px; }
-.entry-editor-foot { display: flex; justify-content: space-between; gap: 8px; }
+.entry-editor-foot { display: flex; justify-content: flex-end; gap: 8px; }
 .entry-editor-foot button { border: 1px solid var(--ui-line); border-radius: 6px; padding: 8px 14px; color: var(--ui-text); background: var(--ui-bg); cursor: pointer; }
-.entry-editor-foot .entry-editor-delete { color: var(--ui-red); }
 .entry-editor-foot button[type="submit"] { border-color: var(--ui-blue); color: #fff; background: var(--ui-blue); }
 .entry-item-head { display: flex; align-items: center; justify-content: space-between; }.entry-item-head button { border: 0; color: #8a7465; background: transparent; cursor: pointer; font-size: 11px; }.entry-delete-confirm { margin: 7px 0 10px; }
 .entry-comments { margin-top: 16px; padding-top: 13px; border-top: 1px solid #e0e0dd; text-align: left; }.entry-comment-form { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 5px; }.entry-comment-form input, .entry-comment-form textarea { min-width: 0; border: 1px solid #c2c2be; border-radius: 4px; padding: 7px 8px; color: #403f3d; background: #ffffff; font: inherit; }.entry-comment-form textarea { max-height: calc(4.5em + 16px); overflow-y: auto; line-height: 1.5; resize: none; }.entry-comment-form button { align-self: start; border: 1px solid #3a3a38; border-radius: 4px; padding: 7px 10px; line-height: 1.5; color: #ffffff; background: #3a3a38; cursor: pointer; }.entry-comment-list { display: grid; }.entry-comment { padding: 10px 0; border-bottom: 1px solid #e3d8ca; }
@@ -454,6 +453,16 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @keyframes heart-pop { 0% { transform: scale(1) } 40% { transform: scale(1.32) } 70% { transform: scale(.92) } 100% { transform: scale(1) } }
 .entry-actions button.shared { color: var(--ui-blue); }
 .entry-actions .entry-edit { margin-left: auto; }
+.entry-actions .entry-more { position: relative; margin-left: auto; }
+.entry-more-menu { position: absolute; z-index: 3; top: 31px; right: 0; display: grid; min-width: 104px; padding: 5px; border-radius: 5px; background: var(--ui-soft); }
+.entry-more-menu > button { width: 100%; padding: 7px 8px; justify-content: flex-start; font-size: 12px; font-weight: 500; }
+.entry-more-menu > span { padding: 6px 8px; white-space: nowrap; font-size: 12px; }
+.entry-more-menu > div { display: flex; justify-content: flex-end; gap: 4px; }
+.entry-more-menu > div button { padding: 6px 7px; border: 0; background: transparent; font-size: 12px; cursor: pointer; }
+.entry-more-menu .danger { color: var(--ui-red); }
+.entry-comment-form textarea, .entry-comment-form button { box-sizing: border-box; height: 31px !important; min-height: 31px; }
+.entry-comment-form textarea { padding-block: 4px; overflow-y: auto; line-height: 21px; }
+.entry-comment-form button { align-self: auto; padding-block: 0; line-height: 31px; }
 .entry-item-head button { color: var(--ui-red); font-weight: 600; }
 .entry-comment-form button, .guest-form button { padding-inline: 12px; }
 .art-view { border-width: 8px; }

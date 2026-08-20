@@ -9,7 +9,7 @@ import CommentAvatar, { CommentName } from './CommentAvatar'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-const EditIcon = () => <svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16.4 3.6a2.3 2.3 0 0 1 3.2 3.2L7.5 18.9l-4.2 1 1-4.2Z" /><path d="M14.6 5.4l4 4" /></svg>
+const MoreIcon = () => <svg viewBox="0 0 24 24" width="27" height="27" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="19" cy="12" r="1.7" /></svg>
 const ShareIcon = () => <svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21.5 3.5 2.5 10.2l7.6 2.9 2.9 7.6Z" /><path d="M10.1 13.1 21.5 3.5" /></svg>
 const assetUrl = (source: string) => source.startsWith('/') ? `${import.meta.env.BASE_URL}${source.slice(1)}` : source
 
@@ -56,13 +56,17 @@ function EntryList({ bookId, entries }: { bookId: string; entries: Entry[] }) {
 
 // One record: photo full-bleed, then the like / comment / share row, then its comments.
 function EntryItem({ bookId, entry }: { bookId: string; entry: Entry }) {
-  const { likeTotals, myLikes, guestbook } = useRoomStore()
+  const { likeTotals, myLikes, guestbook, deleteEntry } = useRoomStore()
   const [editing, setEditing] = useState(false)
+  const [commentsOpen, setCommentsOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   // the server is authoritative, but its answer arrives after the click — hold it locally so the heart reacts at once
   const [pressed, setPressed] = useState<{ count: number; liked: boolean } | null>(null)
   const [shared, setShared] = useState(false)
   const [pop, setPop] = useState(false)
   const commentInput = useRef<HTMLTextAreaElement>(null)
+  const menu = useRef<HTMLDivElement>(null)
   const likes = pressed ?? { count: likeTotals[entry.id] ?? 0, liked: myLikes.includes(entry.id) }
   // optimistic: paint the new state now, ask the server after, and put it back if the server disagrees
   const like = () => {
@@ -79,29 +83,35 @@ function EntryItem({ bookId, entry }: { bookId: string; entry: Entry }) {
     setShared(true)
     setTimeout(() => setShared(false), 1400)
   }
+  useEffect(() => {
+    if (!menuOpen) return
+    const close = (event: PointerEvent) => { if (!menu.current?.contains(event.target as Node)) { setMenuOpen(false); setConfirmingDelete(false) } }
+    window.addEventListener('pointerdown', close)
+    return () => window.removeEventListener('pointerdown', close)
+  }, [menuOpen])
+  useEffect(() => { if (commentsOpen) requestAnimationFrame(() => commentInput.current?.focus()) }, [commentsOpen])
   return <article className="entry-item">
     <EntryGallery images={entry.images} />
     <div className="entry-actions">
       <button type="button" className={`${likes.liked ? 'liked' : ''}${pop ? ' pop' : ''}`} aria-label="좋아요" onAnimationEnd={() => setPop(false)} onClick={like}><HeartIcon filled={likes.liked} />{likes.count > 0 && <span>{likes.count}</span>}</button>
-      <button type="button" aria-label="댓글" onClick={() => commentInput.current?.focus()}><CommentIcon />{(guestbook[entry.id] ?? []).length > 0 && <span>{(guestbook[entry.id] ?? []).length}</span>}</button>
+      <button type="button" aria-label="댓글" aria-expanded={commentsOpen} onClick={() => setCommentsOpen((open) => !open)}><CommentIcon />{(guestbook[entry.id] ?? []).length > 0 && <span>{(guestbook[entry.id] ?? []).length}</span>}</button>
       <button type="button" className={shared ? 'shared' : ''} aria-label="공유" onClick={share}><ShareIcon /></button>
-      {!isVisiting() && <button type="button" className="entry-edit" aria-label="수정" onClick={() => setEditing(true)}><EditIcon /></button>}
+      {!isVisiting() && <div ref={menu} className="entry-more"><button type="button" className="entry-edit" aria-label="기록 메뉴" aria-expanded={menuOpen} onClick={() => { setMenuOpen((open) => !open); setConfirmingDelete(false) }}><MoreIcon /></button>{menuOpen && <div className="entry-more-menu">{confirmingDelete ? <><span>삭제할까요?</span><div><button type="button" onClick={() => setConfirmingDelete(false)}>취소</button><button type="button" className="danger" onClick={() => deleteEntry(bookId, entry.id)}>삭제</button></div></> : <><button type="button" onClick={() => { setMenuOpen(false); setEditing(true) }}>수정</button><button type="button" className="danger" onClick={() => setConfirmingDelete(true)}>삭제</button></>}</div>}</div>}
     </div>
     {entry.content && <p>{entry.content}</p>}
     {!isVisiting() && <small>{entry.visibility === 'public' ? '공개 기록' : '비공개 기록'}</small>}
-    <EntryComments entry={entry} inputRef={commentInput} />
+    {commentsOpen && <EntryComments entry={entry} inputRef={commentInput} />}
     {editing && <EntryEditor bookId={bookId} entry={entry} onClose={() => setEditing(false)} />}
   </article>
 }
 
-// The pencil's popup: swap the photo, rewrite the words, flip who can see it — or delete the record outright.
+// The edit popup only edits. Deletion lives in the record's overflow menu so the two actions cannot collide.
 function EntryEditor({ bookId, entry, onClose }: { bookId: string; entry: Entry; onClose: () => void }) {
-  const { updateEntry, deleteEntry } = useRoomStore()
+  const { updateEntry } = useRoomStore()
   const [content, setContent] = useState(entry.content)
   const [images, setImages] = useState<string[]>(entry.images)
   const [editing, setEditing] = useState<number | null>(null)
   const [visibility, setVisibility] = useState<Visibility>(entry.visibility)
-  const [confirming, setConfirming] = useState(false)
   const save = (event: FormEvent) => { event.preventDefault(); updateEntry(bookId, entry.id, { content, images, visibility }); onClose() }
   return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && onClose()}>
     <form className="entry-editor" onSubmit={save}>
@@ -111,10 +121,8 @@ function EntryEditor({ bookId, entry, onClose }: { bookId: string; entry: Entry;
       <textarea ref={autosize} rows={1} value={content} onChange={(event) => { setContent(event.target.value); autosize(event.currentTarget) }} placeholder="내용" />
       <fieldset><legend>공개 설정</legend><label><input type="radio" checked={visibility === 'public'} onChange={() => setVisibility('public')} /> 공개</label><label><input type="radio" checked={visibility === 'private'} onChange={() => setVisibility('private')} /> 비공개</label></fieldset>
       <div className="entry-editor-foot">
-        <button type="button" className="entry-editor-delete" onClick={() => setConfirming(true)}>삭제</button>
         <button type="submit">저장</button>
       </div>
-      {confirming && <div className="delete-confirm"><span>이 기록을 삭제할까요?</span><button type="button" onClick={() => setConfirming(false)}>취소</button><button type="button" onClick={() => { deleteEntry(bookId, entry.id); onClose() }}>삭제</button></div>}
     </form>
     {editing !== null && images[editing] && <PhotoCropEditor source={assetUrl(images[editing])} onClose={() => setEditing(null)} onApply={(edited) => { const index = editing; setImages((current) => current.map((image, itemIndex) => itemIndex === index ? edited : image)); setEditing(null); void uploadDataUrl('records', edited).then((url) => { if (url) setImages((current) => current.map((image, itemIndex) => itemIndex === index && image === edited ? url : image)) }) }} />}
   </div>
