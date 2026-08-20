@@ -69,7 +69,7 @@ export default function InventoryPanel() {
   const showingColors = tab === COLOR_TAB
   const showingCharacter = tab === CHARACTER_TAB
   // only what you still own and have not put down somewhere — placing one takes it off this list
-  const stock = showingColors || showingCharacter ? [] : CATALOG.filter((entry) => availableCount(entry.type) > 0 && (tab === '전체' || categoryFor(entry.type) === tab as InventoryCategory))
+  const stock = showingColors || showingCharacter ? [] : CATALOG.filter((entry) => availableCount(entry.type) > 0 && (tab === '전체' || (entry.type === 'speech-bubble' ? '소품' : categoryFor(entry.type)) === tab as InventoryCategory))
   return <section className={preview ? 'inventory-panel previewing' : 'inventory-panel'} aria-label="보관함">
     <header><strong>보관함</strong>{preview && <button type="button" onClick={cancelPreview}>미리보기 취소</button>}</header>
     <nav>{tabs.map((entry) => <button key={entry} className={tab === entry ? 'active' : ''} type="button" onClick={() => setTab(entry)}>{entry}</button>)}</nav>

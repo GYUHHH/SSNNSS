@@ -1,8 +1,8 @@
-import { Html, RoundedBox, Text } from '@react-three/drei'
+import { Billboard, Html, RoundedBox, Text } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useMemo } from 'react'
 import { CanvasTexture, SRGBColorSpace, type Texture, TextureLoader, VideoTexture, type PointLight } from 'three'
-import { BannerTextInput, useArtTexture } from './ArtEditor'
+import { BannerTextInput, SpeechBubbleInput, useArtTexture } from './ArtEditor'
 import { isVisiting } from '../services/social'
 import { type ReactNode, useRef, useState } from 'react'
 import type { Group, MeshStandardMaterial } from 'three'
@@ -11,7 +11,7 @@ import MusicPanel from './MusicPanel'
 import { loadAudioPrefs, type FurnitureItem, useOptionalRoomStore, useRoomStore } from '../store'
 import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
-import { CANVAS_UI_FONT, JONES_BOOK_OTF, loadCanvasFonts } from '../services/fonts'
+import { CANVAS_UI_FONT, JONES_BOOK_OTF, PRETENDARD_WOFF, loadCanvasFonts } from '../services/fonts'
 import { clipResumeAt, getVideo, registerClipPlayer, rememberClipAt } from '../services/mediaStore'
 import { playlistVideoResume } from '../services/ytResume'
 import { Swing } from './motion'
@@ -32,6 +32,28 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   // photos keep their own aspect inside the square photo frame: the plane shrinks on one axis (contain)
   const artImage = art?.image as { width?: number; height?: number } | undefined
   const artAspect = artImage?.width && artImage.height ? artImage.width / artImage.height : 1
+  if (item.type === 'speech-bubble') {
+    const bubbleText = preview ? '말풍선' : store?.artworks[item.id] ?? ''
+    const bubbleFont = /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(bubbleText) ? PRETENDARD_WOFF : JONES_BOOK_OTF
+    return <>
+      <mesh visible={false}><boxGeometry args={[.7, .02, .7]} /><meshBasicMaterial /></mesh>
+      <Billboard position={[0, 1.35, 0]}>
+        <RoundedBox userData={{ excludeFromFit: true }} args={[1.35, .62, .035]} radius={.06} smoothness={3}>
+          <meshBasicMaterial color="#ffffff" transparent={preview} opacity={preview ? .55 : .96} />
+        </RoundedBox>
+        <mesh userData={{ excludeFromFit: true }} position={[-.43, -.37, 0]} rotation={[0, 0, -.35]}>
+          <circleGeometry args={[.17, 3]} />
+          <meshBasicMaterial color="#ffffff" transparent={preview} opacity={preview ? .55 : .96} />
+        </mesh>
+        {!!bubbleText && <Text userData={{ excludeFromFit: true }} position={[0, 0, .025]} font={bubbleFont} fontSize={.13} maxWidth={1.08} lineHeight={1.25} textAlign="center" anchorX="center" anchorY="middle" color="#262626" fillOpacity={preview ? .55 : 1}>{bubbleText}</Text>}
+      </Billboard>
+      {!preview && !isVisiting() && store?.mode === 'normal' && store.selectedObject === item.id && <Html position={[0, 2.05, 0]} center zIndexRange={[4, 0]}>
+        <section className="room-bubble-editor" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
+          <SpeechBubbleInput id={item.id} artwork={store.artworks[item.id]} saveArtwork={store.setArtwork} />
+        </section>
+      </Html>}
+    </>
+  }
   if (item.type === 'side-table') return <><mesh castShadow position={[0, .48, 0]}><cylinderGeometry args={[.34, .34, .12, 12]} /><meshStandardMaterial color={material.color ?? '#b9855d'} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh castShadow position={[0, .25, 0]}><cylinderGeometry args={[.08, .12, .5, 10]} /><meshStandardMaterial color={material.color ?? '#845944'} transparent={material.transparent} opacity={material.opacity} /></mesh></>
   if (item.type === 'music-player') return <>
     {[[-.52, -.16], [.52, -.16], [-.52, .16], [.52, .16]].map(([x, z]) => <mesh castShadow key={`${x}:${z}`} position={[x, .06, z]}><cylinderGeometry args={[.035, .045, .12, 8]} /><meshStandardMaterial color={material.color ?? '#6b4c39'} transparent={material.transparent} opacity={material.opacity} /></mesh>)}

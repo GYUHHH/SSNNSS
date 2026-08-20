@@ -92,6 +92,16 @@ export function BannerTextInput({ id, artwork, saveArtwork }: { id: string; artw
   </div>
 }
 
+export function SpeechBubbleInput({ id, artwork, saveArtwork }: { id: string; artwork?: string; saveArtwork?: (id: string, text: string | null) => void }) {
+  const store = useOptionalRoomStore()
+  const [text, setText] = useState(artwork ?? store?.artworks[id] ?? '')
+  const apply = () => { (saveArtwork ?? store?.setArtwork)?.(id, text.trim() || null); store?.clearSelection() }
+  return <div className="room-bubble-input">
+    <textarea rows={3} maxLength={80} value={text} onChange={(event) => setText(event.target.value)} />
+    <button type="button" onClick={apply}>적용</button>
+  </div>
+}
+
 export function VideoPickButton({ id }: { id: string }) {
   const { videoFrames, videoClips, setVideoClip } = useRoomStore()
   const inputRef = useRef<HTMLInputElement>(null)

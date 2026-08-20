@@ -146,6 +146,10 @@ img.art-image { object-fit: contain; width: 100%; }
 .banner-input { display: flex; gap: 5px; align-items: stretch; margin: 8px 0 2px; }
 .banner-input input { flex: 1; min-width: 0; border: 1px solid #c2c2be; border-radius: 4px; padding: 6px 8px; font-size: 12px; color: #403f3d; background: #ffffff; }
 .banner-input button { border: 1px solid #3a3a38; border-radius: 4px; padding: 6px 10px; font-size: 12px; line-height: 1.15; color: #ffffff; background: #3a3a38; cursor: pointer; }
+.room-bubble-editor { width: min(190px, calc(100vw - 24px)); padding: 8px; border: 0; border-radius: 4px; background: #fff; }
+.room-bubble-input { display: grid; gap: 6px; }
+.room-bubble-input textarea { box-sizing: border-box; width: 100%; min-height: 66px; padding: 7px 8px; border: 0; border-radius: 3px; resize: none; color: #262626; background: #f2f2f2; font: inherit; }
+.room-bubble-input button { justify-self: end; padding: 6px 10px; border: 0; border-radius: 4px; color: #fff; background: #0095f6; font: inherit; font-weight: 600; cursor: pointer; }
 .art-panel { position: fixed; z-index: 5; top: 0; right: 0; bottom: 0; width: min(480px, 92vw); padding: 18px 22px 24px; overflow-y: auto; border-left: 1px solid #b3b3ae; background: #ffffff; transform: translateX(100%); transition: transform .42s cubic-bezier(.4, 0, .2, 1); }
 .art-panel.open { transform: translateX(0); }
 .art-panel:not(.open) { pointer-events: none; }
