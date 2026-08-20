@@ -319,8 +319,10 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
     group.current?.traverse((object) => {
       object.layers.set(layer)
       if (centred) object.layers.enable(HOVER_LAYER[roomTime])
+      // anything that carries a material fades: meshes, but also lines (placement grid, string lights),
+      // points and text — lines were skipped once and stayed solid over rooms that had already left
       const mesh = object as Mesh
-      if (!mesh.isMesh) return
+      if (!mesh.material) return
       const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
       list.forEach((material) => {
         const faded = material as Faded
@@ -386,10 +388,12 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
       const entrance = material.userData.readyAt === undefined ? 0 : Math.min(1, (now - material.userData.readyAt) / 350)
       const settled = full && entrance >= 1
       material.transparent = settled ? material.wasTransparent ?? false : true
-      // Trim bars ride a steep curve of the fade, and every textured surface (photos, posters, screens) rides a
-      // cubed one: overlays are drawn ON TOP of the already-fading wall, so at the same opacity they read about
-      // twice as solid — the steeper curve is what makes them visually leave WITH the room instead of after it.
-      const base = full ? 1 : material.userData.lateFade ? detailAlpha ** 7 : map ? detailAlpha ** 3 : detailAlpha
+      // Trim bars ride a steep curve of the fade, and every textured or unlit surface (photos, posters, screens,
+      // speech bubbles, text) rides a cubed one: they are drawn ON TOP of the already-fading wall and render at
+      // full brightness regardless of the room's lighting, so at the same opacity they read about twice as solid
+      // — the steeper curve is what makes them visually leave WITH the room instead of after it.
+      const bright = map || (material as { isMeshBasicMaterial?: boolean }).isMeshBasicMaterial
+      const base = full ? 1 : material.userData.lateFade ? detailAlpha ** 7 : bright ? detailAlpha ** 3 : detailAlpha
       material.opacity = settled ? 1 : base * entrance
       if (!material.color) return
     })
