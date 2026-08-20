@@ -165,6 +165,6 @@ function EntryGallery({ images }: { images: string[] }) {
   const move = (step: number) => setIndex((current) => Math.max(0, Math.min(images.length - 1, current + step)))
   return <div className="entry-gallery" onPointerDown={(event) => { start.current = event.clientX; event.currentTarget.setPointerCapture(event.pointerId) }} onPointerUp={(event) => { if (start.current !== null) { const distance = event.clientX - start.current; if (Math.abs(distance) > 36) move(distance < 0 ? 1 : -1) } start.current = null }} onPointerCancel={() => { start.current = null }}>
     <img src={assetUrl(images[index])} alt={`기록 사진 ${index + 1}`} />
-    {images.length > 1 && <><button className="entry-gallery-prev" type="button" aria-label="이전 사진" disabled={index === 0} onClick={() => move(-1)}>‹</button><button className="entry-gallery-next" type="button" aria-label="다음 사진" disabled={index === images.length - 1} onClick={() => move(1)}>›</button><span>{index + 1} / {images.length}</span></>}
+    {images.length > 1 && <><button className="entry-gallery-prev" type="button" aria-label="이전 사진" disabled={index === 0} onPointerDown={(event) => event.stopPropagation()} onClick={() => move(-1)}>‹</button><button className="entry-gallery-next" type="button" aria-label="다음 사진" disabled={index === images.length - 1} onPointerDown={(event) => event.stopPropagation()} onClick={() => move(1)}>›</button><span className="entry-gallery-count">{index + 1} / {images.length}</span></>}
   </div>
 }
