@@ -31,11 +31,7 @@ const LIGHTING = {
 } as const
 type TimeOfDay = keyof typeof LIGHTING
 const TIME_LAYER: Record<TimeOfDay, number> = { day: 1, evening: 2, night: 3 }
-// Hovered explorer rooms render once more after the cluster. Keeping one layer per time preset lets the
-// foreground pass use that room's own light rather than mixing day, evening and night together.
-const HOVER_LAYER: Record<TimeOfDay, number> = { day: 4, evening: 5, night: 6 }
-const EXPLORER_LAYER_MASK = (1 << 7) - 1
-let hoverLayerMask = 0
+const EXPLORER_LAYER_MASK = (1 << 4) - 1
 
 // Pointer coords are computed from the canvas's LIVE on-screen rect — the scene slides 240px left while a
 // panel is open, and the default client-coordinate mapping would leave every click/hover offset by that shift.
@@ -75,10 +71,7 @@ function TimeLayerLights({ time }: { time: TimeOfDay }) {
   const dir = useRef<DirectionalLight>(null)
   const preset = LIGHTING[time]
   const layer = TIME_LAYER[time]
-  useLayoutEffect(() => {
-    ambient.current?.layers.set(layer); ambient.current?.layers.enable(HOVER_LAYER[time])
-    dir.current?.layers.set(layer); dir.current?.layers.enable(HOVER_LAYER[time])
-  }, [layer, time])
+  useLayoutEffect(() => { ambient.current?.layers.set(layer); dir.current?.layers.set(layer) }, [layer])
   return <><ambientLight ref={ambient} intensity={preset.ambient} color={preset.ambientColor} /><directionalLight ref={dir} position={[6, 4.5, 2.5]} intensity={preset.dir} color={preset.dirColor} /></>
 }
 
@@ -112,11 +105,6 @@ function RenderGovernor() {
     if (camera.zoom <= entryZoom(size.width, size.height)) {
       gl.autoClear = false
       Object.values(TIME_LAYER).forEach((layer) => { camera.layers.set(layer); gl.render(scene, camera) })
-      if (hoverLayerMask) {
-        gl.clearDepth()
-        camera.layers.mask = hoverLayerMask
-        gl.render(scene, camera)
-      }
     }
     gl.autoClear = originalAutoClear
     camera.layers.mask = EXPLORER_LAYER_MASK
@@ -226,8 +214,7 @@ if (import.meta.env.DEV) {
 // click that selects it has nothing to land on, so read-only rooms hold their handlers back instead (see Floor,
 // Interactive, Furniture and Character: each one bails before stopPropagation when the store is readOnly).
 const NO_RAYCAST = () => {}
-type Faded = Material & { color?: Color }
-type FadeState = { transparent: boolean; opacity: number; readyAt?: number }
+type Faded = Material & { wasTransparent?: boolean; color?: Color }
 function Inert({ off, children }: { off: (zoom: number, width: number, height: number) => boolean; children: ReactNode }) {
   const group = useRef<Group>(null)
   const applied = useRef<boolean | null>(null)
@@ -269,28 +256,16 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
   const group = useRef<Group>(null)
   const opacity = useRef(0)
   const materials = useRef<Faded[]>([])
-  // Material instances can outlive one explorer room (fonts and cached artwork are the usual case), so fade
-  // timing must belong to this RoomContainer instead of material.userData. Sharing readyAt made a later room
-  // inherit an already-finished entrance and appear in one frame.
-  const fadeStates = useRef(new WeakMap<Material, FadeState>())
-  const fadingOut = useRef(false)
-  const nextCollect = useRef(0)
   const glow = useRef(0)
   const press = useRef<{ x: number; y: number; pointerId: number } | null>(null)
   const openedAt = useRef(0)
   // The lobby — the default room a signed-out visitor starts in — has no server bundle to wait for: an empty
   // bundle IS its look. Without this the cell went permanently blank the moment such a visitor entered a real
   // room, because the room they had just come from could never be drawn as a neighbour.
-  const [bundle, setBundle] = useState<Record<string, string> | null>(slot.handle === LOBBY ? {} : fresh ?? null)
+  const [bundle, setBundle] = useState<Record<string, string> | null>(slot.handle === LOBBY ? {} : null)
   const savedTime = bundle?.['my-room-time-v1']
   const roomTime: TimeOfDay = savedTime === 'evening' || savedTime === 'night' ? savedTime : 'day'
   const layer = TIME_LAYER[roomTime]
-  useLayoutEffect(() => {
-    if (!centred) return
-    const mask = 1 << HOVER_LAYER[roomTime]
-    hoverLayerMask = mask
-    return () => { if (hoverLayerMask === mask) hoverLayerMask = 0 }
-  }, [centred, roomTime])
   const nextFetch = useRef(0)
   const lastRaw = useRef('')
   const mounted = useRef(true)
@@ -323,31 +298,18 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
     materials.current = []
     group.current?.traverse((object) => {
       object.layers.set(layer)
-      if (centred) object.layers.enable(HOVER_LAYER[roomTime])
-      // anything that carries a material fades: meshes, but also lines (placement grid, string lights),
-      // points and text — lines were skipped once and stayed solid over rooms that had already left
       const mesh = object as Mesh
-      if (!mesh.material) return
+      if (!mesh.isMesh) return
       const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
       list.forEach((material) => {
         const faded = material as Faded
-        if (!fadeStates.current.has(faded)) {
-          fadeStates.current.set(faded, { transparent: faded.transparent, opacity: faded.opacity })
-          // collect() runs before the frame is painted. A texture/font that mounted late therefore starts hidden
-          // rather than flashing at its natural opacity until the next collection pass.
-          faded.transparent = true
-          faded.opacity = 0
-        }
+        // remember what it was, because the fade is only allowed to borrow the flag, not keep it
+        if (faded.wasTransparent === undefined) faded.wasTransparent = faded.transparent
         materials.current.push(faded)
       })
     })
   }
-  useLayoutEffect(collect, [bundle, centred, layer, roomTime])
-  useEffect(() => {
-    const first = setTimeout(collect, 0)
-    const later = setTimeout(collect, 350)
-    return () => { clearTimeout(first); clearTimeout(later) }
-  }, [bundle, centred, layer, roomTime])
+  useLayoutEffect(collect, [bundle, layer])
   useFrame(({ camera, size }, delta) => {
     if (!group.current) return
     // The ring belongs to the explorer, so it starts leaving the moment the zoom lifts off the floor at all rather
@@ -362,21 +324,17 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
     // colour flicker on every entry. It holds full strength until the live room takes its place; everyone else
     // in the ring still clears out on the way in.
     const wanted = mode !== 'normal' ? 0 : centred ? 1 : MathUtils.clamp(1 - (camera.zoom - floor) / span, 0, 1)
-    // Photos, video posters and fonts can finish loading long after the layout effects above. Refresh once when
-    // this room starts leaving so every late material fades with the room; traversing every fade frame caused the
-    // explorer-entry stutter this LOD exists to avoid.
-    if (wanted < .995 && !fadingOut.current) { fadingOut.current = true; collect() }
-    else if (wanted >= .995) fadingOut.current = false
-    // During the explorer's gather, collect before every paint so a newly mounted photo, font or prop is caught
-    // on its very first frame. Fade-out keeps the cheap periodic pass: everything was already mounted by then,
-    // and traversing there was what caused the old room-entry stutter.
-    const fadingIn = wanted > opacity.current + .001 && opacity.current < .995
-    if (fadingIn) collect()
-    else if (opacity.current > .02 && performance.now() > nextCollect.current) { nextCollect.current = performance.now() + 400; collect() }
     // The frame a room is first drawn tends to hitch — texture uploads land right then — and the long delta of
     // that one frame used to advance the damp nearly to 1, so the room POPPED instead of fading. Capping the step
     // means a hitch only moves the fade one small notch, and the glide plays out over the frames that follow.
     opacity.current = MathUtils.damp(opacity.current, wanted, 12, Math.min(delta, 1 / 30))
+    // Materials keep arriving after the layout effect ran — a suspended font resolves, and a photo or thumbnail
+    // texture finishing its load SWAPS IN a whole new material. A newcomer the loop below doesn't know about is
+    // drawn at its natural full opacity, which against a half-faded room reads as the photo popping in — and on
+    // the way out, popping off. So while the room is mid-fade the collection is rebuilt every frame: the traverse
+    // is a few hundred objects and the fade lasts under a second, and it guarantees a material's very first drawn
+    // frame already carries the room's opacity.
+    if (opacity.current > .01 && opacity.current < .995) collect()
     group.current.visible = opacity.current > .01
     // A nudge in size is the whole highlight. The cluster is stacked by storey, so lifting or outlining the picked
     // room would fight that illusion, while 6% reads as hover without moving anything out of its own cell.
@@ -386,25 +344,12 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
     // Holding them transparent forever put decals into the sorted transparent pass alongside the panel they sit
     // on — a few thousandths apart — and when the decal won that toss the panel behind it failed the depth test
     // and the wall showed through it. The profile board's stats read as wall-coloured because of it.
-    const detailAlpha = opacity.current
     const full = opacity.current > .995
-    const now = performance.now()
     materials.current.forEach((material) => {
-      // Per-material entrance: a material only starts counting once it can actually show something (its map has
-      // pixel data, or it has no map at all), then eases in over 350ms. This is what turns the late arrivals —
-      // photos, video posters, fonts — from a pop into a fade, both out in the explorer and mid-view, and it
-      // keeps working for any material added later because collect() above re-discovers the tree continuously.
-      const map = (material as { map?: { image?: unknown } }).map
-      const state = fadeStates.current.get(material)
-      if (!state) return
-      if (state.readyAt === undefined && (!map || map.image)) state.readyAt = now
-      const entrance = state.readyAt === undefined ? 0 : Math.min(1, (now - state.readyAt) / 350)
-      const settled = full && entrance >= 1
-      material.transparent = settled ? state.transparent : true
-      // Every visible part follows the same room alpha. Giving photos/text a steeper curve held them invisible
-      // through most of the transition and then made them appear at once near the end.
-      const base = detailAlpha
-      material.opacity = settled ? state.opacity : state.opacity * base * entrance
+      material.transparent = full ? material.wasTransparent ?? false : true
+      // trim bars ride the cube of the fade: still smooth, but they only surface once the room is nearly whole,
+      // instead of floating over the ghosted room as three hard dark bars for the entire glide
+      material.opacity = full ? 1 : material.userData.lateFade ? opacity.current ** 7 : opacity.current
       if (!material.color) return
     })
     // Fetched when the zoom-out first reveals it, and refreshed every so often for as long as it stays on
@@ -433,19 +378,19 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
       {/* Nothing is drawn until the room's own layout is in hand: rendering the provider with a null bundle
           shows the DEFAULT room, and a stranger's cell flashing the starter layout before flipping to the real
           one read as broken. With bundles prefetched at directory load the gap is rarely even visible. */}
-      {bundle !== null ? <>
+      {bundle === null ? null : <>
       {/* three's raycaster tests layers only, never `visible`, so a faded-out neighbour still swallows the ray.
           That is what stopped a click on empty space from counting as a miss — and in edit mode, where every
           neighbour is faded to nothing, it stopped the click that finishes editing. Inert while faded, hittable
           once it has faded in, which is exactly when the click below is allowed to select the room anyway. */}
       <Inert off={fadedOut}><NeighbourRoomProvider bundle={bundle}><NeighbourRoom /></NeighbourRoomProvider></Inert>
-      </> : null}
+      </>}
     </Suspense>
   </group>
 }
 
 function RoomWorld() {
-  const { mode, activeRoomId, currentHandle } = useRoomStore()
+  const { mode } = useRoomStore()
   // The cluster is centred on the signed-in user's OWN room — it is their neighbourhood, so their room is the hub
   // the others ring around, whichever room they happen to be looking at. Signed out there is no own room, so the
   // room in the address (or the lobby) takes the middle instead.
@@ -462,6 +407,7 @@ function RoomWorld() {
   // roots may paint their commits apart — with separate state, one frame could show the new room's data still
   // standing in the old room's cell (the flash every entry had). Reading the handle out of the same context value
   // that carries the data makes the re-base and the content swap indivisible.
+  const { currentHandle } = useRoomStore()
   const activeHandle = currentHandle ?? hubHandle
   const [focusRoom, setFocusRoom] = useState<{ position: [number, number, number]; token: number; shift?: [number, number, number] }>({ position: [0, 0, 0], token: 0 })
   const opening = useRef(false)
@@ -487,16 +433,14 @@ function RoomWorld() {
     let live = true
     void fetchRoomDirectory().then((found) => {
       if (!live) return
-      const bundles = Object.fromEntries(found.map(({ handle, data }) => [handle, data]))
-      const rest = found.map(({ handle }) => handle).filter((handle) => handle !== hubHandle)
+      const rest = found.filter((handle) => handle !== hubHandle)
       // the room actually being viewed needs a cell of its own even if the directory misses it
       const viewed = currentRoomHandle()
       if (viewed && viewed !== hubHandle && !rest.includes(viewed)) rest.unshift(viewed)
-      // Commit ids and their room data together. A newly mounted RoomContainer can therefore build its walls,
-      // furniture and photos while still invisible, before the explorer transition begins.
-      setFreshBundles((previous) => ({ ...bundles, ...previous }))
       setHandles(withVacancies([hubHandle, ...rest]))
-      if (viewed && !bundles[viewed]) void fetchRoomBundle(viewed).then((data) => { if (live && data) setFreshBundles((previous) => ({ ...previous, [viewed]: data })) })
+      // warm every bundle now, while the user is still looking at their own room — by the time they zoom out,
+      // the layouts are already here and each neighbour appears as itself rather than as the default room first
+      rest.filter(isEnterable).forEach((handle) => void fetchRoomBundle(handle))
     })
     return () => { live = false }
   }, [hubHandle])
@@ -549,9 +493,6 @@ function RoomWorld() {
   }
   const beginEntry = (slot: RoomSlot) => {
     if (opening.current || requestedEntry.current || !canEnter(slot.handle)) return
-    // Touch has no hover target. A tapped room enters directly; zooming and panning never infer a room from the
-    // middle of the screen.
-    if (!fine.current) { void open(slot); return }
     requestedEntry.current = true
     picked.current = slot
     centred.current = slot.handle
@@ -567,7 +508,7 @@ function RoomWorld() {
     // The pick keeps updating through the first half of the transit band — the user can still steer onto a
     // different room while the fade has already begun — and only freezes for the short stretch before the entry
     // line, which is what keeps the choice from flapping while the camera is actively pulling it to the middle.
-    if (fine.current && mode === 'normal' && !requestedEntry.current && camera.zoom <= (floor + entryZoom(size.width, size.height)) / 2) {
+    if (mode === 'normal' && !requestedEntry.current && camera.zoom <= (floor + entryZoom(size.width, size.height)) / 2) {
       // Measured in pixels off a projected centre rather than in world space: the cluster is stacked across storeys
       // and panning slides the target in the screen plane, so world distance disagrees with what is on screen. The
       // room already being viewed competes as well, and its winning means nothing is picked — zooming back into the
@@ -585,11 +526,15 @@ function RoomWorld() {
         }
         return { slot: winner === active ? null : winner, offset: best }
       }
+      // Both readings are live on a desktop, and the mouse only takes over where it is actually resting on a room —
+      // a room projects to a 200px box at zoom 20.2, so half of one is 4.95 pixels per unit of zoom. Off the rooms,
+      // or on a touch screen where the last tap is long stale, the middle of the screen is the crosshair.
+      const hover = fine.current ? nearest(pointer.x, pointer.y) : null
+      const overRoom = hover !== null && hover.offset <= camera.zoom * 4.95
       // With a mouse the cursor is the whole story: on a room means that room, off every room means no pick at
-      // all — zooming in just returns to the room being viewed.
-      const hover = nearest(pointer.x, pointer.y)
-      const overRoom = hover.offset <= camera.zoom * 4.95
-      picked.current = overRoom ? hover.slot : null
+      // all — zooming in just returns to the room being viewed. The middle-of-screen crosshair is for touch,
+      // which has no cursor to read.
+      picked.current = fine.current ? (overRoom ? hover.slot : null) : nearest(0, 0).slot
       // the mouse resting on an enterable room is an invitation, and the cursor says so
       const wanted = overRoom && hover.slot !== null
       if (wanted !== cursorOn.current) { cursorOn.current = wanted; document.body.style.cursor = wanted ? 'pointer' : '' }
@@ -612,9 +557,7 @@ function RoomWorld() {
   const aim = useMemo(() => (slots.find((slot) => slot.handle === centredHandle) ?? active)?.position ?? null, [slots, active, centredHandle])
   return <>
     {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY) && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} />)}
-    {/* Furniture ids repeat across rooms. Keying the live root by room identity prevents React from carrying an
-        old room's mesh refs, animation state or suspended assets into the room that just replaced it. */}
-    <group position={active.position}><Inert off={exploring}><RoomRoot key={`${activeHandle}:${activeRoomId}`} /></Inert></group>
+    <group position={active.position}><Inert off={exploring}><RoomRoot /></Inert></group>
     <CameraController focusRoom={focusRoom} aim={aim} />
   </>
 }

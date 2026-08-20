@@ -499,13 +499,13 @@ export function fetchRoomBundle(handle: string, fresh = false): Promise<Record<s
   return request
 }
 
-// Handles and their saved rooms arrive atomically. Returning ids first and fetching every bundle afterwards let
-// the camera finish gathering the cluster before its furniture and photos existed, so the contents popped in.
-export async function fetchRoomDirectory(limit = 37): Promise<Array<{ handle: string; data: Record<string, string> }>> {
+// The explorer only needs public room ids up front; each neighbour's bundle is fetched lazily by fetchRoomBundle
+// once the zoom-out actually reveals it, so a directory of many rooms costs one request until it is looked at.
+export async function fetchRoomDirectory(limit = 37): Promise<string[]> {
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?select=handle,data&order=handle.asc&limit=${limit}`, { headers })
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?select=handle&order=handle.asc&limit=${limit}`, { headers })
     const rows = await response.json()
-    return response.ok && Array.isArray(rows) ? rows.filter((row): row is { handle: string; data: Record<string, string> } => typeof row?.handle === 'string' && !!row.handle && !!row.data && typeof row.data === 'object' && !Array.isArray(row.data)) : []
+    return response.ok && Array.isArray(rows) ? rows.map((row) => row?.handle).filter((handle): handle is string => typeof handle === 'string' && !!handle) : []
   } catch { return [] }
 }
 
