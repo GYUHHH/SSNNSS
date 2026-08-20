@@ -11,7 +11,7 @@ import MusicPanel from './MusicPanel'
 import { loadAudioPrefs, type FurnitureItem, useOptionalRoomStore, useRoomStore } from '../store'
 import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
-import { PRETENDARD_WOFF } from '../services/fonts'
+import { CANVAS_UI_FONT, JONES_BOOK_OTF, loadCanvasFonts } from '../services/fonts'
 import { clipResumeAt, getVideo, registerClipPlayer, rememberClipAt } from '../services/mediaStore'
 import { playlistVideoResume } from '../services/ytResume'
 import { Swing } from './motion'
@@ -446,7 +446,7 @@ function drawBanner(canvas: HTMLCanvasElement, t: number, text: string) {
   const ctx = canvas.getContext('2d')!
   const w = canvas.width, h = canvas.height
   ctx.fillStyle = '#1c1712'; ctx.fillRect(0, 0, w, h)
-  ctx.font = 'bold 34px "Pretendard Variable", Pretendard, sans-serif'
+  ctx.font = `bold 34px ${CANVAS_UI_FONT}`
   ctx.textBaseline = 'middle'
   const span = ctx.measureText(text).width + w * .4
   const x = w - ((t * 70) % (span + w))
@@ -550,22 +550,27 @@ function StarField() {
   return <group ref={field} position={[0, .1, 0]}>{dots.map((position, index) => <mesh key={index} position={position} userData={{ excludeFromFit: true }}><sphereGeometry args={[.022, 6, 5]} /><meshStandardMaterial color="#cfd8ff" emissive="#aab8ff" emissiveIntensity={1.6} /></mesh>)}</group>
 }
 
+function drawCalendar(canvas: HTMLCanvasElement) {
+  const ctx = canvas.getContext('2d')!
+  const now = new Date()
+  ctx.fillStyle = '#fffaf0'; ctx.fillRect(0, 0, 128, 148)
+  ctx.fillStyle = '#b3563f'; ctx.fillRect(0, 0, 128, 34)
+  ctx.fillStyle = '#fff8ed'; ctx.font = `bold 19px ${CANVAS_UI_FONT}`; ctx.textAlign = 'center'
+  ctx.fillText(`${now.getMonth() + 1}월`, 64, 24)
+  ctx.fillStyle = '#3f3a33'; ctx.font = `bold 58px ${CANVAS_UI_FONT}`
+  ctx.fillText(String(now.getDate()), 64, 102)
+  ctx.fillStyle = '#8a7a6a'; ctx.font = `15px ${CANVAS_UI_FONT}`
+  ctx.fillText(['일', '월', '화', '수', '목', '금', '토'][now.getDay()] + '요일', 64, 132)
+}
+
 function CalendarArt() {
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 148
-    const ctx = canvas.getContext('2d')!
-    const now = new Date()
-    ctx.fillStyle = '#fffaf0'; ctx.fillRect(0, 0, 128, 148)
-    ctx.fillStyle = '#b3563f'; ctx.fillRect(0, 0, 128, 34)
-    ctx.fillStyle = '#fff8ed'; ctx.font = 'bold 19px "Pretendard Variable", Pretendard, sans-serif'; ctx.textAlign = 'center'
-    ctx.fillText(`${now.getMonth() + 1}월`, 64, 24)
-    ctx.fillStyle = '#3f3a33'; ctx.font = 'bold 58px "Pretendard Variable", Pretendard, sans-serif'
-    ctx.fillText(String(now.getDate()), 64, 102)
-    ctx.fillStyle = '#8a7a6a'; ctx.font = '15px "Pretendard Variable", Pretendard, sans-serif'
-    ctx.fillText(['일', '월', '화', '수', '목', '금', '토'][now.getDay()] + '요일', 64, 132)
+    drawCalendar(canvas)
     const t = new CanvasTexture(canvas); t.colorSpace = SRGBColorSpace
     return t
   }, [])
+  useEffect(() => { void loadCanvasFonts().then(() => { drawCalendar(texture.image as HTMLCanvasElement); texture.needsUpdate = true }) }, [texture])
   // sized to the board it sits on, not inset from it — the backing used to show around the page as a cream
   // border, which read as an outline the calendar was never meant to have
   return <mesh position={[0, 0, .045]}><planeGeometry args={[.6, .68]} /><meshStandardMaterial map={texture} roughness={.9} /></mesh>
@@ -694,17 +699,17 @@ function drawProfileBoard(canvas: HTMLCanvasElement, total: number, today: numbe
   ctx.clearRect(0, 0, w, canvas.height)
   ctx.textAlign = 'center'
   ctx.fillStyle = '#3f3a33'
-  ctx.font = 'bold 30px "Pretendard Variable", Pretendard, sans-serif'
+  ctx.font = `bold 30px ${CANVAS_UI_FONT}`
   ctx.fillText(`Total ${total}`, w * .29, 42)
   ctx.fillText(`Today ${today}`, w * .72, 42)
   ctx.fillStyle = '#c3b6a6'
-  ctx.font = '26px "Pretendard Variable", Pretendard, sans-serif'
+  ctx.font = `26px ${CANVAS_UI_FONT}`
   ctx.fillText('|', w / 2, 42)
   ctx.strokeStyle = '#e2d6c6'
   ctx.lineWidth = 2
   ctx.beginPath(); ctx.moveTo(w * .14, 66); ctx.lineTo(w * .86, 66); ctx.stroke()
   ctx.fillStyle = '#5b4e44'
-  ctx.font = 'bold 30px "Pretendard Variable", Pretendard, sans-serif'
+  ctx.font = `bold 30px ${CANVAS_UI_FONT}`
   ctx.fillText(`친구 ${friends}`, w / 2, 106)
 }
 
@@ -720,8 +725,9 @@ function ProfileBoardFace() {
     return created
   }, [])
   useEffect(() => {
-    drawProfileBoard(texture.image as HTMLCanvasElement, total, today, friends)
-    texture.needsUpdate = true
+    const draw = () => { drawProfileBoard(texture.image as HTMLCanvasElement, total, today, friends); texture.needsUpdate = true }
+    draw()
+    void loadCanvasFonts().then(draw)
   }, [total, today, friends, texture])
   const portrait = useMemo(() => { if (!photo) return null; const map = new TextureLoader().load(photo); map.colorSpace = SRGBColorSpace; return map }, [photo])
   // These sit ON the board, and the stats panel is drawn on a transparent canvas, so the board behind it is what
@@ -731,7 +737,7 @@ function ProfileBoardFace() {
   // place. renderOrder pins them after the board no matter what the distances work out to.
   return <>
     {portrait && <mesh renderOrder={1} position={[0, .36, .076]}><circleGeometry args={[.47, 30]} /><meshBasicMaterial map={portrait} /></mesh>}
-    {profile?.handle && <Text renderOrder={1} font={PRETENDARD_WOFF} position={[0, -.22, .076]} fontSize={.13} color="#403f3d" anchorX="center" anchorY="middle">{profile.handle}</Text>}
+    {profile?.handle && <Text renderOrder={1} font={JONES_BOOK_OTF} position={[0, -.22, .076]} fontSize={.13} color="#403f3d" anchorX="center" anchorY="middle">{profile.handle}</Text>}
     <mesh renderOrder={1} position={[0, -.59, .076]}><planeGeometry args={[1.2, .48]} /><meshBasicMaterial map={texture} transparent /></mesh>
   </>
 }
