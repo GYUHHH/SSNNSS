@@ -82,7 +82,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     const bubbleHeight = Math.max(.36, .18 + lines.length * .18) * bubbleScale
     const bubbleFont = /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(bubbleText) ? PRETENDARD_WOFF : JONES_BOOK_OTF
     return <>
-      <mesh visible={false}><boxGeometry args={[.7, .02, .7]} /><meshBasicMaterial /></mesh>
+      <mesh visible={false} raycast={() => {}}><boxGeometry args={[.7, .02, .7]} /><meshBasicMaterial /></mesh>
       <Billboard position={[0, 1.35, 0]}>
         <SpeechBubbleShape width={bubbleWidth} height={bubbleHeight} preview={preview} />
         {!!displayText && <Text userData={{ excludeFromFit: true }} position={[0, 0, .04]} font={bubbleFont} fontSize={.13 * bubbleScale} maxWidth={bubbleWidth - .16 * bubbleScale} lineHeight={1.25} textAlign="center" anchorX="center" anchorY="middle" color="#262626" fillOpacity={preview ? .55 : 1}>{displayText}</Text>}
