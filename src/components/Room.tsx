@@ -264,17 +264,6 @@ function NeighbourRoom() {
   return <><Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><Character /></>
 }
 
-// Three flat boxes instead of a complete furnished room. Polygon offset keeps every face behind the full room
-// during the fade, including the thin side faces that a position nudge leaves coplanar.
-function LightweightShell() {
-  const shell = (color: string) => <meshBasicMaterial color={color} transparent opacity={0} polygonOffset polygonOffsetFactor={2} polygonOffsetUnits={2} userData={{ roomShell: true }} />
-  return <>
-    <mesh position={[0, -.11, 0]}><boxGeometry args={[7.22, .22, 7.22]} />{shell('#ece9e2')}</mesh>
-    <mesh position={[-3.61, 3.5, 0]}><boxGeometry args={[.22, 7, 7.22]} />{shell('#f7f5f0')}</mesh>
-    <mesh position={[0, 3.5, -3.61]}><boxGeometry args={[7, 7, .22]} />{shell('#f7f5f0')}</mesh>
-  </>
-}
-
 function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { slot: RoomSlot; distance: number; centred: boolean; fullDetail: boolean; fresh?: Record<string, string>; open: () => void }) {
   const { mode } = useRoomStore()
   const { gl, camera, scene } = useThree()
@@ -282,7 +271,6 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
   const opacity = useRef(0)
   const detailOpacity = useRef(0)
   const materials = useRef<Faded[]>([])
-  const shellMaterials = useRef<Faded[]>([])
   const fadingOut = useRef(false)
   const glow = useRef(0)
   const press = useRef<{ x: number; y: number; pointerId: number } | null>(null)
@@ -346,7 +334,6 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
   }, [bundle, detailMounted, camera, gl, scene])
   const collect = () => {
     materials.current = []
-    shellMaterials.current = []
     group.current?.traverse((object) => {
       object.layers.set(layer)
       if (centred) object.layers.enable(HOVER_LAYER[roomTime])
@@ -357,8 +344,7 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
         const faded = material as Faded
         // remember what it was, because the fade is only allowed to borrow the flag, not keep it
         if (faded.wasTransparent === undefined) faded.wasTransparent = faded.transparent
-        if (faded.userData.roomShell) shellMaterials.current.push(faded)
-        else materials.current.push(faded)
+        materials.current.push(faded)
       })
     })
   }
@@ -403,7 +389,6 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
     // on — a few thousandths apart — and when the decal won that toss the panel behind it failed the depth test
     // and the wall showed through it. The profile board's stats read as wall-coloured because of it.
     const detailAlpha = opacity.current * detailOpacity.current
-    const shellAlpha = opacity.current * (1 - detailOpacity.current)
     const full = detailAlpha > .995
     materials.current.forEach((material) => {
       material.transparent = full ? material.wasTransparent ?? false : true
@@ -412,7 +397,6 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
       material.opacity = full ? 1 : material.userData.lateFade ? detailAlpha ** 7 : detailAlpha
       if (!material.color) return
     })
-    shellMaterials.current.forEach((material) => { material.transparent = true; material.opacity = shellAlpha })
     if (detailWanted && !detailMounted && bundle !== null && opacity.current > .005 && !unmounting.current) {
       unmounting.current = true
       setTimeout(() => { if (mounted.current) setDetailMounted(true); unmounting.current = false }, 0)
@@ -446,7 +430,6 @@ function RoomContainer({ slot, distance, centred, fullDetail, fresh, open }: { s
       {/* Nothing is drawn until the room's own layout is in hand: rendering the provider with a null bundle
           shows the DEFAULT room, and a stranger's cell flashing the starter layout before flipping to the real
           one read as broken. With bundles prefetched at directory load the gap is rarely even visible. */}
-      <LightweightShell />
       {detailMounted && bundle !== null ? <>
       {/* three's raycaster tests layers only, never `visible`, so a faded-out neighbour still swallows the ray.
           That is what stopped a click on empty space from counting as a miss — and in edit mode, where every
