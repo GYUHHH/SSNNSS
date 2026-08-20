@@ -252,14 +252,14 @@ function NeighbourRoom() {
   return <><Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><Character /></>
 }
 
-// Three flat boxes instead of a complete furnished room. The .012 offset keeps their fade from sharing a depth
-// plane with the full room. It costs three draw calls and no room store, textures, character animation or furniture frame loops.
+// Three flat boxes instead of a complete furnished room. Polygon offset keeps every face behind the full room
+// during the fade, including the thin side faces that a position nudge leaves coplanar.
 function LightweightShell() {
-  const shell = (color: string) => <meshBasicMaterial color={color} transparent opacity={0} userData={{ roomShell: true }} />
+  const shell = (color: string) => <meshBasicMaterial color={color} transparent opacity={0} polygonOffset polygonOffsetFactor={2} polygonOffsetUnits={2} userData={{ roomShell: true }} />
   return <>
-    <mesh position={[0, -.122, 0]}><boxGeometry args={[7.22, .22, 7.22]} />{shell('#ece9e2')}</mesh>
-    <mesh position={[-3.622, 3.5, 0]}><boxGeometry args={[.22, 7, 7.22]} />{shell('#f7f5f0')}</mesh>
-    <mesh position={[0, 3.5, -3.622]}><boxGeometry args={[7, 7, .22]} />{shell('#f7f5f0')}</mesh>
+    <mesh position={[0, -.11, 0]}><boxGeometry args={[7.22, .22, 7.22]} />{shell('#ece9e2')}</mesh>
+    <mesh position={[-3.61, 3.5, 0]}><boxGeometry args={[.22, 7, 7.22]} />{shell('#f7f5f0')}</mesh>
+    <mesh position={[0, 3.5, -3.61]}><boxGeometry args={[7, 7, .22]} />{shell('#f7f5f0')}</mesh>
   </>
 }
 
