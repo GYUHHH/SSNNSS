@@ -34,7 +34,7 @@ function SpeechBubbleShape({ width, height, preview }: { width: number; height: 
     value.lineTo(halfW, -halfH + radius)
     value.quadraticCurveTo(halfW, -halfH, halfW - radius, -halfH)
     value.lineTo(tailX + .11, -halfH)
-    value.lineTo(tailX - .18, -halfH - .28)
+    value.lineTo(tailX - .16, -halfH - .2)
     value.lineTo(tailX - .1, -halfH)
     value.lineTo(-halfW + radius, -halfH)
     value.quadraticCurveTo(-halfW, -halfH, -halfW, -halfH + radius)
