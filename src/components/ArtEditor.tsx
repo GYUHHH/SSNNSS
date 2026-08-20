@@ -81,11 +81,15 @@ export function PhotoPickButton({ id, width, height }: { id: string; width: numb
   </>
 }
 
+export function useApplyAndClose(onApply: () => void) {
+  const store = useOptionalRoomStore()
+  return () => { onApply(); store?.clearSelection() }
+}
+
 export function BannerTextInput({ id, artwork, saveArtwork }: { id: string; artwork?: string; saveArtwork?: (id: string, text: string | null) => void }) {
   const store = useOptionalRoomStore()
   const [text, setText] = useState(artwork ?? store?.artworks[id] ?? 'WELCOME ♥')
-  // applying is the end of the interaction — the popup rides the banner's selection, so clearing it closes the popup
-  const apply = () => { (saveArtwork ?? store?.setArtwork)?.(id, text.trim() || null); store?.clearSelection() }
+  const apply = useApplyAndClose(() => (saveArtwork ?? store?.setArtwork)?.(id, text.trim() || null))
   return <div className="banner-input">
     <input type="text" maxLength={40} value={text} onChange={(event) => setText(event.target.value)} placeholder="배너 문구" onKeyDown={(event) => { if (!event.nativeEvent.isComposing && event.key === 'Enter') apply() }} />
     <button type="button" onClick={apply}>적용</button>
@@ -95,7 +99,7 @@ export function BannerTextInput({ id, artwork, saveArtwork }: { id: string; artw
 export function SpeechBubbleInput({ id, artwork, saveArtwork }: { id: string; artwork?: string; saveArtwork?: (id: string, text: string | null) => void }) {
   const store = useOptionalRoomStore()
   const [text, setText] = useState(artwork ?? store?.artworks[id] ?? '')
-  const apply = () => { (saveArtwork ?? store?.setArtwork)?.(id, text.trim() || null); store?.clearSelection() }
+  const apply = useApplyAndClose(() => (saveArtwork ?? store?.setArtwork)?.(id, text.trim() || null))
   return <div className="room-bubble-input">
     <textarea rows={3} maxLength={80} value={text} onChange={(event) => setText(event.target.value)} />
     <button type="button" onClick={apply}>적용</button>
