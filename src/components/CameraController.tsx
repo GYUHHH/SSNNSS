@@ -6,16 +6,13 @@ import { useRoomStore } from '../store'
 
 const DESKTOP_DETAIL_MIN_ZOOM = 42
 const MOBILE_DETAIL_MIN_ZOOM = 30
-// How far out the explorer goes. A room is 200px wide at zoom 20.2, and the cluster spans three rooms across, so
-// desktop stops with the whole ring on screen at a readable size. A phone pulls back far enough to fit the same
-// seven-room ring across its narrower screen instead of showing only its middle strip.
-const DESKTOP_EXPLORE_MIN_ZOOM = 40
-const MOBILE_EXPLORE_MIN_ZOOM = 12.5
+// Fit the complete seven-room ring to whichever side of the viewport is tighter.
+const EXPLORE_MAX_ZOOM = 40
 const MAX_ZOOM = 220
 
 export const isCompactScreen = (width: number, height: number) => width < 720 || (height < 520 && window.matchMedia('(pointer: coarse)').matches)
 // the floor the explorer bottoms out at — the neighbour fade bands are anchored to it so raising one moves the other
-export const exploreMinZoom = (width: number, height: number) => isCompactScreen(width, height) ? MOBILE_EXPLORE_MIN_ZOOM : DESKTOP_EXPLORE_MIN_ZOOM
+export const exploreMinZoom = (width: number, height: number) => Math.min(EXPLORE_MAX_ZOOM, width / 33, height / 29)
 // Where zooming in stops being a look and counts as choosing the room in the middle. The flag that locks the
 // explorer flips on the very first wheel tick, far too twitchy to drop someone into a room, so the line sits a
 // little above the floor — desktop 46, mobile 22. The neighbour fade is spent by exactly here, so the ring is
@@ -56,7 +53,7 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
   const wasAtMinZoom = useRef(false)
   const compactScreen = isCompactScreen(size.width, size.height)
   const detailMinZoom = compactScreen ? MOBILE_DETAIL_MIN_ZOOM : DESKTOP_DETAIL_MIN_ZOOM
-  const minZoom = mode === 'edit' ? detailMinZoom : compactScreen ? MOBILE_EXPLORE_MIN_ZOOM : DESKTOP_EXPLORE_MIN_ZOOM
+  const minZoom = mode === 'edit' ? detailMinZoom : exploreMinZoom(size.width, size.height)
   const baseZoom = compactScreen ? MOBILE_DETAIL_MIN_ZOOM : 59
 
   useEffect(() => {
