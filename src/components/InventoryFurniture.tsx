@@ -52,7 +52,7 @@ function SpeechBubbleShape({ width, height, preview }: { width: number; height: 
       <shapeGeometry args={[shape]} />
       <meshBasicMaterial color="#ffffff" side={2} transparent={preview} opacity={preview ? .55 : 1} />
     </mesh>
-    <lineSegments userData={{ excludeFromFit: true }} geometry={outline} position={[0, 0, .006]}>
+    <lineSegments userData={{ excludeFromFit: true }} geometry={outline} position={[0, 0, .006]} raycast={() => {}}>
       <lineBasicMaterial color="#262626" transparent={preview} opacity={preview ? .55 : 1} />
     </lineSegments>
   </>
