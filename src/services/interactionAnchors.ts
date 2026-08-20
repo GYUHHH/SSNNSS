@@ -56,9 +56,6 @@ export function localAnchorToWorld(item: FurnitureItem, anchor: LocalInteraction
   return { position: point.toArray() as [number, number, number], rotation: item.rotation[1] + anchor.rotation }
 }
 
-const nearestChair = (desk: FurnitureItem, furniture: FurnitureItem[]) => furniture
-  .filter((item) => item.type === 'chair' && !item.removed)
-  .sort((a, b) => new Vector3(...a.position).distanceToSquared(new Vector3(...desk.position)) - new Vector3(...b.position).distanceToSquared(new Vector3(...desk.position)))[0]
 const facePosition = (from: [number, number, number], to: [number, number, number]) => Math.atan2(to[0] - from[0], to[2] - from[2])
 
 const CELL = { width: 1, depth: 1 }
@@ -89,9 +86,8 @@ export function resolveInteraction(selectedObject: string | null, furniture: Fur
   if (!requested || requested.removed || !POSED_TYPES.has(requested.type)) return null
   let selected = requested
   if (isOwnedSurfaceId(selected.surfaceId)) selected = furniture.find((item) => item.id === ownerIdOf(selected.surfaceId)) ?? selected
-  const working = requested.type === 'desk'
-  const target = working ? nearestChair(selected, furniture) ?? selected : selected
-  const anchors = interactionAnchorsFor(target, working ? 'work' : requested.type === 'book' ? 'read' : undefined)
+  const target = selected
+  const anchors = interactionAnchorsFor(target, requested.type === 'book' ? 'read' : undefined)
   const approachWorld = freeApproach(localAnchorToWorld(target, anchors.approach), target, furniture, origin)
   // interact/read stand on the floor at the approach spot itself, so a snapped approach must carry the action
   // with it; sit/lie/work aim ONTO the furniture, which is intentional overlap and stays put
