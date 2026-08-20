@@ -20,7 +20,7 @@ import { isSignedIn, isVisiting, myHandle } from './services/social'
 import { thumbnailFor } from './services/thumbnails'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 368
+const BUILD = 369
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume } = useRoomStore()
@@ -64,9 +64,10 @@ function Interface() {
   const panelOpen = artOpen || musicOpen
   const sheet = useRef<HTMLElement>(null)
   const drag = useRef<{ y: number; at: number; travel: number } | null>(null)
+  const suppressSheetClick = useRef(false)
   const isSheet = () => window.matchMedia('(max-width: 719px)').matches
   const sheetDown = (event: React.PointerEvent) => {
-    if (!panelOpen || !isSheet() || !(event.target as HTMLElement).closest('.sheet-handle')) return
+    if (!panelOpen || !isSheet() || (event.target as HTMLElement).closest('input, textarea, select')) return
     const panel = sheet.current
     // let an inner scroll keep the gesture unless it is already at the very top
     if (!panel || panel.scrollTop > 0) return
@@ -77,6 +78,7 @@ function Interface() {
     if (!held || !sheet.current) return
     const travel = Math.max(0, event.clientY - held.y)
     held.travel = travel
+    if (travel > 5) suppressSheetClick.current = true
     const height = sheet.current.offsetHeight || 1
     sheet.current.style.transition = 'none'
     sheet.current.style.transform = `translateY(${travel}px)`
@@ -90,6 +92,7 @@ function Interface() {
     const height = sheet.current.offsetHeight || 1
     const speed = held.travel / Math.max(1, performance.now() - held.at)
     if (held.travel > height * .3 || speed > .6) clearSelection()
+    setTimeout(() => { suppressSheetClick.current = false }, 0)
     event.stopPropagation()
   }
   return <main className={`app${panelOpen ? ' art-open' : ''}`}>
@@ -120,6 +123,7 @@ function Interface() {
     <ItemComments />
     <ProfileCard />
     <aside ref={sheet} className={panelOpen ? 'art-panel open' : 'art-panel'} aria-hidden={!panelOpen}
+      onClickCapture={(event) => { if (suppressSheetClick.current) { event.preventDefault(); event.stopPropagation() } }}
       onPointerDown={sheetDown} onPointerMove={sheetMove} onPointerUp={sheetUp} onPointerCancel={sheetUp}>
       <span className="sheet-handle" aria-hidden="true" />
       {musicOpen && <div className="mobile-music-sheet"><MusicPanel musicTrack={musicTrack} setMusicTrack={setMusicTrack} musicVolume={musicVolume} setMusicVolume={setMusicVolume} /></div>}

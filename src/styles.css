@@ -603,7 +603,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   html, body, #root, .app { max-width: 100%; overflow: hidden; }
   .art-panel { max-width: 100%; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .art-panel > * { min-width: 0; max-width: 100%; }
-  .sheet-handle { touch-action: none; }
   .music-object-popup { display: none; }
   .mobile-music-sheet { display: block; width: 100%; }
   .mobile-music-sheet .mini-player { width: 100%; padding: 4px 0 0; border-radius: 0; box-shadow: none; }
