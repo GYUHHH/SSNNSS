@@ -226,7 +226,8 @@ if (import.meta.env.DEV) {
 // click that selects it has nothing to land on, so read-only rooms hold their handlers back instead (see Floor,
 // Interactive, Furniture and Character: each one bails before stopPropagation when the store is readOnly).
 const NO_RAYCAST = () => {}
-type Faded = Material & { wasTransparent?: boolean; color?: Color }
+type Faded = Material & { color?: Color }
+type FadeState = { transparent: boolean; opacity: number; readyAt?: number }
 function Inert({ off, children }: { off: (zoom: number, width: number, height: number) => boolean; children: ReactNode }) {
   const group = useRef<Group>(null)
   const applied = useRef<boolean | null>(null)
@@ -268,6 +269,10 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
   const group = useRef<Group>(null)
   const opacity = useRef(0)
   const materials = useRef<Faded[]>([])
+  // Material instances can outlive one explorer room (fonts and cached artwork are the usual case), so fade
+  // timing must belong to this RoomContainer instead of material.userData. Sharing readyAt made a later room
+  // inherit an already-finished entrance and appear in one frame.
+  const fadeStates = useRef(new WeakMap<Material, FadeState>())
   const fadingOut = useRef(false)
   const nextCollect = useRef(0)
   const glow = useRef(0)
@@ -326,8 +331,13 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
       const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
       list.forEach((material) => {
         const faded = material as Faded
-        // remember what it was, because the fade is only allowed to borrow the flag, not keep it
-        if (faded.wasTransparent === undefined) faded.wasTransparent = faded.transparent
+        if (!fadeStates.current.has(faded)) {
+          fadeStates.current.set(faded, { transparent: faded.transparent, opacity: faded.opacity })
+          // collect() runs before the frame is painted. A texture/font that mounted late therefore starts hidden
+          // rather than flashing at its natural opacity until the next collection pass.
+          faded.transparent = true
+          faded.opacity = 0
+        }
         materials.current.push(faded)
       })
     })
@@ -357,11 +367,12 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
     // explorer-entry stutter this LOD exists to avoid.
     if (wanted < .995 && !fadingOut.current) { fadingOut.current = true; collect() }
     else if (wanted >= .995) fadingOut.current = false
-    // Re-collect on a slow cadence while the room is on screen: photos, posters and video previews mount their
-    // materials whenever their textures happen to arrive, and anything not in the list would pop in and refuse
-    // to fade. Per-frame traversal caused the explorer stutter; every 400ms is 1/24th of that and never misses
-    // a reveal for more than a blink.
-    if (opacity.current > .02 && performance.now() > nextCollect.current) { nextCollect.current = performance.now() + 400; collect() }
+    // During the explorer's gather, collect before every paint so a newly mounted photo, font or prop is caught
+    // on its very first frame. Fade-out keeps the cheap periodic pass: everything was already mounted by then,
+    // and traversing there was what caused the old room-entry stutter.
+    const fadingIn = wanted > opacity.current + .001 && opacity.current < .995
+    if (fadingIn) collect()
+    else if (opacity.current > .02 && performance.now() > nextCollect.current) { nextCollect.current = performance.now() + 400; collect() }
     // The frame a room is first drawn tends to hitch — texture uploads land right then — and the long delta of
     // that one frame used to advance the damp nearly to 1, so the room POPPED instead of fading. Capping the step
     // means a hitch only moves the fade one small notch, and the glide plays out over the frames that follow.
@@ -384,17 +395,19 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
       // photos, video posters, fonts — from a pop into a fade, both out in the explorer and mid-view, and it
       // keeps working for any material added later because collect() above re-discovers the tree continuously.
       const map = (material as { map?: { image?: unknown } }).map
-      if (material.userData.readyAt === undefined && (!map || map.image)) material.userData.readyAt = now
-      const entrance = material.userData.readyAt === undefined ? 0 : Math.min(1, (now - material.userData.readyAt) / 350)
+      const state = fadeStates.current.get(material)
+      if (!state) return
+      if (state.readyAt === undefined && (!map || map.image)) state.readyAt = now
+      const entrance = state.readyAt === undefined ? 0 : Math.min(1, (now - state.readyAt) / 350)
       const settled = full && entrance >= 1
-      material.transparent = settled ? material.wasTransparent ?? false : true
+      material.transparent = settled ? state.transparent : true
       // Trim bars ride a steep curve of the fade, and every textured or unlit surface (photos, posters, screens,
       // speech bubbles, text) rides a cubed one: they are drawn ON TOP of the already-fading wall and render at
       // full brightness regardless of the room's lighting, so at the same opacity they read about twice as solid
       // — the steeper curve is what makes them visually leave WITH the room instead of after it.
       const bright = map || (material as { isMeshBasicMaterial?: boolean }).isMeshBasicMaterial
       const base = full ? 1 : material.userData.lateFade ? detailAlpha ** 7 : bright ? detailAlpha ** 3 : detailAlpha
-      material.opacity = settled ? 1 : base * entrance
+      material.opacity = settled ? state.opacity : state.opacity * base * entrance
       if (!material.color) return
     })
     // Fetched when the zoom-out first reveals it, and refreshed every so often for as long as it stays on
