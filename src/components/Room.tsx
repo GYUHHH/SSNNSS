@@ -5,6 +5,7 @@ import { type AmbientLight, Color, type DirectionalLight, type Group, type Mater
 import { NeighbourRoomProvider, useRoomStore } from '../store'
 import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDirectory, isSignedIn, myHandle, subscribeRoomBundles } from '../services/social'
 import { snapshotActiveFrames } from '../services/ytResume'
+import { type ExplorerMode, explorerMode, fetchFollowing, onExplorerMode, onFollowsChange } from '../services/follows'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
 import CameraController, { entryZoom, exploreMinZoom } from './CameraController'
@@ -479,12 +480,20 @@ function RoomWorld() {
   // flashed up and then bounced to the centre one.
   const entryLatched = useRef(false)
   const requestedEntry = useRef(false)
+  // Home shows only the rooms I follow around mine; discover shows the public directory. Signed out there is
+  // no follow list, so home quietly behaves as discover. A follow changing re-pulls the ring right away.
+  const [ringMode, setRingMode] = useState<ExplorerMode>(explorerMode())
+  const [followsTick, setFollowsTick] = useState(0)
+  useEffect(() => onExplorerMode(setRingMode), [])
+  useEffect(() => onFollowsChange(() => setFollowsTick((value) => value + 1)), [])
   useEffect(() => {
     let live = true
-    void fetchRoomDirectory().then((found) => {
+    const me = myHandle()
+    const source = ringMode === 'home' && me ? fetchFollowing(me) : fetchRoomDirectory()
+    void source.then((found) => {
       if (!live) return
       const rest = found.filter((handle) => handle !== hubHandle)
-      // the room actually being viewed needs a cell of its own even if the directory misses it
+      // the room actually being viewed needs a cell of its own even if the list misses it
       const viewed = currentRoomHandle()
       if (viewed && viewed !== hubHandle && !rest.includes(viewed)) rest.unshift(viewed)
       setHandles(withVacancies([hubHandle, ...rest]))
@@ -493,7 +502,7 @@ function RoomWorld() {
       rest.filter(isEnterable).forEach((handle) => void fetchRoomBundle(handle))
     })
     return () => { live = false }
-  }, [hubHandle])
+  }, [hubHandle, ringMode, followsTick])
   // Re-based so the room being viewed always sits at the world origin. Everything inside a room — the placement
   // grid, the character's pathfinding, every worldToGrid call — is written in room-local coordinates against
   // surfaces at the origin, so entering an offset neighbour put every click outside the 10x10 grid and the room

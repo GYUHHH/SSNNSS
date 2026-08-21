@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { MAX_ROOMS, useRoomStore } from '../store'
-import { isVisiting } from '../services/social'
+import { isVisiting, myHandle } from '../services/social'
+import { explorerMode, isFollowingRoom, onFollowsChange, setExplorerMode, setFollowing } from '../services/follows'
 import SoundHub from './SoundHub'
 
 const icon = (children: React.ReactNode) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
@@ -9,6 +10,8 @@ const SunIcon = () => icon(<><circle cx="12" cy="12" r="5" /><line x1="12" y1="1
 const SunsetIcon = () => icon(<><path d="M17 17a5 5 0 0 0-10 0" /><line x1="12" y1="6" x2="12" y2="9" /><line x1="4.9" y1="9.9" x2="6.3" y2="11.3" /><line x1="19.1" y1="9.9" x2="17.7" y2="11.3" /><line x1="2" y1="17" x2="5" y2="17" /><line x1="19" y1="17" x2="22" y2="17" /><line x1="3" y1="21" x2="21" y2="21" /></>)
 const MoonIcon = () => icon(<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />)
 const PersonIcon = () => icon(<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>)
+const PersonPlusIcon = () => icon(<><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" /></>)
+const PersonCheckIcon = () => icon(<><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><polyline points="17 11 19 13 23 9" /></>)
 const GlobeIcon = () => icon(<><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></>)
 const BoxIcon = () => icon(<><polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" /><line x1="10" y1="12" x2="14" y2="12" /></>)
 
@@ -17,8 +20,20 @@ const BoxIcon = () => icon(<><polyline points="21 8 21 21 3 21 3 8" /><rect x="1
 export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventory: () => void; onDeleteRoom: (id: string) => void }) {
   const { rooms, activeRoomId, openRoom, createRoom, mode, timeOfDay, setTimeOfDay } = useRoomStore()
   const [roomsOpen, setRoomsOpen] = useState(false)
-  // visual toggle only for now — the follow/discover explorer split ships later
-  const [explore, setExplore] = useState<'follow' | 'discover'>('follow')
+  // home = only rooms I follow around mine, discover = the public directory; the explorer listens to this
+  const [explore, setExplore] = useState(explorerMode())
+  const { currentHandle } = useRoomStore()
+  // follow state for the room being visited (null until known)
+  const visiting = isVisiting()
+  const [followed, setFollowed] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (!visiting || !currentHandle || !myHandle()) { setFollowed(null); return }
+    let live = true
+    const refresh = () => void isFollowingRoom(currentHandle).then((value) => { if (live) setFollowed(value) })
+    refresh()
+    const stop = onFollowsChange(refresh)
+    return () => { live = false; stop() }
+  }, [visiting, currentHandle])
   const roomsItem = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!roomsOpen) return
@@ -26,7 +41,7 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
     window.addEventListener('pointerdown', onOutside)
     return () => window.removeEventListener('pointerdown', onOutside)
   }, [roomsOpen])
-  const owner = !isVisiting() && mode === 'normal'
+  const owner = !visiting && mode === 'normal'
   const cycleTime = () => setTimeOfDay(timeOfDay === 'day' ? 'evening' : timeOfDay === 'evening' ? 'night' : 'day')
   return <div className="dock">
     {owner && <div className="dock-item dock-fade" ref={roomsItem}>
@@ -40,7 +55,8 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
       <button type="button" className="dock-button" aria-label="내 방 목록" onClick={() => setRoomsOpen((value) => !value)}><HouseIcon /></button>
     </div>}
     {owner && <button type="button" className="dock-button" aria-label="시간대 변경" onClick={cycleTime}>{timeOfDay === 'day' ? <SunIcon /> : timeOfDay === 'evening' ? <SunsetIcon /> : <MoonIcon />}</button>}
-    {owner && <button type="button" className="dock-button" aria-label={explore === 'follow' ? '팔로우' : '탐색'} onClick={() => setExplore((value) => value === 'follow' ? 'discover' : 'follow')}>{explore === 'follow' ? <PersonIcon /> : <GlobeIcon />}</button>}
+    {owner && <button type="button" className="dock-button" aria-label={explore === 'home' ? '팔로우' : '탐색'} onClick={() => { const next = explore === 'home' ? 'discover' : 'home'; setExplore(next); setExplorerMode(next) }}>{explore === 'home' ? <PersonIcon /> : <GlobeIcon />}</button>}
+    {visiting && mode === 'normal' && !!myHandle() && !!currentHandle && <button type="button" className={followed ? 'dock-button following' : 'dock-button'} aria-label={followed ? '팔로우 해제' : '팔로우'} onClick={() => { if (followed === null) return; setFollowed(!followed); void setFollowing(currentHandle, !followed).then((ok) => { if (!ok) setFollowed(followed) }) }}>{followed ? <PersonCheckIcon /> : <PersonPlusIcon />}</button>}
     <SoundHub />
     {owner && <button type="button" className="dock-button dock-fade" aria-label="보관함" onClick={onOpenInventory}><BoxIcon /></button>}
   </div>

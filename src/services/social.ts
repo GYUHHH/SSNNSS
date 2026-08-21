@@ -7,12 +7,13 @@ import { compressImage } from './imageCompress'
 // - Visiting ?room=<handle> loads that bundle read-only: the intercepted storage reads serve it instead of
 //   the visitor's own room, and every save becomes a no-op so nothing local gets overwritten.
 // - Likes are one row per (room, item, visitor); toggling inserts or deletes and returns the fresh count.
-const SUPABASE_URL = 'https://pxjavljsalibpnxdrxel.supabase.co'
+export const SUPABASE_URL = 'https://pxjavljsalibpnxdrxel.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4amF2bGpzYWxpYnBueGRyeGVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4NjAxNTgsImV4cCI6MjEwMjQzNjE1OH0.quIFdlk11b7F-YIeHO3TsEhS2RzgxDtntqdh2vHyUfE'
-const headers = { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' }
+export const anonHeaders = { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' }
+const headers = anonHeaders
 // writes carry the logged-in user's token when there is one, so auth.uid() is visible server-side:
 // room saves bind ownership to the account, and guestbook/likes rows get an unforgeable user id
-const authHeaders = async (): Promise<Record<string, string>> => {
+export const authHeaders = async (): Promise<Record<string, string>> => {
   try {
     const { data } = await supabaseClient().auth.getSession()
     const token = data.session?.access_token
