@@ -264,7 +264,11 @@ body.exploring :is(.dock-fade, .entry-buttons, .me-tag, .build-tag) { opacity: 0
   .entry-comment-form { grid-template-columns: 1fr auto; }
 
   .edit-toolbar { left: 0; right: 0; bottom: 0; width: 100%; max-width: none; min-height: calc(58px + env(safe-area-inset-bottom)); padding: 7px 10px calc(7px + env(safe-area-inset-bottom)); overflow-x: auto; flex-wrap: nowrap; justify-content: flex-start; border-right: 0; border-bottom: 0; border-left: 0; border-radius: 0; transform: none; touch-action: pan-x; }
-  .edit-toolbar span, .edit-toolbar button { flex: 0 0 auto; }
+  /* The label carries the selected piece's name, size and placement warning, so it swells from a few
+     characters to a full sentence — as a fixed-size item it shoved 완료 clean off the screen. Flexing and
+     truncating it keeps every button exactly where it was. */
+  .edit-toolbar span { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .edit-toolbar button { flex: 0 0 auto; }
   .edit-toolbar button { min-height: 40px; }
 
   .inventory-panel header button, .inventory-panel footer button { min-height: 40px; }
@@ -565,14 +569,15 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
    sideways after the screen had already settled. A reserved slot means the row never moves. */
 .dock-slot { display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; }
 .dock-item { position: relative; display: flex; }
-.dock-pop { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); display: grid; gap: 4px; margin: 0; padding: 8px; list-style: none; border: 1px solid #dbdbdb; border-radius: 8px; background: #ffffff; }
+.dock-pop { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); display: grid; gap: 4px; margin: 0; padding: 8px; min-width: 190px; list-style: none; border: 1px solid #dbdbdb; border-radius: 8px; background: #ffffff; }
 .dock-pop li { display: flex; align-items: center; }
 .dock-pop li > button:first-child { flex: 1; min-width: 150px; padding: 8px 10px; border: 0; border-radius: 5px; color: #3a3a38; background: transparent; cursor: pointer; font-size: 13px; text-align: left; white-space: nowrap; }
 .dock-pop li > button:first-child:hover { background: #f2f2f2; }
 .dock-pop li > button.active { background: #e9e9e6; }
-.room-toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 41; padding: 9px 14px; border-radius: 999px; color: #fff; background: rgb(20 20 20 / 82%); font-size: 13px; white-space: nowrap; pointer-events: none; animation: room-toast-in .2s ease; }
+.room-toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 41; max-width: calc(100vw - 20px); padding: 9px 14px; border-radius: 999px; color: #fff; background: rgb(20 20 20 / 82%); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; animation: room-toast-in .2s ease; }
 @keyframes room-toast-in { from { opacity: 0; transform: translateX(-50%) translateY(6px); } }
-.invite-bar { position: fixed; left: 50%; bottom: 74px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #dbdbdb; border-radius: 8px; background: #ffffff; font-size: 13px; color: #3a3a38; white-space: nowrap; }
+/* the sentence carries a handle of unknown length, so on a narrow phone the bar wraps rather than spilling past both screen edges */
+.invite-bar { position: fixed; left: 50%; bottom: 74px; transform: translateX(-50%); z-index: 6; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; max-width: calc(100vw - 20px); padding: 10px 12px; border: 1px solid #dbdbdb; border-radius: 8px; background: #ffffff; font-size: 13px; color: #3a3a38; }
 .invite-bar button { border: 1px solid #c2c2be; border-radius: 5px; padding: 6px 10px; font-size: 12px; color: #403f3d; background: #ffffff; cursor: pointer; }
 .invite-bar button.primary { border-color: #3a3a38; color: #ffffff; background: #3a3a38; }
 .dock-button.following { background: rgb(255 255 255 / 85%); color: #3a3a38; }
