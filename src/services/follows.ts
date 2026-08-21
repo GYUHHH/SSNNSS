@@ -89,3 +89,27 @@ export async function acceptFollowInvite(token: string): Promise<string | null> 
     return null
   } catch { return null }
 }
+
+// Who follows a room, newest first — the notification box lists them and the profile card counts them.
+export async function fetchFollowers(handle: string): Promise<Array<{ follower: string; createdAt: string }>> {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/follows?followee=eq.${escape(handle)}&select=follower,created_at&order=created_at.desc`, { headers: anonHeaders })
+    const rows = await response.json()
+    return response.ok && Array.isArray(rows)
+      ? rows.map((row) => ({ follower: String(row?.follower ?? ''), createdAt: String(row?.created_at ?? '') })).filter((row) => !!row.follower)
+      : []
+  } catch { return [] }
+}
+
+// Liveliest first. Rooms carry the moment they were last saved, so this is "who has been decorating lately" —
+// alphabetical order buried active rooms behind whoever happened to register with an early letter.
+export async function sortByActivity(handles: string[]): Promise<string[]> {
+  if (handles.length < 2) return handles
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=in.(${handles.map(escape).join(',')})&select=handle&order=updated_at.desc`, { headers: anonHeaders })
+    const rows = await response.json()
+    if (!response.ok || !Array.isArray(rows)) return handles
+    const ordered = rows.map((row) => String(row?.handle ?? '')).filter((handle) => handles.includes(handle))
+    return [...ordered, ...handles.filter((handle) => !ordered.includes(handle))]
+  } catch { return handles }
+}

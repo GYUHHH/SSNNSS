@@ -5,7 +5,7 @@ import { type AmbientLight, Color, type DirectionalLight, type Group, type Mater
 import { NeighbourRoomProvider, useRoomStore } from '../store'
 import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDirectory, isSignedIn, myHandle, subscribeRoomBundles } from '../services/social'
 import { snapshotActiveFrames } from '../services/ytResume'
-import { type ExplorerMode, explorerMode, fetchFollowing, onExplorerMode, onFollowsChange } from '../services/follows'
+import { type ExplorerMode, explorerMode, fetchFollowing, myInviteLink, onExplorerMode, onFollowsChange, sortByActivity } from '../services/follows'
 import { flushCapture } from '../services/capture'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
@@ -492,7 +492,7 @@ function RoomWorld() {
   useEffect(() => {
     let live = true
     const me = myHandle()
-    const source = ringMode === 'home' && me ? fetchFollowing(me) : fetchRoomDirectory()
+    const source = ringMode === 'home' && me ? fetchFollowing(me).then(sortByActivity) : fetchRoomDirectory()
     void source.then((found) => {
       if (!live) return
       const rest = found.filter((handle) => handle !== hubHandle)
@@ -624,9 +624,55 @@ function RoomWorld() {
   const aim = useMemo(() => (slots.find((slot) => slot.handle === centredHandle) ?? active)?.position ?? null, [slots, active, centredHandle])
   return <>
     {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY) && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} />)}
+    {ringMode === 'home' && !!myHandle() && slots.filter((slot) => slot.handle.startsWith(VACANT) && ringDistance(slot, active) <= 1).map((slot) => <InvitePlot key={slot.handle} position={slot.position} />)}
     <group position={active.position}><Inert off={exploring}><RoomRoot /></Inert></group>
     <CameraController focusRoom={focusRoom} aim={aim} />
   </>
+}
+
+
+// The home ring is only as full as the follow list, and a brand new account sees nothing but its own room out
+// here. Each empty cell becomes an invite plot instead: tapping one copies the mutual-follow link.
+function InvitePlot({ position }: { position: [number, number, number] }) {
+  const [copied, setCopied] = useState(false)
+  const group = useRef<Group>(null)
+  const shown = useRef(0)
+  // an invite plot belongs to the explorer, so it fades on the same band the neighbour rooms do — inside a
+  // room these cells are behind the viewer and would otherwise hang in the air at full strength
+  useFrame(({ camera, size }, delta) => {
+    if (!group.current) return
+    const wanted = camera.zoom <= entryZoom(size.width, size.height) ? 1 : 0
+    shown.current = MathUtils.damp(shown.current, wanted, wanted ? 12 : 5, Math.min(delta, 1 / 30))
+    group.current.visible = shown.current > .01
+    group.current.traverse((object) => {
+      const material = (object as Mesh).material as Material & { opacity: number; transparent: boolean } | undefined
+      if (!material || Array.isArray(material)) return
+      material.transparent = true
+      material.opacity = shown.current * .85
+    })
+  })
+  const copy = () => {
+    void myInviteLink().then((link) => {
+      if (!link) return
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1600)
+      // the confirmation does not wait on the clipboard: a browser that refuses the write (or stalls on it
+      // while the tab is unfocused) would otherwise leave the tap looking like it did nothing at all
+      void navigator.clipboard.writeText(link)
+        .then(() => window.dispatchEvent(new CustomEvent('room-toast', { detail: '초대 링크를 복사했어요' })))
+        .catch(() => window.dispatchEvent(new CustomEvent('room-toast', { detail: link })))
+    })
+  }
+  const tint = copied ? '#8ab88f' : '#6b7183'
+  return <group ref={group} visible={false} position={position} onClick={(event) => { if (shown.current < .5) return; event.stopPropagation(); copy() }}>
+    <mesh position={[0, .08, 0]} rotation={[-Math.PI / 2, 0, 0]}><circleGeometry args={[3.1, 40]} /><meshBasicMaterial color="#2c3242" transparent /></mesh>
+    <mesh position={[0, .12, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[3, 3.12, 40]} /><meshBasicMaterial color={tint} transparent /></mesh>
+    {!copied && <>
+      <mesh position={[0, .14, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[1.5, .26]} /><meshBasicMaterial color={tint} /></mesh>
+      <mesh position={[0, .14, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[.26, 1.5]} /><meshBasicMaterial color={tint} /></mesh>
+    </>}
+    {copied && <mesh position={[0, .14, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 4]}><planeGeometry args={[1.5, .26]} /><meshBasicMaterial color={tint} /></mesh>}
+  </group>
 }
 
 export default function Room() { return <Scene /> }

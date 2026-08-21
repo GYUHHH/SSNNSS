@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRoomStore } from '../store'
-import { currentUserEmail, isVisiting, myHandle, onAuthChange, signOut } from '../services/social'
+import { currentRoomHandle, currentUserEmail, isVisiting, myHandle, onAuthChange, signOut } from '../services/social'
+import { fetchFollowers, onFollowsChange } from '../services/follows'
 import { PhotoCropEditor } from './PhotoCropEditor'
 
 // door-with-an-arrow: the usual sign-out glyph
@@ -11,10 +12,21 @@ export default function ProfileCard() {
   const inputRef = useRef<HTMLInputElement>(null)
   const [signedIn, setSignedIn] = useState(false)
   const [editingPhoto, setEditingPhoto] = useState<string | null>(null)
+  const [followers, setFollowers] = useState(0)
   useEffect(() => {
     void currentUserEmail().then((email) => setSignedIn(!!email))
     return onAuthChange((email) => setSignedIn(!!email))
   }, [])
+  // followers of the room being looked at, refreshed whenever a follow lands
+  useEffect(() => {
+    const handle = currentRoomHandle()
+    if (!profileOpen || !handle) return
+    let live = true
+    const refresh = () => void fetchFollowers(handle).then((rows) => { if (live) setFollowers(rows.length) })
+    refresh()
+    const stop = onFollowsChange(refresh)
+    return () => { live = false; stop() }
+  }, [profileOpen])
   if (!profileOpen) return null
   const pick = (file: File) => setEditingPhoto(URL.createObjectURL(file))
   const closeEditor = () => setEditingPhoto((source) => { if (source) URL.revokeObjectURL(source); return null })
@@ -30,8 +42,8 @@ export default function ProfileCard() {
           </button>}
         <div className="profile-info">
           <p className="profile-handle">{profile.handle ?? 'ID'}</p>
-          <p className="profile-visits">Total <b>{remoteVisits?.total ?? profile.total}</b> <i>|</i> Today <b>{remoteVisits?.today ?? profile.today}</b></p>
-          <p className="profile-friends">친구 <b>{profile.friends}</b></p>
+          <p className="profile-visits"><b>{remoteVisits?.total ?? profile.total}</b> Visits <i>|</i> <b>{remoteVisits?.today ?? profile.today}</b></p>
+          <p className="profile-friends">Followers <b>{followers}</b></p>
         </div>
       </div>
       <input ref={inputRef} type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) pick(file); event.target.value = '' }} />

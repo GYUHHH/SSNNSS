@@ -1,5 +1,6 @@
-import { useEffect } from 'react'
-import { isVisiting, myVisitorId } from '../services/social'
+import { useEffect, useState } from 'react'
+import { isVisiting, myHandle, myVisitorId } from '../services/social'
+import { fetchFollowers, onFollowsChange } from '../services/follows'
 import { timeAgo } from '../services/timeAgo'
 import { useRoomStore } from '../store'
 import CommentAvatar, { CommentName } from './CommentAvatar'
@@ -9,6 +10,17 @@ export default function NotificationPopup() {
   const open = !isVisiting() && furniture.find((item) => item.id === selectedObject)?.type === 'notification-box'
   const unreadIds = Object.keys(pendingReactions)
   useEffect(() => { if (open) unreadIds.forEach(markReactionsSeen) }, [open, unreadIds.join(':')])
+  // who followed this room, newest first — pulled when the box opens and refreshed on any follow change
+  const [followers, setFollowers] = useState<Array<{ follower: string; createdAt: string }>>([])
+  useEffect(() => {
+    const me = myHandle()
+    if (!open || !me) return
+    let live = true
+    const refresh = () => void fetchFollowers(me).then((rows) => { if (live) setFollowers(rows) })
+    refresh()
+    const stop = onFollowsChange(refresh)
+    return () => { live = false; stop() }
+  }, [open])
   if (!open) return null
 
   const labels = new Map(furniture.map((item) => [item.id, item.name]))
@@ -23,6 +35,7 @@ export default function NotificationPopup() {
   return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && clearSelection()}>
     <section className="notification-card comment-ui" aria-label="전체 알림">
       {remoteVisits && <section><h2>방문</h2><p className="notification-visits"><b>오늘 {remoteVisits.today}</b><span>전체 {remoteVisits.total}</span></p></section>}
+      {followers.length > 0 && <section><h2>팔로워</h2><ul>{followers.slice(0, 20).map((row) => <li key={row.follower}><span>{row.follower}</span><time>{timeAgo(row.createdAt)}</time></li>)}</ul></section>}
       {likes.length > 0 && <section><h2>좋아요</h2><ul>{likes.map(([id, count]) => <li key={id}><span>{labels.get(id) ?? '가구'}</span><b>{count}</b></li>)}</ul></section>}
       {comments.length > 0 && <section><h2>댓글</h2><div className="notification-comments">{comments.map((comment) => <article key={comment.id} className="comment-item">
         <CommentAvatar name={comment.name} photo={comment.photo} />

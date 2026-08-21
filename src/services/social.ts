@@ -518,7 +518,7 @@ export function fetchRoomBundle(handle: string, fresh = false): Promise<Record<s
 // once the zoom-out actually reveals it, so a directory of many rooms costs one request until it is looked at.
 export async function fetchRoomDirectory(limit = 37): Promise<string[]> {
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?select=handle&order=handle.asc&limit=${limit}`, { headers })
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?select=handle&order=updated_at.desc&limit=${limit}`, { headers })
     const rows = await response.json()
     return response.ok && Array.isArray(rows) ? rows.map((row) => row?.handle).filter((handle): handle is string => typeof handle === 'string' && !!handle) : []
   } catch { return [] }

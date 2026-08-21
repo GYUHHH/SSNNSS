@@ -758,68 +758,31 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
 // the wall copy of the profile popup: same photo and counts, drawn to a canvas so the board can carry text
 // day↔night lettering tones lerp with the same glide the room lights use, so the flip never snaps
 const mixColor = (day: string, night: string, mix: number) => '#' + new Color(day).lerp(new Color(night), mix).getHexString()
-function drawProfileBoard(canvas: HTMLCanvasElement, total: number, today: number, friends: number, mix: number) {
-  const ctx = canvas.getContext('2d')!
-  const w = canvas.width
-  ctx.clearRect(0, 0, w, canvas.height)
-  ctx.textAlign = 'center'
-  // at night the board itself dims with the room, so the lettering shifts to a light tone to keep its contrast
-  ctx.fillStyle = mixColor('#3f3a33', '#f3eee4', mix)
-  ctx.font = `bold 30px ${CANVAS_UI_FONT}`
-  ctx.fillText(`Total ${total}`, w * .29, 42)
-  ctx.fillText(`Today ${today}`, w * .72, 42)
-  ctx.fillStyle = mixColor('#c3b6a6', '#8a8177', mix)
-  ctx.font = `26px ${CANVAS_UI_FONT}`
-  ctx.fillText('|', w / 2, 42)
-  ctx.fillStyle = mixColor('#5b4e44', '#e9e2d4', mix)
-  ctx.font = `bold 30px ${CANVAS_UI_FONT}`
-  ctx.fillText(`친구 ${friends}`, w / 2, 106)
-}
 
 function ProfileBoardFace() {
   const store = useOptionalRoomStore()
   const profile = store?.profile
-  const total = store?.remoteVisits?.total ?? profile?.total ?? 0, today = store?.remoteVisits?.today ?? profile?.today ?? 0, friends = profile?.friends ?? 0
+  const total = store?.remoteVisits?.total ?? profile?.total ?? 0
   const night = store?.timeOfDay === 'night'
   const nightMix = useRef(night ? 1 : 0)
-  const handleLabel = useRef<{ color: string } | null>(null)
+  const labels = useRef<Array<{ color: string } | null>>([])
   const photo = profile?.photo
-  const defaultPortrait = !photo || photo.endsWith('default-profile.svg')
-  const texture = useMemo(() => {
-    const canvas = document.createElement('canvas'); canvas.width = 320; canvas.height = 128
-    drawProfileBoard(canvas, total, today, friends, nightMix.current)
-    const created = new CanvasTexture(canvas); created.colorSpace = SRGBColorSpace
-    return created
-  }, [])
-  useEffect(() => {
-    const draw = () => { drawProfileBoard(texture.image as HTMLCanvasElement, total, today, friends, nightMix.current); texture.needsUpdate = true }
-    draw()
-    void loadCanvasFonts().then(draw)
-  }, [total, today, friends, texture])
   useFrame((_, delta) => {
     const goal = night ? 1 : 0
     if (Math.abs(nightMix.current - goal) < .004) return
     nightMix.current = MathUtils.damp(nightMix.current, goal, 6, Math.min(delta, 1 / 30))
     if (Math.abs(nightMix.current - goal) < .004) nightMix.current = goal
-    drawProfileBoard(texture.image as HTMLCanvasElement, total, today, friends, nightMix.current)
-    texture.needsUpdate = true
-    if (handleLabel.current) handleLabel.current.color = mixColor('#403f3d', '#f3eee4', nightMix.current)
+    const tone = mixColor('#403f3d', '#f3eee4', nightMix.current)
+    labels.current.forEach((label) => { if (label) label.color = tone })
   })
-  const portrait = useMemo(() => { if (!photo || defaultPortrait) return null; const map = new TextureLoader().load(photo); map.colorSpace = SRGBColorSpace; return map }, [photo, defaultPortrait])
-  // These sit ON the board, and the stats panel is drawn on a transparent canvas, so the board behind it is what
-  // should show through. While a neighbour room fades it is all in the sorted transparent pass, which orders by
-  // the object's projected z — and the stats panel hangs 0.59 BELOW the board's centre, which this camera reads as
-  // further away. It drew first, wrote depth, and the board behind it was then rejected, leaving bare wall in its
-  // place. renderOrder pins them after the board no matter what the distances work out to.
+  const portrait = useMemo(() => { if (!photo) return null; const map = new TextureLoader().load(photo); map.colorSpace = SRGBColorSpace; return map }, [photo])
+  const tone = mixColor('#403f3d', '#f3eee4', nightMix.current)
+  // renderOrder pins these after the board: they sit ON it, and while a neighbour room fades everything is in
+  // the sorted transparent pass, where the board could otherwise win the toss and hide its own face.
   return <>
     {portrait && <mesh renderOrder={1} position={[0, .42, .076]}><circleGeometry args={[.47, 30]} /><meshBasicMaterial map={portrait} /></mesh>}
-    {defaultPortrait && <group renderOrder={1} position={[0, .42, .076]}>
-      <mesh><circleGeometry args={[.47, 30]} /><meshBasicMaterial color="#e8e1d7" /></mesh>
-      <mesh position={[0, .13, .002]}><circleGeometry args={[.16, 24]} /><meshBasicMaterial color="#a89482" /></mesh>
-      <mesh position={[0, -.2, .002]} scale={[1.35, .9, 1]}><circleGeometry args={[.28, 24]} /><meshBasicMaterial color="#8c7767" /></mesh>
-    </group>}
-    {profile?.handle && <Text ref={handleLabel as never} renderOrder={1} font={JONES_BOOK_OTF} position={[0, -.22, .076]} fontSize={.13} color={mixColor('#403f3d', '#f3eee4', nightMix.current)} anchorX="center" anchorY="middle">{profile.handle}</Text>}
-    <mesh renderOrder={1} position={[0, -.64, .076]}><planeGeometry args={[1.2, .48]} /><meshBasicMaterial map={texture} transparent /></mesh>
+    {profile?.handle && <Text ref={((label: { color: string } | null) => { labels.current[0] = label }) as never} renderOrder={1} font={JONES_BOOK_OTF} position={[0, -.22, .076]} fontSize={.13} color={tone} anchorX="center" anchorY="middle">{profile.handle}</Text>}
+    <Text ref={((label: { color: string } | null) => { labels.current[1] = label }) as never} renderOrder={1} font={JONES_BOOK_OTF} position={[0, -.46, .076]} fontSize={.1} color={tone} anchorX="center" anchorY="middle">{`${total} ${total === 1 ? 'Visit' : 'Visits'}`}</Text>
   </>
 }
 
