@@ -160,77 +160,6 @@ function HerbPotTwo({ preview }: { preview: boolean }) {
   </group>
 }
 
-function BronzeBirdSculpture({ preview }: { preview: boolean }) {
-  const opacity = preview ? .5 : 1
-  const neck = useMemo(() => new CatmullRomCurve3([
-    new Vector3(0, 1.5, 0), new Vector3(.08, 1.82, 0), new Vector3(-.02, 2.12, 0), new Vector3(.02, 2.38, 0),
-  ]), [])
-  const bronze = (color = '#9a7040', roughness = .56) => <meshStandardMaterial color={color} metalness={.62} roughness={roughness} transparent={preview} opacity={opacity} />
-  return <group name="bronze-bird-sculpture">
-    <mesh castShadow position={[0, .08, 0]}><cylinderGeometry args={[.62, .68, .16, 14]} />{bronze('#76502f')}</mesh>
-    <mesh castShadow position={[0, .2, 0]}><cylinderGeometry args={[.5, .57, .16, 14]} />{bronze('#a67a46')}</mesh>
-    {[0, Math.PI].map((angle) => <mesh key={angle} castShadow position={[Math.cos(angle) * .46, .22, Math.sin(angle) * .46]} rotation={[Math.PI / 2, 0, angle]}><torusGeometry args={[.23, .055, 6, 12, Math.PI * 1.35]} />{bronze('#8a6037')}</mesh>)}
-    <mesh castShadow position={[0, .55, 0]} scale={[.25, .55, .22]}><sphereGeometry args={[1, 12, 9]} />{bronze('#6f4a2d')}</mesh>
-    <mesh castShadow position={[0, 1.08, 0]} scale={[.5, .72, .4]}><sphereGeometry args={[1, 16, 11]} />{bronze('#a77a44')}</mesh>
-    {[.69, .9, 1.12, 1.34].map((y, row) => <group key={y} position={[0, y, 0]}>{Array.from({ length: row % 2 ? 9 : 8 }, (_, index) => {
-      const angle = index / (row % 2 ? 9 : 8) * Math.PI * 2 + row * .22
-      const radius = .43 - row * .045
-      return <mesh key={index} castShadow position={[Math.cos(angle) * radius, 0, Math.sin(angle) * radius]} rotation={[0, -angle, Math.PI / 2 - .35]} scale={[.5, 1, .32]}><coneGeometry args={[.13, .34, 5]} />{bronze(row % 2 ? '#b4864c' : '#8d6238')}</mesh>
-    })}</group>)}
-    {[.77, 1.03, 1.3].map((y, index) => <mesh key={y} castShadow position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[1 - index * .13, 1 - index * .13, 1]}><torusGeometry args={[.44, .025, 6, 18]} />{bronze('#d0a15c', .42)}</mesh>)}
-    <mesh name="bronze-bird-neck" castShadow><tubeGeometry args={[neck, 12, .09, 7, false]} />{bronze('#5f422b')}</mesh>
-    <mesh castShadow position={[0, 2.42, 0]} scale={[.18, .25, .16]}><sphereGeometry args={[1, 10, 8]} />{bronze('#5a3b28')}</mesh>
-    {[-1, 1].map((side) => <group key={side} position={[side * .15, 2.46, 0]} rotation={[0, 0, side * -.68]}>
-      <mesh castShadow position={[side * .08, .07, 0]}><coneGeometry args={[.1, .42, 6]} />{bronze('#aa7c43')}</mesh>
-      <mesh position={[side * .055, .02, .14]}><sphereGeometry args={[.035, 8, 6]} /><meshStandardMaterial color="#7ee32b" emissive="#4fb914" emissiveIntensity={1.1} transparent={preview} opacity={opacity} /></mesh>
-    </group>)}
-    <mesh castShadow position={[0, 2.73, 0]}><coneGeometry args={[.1, .52, 7]} />{bronze('#6d4b30')}</mesh>
-    <mesh castShadow position={[0, 2.4, .21]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[.08, .28, 6]} />{bronze('#bc8b4f')}</mesh>
-  </group>
-}
-
-function BronzeBirdSculptureTwo({ preview }: { preview: boolean }) {
-  const opacity = preview ? .5 : 1
-  const curves = useMemo(() => {
-    const curve = (points: Array<[number, number, number]>) => new CatmullRomCurve3(points.map(([x, y, z]) => new Vector3(x, y, z)))
-    return [
-      curve([[0, .16, 0], [-.34, .12, .02], [-.62, .07, .03], [-.79, .18, 0]]),
-      curve([[0, .16, 0], [.34, .12, .02], [.62, .07, .03], [.79, .18, 0]]),
-      curve([[0, .15, 0], [-.11, .43, 0], [.1, .67, 0], [-.06, .91, 0], [0, 1.04, 0]]),
-      curve([[0, 1.54, 0], [.07, 1.83, 0], [-.03, 2.08, 0], [0, 2.34, 0]]),
-      curve([[-.07, 2.38, 0], [-.19, 2.45, 0], [-.26, 2.62, 0], [-.4, 2.68, 0]]),
-      curve([[.07, 2.38, 0], [.19, 2.45, 0], [.26, 2.62, 0], [.4, 2.68, 0]]),
-    ]
-  }, [])
-  const bronze = (color = '#987044', roughness = .6) => <meshStandardMaterial color={color} metalness={.68} roughness={roughness} transparent={preview} opacity={opacity} />
-  return <group name="bronze-bird-sculpture-2" userData={{ sculptRuntime: { parts: ['scroll-base', 'support', 'lotus-body', 'neck', 'bird-head'], collider: 'box' } }}>
-    <group name="bronze-bird-sculpture-2-scroll-base">
-      {curves.slice(0, 2).map((curve, index) => <mesh name={`bronze-bird-sculpture-2-scroll-${index}`} key={index} castShadow><tubeGeometry args={[curve, 14, .075, 7, false]} />{bronze(index ? '#a67a48' : '#795333')}</mesh>)}
-      <mesh name="bronze-bird-sculpture-2-base-bar" castShadow position={[0, .08, 0]} scale={[1.45, .18, .52]}><sphereGeometry args={[.48, 12, 8]} />{bronze('#825a36')}</mesh>
-      {[-1, 1].map((side) => <mesh name={`bronze-bird-sculpture-2-base-wing-${side}`} key={side} castShadow position={[side * .58, .17, .02]} rotation={[0, 0, side * -.64]} scale={[.62, 1, .42]}><coneGeometry args={[.14, .42, 6]} />{bronze('#b38855', .5)}</mesh>)}
-    </group>
-    <mesh name="bronze-bird-sculpture-2-support" castShadow><tubeGeometry args={[curves[2], 16, .09, 7, false]} />{bronze('#62442c')}</mesh>
-    <group name="bronze-bird-sculpture-2-lotus-body">
-      <mesh name="bronze-bird-sculpture-2-body-core" castShadow position={[0, 1.18, 0]} scale={[.5, .66, .32]}><sphereGeometry args={[1, 16, 12]} />{bronze('#9e7445')}</mesh>
-      {[.78, .98, 1.22, 1.46].map((y, row) => <group key={y} position={[0, y, 0]}>{Array.from({ length: row === 0 ? 8 : 10 }, (_, index) => {
-        const count = row === 0 ? 8 : 10
-        const angle = index / count * Math.PI * 2 + row * .23
-        const radius = .42 - row * .035
-        return <mesh name={`bronze-bird-sculpture-2-petal-${row}-${index}`} key={index} castShadow position={[Math.cos(angle) * radius, 0, Math.sin(angle) * radius * .66]} rotation={[0, -angle, Math.PI / 2 - (row === 3 ? .7 : .34)]} scale={[.55, 1, .36]} userData={{ explodeWithParent: true }}><coneGeometry args={[.125, row === 3 ? .42 : .32, 5]} />{bronze(row % 2 ? '#b48652' : '#7e5736', .54)}</mesh>
-      })}</group>)}
-      {[.91, 1.18, 1.43].map((y, index) => <mesh name={`bronze-bird-sculpture-2-band-${index}`} key={y} castShadow position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[1 - index * .13, .68 - index * .06, 1]}><torusGeometry args={[.45, .027, 6, 20]} />{bronze('#d0a15f', .42)}</mesh>)}
-      {[-.23, 0, .23].flatMap((x, column) => [.98, 1.2, 1.4].map((y, row) => <mesh name={`bronze-bird-sculpture-2-relief-${column}-${row}`} key={`${x}:${y}`} position={[x, y, .32]} scale={[1, 1.3, .42]} userData={{ explodeWithParent: true }}><octahedronGeometry args={[.055, 0]} />{bronze('#d3a565', .4)}</mesh>))}
-    </group>
-    <mesh name="bronze-bird-sculpture-2-neck" castShadow><tubeGeometry args={[curves[3], 15, .068, 7, false]} />{bronze('#4f3828')}</mesh>
-    <group name="bronze-bird-sculpture-2-bird-head">
-      <mesh name="bronze-bird-sculpture-2-head" castShadow position={[0, 2.38, 0]} scale={[.15, .2, .14]}><sphereGeometry args={[1, 10, 8]} />{bronze('#59402d')}</mesh>
-      {curves.slice(4).map((curve, index) => <mesh name={`bronze-bird-sculpture-2-horn-${index}`} key={index} castShadow><tubeGeometry args={[curve, 10, .047, 6, false]} />{bronze('#b88a4f', .46)}</mesh>)}
-      <mesh name="bronze-bird-sculpture-2-crest" castShadow position={[0, 2.67, 0]}><coneGeometry args={[.085, .55, 6]} />{bronze('#765434')}</mesh>
-      <mesh name="bronze-bird-sculpture-2-beak" castShadow position={[0, 2.37, .18]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[.07, .28, 6]} />{bronze('#c59455', .44)}</mesh>
-    </group>
-  </group>
-}
-
 // crassula "watch chain": each stem is a stack of beads rather than a smooth cylinder — the serrated
 // silhouette is what makes it read as this succulent and not the herb pot's leafy fronds
 function SucculentStem({ yaw, lean, height, preview }: { yaw: number; lean: number; height: number; preview: boolean }) {
@@ -374,8 +303,6 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'herb-pot-2') return <HerbPotTwo preview={preview} />
   if (item.type === 'succulent-pot') return <SucculentPot preview={preview} />
   if (item.type === 'incense-burner') return <IncenseBurner preview={preview} />
-  if (item.type === 'bronze-bird-sculpture') return <BronzeBirdSculpture preview={preview} />
-  if (item.type === 'bronze-bird-sculpture-2') return <BronzeBirdSculptureTwo preview={preview} />
   if (item.type === 'guestbook') {
     const noteCount = Math.min(6, store?.guestbook[item.id]?.length ?? 0)
     return <><RoundedBox castShadow args={[1.34, 1.34, .05]} radius={.03} smoothness={2} position={[0, 0, .025]}>{mat('#8a6048')}</RoundedBox><mesh position={[0, 0, .055]}><planeGeometry args={[1.18, 1.18]} />{mat('#c9a06c')}</mesh><mesh position={[0, .47, .06]}><planeGeometry args={[.62, .16]} />{mat('#f3ead9')}</mesh>{Array.from({ length: noteCount }, (_, index) => <group key={index} position={[-.36 + (index % 3) * .36, .16 - Math.floor(index / 3) * .42, .06]} rotation={[0, 0, (index % 2 ? 1 : -1) * .06]}><mesh><planeGeometry args={[.26, .26]} /><meshStandardMaterial color={['#fffaf0', '#f9e9c8', '#e8f0dd'][index % 3]} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh position={[0, .11, .005]}><circleGeometry args={[.022, 8]} /><meshStandardMaterial color="#b3563f" transparent={material.transparent} opacity={material.opacity} /></mesh></group>)}{noteCount === 0 && <mesh position={[0, -.05, .06]}><planeGeometry args={[.5, .3]} />{mat('#fffaf0')}</mesh>}</>
