@@ -59,11 +59,27 @@ function SpeechBubbleShape({ width, height, preview }: { width: number; height: 
   </>
 }
 
+function HeartMirror({ preview }: { preview: boolean }) {
+  const shape = useMemo(() => {
+    const value = new Shape()
+    value.moveTo(0, -.58)
+    value.bezierCurveTo(-.12, -.42, -.62, -.15, -.62, .22)
+    value.bezierCurveTo(-.62, .62, -.12, .72, 0, .42)
+    value.bezierCurveTo(.12, .72, .62, .62, .62, .22)
+    value.bezierCurveTo(.62, -.15, .12, -.42, 0, -.58)
+    return value
+  }, [])
+  return <>
+    <mesh castShadow position={[0, 0, .025]} scale={[1.08, 1.08, 1]}><shapeGeometry args={[shape]} /><meshStandardMaterial color="#d9a6bc" transparent={preview} opacity={preview ? .5 : 1} /></mesh>
+    <mesh position={[0, 0, .04]} scale={[.9, .9, 1]}><shapeGeometry args={[shape]} /><meshPhysicalMaterial color="#dfe8ed" metalness={.72} roughness={.18} transparent={preview} opacity={preview ? .5 : 1} /></mesh>
+  </>
+}
+
 export function ItemVisual({ item, preview = false }: { item: FurnitureItem; preview?: boolean }) {
   const store = useOptionalRoomStore()
   const musicTrack = store?.musicTrack ?? null
   const lit = !preview && (store?.toggledOn.has(item.id) ?? false)
-  const styleColor = item.styleId ? colorPresets.find((preset) => preset.id === item.styleId)?.color : undefined
+  const styleColor = item.styleId?.startsWith('#') ? item.styleId : item.styleId ? colorPresets.find((preset) => preset.id === item.styleId)?.color : undefined
   const material = { color: styleColor, transparent: preview, opacity: preview ? 0.5 : 1 }
   const mat = (fallback: string) => <meshStandardMaterial color={material.color ?? fallback} transparent={material.transparent} opacity={material.opacity} />
   const art = useArtTexture(item.id)
@@ -226,6 +242,20 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     <RoundedBox castShadow args={[.26, .07, .3]} radius={.02} smoothness={2} position={[.3, .06, .02]}><meshStandardMaterial color="#d9c1a8" roughness={.9} transparent={material.transparent} opacity={material.opacity} /></RoundedBox>
     <RoundedBox castShadow args={[.24, .06, .28]} radius={.02} smoothness={2} position={[.31, .12, .02]}><meshStandardMaterial color="#a8bcc9" roughness={.9} transparent={material.transparent} opacity={material.opacity} /></RoundedBox>
   </>
+  if (item.type === 'dual-monitors') return <>
+    {[-.31, .31].map((x) => <group key={x} position={[x, .32, -.04]} rotation={[0, x < 0 ? .08 : -.08, 0]}>
+      <RoundedBox castShadow args={[.56, .34, .045]} radius={.018} smoothness={2}>{mat('#242934')}</RoundedBox>
+      <mesh position={[0, 0, .025]}><planeGeometry args={[.49, .27]} /><meshStandardMaterial color={material.color ?? '#7288b5'} emissive={lit ? '#6d7fb2' : '#263149'} emissiveIntensity={lit ? .45 : .12} transparent={material.transparent} opacity={material.opacity} /></mesh>
+      <mesh castShadow position={[0, -.25, -.02]}><cylinderGeometry args={[.025, .025, .18, 8]} />{mat('#404550')}</mesh>
+      <RoundedBox castShadow args={[.2, .025, .12]} radius={.01} smoothness={2} position={[0, -.34, .02]}>{mat('#404550')}</RoundedBox>
+    </group>)}
+    <RoundedBox castShadow args={[.54, .025, .16]} radius={.012} smoothness={2} position={[0, .02, .12]}>{mat('#d8dbe2')}</RoundedBox>
+  </>
+  if (item.type === 'full-mirror') return <>
+    <RoundedBox castShadow args={[.82, 2.16, .065]} radius={.035} smoothness={2} position={[0, 0, .02]}>{mat('#c8c6c2')}</RoundedBox>
+    <RoundedBox args={[.72, 2.02, .018]} radius={.025} smoothness={2} position={[0, 0, .062]}><meshPhysicalMaterial color="#dfe8ed" metalness={.72} roughness={.18} transparent={preview} opacity={preview ? .5 : 1} /></RoundedBox>
+  </>
+  if (item.type === 'heart-mirror') return <HeartMirror preview={preview} />
   if (item.type === 'led-lamp') return <>
     <mesh castShadow position={[0, .02, 0]}><cylinderGeometry args={[.09, .1, .04, 12]} />{mat('#4c4653')}</mesh>
     <RoundedBox castShadow args={[.035, .3, .035]} radius={.012} smoothness={2} position={[-.08, .19, 0]}>{mat('#5a5462')}</RoundedBox>
