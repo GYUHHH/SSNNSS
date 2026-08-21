@@ -15,7 +15,7 @@ const PersonIcon = () => icon(<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4
 const PersonPlusIcon = () => icon(<><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" /></>)
 const PersonCheckIcon = () => icon(<><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><polyline points="17 11 19 13 23 9" /></>)
 const GlobeIcon = () => icon(<><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></>)
-const BoxIcon = () => icon(<><path d="M5 9h14v11H5z" /><line x1="5" y1="9" x2="3" y2="4.5" /><line x1="19" y1="9" x2="21" y2="4.5" /></>)
+const BoxIcon = () => icon(<><rect x="3" y="5" width="18" height="14" rx="1" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="10.5" y1="8.5" x2="13.5" y2="8.5" /><line x1="10.5" y1="15.5" x2="13.5" y2="15.5" /></>)
 
 // The one control strip: five round buttons, bottom centre. Everything the owner used to reach through the
 // scattered corner chrome (room chips, time buttons, inventory) lives here now; visitors just get the volume.
