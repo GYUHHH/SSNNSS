@@ -240,9 +240,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   </>
   if (item.type === 'profile-board') return <>
     <RoundedBox castShadow args={[1.4, 2.1, .07]} radius={.03} smoothness={2} position={[0, 0, .035]}>{mat('#fbf6ec')}</RoundedBox>
-    {/* the board face ignores the room lighting so the handle and counts stay readable at night */}
-    {!preview && <mesh position={[0, 0, .071]}><planeGeometry args={[1.33, 2.03]} /><meshBasicMaterial color="#fbf6ec" /></mesh>}
-    <mesh position={[0, .42, .073]}><circleGeometry args={[.47, 30]} />{preview ? mat('#e2d6c6') : <meshBasicMaterial color="#e2d6c6" />}</mesh>
+    <mesh position={[0, .42, .073]}><circleGeometry args={[.47, 30]} />{mat('#e2d6c6')}</mesh>
     {!preview && <ProfileBoardFace />}
   </>
   if (item.type.startsWith('video-frame')) {
