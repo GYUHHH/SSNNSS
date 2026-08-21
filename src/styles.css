@@ -552,7 +552,7 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 .entry-buttons button { border: 1px solid var(--ui-line); border-radius: 8px; padding: 9px 18px; color: var(--ui-text); background: var(--ui-bg); cursor: pointer; font-size: 13px; }
 .entry-buttons button:last-child { border-color: var(--ui-blue); color: #fff; background: var(--ui-blue); }
 .dock { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 10px; }
-.dock-button { display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 50%; color: #fff; background: rgb(20 20 20 / 60%); cursor: pointer; }
+.dock-button { display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 50%; color: #fff; background: rgb(20 20 20 / 45%); cursor: pointer; }
 .dock-item { position: relative; display: flex; }
 .dock-pop { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); display: grid; gap: 4px; margin: 0; padding: 8px; list-style: none; border: 1px solid #dbdbdb; border-radius: 8px; background: #ffffff; }
 .dock-pop li { display: flex; align-items: center; }
@@ -562,7 +562,7 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 .dock-pop-delete { border: 0; padding: 6px 8px; color: #a08d7c; background: transparent; cursor: pointer; font-size: 14px; line-height: 1; }
 .sound-hub { position: relative; display: flex; flex-direction: column; align-items: center; }
 .sound-hub-list { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); }
-.sound-hub-main { display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 50%; color: #fff; background: rgb(20 20 20 / 60%); cursor: pointer; }
+.sound-hub-main { display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 50%; color: #fff; background: rgb(20 20 20 / 45%); cursor: pointer; }
 .sound-hub-list { display: grid; gap: 6px; margin: 0; padding: 8px; list-style: none; border: 1px solid #dbdbdb; border-radius: 8px; background: #ffffff; }
 .sound-hub-list button { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 170px; padding: 8px 10px; border: 0; border-radius: 5px; color: #3a3a38; background: transparent; cursor: pointer; font-size: 13px; }
 .sound-hub-list button:hover { background: #f2f2f2; }
