@@ -59,7 +59,9 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
   }, [roomsOpen])
   const owner = !visiting && mode === 'normal'
   const cycleTime = () => setTimeOfDay(timeOfDay === 'day' ? 'evening' : timeOfDay === 'evening' ? 'night' : 'day')
-  return <div className="dock">
+  // the dock owns its pointer events completely — nothing may leak through to the room behind it
+  const block = (event: { stopPropagation: () => void }) => event.stopPropagation()
+  return <div className="dock" onPointerDown={block} onPointerMove={block} onPointerUp={block} onPointerOver={block} onClick={block} onWheel={block} onTouchStart={block} onTouchMove={block}>
     {owner && <div className="dock-item dock-fade" ref={roomsItem}>
       {roomsOpen && <ul className="dock-pop" aria-label="내 방 목록">
         {rooms.map((room) => <li key={room.id}>
