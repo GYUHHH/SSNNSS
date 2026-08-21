@@ -9,7 +9,7 @@ import { type ExplorerMode, explorerMode, fetchFollowing, onExplorerMode, onFoll
 import { flushCapture } from '../services/capture'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
-import CameraController, { entryZoom, exploreMinZoom, requestExplorerZoom } from './CameraController'
+import CameraController, { entryZoom, exploreMinZoom } from './CameraController'
 import Character from './Character'
 import Chair from './Chair'
 import Computer from './Computer'
@@ -204,6 +204,15 @@ const roomSlots = (handles: string[]): RoomSlot[] => {
 // pads the cluster with vacant slots so the ring is always complete; real handles always take the nearest cells
 const withVacancies = (handles: string[]) => handles.length >= CLUSTER_SIZE ? handles
   : [...handles, ...Array.from({ length: CLUSTER_SIZE - handles.length }, (_, index) => `${VACANT}${index}`)]
+// Discover is a page of rooms, not a ranking — the order is drawn once and then left alone.
+const shuffled = (list: string[]) => {
+  const out = [...list]
+  for (let index = out.length - 1; index > 0; index--) {
+    const swap = Math.floor(Math.random() * (index + 1))
+    ;[out[index], out[swap]] = [out[swap], out[index]]
+  }
+  return out
+}
 const isEnterable = (handle: string) => handle !== LOBBY && !handle.startsWith(VACANT)
 
 // what a zoom-in may land in: real rooms always, and the lobby too for whoever has no room of their own —
@@ -291,7 +300,7 @@ function ExplorerRoomHitbox({ off, open }: { off: (zoom: number, width: number, 
   </group>
 }
 
-function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlot; distance: number; centred: boolean; fresh?: Record<string, string>; open: () => void }) {
+function RoomContainer({ slot, distance, centred, fresh, open, swapping }: { slot: RoomSlot; distance: number; centred: boolean; fresh?: Record<string, string>; open: () => void; swapping: boolean }) {
   const { mode } = useRoomStore()
   const { gl, camera, scene } = useThree()
   const group = useRef<Group>(null)
@@ -381,7 +390,9 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
     // mid-approach blanked the very room the user was entering, which then popped back as the live room — the
     // colour flicker on every entry. It holds full strength until the live room takes its place; everyone else
     // in the ring still clears out on the way in.
-    const wanted = mode !== 'normal' ? 0 : centred ? 1 : MathUtils.clamp(1 - (camera.zoom - floor) / span, 0, 1)
+    // swapping = the ring is being exchanged in plain sight (the explorer is open), so the whole neighbourhood
+    // dims out first and the incoming one fades up in its place instead of the cells cutting to new rooms
+    const wanted = swapping || mode !== 'normal' ? 0 : centred ? 1 : MathUtils.clamp(1 - (camera.zoom - floor) / span, 0, 1)
     // The frame a room is first drawn tends to hitch — texture uploads land right then — and the long delta of
     // that one frame used to advance the damp nearly to 1, so the room POPPED instead of fading. Capping the step
     // means a hitch only moves the fade one small notch, and the glide plays out over the frames that follow.
@@ -508,38 +519,38 @@ function RoomWorld() {
   // flashed up and then bounced to the centre one.
   const entryLatched = useRef(false)
   const requestedEntry = useRef(false)
-  // Home shows only the rooms I follow around mine; discover shows the public directory. Signed out there is
-  // no follow list, so home quietly behaves as discover. A follow changing re-pulls the ring right away.
+  // Home draws whoever's room is in the middle surrounded by the rooms THAT owner follows, so entering a
+  // neighbour walks the graph one step further out. Discover ignores the graph: one shuffled page of public
+  // rooms, held for the session so switching back to it returns to the same page rather than reshuffling.
   const [ringMode, setRingMode] = useState<ExplorerMode>(explorerMode())
-  const homeExplorerRequested = useRef(false)
   const [followsTick, setFollowsTick] = useState(0)
-  useEffect(() => onExplorerMode((next) => { homeExplorerRequested.current = next === 'home'; setRingMode(next) }), [])
+  const [swapping, setSwapping] = useState(false)
+  const discoverPage = useRef<string[] | null>(null)
+  useEffect(() => onExplorerMode(setRingMode), [])
   useEffect(() => onFollowsChange(() => setFollowsTick((value) => value + 1)), [])
-  // A home-mode request is complete only after the owner's room is the active room. Run the zoom from this canvas
-  // commit, after CameraController's re-base, so the detail framing cannot overwrite it on the following frame.
-  useEffect(() => {
-    if (!homeExplorerRequested.current || ringMode !== 'home' || activeHandle !== hubHandle) return
-    homeExplorerRequested.current = false
-    requestExplorerZoom(true)
-  }, [activeHandle, hubHandle, ringMode])
   useEffect(() => {
     let live = true
-    const me = myHandle()
-    const source = ringMode === 'home' && me ? fetchFollowing(me).then(sortByActivity) : fetchRoomDirectory()
+    const centre = ringMode === 'home' ? activeHandle : hubHandle
+    const source = ringMode === 'home'
+      ? fetchFollowing(centre).then(sortByActivity)
+      : discoverPage.current ? Promise.resolve(discoverPage.current) : fetchRoomDirectory().then((all) => (discoverPage.current = shuffled(all)))
     void source.then((found) => {
       if (!live) return
-      const rest = found.filter((handle) => handle !== hubHandle)
+      const rest = found.filter((handle) => handle !== centre)
       // the room actually being viewed needs a cell of its own even if the list misses it
       const viewed = currentRoomHandle()
-      if (viewed && viewed !== hubHandle && !rest.includes(viewed)) rest.unshift(viewed)
-      setHandles(withVacancies([hubHandle, ...rest]))
-      // warm every bundle now, while the user is still looking at their own room — by the time they zoom out,
-      // the layouts are already here and each neighbour appears as itself rather than as the default room first
+      if (viewed && viewed !== centre && !rest.includes(viewed)) rest.unshift(viewed)
+      // warm every bundle now, while the user is still looking at one room — by the time they zoom out, the
+      // layouts are already here and each neighbour appears as itself rather than as the default room first
       rest.filter(isEnterable).forEach((handle) => void fetchRoomBundle(handle))
+      const next = withVacancies([centre, ...rest])
+      // Inside a room the ring is off screen, so the exchange is free — which is the usual case, since a new
+      // ring is what entering a room asks for. Out in the explorer the swap would be seen, so it crossfades.
+      if (wasZoomedIn.current) { setHandles(next); return }
+      setSwapping(true)
+      window.setTimeout(() => { if (live) { setHandles(next); setSwapping(false) } }, 240)
     })
     return () => { live = false }
-    // activeHandle in the deps: moving to another room re-pulls the ring, so a room that was only in the
-    // list as "the one being viewed" (e.g. just unfollowed while standing in it) drops out on leaving it
   }, [hubHandle, ringMode, followsTick, activeHandle])
   // Re-based so the room being viewed always sits at the world origin. Everything inside a room — the placement
   // grid, the character's pathfinding, every worldToGrid call — is written in room-local coordinates against
@@ -659,7 +670,7 @@ function RoomWorld() {
   // the picked room, or the one already being viewed when nothing is picked — what the camera should be aiming at
   const aim = useMemo(() => (slots.find((slot) => slot.handle === centredHandle) ?? active)?.position ?? null, [slots, active, centredHandle])
   return <>
-    {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY) && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} />)}
+    {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY) && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} swapping={swapping} />)}
     <group position={active.position}>
       <Inert off={exploring}><RoomRoot /></Inert>
       <ExplorerRoomHitbox off={exploring} open={() => beginEntry(active)} />
