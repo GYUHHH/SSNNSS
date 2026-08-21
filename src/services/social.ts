@@ -35,7 +35,6 @@ export const defaultProfileData = (handle?: string) => ({
   total: 0,
   today: 0,
   lastVisit: new Date().toISOString().slice(0, 10),
-  friends: 0,
 })
 const parseHandle = (): string | null => {
   if (typeof location === 'undefined') return null

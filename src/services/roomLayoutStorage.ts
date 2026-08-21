@@ -99,7 +99,7 @@ export function saveBooks(books: unknown) {
 }
 
 // visitor counts and the profile photo — counted locally until there is a server to ask
-export type Profile = { photo: string; photoOwner?: string; handle?: string; total: number; today: number; lastVisit: string; friends: number }
+export type Profile = { photo: string; photoOwner?: string; handle?: string; total: number; today: number; lastVisit: string }
 const profileKey = 'my-room-profile-v1'
 export function loadProfile(ownerHandle?: string): Profile {
   try {
