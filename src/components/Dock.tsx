@@ -15,7 +15,7 @@ const PersonIcon = () => icon(<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4
 const PersonPlusIcon = () => icon(<><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" /></>)
 const PersonCheckIcon = () => icon(<><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><polyline points="17 11 19 13 23 9" /></>)
 const GlobeIcon = () => icon(<><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></>)
-const BoxIcon = () => icon(<><polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" /><line x1="10" y1="12" x2="14" y2="12" /></>)
+const BoxIcon = () => icon(<><path d="M4 11h16v10H4z" /><line x1="4" y1="11" x2="2" y2="6.5" /><line x1="20" y1="11" x2="22" y2="6.5" /><rect x="9" y="6" width="6" height="5" /></>)
 
 // The one control strip: five round buttons, bottom centre. Everything the owner used to reach through the
 // scattered corner chrome (room chips, time buttons, inventory) lives here now; visitors just get the volume.
