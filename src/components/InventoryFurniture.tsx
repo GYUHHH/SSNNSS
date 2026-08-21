@@ -75,6 +75,30 @@ function HeartMirror({ preview }: { preview: boolean }) {
   </>
 }
 
+function HerbFrond({ yaw, lean, height, preview }: { yaw: number; lean: number; height: number; preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  return <group rotation={[Math.cos(yaw) * lean, yaw, Math.sin(yaw) * lean]}>
+    <mesh castShadow position={[0, height / 2, 0]}><cylinderGeometry args={[.012, .018, height, 6]} /><meshStandardMaterial color="#3f7741" transparent={preview} opacity={opacity} /></mesh>
+    {[.24, .42, .6, .78].map((part, index) => <group key={part} position={[0, height * part, 0]}>
+      {[-1, 1].map((side) => <mesh castShadow key={side} position={[side * (.075 - index * .007), .015, 0]} rotation={[0, 0, side * -.72]} scale={[.45, 1, .36]}>
+        <sphereGeometry args={[.095, 7, 6]} /><meshStandardMaterial color={index % 2 ? '#5f9654' : '#4d8849'} transparent={preview} opacity={opacity} />
+      </mesh>)}
+    </group>)}
+  </group>
+}
+
+function HerbPot({ preview }: { preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  return <>
+    <mesh castShadow position={[0, .18, 0]}><cylinderGeometry args={[.25, .18, .36, 14]} /><meshStandardMaterial color="#b95f42" transparent={preview} opacity={opacity} /></mesh>
+    <mesh castShadow position={[0, .35, 0]}><cylinderGeometry args={[.28, .28, .09, 14]} /><meshStandardMaterial color="#c96d4d" transparent={preview} opacity={opacity} /></mesh>
+    <mesh position={[0, .4, 0]}><cylinderGeometry args={[.225, .225, .018, 16]} /><meshStandardMaterial color="#4d3528" transparent={preview} opacity={opacity} /></mesh>
+    <group position={[0, .4, 0]}>{[
+      [0, .08, .65], [.82, .3, .58], [1.65, .38, .72], [2.45, .27, .62], [3.25, .34, .7], [4.08, .3, .6], [4.9, .4, .68], [5.65, .24, .56],
+    ].map(([yaw, lean, height]) => <HerbFrond key={yaw} yaw={yaw} lean={lean} height={height} preview={preview} />)}</group>
+  </>
+}
+
 export function ItemVisual({ item, preview = false }: { item: FurnitureItem; preview?: boolean }) {
   const store = useOptionalRoomStore()
   const musicTrack = store?.musicTrack ?? null
@@ -123,6 +147,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   </>
   if (item.type === 'floor-lamp') return <><mesh castShadow position={[0, .06, 0]}><cylinderGeometry args={[.25, .28, .12, 12]} /><meshStandardMaterial color={material.color ?? '#83624f'} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh castShadow position={[0, .66, 0]}><cylinderGeometry args={[.04, .04, 1.08, 8]} /><meshStandardMaterial color={material.color ?? '#83624f'} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh castShadow position={[0, 1.34, 0]}><cylinderGeometry args={[.18, .3, .38, 12, 1, true]} /><meshStandardMaterial color={material.color ?? '#f3d79f'} emissive={lit ? '#ffd9a0' : '#000000'} emissiveIntensity={lit ? .6 : 0} side={2} transparent={material.transparent} opacity={material.opacity} /></mesh>{lit && <mesh position={[0, 1.26, 0]}><sphereGeometry args={[.07, 10, 8]} /><meshStandardMaterial color="#ffe6b8" emissive="#ffe6b8" emissiveIntensity={1.4} /></mesh>}{lit && <pointLight color="#ffc66d" intensity={6} distance={2.4} position={[0, 1.16, 0]} />}</>
   if (item.type === 'potted-plant') return <><mesh castShadow position={[0, .2, 0]}><cylinderGeometry args={[.22, .27, .4, 10]} /><meshStandardMaterial color={material.color ?? '#c37c59'} transparent={material.transparent} opacity={material.opacity} /></mesh>{[-.18, 0, .18].map((x) => <mesh castShadow key={x} position={[x, .65, 0]} rotation={[0.5, x * 2, 0]}><sphereGeometry args={[.22, 8, 8]} /><meshStandardMaterial color={material.color ?? '#668c64'} transparent={material.transparent} opacity={material.opacity} /></mesh>)}</>
+  if (item.type === 'herb-pot') return <HerbPot preview={preview} />
   if (item.type === 'guestbook') {
     const noteCount = Math.min(6, store?.guestbook[item.id]?.length ?? 0)
     return <><RoundedBox castShadow args={[1.34, 1.34, .05]} radius={.03} smoothness={2} position={[0, 0, .025]}>{mat('#8a6048')}</RoundedBox><mesh position={[0, 0, .055]}><planeGeometry args={[1.18, 1.18]} />{mat('#c9a06c')}</mesh><mesh position={[0, .47, .06]}><planeGeometry args={[.62, .16]} />{mat('#f3ead9')}</mesh>{Array.from({ length: noteCount }, (_, index) => <group key={index} position={[-.36 + (index % 3) * .36, .16 - Math.floor(index / 3) * .42, .06]} rotation={[0, 0, (index % 2 ? 1 : -1) * .06]}><mesh><planeGeometry args={[.26, .26]} /><meshStandardMaterial color={['#fffaf0', '#f9e9c8', '#e8f0dd'][index % 3]} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh position={[0, .11, .005]}><circleGeometry args={[.022, 8]} /><meshStandardMaterial color="#b3563f" transparent={material.transparent} opacity={material.opacity} /></mesh></group>)}{noteCount === 0 && <mesh position={[0, -.05, .06]}><planeGeometry args={[.5, .3]} />{mat('#fffaf0')}</mesh>}</>
