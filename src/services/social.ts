@@ -36,6 +36,12 @@ export const defaultProfileData = (handle?: string) => ({
   today: 0,
   lastVisit: new Date().toISOString().slice(0, 10),
 })
+// the room the address bar points at right now — read again after every back/forward
+export const pathHandle = (): string | null => {
+  if (typeof location === 'undefined') return null
+  const segment = location.pathname.startsWith(BASE) ? decodeURIComponent(location.pathname.slice(BASE.length).split('/')[0] ?? '') : ''
+  return segment && segment !== 'index.html' ? segment : null
+}
 const parseHandle = (): string | null => {
   if (typeof location === 'undefined') return null
   const params = new URLSearchParams(location.search)
@@ -47,8 +53,7 @@ const parseHandle = (): string | null => {
   }
   const legacy = params.get('room')
   if (legacy) return legacy
-  const segment = location.pathname.startsWith(BASE) ? decodeURIComponent(location.pathname.slice(BASE.length).split('/')[0] ?? '') : ''
-  return segment && segment !== 'index.html' ? segment : null
+  return pathHandle()
 }
 // The base address is always the anonymous default room. A personal room is only read from an explicit handle.
 let visitHandle = parseHandle()
@@ -527,7 +532,10 @@ export async function fetchRoomDirectory(limit = 37): Promise<string[]> {
 
 // Changes the visited room without reloading the page. RoomProvider's existing rehydrate hook rereads the new
 // bundle, so the Canvas and camera stay mounted while furniture, media and interactions switch underneath it.
-export async function enterRoom(handle: string): Promise<boolean> {
+// Each room entered becomes its own history entry, so back and forward walk the rooms visited — that is what the
+// browser buttons, the phone's system back and the swipe gestures all ride on. `keepEntry` is for the way back:
+// the address is already the room being restored, so pushing again would bury the entry the user just left.
+export async function enterRoom(handle: string, keepEntry = false): Promise<boolean> {
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${escape(handle)}&select=data&limit=1`, { headers })
     const rows = await response.json()
@@ -536,7 +544,9 @@ export async function enterRoom(handle: string): Promise<boolean> {
     visitHandle = handle
     plainRoot = false
     visitData = data
-    history.replaceState(null, '', roomPath(handle))
+    const path = roomPath(handle)
+    if (keepEntry || location.pathname === path) history.replaceState(null, '', path)
+    else history.pushState(null, '', path)
     roomRefreshListeners.forEach((listener) => listener())
     roomNavigationListeners.forEach((listener) => listener())
     return true
