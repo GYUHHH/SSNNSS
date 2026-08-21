@@ -6,6 +6,7 @@ import { NeighbourRoomProvider, useRoomStore } from '../store'
 import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDirectory, isSignedIn, myHandle, subscribeRoomBundles } from '../services/social'
 import { snapshotActiveFrames } from '../services/ytResume'
 import { type ExplorerMode, explorerMode, fetchFollowing, onExplorerMode, onFollowsChange } from '../services/follows'
+import { flushCapture } from '../services/capture'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
 import CameraController, { entryZoom, exploreMinZoom } from './CameraController'
@@ -121,6 +122,8 @@ function RenderGovernor() {
     }
     gl.autoClear = originalAutoClear
     camera.layers.mask = EXPLORER_LAYER_MASK
+    // a pending room capture copies the pixels NOW, while this frame's drawing buffer is still intact
+    flushCapture(gl.domElement)
   }, 1)
   return null
 }

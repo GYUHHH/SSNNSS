@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { MAX_ROOMS, useRoomStore } from '../store'
 import { isVisiting, myHandle } from '../services/social'
 import { explorerMode, isFollowingRoom, myInviteLink, onFollowsChange, setExplorerMode, setFollowing } from '../services/follows'
+import { shareRoom } from '../services/capture'
 import SoundHub from './SoundHub'
 
 const icon = (children: React.ReactNode) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
@@ -21,6 +22,15 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
   const { rooms, activeRoomId, openRoom, createRoom, mode, timeOfDay, setTimeOfDay } = useRoomStore()
   const [roomsOpen, setRoomsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [shareState, setShareState] = useState<'idle' | 'busy' | 'saved'>('idle')
+  const share = () => {
+    if (shareState === 'busy') return
+    setShareState('busy')
+    void shareRoom().then((result) => {
+      if (result === 'saved') { setShareState('saved'); setTimeout(() => { setShareState('idle'); setRoomsOpen(false) }, 1200) }
+      else { setShareState('idle'); setRoomsOpen(false) }
+    })
+  }
   const copyInvite = () => void myInviteLink().then((link) => {
     if (!link) return
     void navigator.clipboard.writeText(link).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) })
@@ -57,6 +67,7 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
         </li>)}
         {rooms.length < MAX_ROOMS && <li><button type="button" onClick={() => { createRoom(); setRoomsOpen(false) }}>+ 새 방 만들기</button></li>}
         <li><button type="button" onClick={copyInvite}>{copied ? '복사됨' : '초대 링크 복사'}</button></li>
+        <li><button type="button" onClick={share}>{shareState === 'busy' ? '캡처 중' : shareState === 'saved' ? '저장됨 · 링크 복사됨' : '방 공유'}</button></li>
       </ul>}
       <button type="button" className="dock-button" aria-label="내 방 목록" onClick={() => setRoomsOpen((value) => !value)}><HouseIcon /></button>
     </div>}
