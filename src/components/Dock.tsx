@@ -4,6 +4,7 @@ import { isVisiting, myHandle } from '../services/social'
 import { explorerMode, isFollowingRoom, myInviteLink, onFollowsChange, setExplorerMode, setFollowing } from '../services/follows'
 import { shareRoom } from '../services/capture'
 import SoundHub from './SoundHub'
+import { requestExplorerZoom } from './CameraController'
 
 const icon = (children: React.ReactNode) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
 const HouseIcon = () => icon(<><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></>)
@@ -72,7 +73,7 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
       <button type="button" className="dock-button" aria-label="내 방 목록" onClick={() => setRoomsOpen((value) => !value)}><HouseIcon /></button>
     </div>}
     {owner && <button type="button" className="dock-button" aria-label="시간대 변경" onClick={cycleTime}>{timeOfDay === 'day' ? <SunIcon /> : timeOfDay === 'evening' ? <SunsetIcon /> : <MoonIcon />}</button>}
-    {owner && <button type="button" className="dock-button" aria-label={explore === 'home' ? '팔로우' : '탐색'} onClick={() => { const next = explore === 'home' ? 'discover' : 'home'; setExplore(next); setExplorerMode(next) }}>{explore === 'home' ? <PersonIcon /> : <GlobeIcon />}</button>}
+    {owner && <button type="button" className="dock-button" aria-label={explore === 'home' ? '팔로우' : '탐색'} onClick={() => { const next = explore === 'home' ? 'discover' : 'home'; setExplore(next); setExplorerMode(next); if (next === 'discover') requestExplorerZoom() }}>{explore === 'home' ? <PersonIcon /> : <GlobeIcon />}</button>}
     {visiting && mode === 'normal' && !!myHandle() && !!currentHandle && <button type="button" className={followed ? 'dock-button following' : 'dock-button'} aria-label={followed ? '팔로우 해제' : '팔로우'} onClick={() => { if (followed === null) return; setFollowed(!followed); void setFollowing(currentHandle, !followed).then((ok) => { if (!ok) setFollowed(followed) }) }}>{followed ? <PersonCheckIcon /> : <PersonPlusIcon />}</button>}
     <SoundHub />
     {owner && <button type="button" className="dock-button dock-fade" aria-label="보관함" onClick={onOpenInventory}><BoxIcon /></button>}

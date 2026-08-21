@@ -25,6 +25,10 @@ export const exploreMinZoom = (width: number, height: number) => {
 // already gone at the moment of entry.
 export const entryZoom = (width: number, height: number) => isCompactScreen(width, height) ? 22 : 46
 
+// the dock's discover toggle asks the camera to pull all the way out to the explorer
+const EXPLORER_ZOOM_EVENT = 'explorer-zoom-out'
+export const requestExplorerZoom = () => window.dispatchEvent(new CustomEvent(EXPLORER_ZOOM_EVENT))
+
 // The straight-on view a room is entered at, derived from the default rig: the camera sits at (10, 8.5, 10) looking
 // at (0, 3.5, 0), so the offset is (10, 5, 10) with radius 15 — azimuth atan2(10, 10) and polar acos(5 / 15).
 const DEFAULT_AZIMUTH = Math.PI / 4
@@ -112,6 +116,11 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
   }, [baseZoom, camera, focusRoom?.token])
 
   useEffect(() => { zoomTarget.current = Math.max(zoomTarget.current, minZoom) }, [minZoom])
+  useEffect(() => {
+    const onZoomOut = () => { zoomTarget.current = minZoom }
+    window.addEventListener(EXPLORER_ZOOM_EVENT, onZoomOut)
+    return () => window.removeEventListener(EXPLORER_ZOOM_EVENT, onZoomOut)
+  }, [minZoom])
 
   useEffect(() => {
     // the canvas is pointer-transparent (clicks reach wall-video iframes behind it) — real pointer targets
