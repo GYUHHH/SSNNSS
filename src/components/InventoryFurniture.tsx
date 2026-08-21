@@ -258,6 +258,70 @@ function SucculentPot({ preview }: { preview: boolean }) {
   </>
 }
 
+// 백제금동대향로. 1칸짜리 소품이라 진짜 유물의 74개 봉우리·42마리 동물·5악사 투조는 살릴 수 없다 —
+// 알아보게 만드는 건 실루엣이다: 용 받침 → 잘록한 목 → 연꽃 반구 → 봉우리 덮인 달걀 돔 → 봉황.
+const BURNER_GILT = '#9c7a45'
+const BURNER_DARK = '#6b5330'
+const BURNER_LIT = '#c3a163'
+// [뚜껑 꼭대기로부터의 극각, 봉우리 개수, 봉우리 높이] — 위로 갈수록 작아져 원근이 생긴다
+const BURNER_PEAKS: Array<[number, number, number]> = [[1.16, 9, .105], [.88, 8, .09], [.62, 6, .076], [.33, 4, .06]]
+const DOME_Y = .575
+const DOME_R = .268
+
+function IncenseBurner({ preview }: { preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  const gilt = (color: string, rough = .44) => <meshStandardMaterial color={color} metalness={.72} roughness={rough} transparent={preview} opacity={opacity} />
+  // +Y를 (cos φ, sin φ) 방향으로 기울이는 회전: X축은 +sin φ, Z축은 -cos φ
+  const tiltTo = (phi: number, tilt: number): [number, number, number] => [Math.sin(phi) * tilt, 0, -Math.cos(phi) * tilt]
+  const petal = (count: number, y: number, radius: number, tilt: number, height: number, offset: number) => Array.from({ length: count }, (_, index) => {
+    const phi = offset + index / count * Math.PI * 2
+    return <group key={`${y}-${index}`} position={[Math.cos(phi) * radius, y, Math.sin(phi) * radius]} rotation={tiltTo(phi, tilt)}>
+      <mesh castShadow position={[0, height / 2, 0]} scale={[1, 1, .4]}><coneGeometry args={[height * .44, height, 4]} />{gilt(BURNER_GILT)}</mesh>
+    </group>
+  })
+  return <>
+    {/* 용 받침 */}
+    <mesh castShadow position={[0, .045, 0]} rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[.13, .04, 6, 16]} />{gilt(BURNER_DARK, .5)}</mesh>
+    <mesh castShadow position={[0, .105, 0]} rotation={[-Math.PI / 2, 0, .5]}><torusGeometry args={[.088, .032, 6, 14]} />{gilt(BURNER_DARK, .5)}</mesh>
+    {[.4, 2.5, 4.6].map((phi) => <mesh castShadow key={phi} position={[Math.cos(phi) * .155, .07, Math.sin(phi) * .155]} rotation={[.9, phi, 0]}>
+      <torusGeometry args={[.045, .014, 5, 10, 4.4]} />{gilt(BURNER_DARK, .5)}
+    </mesh>)}
+    <mesh castShadow position={[.06, .165, .01]} rotation={[0, 0, -.45]} scale={[1.5, 1, .9]}><sphereGeometry args={[.042, 8, 6]} />{gilt(BURNER_LIT)}</mesh>
+    {[-1, 1].map((side) => <mesh castShadow key={side} position={[.085, .2, side * .022]} rotation={[0, 0, -.9]}><coneGeometry args={[.011, .06, 5]} />{gilt(BURNER_LIT)}</mesh>)}
+    {/* 잘록한 목 + 당초 소용돌이 */}
+    <mesh castShadow position={[0, .245, 0]}><cylinderGeometry args={[.036, .05, .12, 10]} />{gilt(BURNER_GILT)}</mesh>
+    {[.7, 2.8, 4.9].map((phi) => <mesh castShadow key={phi} position={[Math.cos(phi) * .06, .26, Math.sin(phi) * .06]} rotation={[1.3, phi, 0]}>
+      <torusGeometry args={[.038, .011, 5, 9, 4.8]} />{gilt(BURNER_LIT)}
+    </mesh>)}
+    {/* 연꽃 몸체 */}
+    <mesh castShadow position={[0, .545, 0]} scale={[1, .85, 1]}><sphereGeometry args={[.27, 20, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2]} />{gilt(BURNER_GILT)}</mesh>
+    {petal(7, .455, .222, .62, .2, 0)}
+    {petal(6, .372, .17, 1.02, .17, .45)}
+    {/* 몸체·뚜껑 경계 띠 */}
+    <mesh castShadow position={[0, .558, 0]}><cylinderGeometry args={[.276, .276, .046, 22]} />{gilt(BURNER_LIT, .38)}</mesh>
+    <mesh position={[0, .582, 0]}><cylinderGeometry args={[.268, .268, .012, 22]} />{gilt(BURNER_DARK, .5)}</mesh>
+    {/* 산악 뚜껑 */}
+    <mesh castShadow position={[0, DOME_Y, 0]} scale={[1, 1.2, 1]}><sphereGeometry args={[DOME_R, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />{gilt(BURNER_GILT)}</mesh>
+    {BURNER_PEAKS.flatMap(([theta, count, height], row) => Array.from({ length: count }, (_, index) => {
+      const phi = row * .38 + index / count * Math.PI * 2
+      const ring = DOME_R * Math.sin(theta)
+      return <group key={`${row}-${index}`} position={[Math.cos(phi) * ring, DOME_Y + DOME_R * 1.2 * Math.cos(theta), Math.sin(phi) * ring]} rotation={tiltTo(phi, theta * .55)}>
+        <mesh castShadow position={[0, height / 2 - .022, 0]}><coneGeometry args={[height * .44, height, 5]} />{gilt(row % 2 ? BURNER_LIT : BURNER_GILT)}</mesh>
+      </group>
+    }))}
+    {/* 봉황 */}
+    <mesh castShadow position={[0, .935, 0]} scale={[.8, 1, 1.5]}><sphereGeometry args={[.052, 8, 7]} />{gilt(BURNER_LIT, .36)}</mesh>
+    <mesh castShadow position={[0, .988, .022]} scale={[.9, 1, 1.1]}><sphereGeometry args={[.031, 8, 6]} />{gilt(BURNER_LIT, .36)}</mesh>
+    <mesh position={[0, .985, .054]} rotation={[1.35, 0, 0]}><coneGeometry args={[.012, .04, 5]} />{gilt(BURNER_DARK)}</mesh>
+    {[-1, 1].map((side) => <mesh castShadow key={side} position={[side * .055, .955, -.005]} rotation={[0, 0, side * -.75]} scale={[1, 1, .45]}>
+      <coneGeometry args={[.036, .12, 5]} />{gilt(BURNER_LIT, .36)}
+    </mesh>)}
+    {[-.28, 0, .28].map((yaw) => <mesh castShadow key={yaw} position={[Math.sin(yaw) * .03, .975, -.045]} rotation={[-.55, yaw, 0]}>
+      <coneGeometry args={[.014, .13, 4]} />{gilt(BURNER_LIT, .36)}
+    </mesh>)}
+  </>
+}
+
 export function ItemVisual({ item, preview = false }: { item: FurnitureItem; preview?: boolean }) {
   const store = useOptionalRoomStore()
   const musicTrack = store?.musicTrack ?? null
@@ -309,6 +373,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'herb-pot') return <HerbPot preview={preview} />
   if (item.type === 'herb-pot-2') return <HerbPotTwo preview={preview} />
   if (item.type === 'succulent-pot') return <SucculentPot preview={preview} />
+  if (item.type === 'incense-burner') return <IncenseBurner preview={preview} />
   if (item.type === 'bronze-bird-sculpture') return <BronzeBirdSculpture preview={preview} />
   if (item.type === 'bronze-bird-sculpture-2') return <BronzeBirdSculptureTwo preview={preview} />
   if (item.type === 'guestbook') {
