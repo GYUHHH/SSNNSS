@@ -505,7 +505,9 @@ function RoomWorld() {
       rest.filter(isEnterable).forEach((handle) => void fetchRoomBundle(handle))
     })
     return () => { live = false }
-  }, [hubHandle, ringMode, followsTick])
+    // activeHandle in the deps: moving to another room re-pulls the ring, so a room that was only in the
+    // list as "the one being viewed" (e.g. just unfollowed while standing in it) drops out on leaving it
+  }, [hubHandle, ringMode, followsTick, activeHandle])
   // Re-based so the room being viewed always sits at the world origin. Everything inside a room — the placement
   // grid, the character's pathfinding, every worldToGrid call — is written in room-local coordinates against
   // surfaces at the origin, so entering an offset neighbour put every click outside the 10x10 grid and the room
