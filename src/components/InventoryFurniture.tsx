@@ -99,6 +99,33 @@ function HerbPot({ preview }: { preview: boolean }) {
   </>
 }
 
+// crassula "watch chain": each stem is a stack of beads rather than a smooth cylinder — the serrated
+// silhouette is what makes it read as this succulent and not the herb pot's leafy fronds
+function SucculentStem({ yaw, lean, height, preview }: { yaw: number; lean: number; height: number; preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  const beads = 8
+  return <group rotation={[0, yaw, 0]}>{Array.from({ length: beads }, (_, index) => {
+    const t = index / (beads - 1)
+    const radius = .052 - t * .024
+    return <mesh castShadow key={index} position={[lean * t * t, height * t + .04, 0]} rotation={[0, 0, -lean * t * 1.4]} scale={[.85, 1.15, .85]}>
+      <sphereGeometry args={[radius, 6, 5]} />
+      <meshStandardMaterial color={new Color('#5f8f42').lerp(new Color('#a2cb6c'), t)} transparent={preview} opacity={opacity} />
+    </mesh>
+  })}</group>
+}
+
+function SucculentPot({ preview }: { preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  return <>
+    <mesh castShadow position={[0, .17, 0]}><cylinderGeometry args={[.26, .19, .34, 16]} /><meshStandardMaterial color="#b4674b" roughness={.85} transparent={preview} opacity={opacity} /></mesh>
+    <mesh castShadow position={[0, .365, 0]}><cylinderGeometry args={[.295, .285, .085, 16]} /><meshStandardMaterial color="#c07253" roughness={.82} transparent={preview} opacity={opacity} /></mesh>
+    <mesh position={[0, .395, 0]}><cylinderGeometry args={[.245, .245, .02, 16]} /><meshStandardMaterial color="#3d2b20" roughness={1} transparent={preview} opacity={opacity} /></mesh>
+    <group position={[0, .4, 0]}>{[
+      [.2, .1, .62], [.95, .16, .7], [1.7, .08, .5], [2.4, .2, .66], [3.1, .12, .58], [3.8, .17, .68], [4.5, .09, .52], [5.2, .19, .64], [5.8, .13, .56], [.55, .04, .46],
+    ].map(([yaw, lean, height]) => <SucculentStem key={yaw} yaw={yaw} lean={lean} height={height} preview={preview} />)}</group>
+  </>
+}
+
 export function ItemVisual({ item, preview = false }: { item: FurnitureItem; preview?: boolean }) {
   const store = useOptionalRoomStore()
   const musicTrack = store?.musicTrack ?? null
@@ -148,6 +175,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'floor-lamp') return <><mesh castShadow position={[0, .06, 0]}><cylinderGeometry args={[.25, .28, .12, 12]} /><meshStandardMaterial color={material.color ?? '#83624f'} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh castShadow position={[0, .66, 0]}><cylinderGeometry args={[.04, .04, 1.08, 8]} /><meshStandardMaterial color={material.color ?? '#83624f'} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh castShadow position={[0, 1.34, 0]}><cylinderGeometry args={[.18, .3, .38, 12, 1, true]} /><meshStandardMaterial color={material.color ?? '#f3d79f'} emissive={lit ? '#ffd9a0' : '#000000'} emissiveIntensity={lit ? .6 : 0} side={2} transparent={material.transparent} opacity={material.opacity} /></mesh>{lit && <mesh position={[0, 1.26, 0]}><sphereGeometry args={[.07, 10, 8]} /><meshStandardMaterial color="#ffe6b8" emissive="#ffe6b8" emissiveIntensity={1.4} /></mesh>}{lit && <pointLight color="#ffc66d" intensity={6} distance={2.4} position={[0, 1.16, 0]} />}</>
   if (item.type === 'potted-plant') return <><mesh castShadow position={[0, .2, 0]}><cylinderGeometry args={[.22, .27, .4, 10]} /><meshStandardMaterial color={material.color ?? '#c37c59'} transparent={material.transparent} opacity={material.opacity} /></mesh>{[-.18, 0, .18].map((x) => <mesh castShadow key={x} position={[x, .65, 0]} rotation={[0.5, x * 2, 0]}><sphereGeometry args={[.22, 8, 8]} /><meshStandardMaterial color={material.color ?? '#668c64'} transparent={material.transparent} opacity={material.opacity} /></mesh>)}</>
   if (item.type === 'herb-pot') return <HerbPot preview={preview} />
+  if (item.type === 'succulent-pot') return <SucculentPot preview={preview} />
   if (item.type === 'guestbook') {
     const noteCount = Math.min(6, store?.guestbook[item.id]?.length ?? 0)
     return <><RoundedBox castShadow args={[1.34, 1.34, .05]} radius={.03} smoothness={2} position={[0, 0, .025]}>{mat('#8a6048')}</RoundedBox><mesh position={[0, 0, .055]}><planeGeometry args={[1.18, 1.18]} />{mat('#c9a06c')}</mesh><mesh position={[0, .47, .06]}><planeGeometry args={[.62, .16]} />{mat('#f3ead9')}</mesh>{Array.from({ length: noteCount }, (_, index) => <group key={index} position={[-.36 + (index % 3) * .36, .16 - Math.floor(index / 3) * .42, .06]} rotation={[0, 0, (index % 2 ? 1 : -1) * .06]}><mesh><planeGeometry args={[.26, .26]} /><meshStandardMaterial color={['#fffaf0', '#f9e9c8', '#e8f0dd'][index % 3]} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh position={[0, .11, .005]}><circleGeometry args={[.022, 8]} /><meshStandardMaterial color="#b3563f" transparent={material.transparent} opacity={material.opacity} /></mesh></group>)}{noteCount === 0 && <mesh position={[0, -.05, .06]}><planeGeometry args={[.5, .3]} />{mat('#fffaf0')}</mesh>}</>
