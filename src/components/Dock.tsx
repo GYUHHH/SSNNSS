@@ -76,9 +76,9 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
       <button type="button" className="dock-button" aria-label="내 방 목록" onClick={() => setRoomsOpen((value) => !value)}><HouseIcon /></button>
     </div>}
     {owner && <button type="button" className="dock-button" aria-label="시간대 변경" onClick={cycleTime}>{timeOfDay === 'day' ? <SunIcon /> : timeOfDay === 'evening' ? <SunsetIcon /> : <MoonIcon />}</button>}
-    {visiting && mode === 'normal' && !!myHandle() && !!currentHandle && <button type="button" className={followed ? 'dock-button following' : 'dock-button'} aria-label={followed ? '팔로우 해제' : '팔로우'} onClick={() => { if (followed === null) return; setFollowed(!followed); void setFollowing(currentHandle, !followed).then((ok) => { if (!ok) setFollowed(followed) }) }}>{followed ? <PersonCheckIcon /> : <PersonPlusIcon />}</button>}
+    {visiting && mode === 'normal' && !!myHandle() && !!currentHandle && <button type="button" style={{ visibility: followed === null ? 'hidden' : 'visible' }} className={followed ? 'dock-button following' : 'dock-button'} aria-label={followed ? '팔로우 해제' : '팔로우'} onClick={() => { if (followed === null) return; setFollowed(!followed); void setFollowing(currentHandle, !followed).then((ok) => { if (!ok) setFollowed(followed) }) }}>{followed ? <PersonCheckIcon /> : <PersonPlusIcon />}</button>}
     {mode === 'normal' && !!myHandle() && <button type="button" className={explore === 'home' ? 'dock-button' : 'dock-button following'} aria-label={explore === 'home' ? '팔로우' : '탐색'} onClick={() => { const next = explore === 'home' ? 'discover' : 'home'; setExplore(next); setExplorerMode(next); requestExplorerZoom() }}>{explore === 'home' ? <PersonIcon /> : <GlobeIcon />}</button>}
-    <SoundHub />
+    <span className="dock-slot"><SoundHub /></span>
     {owner && <button type="button" className="dock-button dock-fade" aria-label="보관함" onClick={onOpenInventory}><BoxIcon /></button>}
   </div>
 }

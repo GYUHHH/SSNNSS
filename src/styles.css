@@ -560,6 +560,10 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 .entry-buttons button:last-child { border-color: var(--ui-blue); color: #fff; background: var(--ui-blue); }
 .dock { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 40; display: flex; align-items: center; gap: 10px; pointer-events: auto; }
 .dock-button { display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 50%; color: #fff; background: rgb(20 20 20 / 32%); cursor: pointer; }
+/* Every dock button keeps a slot of its own: the volume button only exists while something is playing and
+   the follow button waits on a server answer, and letting either pop into the row shoved the whole strip
+   sideways after the screen had already settled. A reserved slot means the row never moves. */
+.dock-slot { display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; }
 .dock-item { position: relative; display: flex; }
 .dock-pop { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); display: grid; gap: 4px; margin: 0; padding: 8px; list-style: none; border: 1px solid #dbdbdb; border-radius: 8px; background: #ffffff; }
 .dock-pop li { display: flex; align-items: center; }
