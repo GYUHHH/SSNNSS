@@ -3,10 +3,8 @@ import PlacementGrid from './PlacementGrid'
 import { useRoomStore } from '../store'
 import { type WallId, wallSurfaces } from '../services/roomGrid'
 import { palette } from '../services/palette'
-import { colorOf } from '../services/styles'
+import { colorOf, DEFAULT_WALL_COLOR } from '../services/styles'
 import { useArtTexture } from './ArtEditor'
-
-const DEFAULT_WALL_COLOR: Record<WallId, string> = { leftWall: '#f1dfc4', rightWall: '#f8e9d1' }
 
 const TRIM_COLOR = '#8a6a52'
 

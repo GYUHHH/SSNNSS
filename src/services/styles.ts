@@ -13,7 +13,11 @@ export const colorPresets: ColorPreset[] = [
   { id: 'ivory', label: '아이보리', color: '#efe9dc' },
   { id: 'lightGray', label: '라이트 그레이', color: '#d8d8d4' },
 ]
-export const colorOf = (id: string | undefined, fallback: string) => colorPresets.find((preset) => preset.id === id)?.color ?? fallback
+// a stored style is either one of the preset ids or a raw hex the owner picked out of the colour wheel
+export const colorOf = (id: string | undefined, fallback: string) => id?.startsWith('#') ? id : colorPresets.find((preset) => preset.id === id)?.color ?? fallback
+
+// the walls before anyone recolours them — lives here so the picker can show what it is starting from
+export const DEFAULT_WALL_COLOR = { leftWall: '#f1dfc4', rightWall: '#f8e9d1' } as const
 
 // walls only offer a subset that reads as "wallpaper" rather than furniture-saturated colors
 export const wallStylePresets = ['cream', 'beige', 'sage', 'dustyPink', 'brown', 'white', 'ivory', 'lightGray'] as const
@@ -25,7 +29,13 @@ export const floorStyles: FloorStyle[] = [
   { id: 'tile', label: '타일', color: '#e7ddc9', roughness: 0.3, pattern: 'grout' },
   { id: 'whitewood', label: '화이트 우드', color: '#e9e4da', roughness: 0.6 },
 ]
-export const floorStyleOf = (id: string | undefined) => floorStyles.find((style) => style.id === id) ?? floorStyles[0]
+// A floor is a material plus a colour: "tile" keeps the material's own tone, "tile#c9a06a" repaints it while
+// keeping that material's roughness and grout.
+export const floorStyleOf = (id: string | undefined): FloorStyle => {
+  const [material, tint] = (id ?? '').split('#')
+  const style = floorStyles.find((entry) => entry.id === material) ?? floorStyles[0]
+  return tint ? { ...style, color: `#${tint}` } : style
+}
 
 // furniture types whose primary material responds to a styleId — anything not listed here just ignores styleId
 export const customizableTypes = new Set(['bed', 'sofa', 'desk', 'cabinet', 'bookshelf', 'rug', 'lamp', 'floor-lamp', 'cushion', 'plush', 'photo-frame', 'music-player'])

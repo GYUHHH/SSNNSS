@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { type FurnitureItem, initialFurniture, inventoryItems, type InventoryCategory, useRoomStore } from '../store'
 import { thumbnailFor } from '../services/thumbnails'
-import { colorPresets, customizableTypes, floorStyleOf, floorStyles, wallStylePresets } from '../services/styles'
+import { colorOf, customizableTypes, DEFAULT_WALL_COLOR, floorStyleOf, floorStyles } from '../services/styles'
 import { DEFAULT_APPEARANCE as CHARACTER_DEFAULTS } from './Character'
 
 function ItemIcon({ item }: { item: { type: string; styleId?: string } }) {
@@ -26,24 +26,34 @@ const OWNABLE: Array<{ type: string; name: string; size: [number, number]; footp
 const WHITE_LINE = OWNABLE.filter((entry) => customizableTypes.has(entry.type)).map((entry) => ({ ...entry, styleId: 'white', name: `화이트 ${entry.name}` }))
 const CATALOG = [...OWNABLE, ...WHITE_LINE]
 
-// The character's look editor: five parts, each with its own swatch row. Skin and hair carry their own
-// palettes (the shared furniture presets read wrong on a face); clothes and shoes reuse the room presets so the
-// character can match the furniture. Changes save and publish exactly like recoloring a wall does.
-const SKIN_TONES = ['#f4d9c0', '#ecc9a8', '#dfa27f', '#c98a63', '#a96c47', '#7d4f33']
-const HAIR_TONES = ['#2b2320', '#5a4035', '#8a6a52', '#b78c5a', '#d9b380', '#b55239', '#8a3d2e', '#7d8a93', '#e8e3da']
-const LOOK_ROWS = [
-  ['skinColor', '피부', SKIN_TONES],
-  ['hairColor', '머리', HAIR_TONES],
-  ['topColor', '상의', colorPresets.map((preset) => preset.color)],
-  ['bottomColor', '하의', colorPresets.map((preset) => preset.color)],
-  ['shoeColor', '신발', colorPresets.map((preset) => preset.color)],
-] as const
+// Colours are picked freely off the native wheel rather than off a fixed swatch row. The store write waits for
+// the drag to settle: every write publishes the whole room, and a colour input fires on each pointer move.
+function ColorField({ value, onPick }: { value: string; onPick: (hex: string) => void }) {
+  const [local, setLocal] = useState(value)
+  const pending = useRef<string | null>(null)
+  const timer = useRef(0)
+  const commit = useRef(onPick)
+  commit.current = onPick
+  useEffect(() => setLocal(value), [value])
+  // closing the panel mid-pick must not drop the colour
+  useEffect(() => () => { window.clearTimeout(timer.current); if (pending.current) commit.current(pending.current) }, [])
+  return <input type="color" className="color-field" value={local} aria-label="색 고르기" onChange={(event) => {
+    const next = event.target.value
+    setLocal(next)
+    pending.current = next
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => { pending.current = null; commit.current(next) }, 220)
+  }} />
+}
+
+// The character's look editor: one free colour per part. Changes save and publish exactly like recoloring a wall.
+const LOOK_ROWS = [['skinColor', '피부'], ['hairColor', '머리'], ['topColor', '상의'], ['bottomColor', '하의'], ['shoeColor', '신발']] as const
 function CharacterLookEditor() {
   const { characterLook, setCharacterLook } = useRoomStore()
   const current = { ...CHARACTER_DEFAULTS, ...characterLook }
   return <div className="room-colors">
-    {LOOK_ROWS.map(([part, label, palette]) => <div key={part} className="room-color-row"><span>{label}</span>
-      <div className="style-swatches">{palette.map((color) => <button key={color} type="button" title={label} className={current[part] === color ? 'active' : ''} style={{ background: color }} onClick={() => setCharacterLook({ [part]: color })} />)}</div>
+    {LOOK_ROWS.map(([part, label]) => <div key={part} className="room-color-row"><span>{label}</span>
+      <ColorField value={current[part]} onPick={(hex) => setCharacterLook({ [part]: hex })} />
     </div>)}
     {characterLook && <div className="room-color-row"><span /><div><button type="button" className="look-reset" onClick={() => setCharacterLook(null)}>기본으로 되돌리기</button></div></div>}
   </div>
@@ -52,13 +62,16 @@ function CharacterLookEditor() {
 // wall and floor recolors live in the inventory now — clicking the room surfaces no longer opens a picker
 function RoomColorEditor() {
   const { wallStyle, floorStyle, setWallStyle, setFloorStyle } = useRoomStore()
-  const wallSwatches = colorPresets.filter((preset) => (wallStylePresets as readonly string[]).includes(preset.id))
+  const floor = floorStyleOf(floorStyle)
   return <div className="room-colors">
     {([['leftWall', '왼쪽 벽'], ['rightWall', '오른쪽 벽']] as const).map(([wallId, label]) => <div key={wallId} className="room-color-row"><span>{label}</span>
-      <div className="style-swatches">{wallSwatches.map((preset) => <button key={preset.id} type="button" title={preset.label} className={wallStyle[wallId] === preset.id ? 'active' : ''} style={{ background: preset.color }} onClick={() => setWallStyle(wallId, preset.id)} />)}</div>
+      <ColorField value={colorOf(wallStyle[wallId], DEFAULT_WALL_COLOR[wallId])} onPick={(hex) => setWallStyle(wallId, hex)} />
     </div>)}
-    <div className="room-color-row"><span>바닥</span>
-      <div className="style-swatches">{floorStyles.map((style) => <button key={style.id} type="button" title={style.label} className={floorStyleOf(floorStyle).id === style.id ? 'active' : ''} style={{ background: style.color }} onClick={() => setFloorStyle(style.id)} />)}</div>
+    <div className="room-color-row"><span>바닥 재질</span>
+      <div className="style-swatches">{floorStyles.map((style) => <button key={style.id} type="button" title={style.label} className={floor.id === style.id ? 'active' : ''} style={{ background: style.color }} onClick={() => setFloorStyle(style.id)} />)}</div>
+    </div>
+    <div className="room-color-row"><span>바닥 색상</span>
+      <ColorField value={floor.color} onPick={(hex) => setFloorStyle(`${floor.id}${hex}`)} />
     </div>
   </div>
 }
