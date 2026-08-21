@@ -21,7 +21,7 @@ import { isSignedIn, isVisiting, myHandle } from './services/social'
 import { thumbnailFor } from './services/thumbnails'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 415
+const BUILD = 416
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume } = useRoomStore()
@@ -68,7 +68,16 @@ function Interface() {
   const panelOpen = artOpen || musicOpen || inventorySheet
   const [sheetExpanded, setSheetExpanded] = useState(false)
   const sheet = useRef<HTMLElement>(null)
-  const drag = useRef<{ y: number; at: number; travel: number; height: number; expanded: boolean } | null>(null)
+  const drag = useRef<{ y: number; at: number; travel: number; height: number; expanded: boolean; captured: boolean; pointerId: number } | null>(null)
+  // one style write per painted frame — a finger emits pointermove faster than the screen refreshes, and
+  // writing transform on every one of them is what made the sheet feel like it lagged behind the touch
+  const frame = useRef(0)
+  const offset = useRef(0)
+  const paint = () => {
+    frame.current = 0
+    if (sheet.current && drag.current) sheet.current.style.transform = `translateY(${offset.current}px)`
+  }
+  const glideTo = (value: number) => { offset.current = value; if (!frame.current) frame.current = requestAnimationFrame(paint) }
   const suppressSheetClick = useRef(false)
   const isSheet = () => window.matchMedia('(max-width: 719px)').matches
   useEffect(() => { if (!panelOpen) setSheetExpanded(false) }, [panelOpen])
@@ -77,32 +86,37 @@ function Interface() {
     const panel = sheet.current
     // let an inner scroll keep the gesture unless it is already at the very top
     if (!panel || panel.scrollTop > 0) return
-    drag.current = { y: event.clientY, at: performance.now(), travel: 0, height: panel.getBoundingClientRect().height, expanded: sheetExpanded }
+    drag.current = { y: event.clientY, at: performance.now(), travel: 0, height: panel.getBoundingClientRect().height, expanded: sheetExpanded, captured: false, pointerId: event.pointerId }
   }
   const sheetMove = (event: React.PointerEvent) => {
     const held = drag.current
-    if (!held || !sheet.current) return
+    const panel = sheet.current
+    if (!held || !panel) return
     const travel = event.clientY - held.y
     held.travel = travel
-    if (Math.abs(travel) > 5) suppressSheetClick.current = true
-    sheet.current.style.transition = 'none'
-    if (!held.expanded && travel < 0) {
-      const viewportHeight = window.visualViewport?.height ?? window.innerHeight
-      sheet.current.style.height = `${Math.min(viewportHeight, held.height - travel)}px`
-      sheet.current.style.maxHeight = `${viewportHeight}px`
-      sheet.current.style.transform = ''
-    } else {
-      sheet.current.style.height = ''
-      sheet.current.style.maxHeight = ''
-      sheet.current.style.transform = `translateY(${Math.max(0, travel)}px)`
+    // a tap is not a drag: nothing moves until the finger has clearly travelled, and from that moment the
+    // pointer is captured so the sheet keeps following even when the finger leaves it
+    if (!held.captured) {
+      if (Math.abs(travel) < 5) return
+      held.captured = true
+      suppressSheetClick.current = true
+      panel.style.transition = 'none'
+      try { panel.setPointerCapture(held.pointerId) } catch { /* pointer already gone — the drag still tracks */ }
     }
-    if (Math.abs(travel) > 5) event.preventDefault()
+    // Down is 1:1 with the finger. Up, when the sheet is not expanded yet, is a damped rubber band instead of
+    // the old per-frame height change: growing the box reflowed the whole list every move, which is what made
+    // the upward gesture stutter. The release below is what actually commits to the expanded size.
+    glideTo(travel > 0 ? travel : held.expanded ? 0 : -Math.min(56, Math.sqrt(-travel) * 6))
+    event.preventDefault()
   }
   const sheetUp = (event: React.PointerEvent) => {
     const held = drag.current
     drag.current = null
-    if (!held || !sheet.current) return
     const panel = sheet.current
+    if (!held || !panel) return
+    if (held.captured) { try { panel.releasePointerCapture(held.pointerId) } catch { /* nothing to release */ } }
+    cancelAnimationFrame(frame.current)
+    frame.current = 0
     const height = panel.offsetHeight || 1
     const speed = held.travel / Math.max(1, performance.now() - held.at)
     if (held.expanded) {
@@ -110,6 +124,7 @@ function Interface() {
     } else if (held.travel < -Math.min(80, (window.visualViewport?.height ?? window.innerHeight) * .08) || speed < -.5) {
       setSheetExpanded(true)
     } else if (held.travel > height * .3 || speed > .6) {
+      // closing hands the rest of the way to the CSS slide-out, which picks up from wherever the finger left it
       if (inventorySheet) setInventoryOpen(false); else clearSelection()
     }
     panel.style.transition = ''
