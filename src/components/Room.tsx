@@ -577,6 +577,13 @@ function RoomWorld() {
     })
   }, [handles, activeHandle])
   const active = slots.find((slot) => slot.handle === activeHandle) ?? slots[0]
+  const activeGroup = useRef<Group>(null)
+  const activeGlow = useRef(0)
+  const activeHovered = active.handle === centredHandle
+  useFrame((_, delta) => {
+    activeGlow.current = MathUtils.damp(activeGlow.current, activeHovered ? 1 : 0, 9, delta)
+    activeGroup.current?.scale.setScalar(1 + activeGlow.current * .06)
+  })
   // the room underneath the explorer is scenery until it is entered: fully zoomed out, a click selects a room
   const exploring = (zoom: number, width: number, height: number) => mode === 'normal' && zoom <= exploreMinZoom(width, height) + .5
   // The swap happens HERE, inside enterRoom's own listener pass, not after the await in open(). Doing it after
@@ -632,8 +639,8 @@ function RoomWorld() {
     if (mode === 'normal' && !requestedEntry.current && camera.zoom <= (floor + entryZoom(size.width, size.height)) / 2) {
       // Measured in pixels off a projected centre rather than in world space: the cluster is stacked across storeys
       // and panning slides the target in the screen plane, so world distance disagrees with what is on screen. The
-      // room already being viewed competes as well, and its winning means nothing is picked — zooming back into the
-      // room you are in should just re-centre it, which the camera already does on its own.
+      // The room already being viewed competes as well: it is clickable in the explorer, so it must receive the
+      // same hover, cursor and zoom target as every neighbouring room.
       const halfW = size.width / 2
       const halfH = size.height / 2
       const nearest = (atX: number, atY: number) => {
@@ -645,7 +652,7 @@ function RoomWorld() {
           const offset = Math.hypot((probe.x - atX) * halfW, (probe.y - atY) * halfH)
           if (offset < best) { best = offset; winner = slot }
         }
-        return { slot: winner === active ? null : winner, offset: best }
+        return { slot: winner, offset: best }
       }
       // Both readings are live on a desktop, and the mouse only takes over where it is actually resting on a room —
       // a room projects to a 200px box at zoom 20.2, so half of one is 4.95 pixels per unit of zoom. Off the rooms,
@@ -681,7 +688,7 @@ function RoomWorld() {
   const aim = useMemo(() => (slots.find((slot) => slot.handle === centredHandle) ?? active)?.position ?? null, [slots, active, centredHandle])
   return <>
     {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY) && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} swapping={swapping} />)}
-    <group position={active.position}>
+    <group ref={activeGroup} position={active.position}>
       <Inert off={exploring}><RoomRoot /></Inert>
       <ExplorerRoomHitbox off={exploring} open={() => beginEntry(active)} />
     </group>

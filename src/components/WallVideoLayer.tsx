@@ -2,7 +2,7 @@ import { Html } from '@react-three/drei'
 import { findFit } from './Furniture'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
-import type { Group } from 'three'
+import { Matrix4, type Group } from 'three'
 import { loadAudioPrefs, useRoomStore } from '../store'
 import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
 import { isVisiting } from '../services/social'
@@ -200,13 +200,16 @@ function WallVideo({ frameId }: { frameId: string }) {
 
 function FollowFit({ fitName, children }: { fitName: string; children: React.ReactNode }) {
   const holder = useRef<Group>(null)
+  const parentInverse = useRef(new Matrix4())
   useFrame(({ scene }) => {
     const target = holder.current
     if (!target) return
     const fit = findFit(target, scene, fitName.replace('fit:', ''))
     if (!fit) return
     fit.updateWorldMatrix(true, false)
+    target.parent?.updateWorldMatrix(true, false)
     target.matrix.copy(fit.matrixWorld)
+    if (target.parent) target.matrix.premultiply(parentInverse.current.copy(target.parent.matrixWorld).invert())
     target.matrixAutoUpdate = false
     target.matrixWorldNeedsUpdate = true
   })
