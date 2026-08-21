@@ -1,11 +1,11 @@
 import { Billboard, Html, RoundedBox, Text } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useMemo } from 'react'
-import { CanvasTexture, Color, EdgesGeometry, MathUtils, Shape, ShapeGeometry, SRGBColorSpace, type Texture, TextureLoader, VideoTexture, type PointLight } from 'three'
+import { CanvasTexture, CatmullRomCurve3, Color, EdgesGeometry, MathUtils, Object3D, Shape, ShapeGeometry, SRGBColorSpace, type Texture, TextureLoader, Vector3, VideoTexture, type PointLight } from 'three'
 import { BannerTextInput, SpeechBubbleInput, useArtTexture } from './ArtEditor'
 import { isDefaultProfilePhoto, isVisiting } from '../services/social'
 import { type ReactNode, useRef, useState } from 'react'
-import type { Group, MeshStandardMaterial } from 'three'
+import type { Group, InstancedMesh, MeshStandardMaterial } from 'three'
 import Furniture, { FittedMesh } from './Furniture'
 import MusicPanel from './MusicPanel'
 import { loadAudioPrefs, type FurnitureItem, useOptionalRoomStore, useRoomStore } from '../store'
@@ -99,6 +99,67 @@ function HerbPot({ preview }: { preview: boolean }) {
   </>
 }
 
+function HerbPotTwoFrond({ yaw, bend, height, preview, index }: { yaw: number; bend: number; height: number; preview: boolean; index: number }) {
+  const opacity = preview ? .5 : 1
+  const leafMesh = useRef<InstancedMesh>(null)
+  const curve = useMemo(() => new CatmullRomCurve3([
+    new Vector3(0, -.025, 0),
+    new Vector3(bend * .14, height * .32, 0),
+    new Vector3(bend * .52, height * .7, 0),
+    new Vector3(bend, height, 0),
+  ]), [bend, height])
+  const leaflets = useMemo(() => Array.from({ length: 9 }, (_, leafIndex) => {
+    const t = .12 + leafIndex * .095
+    const point = curve.getPoint(t)
+    const tangent = curve.getTangent(t)
+    return [-1, 1].map((side) => ({ point, tangent, t, side, leafIndex }))
+  }).flat(), [curve])
+  useLayoutEffect(() => {
+    if (!leafMesh.current) return
+    const transform = new Object3D()
+    leaflets.forEach(({ point, tangent, t, side, leafIndex }, leafIndexInMesh) => {
+      transform.position.set(point.x + side * .018, point.y, point.z)
+      transform.rotation.set(0, side * .16, -Math.atan2(tangent.x, tangent.y) + side * .92)
+      transform.scale.set(.34, 1 - t * .42, .38)
+      transform.updateMatrix()
+      leafMesh.current!.setMatrixAt(leafIndexInMesh, transform.matrix)
+      leafMesh.current!.setColorAt(leafIndexInMesh, new Color(leafIndex > 5 ? '#77ad58' : side > 0 ? '#619c49' : '#579044'))
+    })
+    leafMesh.current.instanceMatrix.needsUpdate = true
+    if (leafMesh.current.instanceColor) leafMesh.current.instanceColor.needsUpdate = true
+  }, [leaflets])
+  return <group name={`herb-pot-2-frond-${index}`} rotation={[0, yaw, 0]}>
+    <mesh name={`herb-pot-2-stem-${index}`} castShadow userData={{ explodeWithParent: true }}>
+      <tubeGeometry args={[curve, 10, .008, 5, false]} />
+      <meshStandardMaterial color={index % 3 === 0 ? '#4f873f' : '#5a9546'} roughness={.72} transparent={preview} opacity={opacity} />
+    </mesh>
+    <instancedMesh ref={leafMesh} name={`herb-pot-2-leaf-system-${index}`} args={[undefined, undefined, leaflets.length]} castShadow userData={{ explodeWithParent: true }}>
+      <sphereGeometry args={[.047, 6, 5]} />
+      <meshStandardMaterial vertexColors roughness={.76} transparent={preview} opacity={opacity} />
+    </instancedMesh>
+  </group>
+}
+
+function HerbPotTwo({ preview }: { preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  const fronds = [
+    [0, .06, .79], [.5, .28, .68], [1.04, .35, .58], [1.58, .29, .73], [2.18, .24, .64],
+    [2.74, .13, .77], [3.28, .26, .62], [3.86, .33, .7], [4.43, .3, .57], [5.02, .22, .75], [5.58, .34, .64],
+  ] as const
+  const chips = [
+    [-.14, .02, -.05, -.3], [-.06, .02, .1, .45], [.08, .02, -.1, -.55], [.16, .02, .03, .22],
+    [-.16, .02, .1, .65], [.02, .02, .14, -.2], [.14, .02, .13, .35], [.02, .02, -.15, .6],
+  ] as const
+  return <group name="herb-pot-2" userData={{ sculptRuntime: { parts: ['pot-body', 'pot-rim', 'soil', 'soil-chips', 'frond-cluster'], collider: 'cylinder' } }}>
+    <mesh name="herb-pot-2-pot-body" castShadow position={[0, .205, 0]}><cylinderGeometry args={[.275, .19, .41, 18]} /><meshStandardMaterial color="#b75a3e" roughness={.86} transparent={preview} opacity={opacity} /></mesh>
+    <mesh name="herb-pot-2-pot-band" castShadow position={[0, .42, 0]} userData={{ explodeWithParent: true }}><cylinderGeometry args={[.305, .292, .105, 18]} /><meshStandardMaterial color="#c56849" roughness={.82} transparent={preview} opacity={opacity} /></mesh>
+    <mesh name="herb-pot-2-rounded-rim" castShadow position={[0, .475, 0]} rotation={[Math.PI / 2, 0, 0]} userData={{ explodeWithParent: true }}><torusGeometry args={[.258, .047, 7, 20]} /><meshStandardMaterial color="#cd7251" roughness={.8} transparent={preview} opacity={opacity} /></mesh>
+    <mesh name="herb-pot-2-soil" position={[0, .476, 0]}><cylinderGeometry args={[.244, .244, .025, 18]} /><meshStandardMaterial color="#3a281f" roughness={1} transparent={preview} opacity={opacity} /></mesh>
+    <group name="herb-pot-2-soil-chips" position={[0, .492, 0]}>{chips.map(([x, y, z, rotation], chipIndex) => <mesh name={`herb-pot-2-soil-chip-${chipIndex}`} key={chipIndex} position={[x, y, z]} rotation={[0, rotation, 0]} scale={[1.7, .55, .65]} userData={{ explodeWithParent: true }}><octahedronGeometry args={[.035, 0]} /><meshStandardMaterial color={chipIndex % 2 ? '#76503a' : '#8b5a3f'} roughness={1} transparent={preview} opacity={opacity} /></mesh>)}</group>
+    <group name="herb-pot-2-frond-cluster" position={[0, .49, 0]}>{fronds.map(([yaw, bend, height], frondIndex) => <HerbPotTwoFrond key={yaw} yaw={yaw} bend={frondIndex % 2 ? bend : -bend} height={height} preview={preview} index={frondIndex} />)}</group>
+  </group>
+}
+
 // crassula "watch chain": each stem is a stack of beads rather than a smooth cylinder — the serrated
 // silhouette is what makes it read as this succulent and not the herb pot's leafy fronds
 function SucculentStem({ yaw, lean, height, preview }: { yaw: number; lean: number; height: number; preview: boolean }) {
@@ -175,6 +236,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'floor-lamp') return <><mesh castShadow position={[0, .06, 0]}><cylinderGeometry args={[.25, .28, .12, 12]} /><meshStandardMaterial color={material.color ?? '#83624f'} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh castShadow position={[0, .66, 0]}><cylinderGeometry args={[.04, .04, 1.08, 8]} /><meshStandardMaterial color={material.color ?? '#83624f'} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh castShadow position={[0, 1.34, 0]}><cylinderGeometry args={[.18, .3, .38, 12, 1, true]} /><meshStandardMaterial color={material.color ?? '#f3d79f'} emissive={lit ? '#ffd9a0' : '#000000'} emissiveIntensity={lit ? .6 : 0} side={2} transparent={material.transparent} opacity={material.opacity} /></mesh>{lit && <mesh position={[0, 1.26, 0]}><sphereGeometry args={[.07, 10, 8]} /><meshStandardMaterial color="#ffe6b8" emissive="#ffe6b8" emissiveIntensity={1.4} /></mesh>}{lit && <pointLight color="#ffc66d" intensity={6} distance={2.4} position={[0, 1.16, 0]} />}</>
   if (item.type === 'potted-plant') return <><mesh castShadow position={[0, .2, 0]}><cylinderGeometry args={[.22, .27, .4, 10]} /><meshStandardMaterial color={material.color ?? '#c37c59'} transparent={material.transparent} opacity={material.opacity} /></mesh>{[-.18, 0, .18].map((x) => <mesh castShadow key={x} position={[x, .65, 0]} rotation={[0.5, x * 2, 0]}><sphereGeometry args={[.22, 8, 8]} /><meshStandardMaterial color={material.color ?? '#668c64'} transparent={material.transparent} opacity={material.opacity} /></mesh>)}</>
   if (item.type === 'herb-pot') return <HerbPot preview={preview} />
+  if (item.type === 'herb-pot-2') return <HerbPotTwo preview={preview} />
   if (item.type === 'succulent-pot') return <SucculentPot preview={preview} />
   if (item.type === 'guestbook') {
     const noteCount = Math.min(6, store?.guestbook[item.id]?.length ?? 0)
