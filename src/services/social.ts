@@ -26,6 +26,8 @@ const escape = encodeURIComponent
 // unknown paths back here as ?p=<id> and the address bar is restored. Legacy ?room= links keep working.
 const BASE = import.meta.env.BASE_URL
 export const DEFAULT_PROFILE_PHOTO = `${BASE}default-profile.svg`
+export const isDefaultProfilePhoto = (photo?: string | null) => !photo || /(^|\/)default-profile\.svg(?:[?#].*)?$/.test(photo)
+export const normalizeProfilePhoto = (photo?: string | null) => isDefaultProfilePhoto(photo) ? DEFAULT_PROFILE_PHOTO : photo!
 export const defaultProfileData = (handle?: string) => ({
   photo: DEFAULT_PROFILE_PHOTO,
   photoOwner: handle,
@@ -147,7 +149,7 @@ const profilePhoto = (bundle: Record<string, string>, handle?: string | null) =>
   try {
     const profile = JSON.parse(bundle['my-room-profile-v1'] ?? '{}')
     if (profile?.photoOwner && handle && profile.photoOwner !== handle) return DEFAULT_PROFILE_PHOTO
-    return typeof profile?.photo === 'string' && profile.photo ? profile.photo : DEFAULT_PROFILE_PHOTO
+    return normalizeProfilePhoto(typeof profile?.photo === 'string' ? profile.photo : null)
   } catch { return DEFAULT_PROFILE_PHOTO }
 }
 export const myProfilePhoto = () => profilePhoto(ownerData, ownerHandle)

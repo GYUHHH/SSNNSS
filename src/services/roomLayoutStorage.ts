@@ -1,4 +1,4 @@
-import { currentRoomHandle, DEFAULT_PROFILE_PHOTO, defaultProfileData, isReadingBundle, isVisiting, readStored, writeStored } from './social'
+import { currentRoomHandle, DEFAULT_PROFILE_PHOTO, defaultProfileData, isReadingBundle, isVisiting, normalizeProfilePhoto, readStored, writeStored } from './social'
 
 export type FurniturePlacement = { id: string; type: string; position?: [number, number, number]; rotation: [number, number, number]; scale: number; surfaceId?: string; gridX?: number; gridZ?: number; gridY?: number; wallId?: 'leftWall' | 'rightWall'; footprint?: { width: number; depth: number }; resolution?: 'base' | 'subgrid2'; styleId?: string; removed?: boolean; updatedAt: string }
 export type RoomStyle = { leftWall?: string; rightWall?: string; floor?: string }
@@ -111,7 +111,7 @@ export function loadProfile(ownerHandle?: string): Profile {
       ...defaultProfileData(handle),
       ...saved,
       handle,
-      photo: ownsPhoto && typeof saved.photo === 'string' && saved.photo ? saved.photo : DEFAULT_PROFILE_PHOTO,
+      photo: ownsPhoto ? normalizeProfilePhoto(saved.photo) : DEFAULT_PROFILE_PHOTO,
       photoOwner: handle ?? saved.photoOwner,
     }
   } catch { return defaultProfileData(ownerHandle) }

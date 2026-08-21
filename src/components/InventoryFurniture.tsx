@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useMemo } from 'react'
 import { CanvasTexture, Color, EdgesGeometry, MathUtils, Shape, ShapeGeometry, SRGBColorSpace, type Texture, TextureLoader, VideoTexture, type PointLight } from 'three'
 import { BannerTextInput, SpeechBubbleInput, useArtTexture } from './ArtEditor'
-import { isVisiting } from '../services/social'
+import { isDefaultProfilePhoto, isVisiting } from '../services/social'
 import { type ReactNode, useRef, useState } from 'react'
 import type { Group, MeshStandardMaterial } from 'three'
 import Furniture, { FittedMesh } from './Furniture'
@@ -767,6 +767,7 @@ function ProfileBoardFace() {
   const nightMix = useRef(night ? 1 : 0)
   const labels = useRef<Array<{ color: string } | null>>([])
   const photo = profile?.photo
+  const defaultPhoto = isDefaultProfilePhoto(photo)
   useFrame((_, delta) => {
     const goal = night ? 1 : 0
     if (Math.abs(nightMix.current - goal) < .004) return
@@ -775,12 +776,15 @@ function ProfileBoardFace() {
     const tone = mixColor('#403f3d', '#f3eee4', nightMix.current)
     labels.current.forEach((label) => { if (label) label.color = tone })
   })
-  const portrait = useMemo(() => { if (!photo) return null; const map = new TextureLoader().load(photo); map.colorSpace = SRGBColorSpace; return map }, [photo])
+  const portrait = useMemo(() => { if (!photo || defaultPhoto) return null; const map = new TextureLoader().load(photo); map.colorSpace = SRGBColorSpace; return map }, [defaultPhoto, photo])
   const tone = mixColor('#403f3d', '#f3eee4', nightMix.current)
   // renderOrder pins these after the board: they sit ON it, and while a neighbour room fades everything is in
   // the sorted transparent pass, where the board could otherwise win the toss and hide its own face.
   return <>
-    {portrait && <mesh renderOrder={1} position={[0, .42, .076]}><circleGeometry args={[.47, 30]} /><meshBasicMaterial map={portrait} /></mesh>}
+    {defaultPhoto ? <group renderOrder={1}>
+      <mesh position={[0, .6, .078]}><circleGeometry args={[.16, 24]} /><meshBasicMaterial color="#a89482" /></mesh>
+      <mesh position={[0, .08, .078]}><circleGeometry args={[.32, 28, 0, Math.PI]} /><meshBasicMaterial color="#8c7767" /></mesh>
+    </group> : portrait && <mesh renderOrder={1} position={[0, .42, .078]}><circleGeometry args={[.47, 30]} /><meshBasicMaterial map={portrait} /></mesh>}
     {profile?.handle && <Text ref={((label: { color: string } | null) => { labels.current[0] = label }) as never} renderOrder={1} font={JONES_BOOK_OTF} position={[0, -.22, .076]} fontSize={.13} color={tone} anchorX="center" anchorY="middle">{profile.handle}</Text>}
     <Text ref={((label: { color: string } | null) => { labels.current[1] = label }) as never} renderOrder={1} font={JONES_BOOK_OTF} position={[0, -.46, .076]} fontSize={.1} color={tone} anchorX="center" anchorY="middle">{`${total} ${total === 1 ? 'Visit' : 'Visits'}`}</Text>
   </>
