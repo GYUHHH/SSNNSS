@@ -756,19 +756,20 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
 }
 
 // the wall copy of the profile popup: same photo and counts, drawn to a canvas so the board can carry text
-function drawProfileBoard(canvas: HTMLCanvasElement, total: number, today: number, friends: number) {
+function drawProfileBoard(canvas: HTMLCanvasElement, total: number, today: number, friends: number, night: boolean) {
   const ctx = canvas.getContext('2d')!
   const w = canvas.width
   ctx.clearRect(0, 0, w, canvas.height)
   ctx.textAlign = 'center'
-  ctx.fillStyle = '#3f3a33'
+  // at night the board itself dims with the room, so the lettering flips to a light tone to keep its contrast
+  ctx.fillStyle = night ? '#f3eee4' : '#3f3a33'
   ctx.font = `bold 30px ${CANVAS_UI_FONT}`
   ctx.fillText(`Total ${total}`, w * .29, 42)
   ctx.fillText(`Today ${today}`, w * .72, 42)
-  ctx.fillStyle = '#c3b6a6'
+  ctx.fillStyle = night ? '#8a8177' : '#c3b6a6'
   ctx.font = `26px ${CANVAS_UI_FONT}`
   ctx.fillText('|', w / 2, 42)
-  ctx.fillStyle = '#5b4e44'
+  ctx.fillStyle = night ? '#e9e2d4' : '#5b4e44'
   ctx.font = `bold 30px ${CANVAS_UI_FONT}`
   ctx.fillText(`친구 ${friends}`, w / 2, 106)
 }
@@ -777,18 +778,19 @@ function ProfileBoardFace() {
   const store = useOptionalRoomStore()
   const profile = store?.profile
   const total = store?.remoteVisits?.total ?? profile?.total ?? 0, today = store?.remoteVisits?.today ?? profile?.today ?? 0, friends = profile?.friends ?? 0
+  const night = store?.timeOfDay === 'night'
   const photo = profile?.photo
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas'); canvas.width = 320; canvas.height = 128
-    drawProfileBoard(canvas, total, today, friends)
+    drawProfileBoard(canvas, total, today, friends, night)
     const created = new CanvasTexture(canvas); created.colorSpace = SRGBColorSpace
     return created
   }, [])
   useEffect(() => {
-    const draw = () => { drawProfileBoard(texture.image as HTMLCanvasElement, total, today, friends); texture.needsUpdate = true }
+    const draw = () => { drawProfileBoard(texture.image as HTMLCanvasElement, total, today, friends, night); texture.needsUpdate = true }
     draw()
     void loadCanvasFonts().then(draw)
-  }, [total, today, friends, texture])
+  }, [total, today, friends, night, texture])
   const portrait = useMemo(() => { if (!photo) return null; const map = new TextureLoader().load(photo); map.colorSpace = SRGBColorSpace; return map }, [photo])
   // These sit ON the board, and the stats panel is drawn on a transparent canvas, so the board behind it is what
   // should show through. While a neighbour room fades it is all in the sorted transparent pass, which orders by
@@ -797,7 +799,7 @@ function ProfileBoardFace() {
   // place. renderOrder pins them after the board no matter what the distances work out to.
   return <>
     {portrait && <mesh renderOrder={1} position={[0, .42, .076]}><circleGeometry args={[.47, 30]} /><meshBasicMaterial map={portrait} /></mesh>}
-    {profile?.handle && <Text renderOrder={1} font={JONES_BOOK_OTF} position={[0, -.22, .076]} fontSize={.13} color="#403f3d" anchorX="center" anchorY="middle">{profile.handle}</Text>}
+    {profile?.handle && <Text renderOrder={1} font={JONES_BOOK_OTF} position={[0, -.22, .076]} fontSize={.13} color={night ? '#f3eee4' : '#403f3d'} anchorX="center" anchorY="middle">{profile.handle}</Text>}
     <mesh renderOrder={1} position={[0, -.64, .076]}><planeGeometry args={[1.2, .48]} /><meshBasicMaterial map={texture} transparent /></mesh>
   </>
 }
