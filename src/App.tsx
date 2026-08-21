@@ -21,7 +21,7 @@ import { isSignedIn, isVisiting, myHandle } from './services/social'
 import { thumbnailFor } from './services/thumbnails'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 414
+const BUILD = 415
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume } = useRoomStore()
@@ -62,7 +62,10 @@ function Interface() {
   const time = new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit' }).format(new Date())
   const artOpen = (!!selectedItem && !!artworkKindOf(selectedItem.type)) || bookshelfOpen || !!openBookId
   const musicOpen = mobile && !!selectedItem && ['music-player', 'record-player', 'cd-player'].includes(selectedItem.type)
-  const panelOpen = artOpen || musicOpen
+  // On a phone the inventory is not its own box: it rides the one bottom sheet every panel uses, sitting just
+  // above the edit toolbar so 완료 stays reachable. Desktop keeps the docked panel.
+  const inventorySheet = mobile && mode === 'edit' && inventoryOpen
+  const panelOpen = artOpen || musicOpen || inventorySheet
   const [sheetExpanded, setSheetExpanded] = useState(false)
   const sheet = useRef<HTMLElement>(null)
   const drag = useRef<{ y: number; at: number; travel: number; height: number; expanded: boolean } | null>(null)
@@ -107,7 +110,7 @@ function Interface() {
     } else if (held.travel < -Math.min(80, (window.visualViewport?.height ?? window.innerHeight) * .08) || speed < -.5) {
       setSheetExpanded(true)
     } else if (held.travel > height * .3 || speed > .6) {
-      clearSelection()
+      if (inventorySheet) setInventoryOpen(false); else clearSelection()
     }
     panel.style.transition = ''
     panel.style.transform = ''
@@ -131,7 +134,7 @@ function Interface() {
     </nav>}
     {mode === 'edit' && movingFurnitureId && <div className={`storage-drop-zone${dragPointer?.overStorage ? ' active' : ''}`} data-storage-dropzone>보관함</div>}
     {movingFurnitureId && dragPointer?.overStorage && dragThumbnail && <img className="drag-thumbnail" src={dragThumbnail} alt="" style={{ left: dragPointer.x, top: dragPointer.y }} />}
-    {mode === 'edit' && <><nav className="edit-toolbar" aria-label="꾸미기 도구"><span className={selectedPlacementValid ? '' : 'invalid-placement'}>{selectedFurnitureId ? (() => { const selected = furniture.find((item) => item.id === selectedFurnitureId); return selected ? `${selected.name} · ${selected.footprint.width ? `${selected.footprint.width}×${selected.footprint.depth}` : '벽'}${selectedPlacementValid ? '' : ' · 놓을 수 없는 위치'}` : '가구 선택' })() : '가구 선택'}</span><button type="button" onClick={() => setInventoryOpen((open) => !open)}>보관함</button><button type="button" disabled={!selectedFurnitureId} onClick={rotateFurniture}>회전</button><button type="button" disabled={!selectedFurnitureId || !customizableTypes.has(furniture.find((item) => item.id === selectedFurnitureId)?.type ?? '')} onClick={() => selectedFurnitureId && openStyleTarget({ kind: 'furniture', id: selectedFurnitureId })}>색상</button><button type="button" onClick={undoLayout}>되돌리기</button><button type="button" onClick={() => setConfirmingReset(true)}>초기화</button><button type="button" onClick={() => { if (preview && previewValid) placePreview(); setInventoryOpen(false); toggleEditMode() }}>완료</button></nav>{inventoryOpen && <InventoryPanel />}</>}
+    {mode === 'edit' && <><nav className="edit-toolbar" aria-label="꾸미기 도구"><span className={selectedPlacementValid ? '' : 'invalid-placement'}>{selectedFurnitureId ? (() => { const selected = furniture.find((item) => item.id === selectedFurnitureId); return selected ? `${selected.name} · ${selected.footprint.width ? `${selected.footprint.width}×${selected.footprint.depth}` : '벽'}${selectedPlacementValid ? '' : ' · 놓을 수 없는 위치'}` : '가구 선택' })() : '가구 선택'}</span><button type="button" onClick={() => setInventoryOpen((open) => !open)}>보관함</button><button type="button" disabled={!selectedFurnitureId} onClick={rotateFurniture}>회전</button><button type="button" disabled={!selectedFurnitureId || !customizableTypes.has(furniture.find((item) => item.id === selectedFurnitureId)?.type ?? '')} onClick={() => selectedFurnitureId && openStyleTarget({ kind: 'furniture', id: selectedFurnitureId })}>색상</button><button type="button" onClick={undoLayout}>되돌리기</button><button type="button" onClick={() => setConfirmingReset(true)}>초기화</button><button type="button" onClick={() => { if (preview && previewValid) placePreview(); setInventoryOpen(false); toggleEditMode() }}>완료</button></nav>{inventoryOpen && !mobile && <InventoryPanel />}</>}
     {confirmingRoom && <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setConfirmingRoom(null)}><section className="reset-confirm"><p>이 방을 삭제할까요? 안에 놓인 가구는 보관함으로 돌아옵니다.</p><div><button type="button" onClick={() => setConfirmingRoom(null)}>취소</button><button type="button" onClick={() => { removeRoom(confirmingRoom); setConfirmingRoom(null) }}>삭제</button></div></section></div>}
     {confirmingReset && <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setConfirmingReset(false)}><section className="reset-confirm"><p>모든 가구를 처음 위치로 되돌릴까요?</p><div><button type="button" onClick={() => setConfirmingReset(false)}>취소</button><button type="button" onClick={() => { resetLayout(); setConfirmingReset(false) }}>초기화</button></div></section></div>}
     <FollowInvite />
@@ -143,11 +146,12 @@ function Interface() {
     <ReactionPicker />
     <ItemComments />
     <ProfileCard />
-    <aside ref={sheet} className={`${panelOpen ? 'art-panel open' : 'art-panel'}${sheetExpanded ? ' expanded' : ''}`} aria-hidden={!panelOpen}
+    <aside ref={sheet} className={`${panelOpen ? 'art-panel open' : 'art-panel'}${sheetExpanded ? ' expanded' : ''}${inventorySheet ? ' over-toolbar' : ''}`} aria-hidden={!panelOpen}
       onClickCapture={(event) => { if (suppressSheetClick.current) { event.preventDefault(); event.stopPropagation() } }}
       onPointerDown={sheetDown} onPointerMove={sheetMove} onPointerUp={sheetUp} onPointerCancel={sheetUp}>
       <span className="sheet-handle" aria-hidden="true" />
       {musicOpen && <div className="mobile-music-sheet"><MusicPanel musicTrack={musicTrack} setMusicTrack={setMusicTrack} musicVolume={musicVolume} setMusicVolume={setMusicVolume} /></div>}
+      {inventorySheet && <InventoryPanel />}
       <BookShelfPanel /><DiaryDialog /><ArtworkOverlay />
     </aside>
   </main>

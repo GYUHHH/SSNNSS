@@ -167,7 +167,14 @@ div.art-view { aspect-ratio: 3 / 4; }
 .art-open .room-controls { right: calc(min(480px, 92vw) + 24px); }
 .draw-dialog.inline { width: 100%; margin-top: 12px; padding: 12px 0 0; border: 0; border-top: 1px solid #e0e0dd; border-radius: 0; background: transparent; }
 .draw-dialog.inline canvas { align-self: center; width: auto; max-width: 100%; max-height: calc(100vh - 240px); }
-.art-panel .bookshelf-panel, .art-panel .diary { position: static; width: auto; min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.art-panel .bookshelf-panel, .art-panel .diary, .art-panel .inventory-panel { position: static; width: auto; min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+/* inside the sheet the list flows with the sheet's own scroll instead of nesting a second scroller */
+.art-panel .inventory-panel { height: auto; }
+.art-panel .inventory-items { overflow: visible; }
+/* placing a piece collapses the sheet to just its footer so the room stays visible under the finger */
+.art-panel:has(.inventory-panel.previewing) { padding-top: 0; }
+.art-panel:has(.inventory-panel.previewing) .sheet-handle { display: none; }
+
 .art-panel .diary-pages { grid-template-columns: 1fr; min-height: 0; }
 .art-panel .left-page { border-right: 0; border-bottom: 1px solid #e0e0dd; }
 .art-panel .diary-pages section { padding: 18px 4px; }
@@ -259,11 +266,7 @@ body.exploring :is(.dock-fade, .entry-buttons, .me-tag, .build-tag) { opacity: 0
   .edit-toolbar { left: 0; right: 0; bottom: 0; width: 100%; max-width: none; min-height: calc(58px + env(safe-area-inset-bottom)); padding: 7px 10px calc(7px + env(safe-area-inset-bottom)); overflow-x: auto; flex-wrap: nowrap; justify-content: flex-start; border-right: 0; border-bottom: 0; border-left: 0; border-radius: 0; transform: none; touch-action: pan-x; }
   .edit-toolbar span, .edit-toolbar button { flex: 0 0 auto; }
   .edit-toolbar button { min-height: 40px; }
-  /* the inventory rides as a bottom sheet layered right above the edit toolbar, same look as the art sheet */
-  .inventory-panel { right: 0; bottom: calc(58px + env(safe-area-inset-bottom)); width: 100%; height: min(44dvh, 380px); padding: 8px calc(14px + env(safe-area-inset-right)) 14px calc(14px + env(safe-area-inset-left)); border-right: 0; border-bottom: 0; border-left: 0; border-radius: 8px 8px 0 0; box-shadow: 0 -6px 18px rgb(0 0 0 / 10%); touch-action: pan-y; animation: inventory-sheet-up .42s cubic-bezier(.22, 1.2, .36, 1); }
-  .inventory-panel::before { content: ''; display: block; flex: 0 0 auto; width: 38px; height: 4px; margin: 2px auto 10px; border-radius: 999px; background: #dbdbd7; }
-  .inventory-panel.previewing::before { display: none; }
-  @keyframes inventory-sheet-up { from { transform: translateY(30%); opacity: 0; } }
+
   .inventory-panel header button, .inventory-panel footer button { min-height: 40px; }
   .inventory-items button { min-height: 56px; }
   .storage-drop-zone { bottom: calc(68px + env(safe-area-inset-bottom)); width: min(260px, calc(100vw - 32px)); height: 64px; }
@@ -637,4 +640,11 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
   .music-object-popup { display: none; }
   .mobile-music-sheet { display: block; width: 100%; }
   .mobile-music-sheet .mini-player { width: 100%; padding: 4px 0 0; border-radius: 0; box-shadow: none; }
+}
+
+/* Phones: the edit toolbar is the bottom-most bar (a later global rule had it floating 20px up, which the
+   inventory sheet then overlapped), and the sheet carrying the inventory stacks exactly on top of it. */
+@media (max-width: 719px) {
+  .edit-toolbar { bottom: 0; border-radius: 0; }
+  .art-panel.over-toolbar { bottom: calc(58px + env(safe-area-inset-bottom)); }
 }
