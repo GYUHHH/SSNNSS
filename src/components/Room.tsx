@@ -9,7 +9,7 @@ import { type ExplorerMode, explorerMode, fetchFollowing, onExplorerMode, onFoll
 import { flushCapture } from '../services/capture'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
-import CameraController, { entryZoom, exploreMinZoom } from './CameraController'
+import CameraController, { entryZoom, exploreMinZoom, requestExplorerZoom } from './CameraController'
 import Character from './Character'
 import Chair from './Chair'
 import Computer from './Computer'
@@ -266,6 +266,31 @@ function NeighbourRoom() {
   return <><Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><Character /></>
 }
 
+// The live room is intentionally inert in the explorer so its furniture cannot react. This invisible floor sits
+// under its contents and provides one clean action there: clicking the centre room enters it again. Deliberately
+// no wall hitboxes — the stacked isometric walls overlap neighbouring rooms on screen and would steal their click.
+function ExplorerRoomHitbox({ off, open }: { off: (zoom: number, width: number, height: number) => boolean; open: () => void }) {
+  const group = useRef<Group>(null)
+  const active = useRef(false)
+  const press = useRef<{ x: number; y: number; pointerId: number } | null>(null)
+  const openedAt = useRef(0)
+  useFrame(({ camera, size }) => {
+    active.current = off(camera.zoom, size.width, size.height)
+    if (group.current) group.current.visible = active.current
+  })
+  return <group ref={group} visible={false}>
+    <mesh position={[0, .03, 0]}
+      onPointerDown={(event) => { if (active.current) press.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId } }}
+      onPointerMove={(event) => { if (press.current?.pointerId === event.pointerId && Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 18) press.current = null }}
+      onPointerUp={(event) => { const down = press.current; press.current = null; if (!active.current || !down || down.pointerId !== event.pointerId) return; openedAt.current = performance.now(); event.stopPropagation(); open() }}
+      onClick={(event) => { if (!active.current || performance.now() - openedAt.current < 500 || event.delta > 18) return; event.stopPropagation(); open() }}
+      onPointerCancel={() => { press.current = null }}>
+      <boxGeometry args={[ROOM_SIZE, .04, ROOM_SIZE]} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
+    </mesh>
+  </group>
+}
+
 function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlot; distance: number; centred: boolean; fresh?: Record<string, string>; open: () => void }) {
   const { mode } = useRoomStore()
   const { gl, camera, scene } = useThree()
@@ -486,9 +511,17 @@ function RoomWorld() {
   // Home shows only the rooms I follow around mine; discover shows the public directory. Signed out there is
   // no follow list, so home quietly behaves as discover. A follow changing re-pulls the ring right away.
   const [ringMode, setRingMode] = useState<ExplorerMode>(explorerMode())
+  const homeExplorerRequested = useRef(false)
   const [followsTick, setFollowsTick] = useState(0)
-  useEffect(() => onExplorerMode(setRingMode), [])
+  useEffect(() => onExplorerMode((next) => { homeExplorerRequested.current = next === 'home'; setRingMode(next) }), [])
   useEffect(() => onFollowsChange(() => setFollowsTick((value) => value + 1)), [])
+  // A home-mode request is complete only after the owner's room is the active room. Run the zoom from this canvas
+  // commit, after CameraController's re-base, so the detail framing cannot overwrite it on the following frame.
+  useEffect(() => {
+    if (!homeExplorerRequested.current || ringMode !== 'home' || activeHandle !== hubHandle) return
+    homeExplorerRequested.current = false
+    requestExplorerZoom(true)
+  }, [activeHandle, hubHandle, ringMode])
   useEffect(() => {
     let live = true
     const me = myHandle()
@@ -547,6 +580,9 @@ function RoomWorld() {
     entryLatched.current = true
     // the clicked room becomes the pick, so the highlight and the fade exemption follow the room actually entered
     picked.current = slot
+    // Re-entering the room already on screen is purely a camera transition. Re-fetching and rehydrating the same
+    // room would reset panels/media for no data change and makes the centre-room click feel like a reload.
+    if (slot.handle === activeHandle) { requestedEntry.current = false; return }
     // the lobby is not on the server — going back to it is a local reset that walks the same listener path
     if (slot.handle === LOBBY) { await snapshotActiveFrames(); enterLobby(); requestedEntry.current = false; return }
     opening.current = true
@@ -624,7 +660,10 @@ function RoomWorld() {
   const aim = useMemo(() => (slots.find((slot) => slot.handle === centredHandle) ?? active)?.position ?? null, [slots, active, centredHandle])
   return <>
     {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY) && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} />)}
-    <group position={active.position}><Inert off={exploring}><RoomRoot /></Inert></group>
+    <group position={active.position}>
+      <Inert off={exploring}><RoomRoot /></Inert>
+      <ExplorerRoomHitbox off={exploring} open={() => beginEntry(active)} />
+    </group>
     <CameraController focusRoom={focusRoom} aim={aim} />
   </>
 }

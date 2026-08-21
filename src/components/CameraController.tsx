@@ -27,7 +27,7 @@ export const entryZoom = (width: number, height: number) => isCompactScreen(widt
 
 // the dock's discover toggle asks the camera to pull all the way out to the explorer
 const EXPLORER_ZOOM_EVENT = 'explorer-zoom-out'
-export const requestExplorerZoom = () => window.dispatchEvent(new CustomEvent(EXPLORER_ZOOM_EVENT))
+export const requestExplorerZoom = (centreHome = false) => window.dispatchEvent(new CustomEvent(EXPLORER_ZOOM_EVENT, { detail: centreHome }))
 
 // The straight-on view a room is entered at, derived from the default rig: the camera sits at (10, 8.5, 10) looking
 // at (0, 3.5, 0), so the offset is (10, 5, 10) with radius 15 — azimuth atan2(10, 10) and polar acos(5 / 15).
@@ -54,6 +54,7 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
   const lastTap = useRef({ time: 0, x: 0, y: 0 })
   const dragZoom = useRef<{ identifier: number; startY: number; startZoom: number; lastX: number; lastY: number } | null>(null)
   const controls = useRef<ControlsRef | null>(null)
+  const centringExplorer = useRef(false)
   const [dragZooming, setDragZooming] = useState(false)
   // the long-press reaction picker owns the pointer while it is up — the slide toward an icon must not swing
   // or zoom the camera, so every camera input is held off until the picker closes
@@ -117,7 +118,12 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
 
   useEffect(() => { zoomTarget.current = Math.max(zoomTarget.current, minZoom) }, [minZoom])
   useEffect(() => {
-    const onZoomOut = () => { zoomTarget.current = minZoom }
+    const onZoomOut = (event: Event) => {
+      zoomTarget.current = minZoom
+      if (!(event as CustomEvent<boolean>).detail) return
+      targetGoal.current.set(0, 3.5, 0)
+      centringExplorer.current = true
+    }
     window.addEventListener(EXPLORER_ZOOM_EVENT, onZoomOut)
     return () => window.removeEventListener(EXPLORER_ZOOM_EVENT, onZoomOut)
   }, [minZoom])
@@ -244,7 +250,7 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
     // view stays wherever it was dragged. The GOAL is deliberately left on the room being viewed, so the moment
     // the user zooms back in the damping picks up again and carries them to its middle rather than leaving them
     // parked wherever the panning happened to end.
-    if (fullyOut) { orbit.update(); return }
+    if (fullyOut && !centringExplorer.current) { orbit.update(); return }
     const targetDamping = entryZoomAt.current ? 14 : 6
     const nextTarget = new Vector3(
       MathUtils.damp(target.x, targetGoal.current.x, targetDamping, delta),
@@ -253,6 +259,7 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
     )
     camera.position.add(nextTarget.clone().sub(target))
     target.copy(nextTarget)
+    if (centringExplorer.current && target.distanceTo(targetGoal.current) < .005) centringExplorer.current = false
     orbit.update()
   })
 

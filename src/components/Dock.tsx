@@ -3,6 +3,7 @@ import { MAX_ROOMS, useRoomStore } from '../store'
 import { enterRoom, isVisiting, myHandle } from '../services/social'
 import { explorerMode, isFollowingRoom, myInviteLink, onFollowsChange, setExplorerMode, setFollowing } from '../services/follows'
 import { shareRoom } from '../services/capture'
+import { snapshotActiveFrames } from '../services/ytResume'
 import SoundHub from './SoundHub'
 import { requestExplorerZoom } from './CameraController'
 
@@ -38,7 +39,29 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
   })
   // home = only rooms I follow around mine, discover = the public directory; the explorer listens to this
   const [explore, setExplore] = useState(explorerMode())
+  const exploreSwitching = useRef(false)
   const { currentHandle } = useRoomStore()
+  const toggleExplorer = () => {
+    if (exploreSwitching.current) return
+    const next = explore === 'home' ? 'discover' : 'home'
+    const apply = () => {
+      setExplore(next)
+      setExplorerMode(next)
+      // Returning from another room also re-bases the camera. Two paint frames let that commit settle before the
+      // explorer zoom is applied; RoomWorld repeats the same request when it observes the owner as active.
+      if (next === 'discover') requestExplorerZoom()
+      else requestAnimationFrame(() => requestAnimationFrame(() => requestExplorerZoom(true)))
+    }
+    const mine = myHandle()
+    if (next !== 'home' || !mine || currentHandle === mine) { apply(); return }
+    // Home means MY neighbourhood. First return to my room, then swap the ring; otherwise the visited,
+    // unfollowed room is deliberately reinserted as the current room and remains beside mine.
+    exploreSwitching.current = true
+    void snapshotActiveFrames()
+      .then(() => enterRoom(mine))
+      .then((entered) => { if (entered) apply() })
+      .finally(() => { exploreSwitching.current = false })
+  }
   // follow state for the room being visited (null until known)
   const visiting = isVisiting()
   const [followed, setFollowed] = useState<boolean | null>(null)
@@ -77,7 +100,7 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
     </div>}
     {owner && <button type="button" className="dock-button" aria-label="시간대 변경" onClick={cycleTime}>{timeOfDay === 'day' ? <SunIcon /> : timeOfDay === 'evening' ? <SunsetIcon /> : <MoonIcon />}</button>}
     {visiting && mode === 'normal' && !!myHandle() && !!currentHandle && <button type="button" style={{ visibility: followed === null ? 'hidden' : 'visible' }} className={followed ? 'dock-button following' : 'dock-button'} aria-label={followed ? '팔로우 해제' : '팔로우'} onClick={() => { if (followed === null) return; setFollowed(!followed); void setFollowing(currentHandle, !followed).then((ok) => { if (!ok) setFollowed(followed) }) }}>{followed ? <PersonCheckIcon /> : <PersonPlusIcon />}</button>}
-    {mode === 'normal' && !!myHandle() && <button type="button" className={explore === 'home' ? 'dock-button' : 'dock-button following'} aria-label={explore === 'home' ? '팔로우' : '탐색'} onClick={() => { const next = explore === 'home' ? 'discover' : 'home'; setExplore(next); setExplorerMode(next); requestExplorerZoom() }}>{explore === 'home' ? <PersonIcon /> : <GlobeIcon />}</button>}
+    {mode === 'normal' && !!myHandle() && <button type="button" className={explore === 'home' ? 'dock-button' : 'dock-button following'} aria-label={explore === 'home' ? '팔로우' : '탐색'} onClick={toggleExplorer}>{explore === 'home' ? <PersonIcon /> : <GlobeIcon />}</button>}
     <span className="dock-slot"><SoundHub /></span>
     {owner && <button type="button" className="dock-button dock-fade" aria-label="보관함" onClick={onOpenInventory}><BoxIcon /></button>}
   </div>
