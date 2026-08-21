@@ -197,7 +197,8 @@ div.art-view { aspect-ratio: 3 / 4; }
 /* 전체방보기(탐색기)에서는 볼륨·시간대 버튼만 남기고 주변 UI를 페이드아웃 */
 .room-controls { transition: right .42s cubic-bezier(.4, 0, .2, 1), opacity .35s; }
 .room-slots, .entry-buttons, .me-tag, .build-tag { transition: opacity .35s; }
-body.exploring :is(.room-controls, .room-slots, .entry-buttons, .me-tag, .build-tag) { opacity: 0; pointer-events: none; }
+.dock-fade { transition: opacity .35s; }
+body.exploring :is(.dock-fade, .entry-buttons, .me-tag, .build-tag) { opacity: 0; pointer-events: none; }
 .guest-form { display: grid; gap: 6px; padding-bottom: 14px; border-bottom: 1px solid #e0e0dd; }
 .guest-form input, .guest-form textarea { border: 1px solid #c2c2be; border-radius: 4px; padding: 7px 9px; color: #403f3d; background: #ffffff; font-family: inherit; }
 .guest-form textarea { overflow: hidden; resize: none; }
@@ -476,7 +477,7 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
   .time-controls { bottom: calc(10px + env(safe-area-inset-bottom)); left: calc(10px + env(safe-area-inset-left)); }
   .time-controls button { min-width: 0; min-height: 38px; padding: 6px 10px; }
   .room-controls { right: calc(10px + env(safe-area-inset-right)); bottom: calc(10px + env(safe-area-inset-bottom)); }
-  .sound-hub { bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .dock { bottom: calc(10px + env(safe-area-inset-bottom)); }
   .art-panel { --art-pad: calc(16px + env(safe-area-inset-left)); padding: calc(16px + env(safe-area-inset-top)) var(--art-pad) calc(20px + env(safe-area-inset-bottom)); background: var(--ui-bg); }
   .art-panel > header { background: var(--ui-bg); }
   .edit-toolbar { border-color: var(--ui-line); background: var(--ui-bg); }
@@ -550,7 +551,17 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 .entry-buttons { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 6; display: flex; gap: 8px; }
 .entry-buttons button { border: 1px solid var(--ui-line); border-radius: 8px; padding: 9px 18px; color: var(--ui-text); background: var(--ui-bg); cursor: pointer; font-size: 13px; }
 .entry-buttons button:last-child { border-color: var(--ui-blue); color: #fff; background: var(--ui-blue); }
-.sound-hub { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 6; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.dock { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 10px; }
+.dock-button { display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 50%; color: #fff; background: rgb(20 20 20 / 78%); cursor: pointer; }
+.dock-item { position: relative; display: flex; }
+.dock-pop { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); display: grid; gap: 4px; margin: 0; padding: 8px; list-style: none; border: 1px solid #dbdbdb; border-radius: 8px; background: #ffffff; }
+.dock-pop li { display: flex; align-items: center; }
+.dock-pop li > button:first-child { flex: 1; min-width: 150px; padding: 8px 10px; border: 0; border-radius: 5px; color: #3a3a38; background: transparent; cursor: pointer; font-size: 13px; text-align: left; white-space: nowrap; }
+.dock-pop li > button:first-child:hover { background: #f2f2f2; }
+.dock-pop li > button.active { background: #e9e9e6; }
+.dock-pop-delete { border: 0; padding: 6px 8px; color: #a08d7c; background: transparent; cursor: pointer; font-size: 14px; line-height: 1; }
+.sound-hub { position: relative; display: flex; flex-direction: column; align-items: center; }
+.sound-hub-list { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); }
 .sound-hub-main { display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 50%; color: #fff; background: rgb(20 20 20 / 78%); cursor: pointer; }
 .sound-hub-list { display: grid; gap: 6px; margin: 0; padding: 8px; list-style: none; border: 1px solid #dbdbdb; border-radius: 8px; background: #ffffff; }
 .sound-hub-list button { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 170px; padding: 8px 10px; border: 0; border-radius: 5px; color: #3a3a38; background: transparent; cursor: pointer; font-size: 13px; }
@@ -608,7 +619,7 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 .sheet-handle { display: none; }
 
 /* the sound button sits at the bottom centre, exactly where a sheet or popup comes up — it steps aside */
-.app.art-open .sound-hub, .app:has(.overlay) .sound-hub, .app:has(.profile-overlay) .sound-hub { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(12px); transition: opacity .18s ease, transform .18s ease; }
+.app.art-open .dock, .app:has(.overlay) .dock, .app:has(.profile-overlay) .dock { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(12px); transition: opacity .18s ease, transform .18s ease; }
 
 .mobile-music-sheet { display: none; }
 @media (max-width: 719px) {

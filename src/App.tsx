@@ -6,7 +6,7 @@ import InventoryPanel from './components/InventoryPanel'
 import MusicPanel from './components/MusicPanel'
 import ProfileCard from './components/ProfileCard'
 import NotificationPopup from './components/NotificationPopup'
-import SoundHub from './components/SoundHub'
+import Dock from './components/Dock'
 import HandleSetup from './components/HandleSetup'
 import ReactionPopup from './components/ReactionPopup'
 import PanelHistory from './components/PanelHistory'
@@ -20,7 +20,7 @@ import { isSignedIn, isVisiting, myHandle } from './services/social'
 import { thumbnailFor } from './services/thumbnails'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 389
+const BUILD = 390
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume } = useRoomStore()
@@ -128,13 +128,12 @@ function Interface() {
       <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('need-id', { detail: 'login' }))}>로그인</button>
       <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('need-id', { detail: 'signup' }))}>가입하기</button>
     </nav>}
-    {mode === 'normal' && <>{!isVisiting() && <div className="room-controls"><button className="inventory-button" type="button" onClick={() => { setInventoryOpen(true); toggleEditMode() }}>보관함</button></div>}{!isVisiting() && <nav className="room-slots" aria-label="내 방 목록">{rooms.map((room) => <span key={room.id} className={room.id === activeRoomId ? 'room-chip active' : 'room-chip'}><button type="button" onClick={() => room.id !== activeRoomId && openRoom(room.id)}>{room.name}</button>{rooms.length > 1 && <button type="button" className="remove-room" aria-label={`${room.name} 삭제`} onClick={() => setConfirmingRoom(room.id)}>×</button>}</span>)}{rooms.length < MAX_ROOMS && <button type="button" className="add-room" onClick={createRoom} aria-label="새 방 만들기">+</button>}</nav>}{!isVisiting() && <nav className="time-controls" aria-label="시간대">{([['day', '낮'], ['evening', '저녁'], ['night', '밤']] as const).map(([key, label]) => <button key={key} type="button" className={timeOfDay === key ? 'active' : ''} onClick={() => setTimeOfDay(key)}>{label}</button>)}</nav>}</>}
     {mode === 'edit' && movingFurnitureId && <div className={`storage-drop-zone${dragPointer?.overStorage ? ' active' : ''}`} data-storage-dropzone>보관함</div>}
     {movingFurnitureId && dragPointer?.overStorage && dragThumbnail && <img className="drag-thumbnail" src={dragThumbnail} alt="" style={{ left: dragPointer.x, top: dragPointer.y }} />}
     {mode === 'edit' && <><nav className="edit-toolbar" aria-label="꾸미기 도구"><span className={selectedPlacementValid ? '' : 'invalid-placement'}>{selectedFurnitureId ? (() => { const selected = furniture.find((item) => item.id === selectedFurnitureId); return selected ? `${selected.name} · ${selected.footprint.width ? `${selected.footprint.width}×${selected.footprint.depth}` : '벽'}${selectedPlacementValid ? '' : ' · 놓을 수 없는 위치'}` : '가구 선택' })() : '가구 선택'}</span><button type="button" onClick={() => setInventoryOpen((open) => !open)}>보관함</button><button type="button" disabled={!selectedFurnitureId} onClick={rotateFurniture}>회전</button><button type="button" disabled={!selectedFurnitureId || !customizableTypes.has(furniture.find((item) => item.id === selectedFurnitureId)?.type ?? '')} onClick={() => selectedFurnitureId && openStyleTarget({ kind: 'furniture', id: selectedFurnitureId })}>색상</button><button type="button" onClick={undoLayout}>되돌리기</button><button type="button" onClick={() => setConfirmingReset(true)}>초기화</button><button type="button" onClick={() => { if (preview && previewValid) placePreview(); setInventoryOpen(false); toggleEditMode() }}>완료</button></nav>{inventoryOpen && <InventoryPanel />}</>}
     {confirmingRoom && <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setConfirmingRoom(null)}><section className="reset-confirm"><p>이 방을 삭제할까요? 안에 놓인 가구는 보관함으로 돌아옵니다.</p><div><button type="button" onClick={() => setConfirmingRoom(null)}>취소</button><button type="button" onClick={() => { removeRoom(confirmingRoom); setConfirmingRoom(null) }}>삭제</button></div></section></div>}
     {confirmingReset && <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setConfirmingReset(false)}><section className="reset-confirm"><p>모든 가구를 처음 위치로 되돌릴까요?</p><div><button type="button" onClick={() => setConfirmingReset(false)}>취소</button><button type="button" onClick={() => { resetLayout(); setConfirmingReset(false) }}>초기화</button></div></section></div>}
-    <SoundHub />
+    <Dock onOpenInventory={() => { setInventoryOpen(true); toggleEditMode() }} onDeleteRoom={setConfirmingRoom} />
     <HandleSetup />
     <PanelHistory />
     <ReactionPopup />
