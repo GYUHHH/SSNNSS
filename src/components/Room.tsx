@@ -480,7 +480,7 @@ function RoomContainer({ slot, distance, centred, fresh, open, swapping }: { slo
 }
 
 function RoomWorld() {
-  const { mode } = useRoomStore()
+  const { mode, timeOfDay } = useRoomStore()
   // The cluster is centred on the signed-in user's OWN room — it is their neighbourhood, so their room is the hub
   // the others ring around, whichever room they happen to be looking at. Signed out there is no own room, so the
   // room in the address (or the lobby) takes the middle instead.
@@ -579,10 +579,29 @@ function RoomWorld() {
   const active = slots.find((slot) => slot.handle === activeHandle) ?? slots[0]
   const activeGroup = useRef<Group>(null)
   const activeGlow = useRef(0)
+  const activeHoverLayer = useRef<number | null>(null)
+  const activeHoverSweep = useRef(0)
   const activeHovered = active.handle === centredHandle
   useFrame((_, delta) => {
     activeGlow.current = MathUtils.damp(activeGlow.current, activeHovered ? 1 : 0, 9, delta)
     activeGroup.current?.scale.setScalar(1 + activeGlow.current * .06)
+    const layer = HOVER_LAYER[timeOfDay]
+    if (activeHovered) {
+      const needsSweep = activeHoverLayer.current !== layer || performance.now() >= activeHoverSweep.current
+      if (activeHoverLayer.current !== layer) {
+        const previous = activeHoverLayer.current
+        if (previous !== null) activeGroup.current?.traverse((object) => object.layers.disable(previous))
+        activeHoverLayer.current = layer
+      }
+      // Children such as photos and text may finish loading after hover started, so include late arrivals too.
+      if (needsSweep) { activeGroup.current?.traverse((object) => object.layers.enable(layer)); activeHoverSweep.current = performance.now() + 500 }
+      hoverLayerMask = 1 << layer
+    } else if (activeHoverLayer.current !== null) {
+      const previous = activeHoverLayer.current
+      activeGroup.current?.traverse((object) => object.layers.disable(previous))
+      if (hoverLayerMask === 1 << previous) hoverLayerMask = 0
+      activeHoverLayer.current = null
+    }
   })
   // the room underneath the explorer is scenery until it is entered: fully zoomed out, a click selects a room
   const exploring = (zoom: number, width: number, height: number) => mode === 'normal' && zoom <= exploreMinZoom(width, height) + .5
