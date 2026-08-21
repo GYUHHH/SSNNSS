@@ -25,6 +25,16 @@ const escape = encodeURIComponent
 // Room addresses are simple paths: (domain)/(id). GitHub Pages has no SPA fallback, so 404.html bounces
 // unknown paths back here as ?p=<id> and the address bar is restored. Legacy ?room= links keep working.
 const BASE = import.meta.env.BASE_URL
+export const DEFAULT_PROFILE_PHOTO = `${BASE}default-profile.svg`
+export const defaultProfileData = (handle?: string) => ({
+  photo: DEFAULT_PROFILE_PHOTO,
+  photoOwner: handle,
+  handle,
+  total: 0,
+  today: 0,
+  lastVisit: new Date().toISOString().slice(0, 10),
+  friends: 0,
+})
 const parseHandle = (): string | null => {
   if (typeof location === 'undefined') return null
   const params = new URLSearchParams(location.search)
@@ -133,10 +143,14 @@ const ownHandle = () => ownerHandle
 export const currentRoomHandle = () => (isVisiting() ? visitHandle : ownHandle())
 // the writer's OWN id, even while visiting someone else's room (reads the local profile directly)
 export const myHandle = () => plainRoot ? null : ownHandle()
-const profilePhoto = (bundle: Record<string, string>) => {
-  try { const photo = JSON.parse(bundle['my-room-profile-v1'] ?? '{}')?.photo; return typeof photo === 'string' && photo ? photo : undefined } catch { return undefined }
+const profilePhoto = (bundle: Record<string, string>, handle?: string | null) => {
+  try {
+    const profile = JSON.parse(bundle['my-room-profile-v1'] ?? '{}')
+    if (profile?.photoOwner && handle && profile.photoOwner !== handle) return DEFAULT_PROFILE_PHOTO
+    return typeof profile?.photo === 'string' && profile.photo ? profile.photo : DEFAULT_PROFILE_PHOTO
+  } catch { return DEFAULT_PROFILE_PHOTO }
 }
-export const myProfilePhoto = () => profilePhoto(ownerData)
+export const myProfilePhoto = () => profilePhoto(ownerData, ownerHandle)
 // Whether this browser has an account at all. myHandle() reports null at the plain root on purpose, and
 // isPlainRoot() only says which address is open — neither answers "is this person signed in", which is what the
 // entry buttons need: they must stay up while a signed-out visitor is looking at somebody else's room too.
@@ -256,7 +270,7 @@ export const claimHandleLocally = (handle: string) => {
   plainRoot = false
   // A newly claimed account must not inherit the profile left in memory by a previous session. That copied the
   // old owner's photo and visit numbers into the new room even though its handle itself was replaced correctly.
-  writeStored('my-room-profile-v1', JSON.stringify({ handle, total: 0, today: 0, lastVisit: new Date().toISOString().slice(0, 10), friends: 0 }))
+  writeStored('my-room-profile-v1', JSON.stringify(defaultProfileData(handle)))
 }
 
 export const myVisitorId = () => visitorId()
@@ -315,7 +329,7 @@ export async function fetchGuestbook(): Promise<RemoteGuestComment[] | null> {
       const rooms = await response.json()
       if (!response.ok || !Array.isArray(rooms)) return rows
       const photos = new Map<string, string>()
-      for (const room of rooms) if (typeof room?.handle === 'string' && room?.data && typeof room.data === 'object') { const photo = profilePhoto(room.data); if (photo) photos.set(room.handle, photo) }
+      for (const room of rooms) if (typeof room?.handle === 'string' && room?.data && typeof room.data === 'object') photos.set(room.handle, profilePhoto(room.data, room.handle))
       return rows.map((row) => ({ ...row, photo: photos.get(row.name) }))
     } catch { return rows }
   } catch { return null }

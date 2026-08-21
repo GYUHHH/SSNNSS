@@ -784,6 +784,7 @@ function ProfileBoardFace() {
   const nightMix = useRef(night ? 1 : 0)
   const handleLabel = useRef<{ color: string } | null>(null)
   const photo = profile?.photo
+  const defaultPortrait = !photo || photo.endsWith('default-profile.svg')
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas'); canvas.width = 320; canvas.height = 128
     drawProfileBoard(canvas, total, today, friends, nightMix.current)
@@ -804,7 +805,7 @@ function ProfileBoardFace() {
     texture.needsUpdate = true
     if (handleLabel.current) handleLabel.current.color = mixColor('#403f3d', '#f3eee4', nightMix.current)
   })
-  const portrait = useMemo(() => { if (!photo) return null; const map = new TextureLoader().load(photo); map.colorSpace = SRGBColorSpace; return map }, [photo])
+  const portrait = useMemo(() => { if (!photo || defaultPortrait) return null; const map = new TextureLoader().load(photo); map.colorSpace = SRGBColorSpace; return map }, [photo, defaultPortrait])
   // These sit ON the board, and the stats panel is drawn on a transparent canvas, so the board behind it is what
   // should show through. While a neighbour room fades it is all in the sorted transparent pass, which orders by
   // the object's projected z — and the stats panel hangs 0.59 BELOW the board's centre, which this camera reads as
@@ -812,6 +813,11 @@ function ProfileBoardFace() {
   // place. renderOrder pins them after the board no matter what the distances work out to.
   return <>
     {portrait && <mesh renderOrder={1} position={[0, .42, .076]}><circleGeometry args={[.47, 30]} /><meshBasicMaterial map={portrait} /></mesh>}
+    {defaultPortrait && <group renderOrder={1} position={[0, .42, .076]}>
+      <mesh><circleGeometry args={[.47, 30]} /><meshBasicMaterial color="#e8e1d7" /></mesh>
+      <mesh position={[0, .13, .002]}><circleGeometry args={[.16, 24]} /><meshBasicMaterial color="#a89482" /></mesh>
+      <mesh position={[0, -.2, .002]} scale={[1.35, .9, 1]}><circleGeometry args={[.28, 24]} /><meshBasicMaterial color="#8c7767" /></mesh>
+    </group>}
     {profile?.handle && <Text ref={handleLabel as never} renderOrder={1} font={JONES_BOOK_OTF} position={[0, -.22, .076]} fontSize={.13} color={mixColor('#403f3d', '#f3eee4', nightMix.current)} anchorX="center" anchorY="middle">{profile.handle}</Text>}
     <mesh renderOrder={1} position={[0, -.64, .076]}><planeGeometry args={[1.2, .48]} /><meshBasicMaterial map={texture} transparent /></mesh>
   </>

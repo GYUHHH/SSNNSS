@@ -1,4 +1,4 @@
-import { isReadingBundle, isVisiting, readStored, writeStored } from './social'
+import { currentRoomHandle, DEFAULT_PROFILE_PHOTO, defaultProfileData, isReadingBundle, isVisiting, readStored, writeStored } from './social'
 
 export type FurniturePlacement = { id: string; type: string; position?: [number, number, number]; rotation: [number, number, number]; scale: number; surfaceId?: string; gridX?: number; gridZ?: number; gridY?: number; wallId?: 'leftWall' | 'rightWall'; footprint?: { width: number; depth: number }; resolution?: 'base' | 'subgrid2'; styleId?: string; removed?: boolean; updatedAt: string }
 export type RoomStyle = { leftWall?: string; rightWall?: string; floor?: string }
@@ -99,12 +99,30 @@ export function saveBooks(books: unknown) {
 }
 
 // visitor counts and the profile photo — counted locally until there is a server to ask
-export type Profile = { photo?: string; handle?: string; total: number; today: number; lastVisit: string; friends: number }
+export type Profile = { photo: string; photoOwner?: string; handle?: string; total: number; today: number; lastVisit: string; friends: number }
 const profileKey = 'my-room-profile-v1'
-export function loadProfile(): Profile | null {
-  try { const raw = readStored(profileKey); return raw ? JSON.parse(raw) as Profile : null } catch { return null }
+export function loadProfile(ownerHandle?: string): Profile {
+  try {
+    const raw = readStored(profileKey)
+    const saved = raw ? JSON.parse(raw) as Partial<Profile> : {}
+    const handle = ownerHandle ?? saved.handle
+    const ownsPhoto = !saved.photoOwner || !handle || saved.photoOwner === handle
+    return {
+      ...defaultProfileData(handle),
+      ...saved,
+      handle,
+      photo: ownsPhoto && typeof saved.photo === 'string' && saved.photo ? saved.photo : DEFAULT_PROFILE_PHOTO,
+      photoOwner: handle ?? saved.photoOwner,
+    }
+  } catch { return defaultProfileData(ownerHandle) }
 }
 export function saveProfile(profile: Profile) {
   if (isVisiting() || isReadingBundle()) return
-  writeStored(profileKey, JSON.stringify(profile))
+  const handle = currentRoomHandle() ?? profile.handle
+  writeStored(profileKey, JSON.stringify({
+    ...profile,
+    handle,
+    photo: profile.photo || DEFAULT_PROFILE_PHOTO,
+    photoOwner: handle,
+  }))
 }

@@ -437,7 +437,7 @@ function RoomContainer({ slot, distance, centred, fresh, open }: { slot: RoomSlo
           That is what stopped a click on empty space from counting as a miss — and in edit mode, where every
           neighbour is faded to nothing, it stopped the click that finishes editing. Inert while faded, hittable
           once it has faded in, which is exactly when the click below is allowed to select the room anyway. */}
-      <Inert off={fadedOut}><NeighbourRoomProvider bundle={bundle}><NeighbourRoom /></NeighbourRoomProvider></Inert>
+      <Inert off={fadedOut}><NeighbourRoomProvider bundle={bundle} handle={slot.handle}><NeighbourRoom /></NeighbourRoomProvider></Inert>
       </>}
     </Suspense>
   </group>

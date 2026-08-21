@@ -6,7 +6,7 @@ import { publicBase } from './services/publicBase'
 import { loadOrders } from './services/playlistOrder'
 import { deleteVideo, listVideoIds, loadClipUrls, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, setClipMuted, syncPendingClips, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic, syncPendingTracks } from './services/music'
-import { purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myProfilePhoto, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, removeStored, subscribeRealtime, uploadMedia, writeStored, type RemoteGuestComment } from './services/social'
+import { DEFAULT_PROFILE_PHOTO, purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myProfilePhoto, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, removeStored, subscribeRealtime, uploadMedia, writeStored, type RemoteGuestComment } from './services/social'
 import { cancelSoundRequest, muteFrame, requestSound, snapshotActiveFrames } from './services/ytResume'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id, photo: row.photo })
@@ -291,7 +291,7 @@ const same = (a: FurnitureItem[], b: FurnitureItem[]) => JSON.stringify(a, (key,
 export type StyleTarget = { kind: 'wall'; wallId: WallId } | { kind: 'floor' } | { kind: 'furniture'; id: FurnitureId }
 
 type RoomStore = {
-  selectedObject: SelectedObject; characterState: CharacterState; computerOn: boolean; toggledOn: Set<string>; cupHeld: boolean; artworks: Record<string, string>; setArtwork: (id: string, dataURL: string | null) => void; rooms: Array<{ id: string; name: string }>; activeRoomId: string; openRoom: (id: string) => void; createRoom: () => void; removeRoom: (id: string) => void; availableCount: (type: string) => number; profile: Profile; profileOpen: boolean; openProfile: () => void; closeProfile: () => void; setProfilePhoto: (photo: string | null) => void; setProfileHandle: (handle: string) => void; videoFrames: Record<string, number>; videoClips: Record<string, string>; setVideoClip: (id: string, file: File | null) => void; videoLinks: Record<string, string>; setVideoLink: (id: string, url: string | null) => boolean; playingFrames: string[]; stopFrame: (id: string) => void; mutedFrames: string[]; setFrameMuted: (id: string, muted: boolean, persist?: boolean) => void; highlightFrame: string | null; setHighlightFrame: (id: string | null) => void; openVideoPanel: (id: string) => void; guestbook: Record<string, GuestComment[]>; addGuestComment: (id: string, text: string) => void; removeGuestComment: (id: string, commentId: string) => void; remoteVisits: { total: number; today: number } | null; othersLikes: Record<string, number>; likeTotals: Record<string, number>; myLikes: string[]; pendingReactions: Record<string, number>; markReactionsSeen: (id: FurnitureId) => void; openObject: (id: FurnitureId) => boolean; reactionIdsFor: (id: FurnitureId) => string[]; reactionTarget: string | null; setReactionTarget: (id: string | null) => void; commentTarget: string | null; setCommentTarget: (id: string | null) => void; timeOfDay: TimeOfDay; setTimeOfDay: (time: TimeOfDay) => void; books: Book[]; openBookId: string | null; bookshelfOpen: boolean
+  selectedObject: SelectedObject; characterState: CharacterState; computerOn: boolean; toggledOn: Set<string>; cupHeld: boolean; artworks: Record<string, string>; setArtwork: (id: string, dataURL: string | null) => void; rooms: Array<{ id: string; name: string }>; activeRoomId: string; openRoom: (id: string) => void; createRoom: () => void; removeRoom: (id: string) => void; availableCount: (type: string) => number; profile: Profile; profileOpen: boolean; openProfile: () => void; closeProfile: () => void; setProfilePhoto: (photo: string | null) => void; videoFrames: Record<string, number>; videoClips: Record<string, string>; setVideoClip: (id: string, file: File | null) => void; videoLinks: Record<string, string>; setVideoLink: (id: string, url: string | null) => boolean; playingFrames: string[]; stopFrame: (id: string) => void; mutedFrames: string[]; setFrameMuted: (id: string, muted: boolean, persist?: boolean) => void; highlightFrame: string | null; setHighlightFrame: (id: string | null) => void; openVideoPanel: (id: string) => void; guestbook: Record<string, GuestComment[]>; addGuestComment: (id: string, text: string) => void; removeGuestComment: (id: string, commentId: string) => void; remoteVisits: { total: number; today: number } | null; othersLikes: Record<string, number>; likeTotals: Record<string, number>; myLikes: string[]; pendingReactions: Record<string, number>; markReactionsSeen: (id: FurnitureId) => void; openObject: (id: FurnitureId) => boolean; reactionIdsFor: (id: FurnitureId) => string[]; reactionTarget: string | null; setReactionTarget: (id: string | null) => void; commentTarget: string | null; setCommentTarget: (id: string | null) => void; timeOfDay: TimeOfDay; setTimeOfDay: (time: TimeOfDay) => void; books: Book[]; openBookId: string | null; bookshelfOpen: boolean
   // true only for a neighbour room drawn in the explorer: nothing here may be written, and anything that would
   // otherwise fall back to THIS browser's own media or storage must stay empty instead
   readOnly: boolean
@@ -353,7 +353,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const [profileOpen, setProfileOpen] = useState(false)
   const [profile, setProfile] = useState<Profile>(() => {
     const today = new Date().toISOString().slice(0, 10)
-    const saved = (typeof window === 'undefined' ? null : loadProfile()) ?? { total: 0, today: 0, lastVisit: today, friends: 0 }
+    const saved = typeof window === 'undefined' ? loadProfile() : loadProfile(currentRoomHandle() ?? undefined)
     if (typeof window === 'undefined') return saved
     // one visit per browser session, and today's tally restarts when the date rolls over
     const counted = sessionStorage.getItem('my-room-visit') === today
@@ -616,13 +616,12 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   useEffect(() => { listVideoIds().then((ids) => { if (ids?.length) setVideoFrames(Object.fromEntries(ids.map((id) => [id, 1]))) }) }, [])
   // The picture shows straight away from the data URL, then quietly becomes a bucket address once the upload
   // lands — the room only ever carries the address, which is what keeps the published bundle small.
-  const storePhoto = (photo: string | undefined) => setProfile((current) => { const next = { ...current, photo }; saveProfile(next); return next })
+  const storePhoto = (photo: string | undefined) => setProfile((current) => { const next = { ...current, photo: photo || DEFAULT_PROFILE_PHOTO }; saveProfile(next); return next })
   const setProfilePhoto = (photo: string | null) => {
     if (isVisiting()) return
     storePhoto(photo ?? undefined)
     if (photo?.startsWith('data:')) void uploadDataUrl('profile', photo).then((url) => { if (url) storePhoto(url) })
   }
-  const setProfileHandle = (handle: string) => setProfile((current) => { const next = { ...current, handle: handle.trim() || undefined }; saveProfile(next); return next })
   const setVideoLink = (id: string, url: string | null) => {
     if (isVisiting()) return false
     const target = url ? youTubeTarget(url) : null
@@ -716,7 +715,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     // the navigation reset below, which runs exactly once per room actually entered.
     setPlayingFrames((prev) => prev.filter((id) => links[id]))
     // replaced, never merged: a room whose profile has no photo would otherwise keep showing the last one's
-    setProfile({ total: 0, today: 0, lastVisit: '', friends: 0, ...(loadProfile() ?? {}) })
+    setProfile(loadProfile(currentRoomHandle() ?? undefined))
     const time = readStored('my-room-time-v1')
     setTimeOfDayState(time === 'evening' || time === 'night' ? time : 'day')
     setCharacterLookState(loadCharacterLook())
@@ -760,7 +759,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
         if (url) { art[key] = url; movedArt = true }
       }
       if (movedArt && live) { saveArtworks(art); setArtworks({ ...art }) }
-      const storedProfile = loadProfile()
+      const storedProfile = loadProfile(currentRoomHandle() ?? undefined)
       if (storedProfile?.photo?.startsWith('data:')) {
         const url = await uploadDataUrl('profile', storedProfile.photo)
         if (url && live) storePhoto(url)
@@ -893,7 +892,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       if (url) setArtworks((prev) => prev[id] === dataURL ? { ...prev, [id]: url } : prev)
     })
   }
-  return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, profile, profileOpen, openProfile: () => setProfileOpen(true), closeProfile: () => setProfileOpen(false), setProfilePhoto, setProfileHandle, videoFrames, videoClips: loadClipUrls(), setVideoClip, videoLinks, setVideoLink, playingFrames, stopFrame: (id: string) => setPlayingFrames((prev) => prev.filter((value) => value !== id)), mutedFrames, setFrameMuted, highlightFrame, setHighlightFrame, openVideoPanel: (id: string) => { if (isVisiting()) return; setFrameMuted(id, false); closePanels(); setSelectedObject(id) }, rooms, activeRoomId, openRoom, createRoom, removeRoom, availableCount, guestbook, addGuestComment, removeGuestComment, remoteVisits, othersLikes, likeTotals, myLikes, pendingReactions, markReactionsSeen, openObject, reactionIdsFor, reactionTarget, setReactionTarget, commentTarget, setCommentTarget, timeOfDay, setTimeOfDay, books: visibleBooks, openBookId, bookshelfOpen, readOnly: false, characterHome: characterSnapshot.position, characterPose: characterSnapshot, characterWritable: !isVisiting(), characterLook, setCharacterLook, currentHandle, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, setMusicVolume, musicVolume, selectObject, clearSelection, finishCharacterAction, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject('bookshelf'); setBookshelfOpen(true) }, addBook, deleteBook, updateBook, addEntry, deleteEntry, updateEntry, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
+  return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, profile, profileOpen, openProfile: () => setProfileOpen(true), closeProfile: () => setProfileOpen(false), setProfilePhoto, videoFrames, videoClips: loadClipUrls(), setVideoClip, videoLinks, setVideoLink, playingFrames, stopFrame: (id: string) => setPlayingFrames((prev) => prev.filter((value) => value !== id)), mutedFrames, setFrameMuted, highlightFrame, setHighlightFrame, openVideoPanel: (id: string) => { if (isVisiting()) return; setFrameMuted(id, false); closePanels(); setSelectedObject(id) }, rooms, activeRoomId, openRoom, createRoom, removeRoom, availableCount, guestbook, addGuestComment, removeGuestComment, remoteVisits, othersLikes, likeTotals, myLikes, pendingReactions, markReactionsSeen, openObject, reactionIdsFor, reactionTarget, setReactionTarget, commentTarget, setCommentTarget, timeOfDay, setTimeOfDay, books: visibleBooks, openBookId, bookshelfOpen, readOnly: false, characterHome: characterSnapshot.position, characterPose: characterSnapshot, characterWritable: !isVisiting(), characterLook, setCharacterLook, currentHandle, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, setMusicVolume, musicVolume, selectObject, clearSelection, finishCharacterAction, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject('bookshelf'); setBookshelfOpen(true) }, addBook, deleteBook, updateBook, addEntry, deleteEntry, updateEntry, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
 }
 // A neighbour room in the zoom-out explorer, drawn from that room's own published bundle with the SAME furniture
 // components as the live room — so it is the real room, not a stand-in. Read-only by construction: there is no
@@ -917,7 +916,7 @@ const neighbourVideoLinks = () => {
 }
 
 const NEIGHBOUR_TIME: TimeOfDay[] = ['day', 'evening', 'night']
-export function NeighbourRoomProvider({ bundle, children }: { bundle: Record<string, string> | null; children: ReactNode }) {
+export function NeighbourRoomProvider({ bundle, handle, children }: { bundle: Record<string, string> | null; handle?: string; children: ReactNode }) {
   const value = useMemo<RoomStore>(() => readingBundle(bundle ?? {}, () => {
     const slots = loadSlots()
     const style = slotStyle(slots.active) ?? {}
@@ -938,7 +937,7 @@ export function NeighbourRoomProvider({ bundle, children }: { bundle: Record<str
       selectedObject: null, characterState: interactions.pose?.state ?? 'idle', computerOn: interactions.computerOn, toggledOn: new Set(interactions.toggles), cupHeld: interactions.cupHeld,
       artworks: loadArtworks() ?? {}, setArtwork: noop,
       rooms: slots.slots.map((slot) => ({ id: slot.id, name: slot.name })), activeRoomId: slots.active, openRoom: noop, createRoom: noop, removeRoom: noop, availableCount: () => 0,
-      profile: loadProfile() ?? { total: 0, today: 0, lastVisit: '', friends: 0 }, profileOpen: false, openProfile: noop, closeProfile: noop, setProfilePhoto: noop, setProfileHandle: noop,
+      profile: loadProfile(handle), profileOpen: false, openProfile: noop, closeProfile: noop, setProfilePhoto: noop,
       // The links are read so a neighbour's frames show that room's YouTube poster — VideoScreen already draws one
       // whenever a link is present, and it costs an image rather than an embed. WallVideoLayer stays out of the
       // neighbour tree: that is what would put a live iframe on every frame of every room, and being DOM rather
@@ -948,7 +947,7 @@ export function NeighbourRoomProvider({ bundle, children }: { bundle: Record<str
       openObject: () => false, reactionIdsFor: () => [], reactionTarget: null, setReactionTarget: noop, commentTarget: null, setCommentTarget: noop,
       timeOfDay: NEIGHBOUR_TIME.find((time) => time === saved) ?? 'day', setTimeOfDay: noop,
       books: hydrateBooks(), openBookId: null, bookshelfOpen: false,
-      readOnly: true, characterHome: character.position, characterPose: character, characterWritable: false, characterLook: loadCharacterLook(), setCharacterLook: noop, currentHandle: null,
+      readOnly: true, characterHome: character.position, characterPose: character, characterWritable: false, characterLook: loadCharacterLook(), setCharacterLook: noop, currentHandle: handle ?? null,
       mode: 'normal', furniture, selectedFurnitureId: null, selectedPlacementValid: true, movingFurnitureId: null, preview: null, previewValid: false, previewDragging: false,
       wallStyle: style, floorStyle: style.floor, styleTarget: null, debugAnchors: false, moveNotice: false, floorTarget: null,
       musicTrack: null, setMusicTrack: noop, musicVolume: 0, setMusicVolume: noop,
@@ -958,7 +957,7 @@ export function NeighbourRoomProvider({ bundle, children }: { bundle: Record<str
       startPreview: noop, beginPreviewDrag: noop, movePreview: noop, endPreviewDrag: noop, placePreview: noop, cancelPreview: noop,
       openStyleTarget: noop, setWallStyle: noop, setFloorStyle: noop, setFurnitureStyle: noop, toggleDebugAnchors: noop,
     }
-  }), [bundle])
+  }), [bundle, handle])
   return <RoomContext value={value}>{children}</RoomContext>
 }
 

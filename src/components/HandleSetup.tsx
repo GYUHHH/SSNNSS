@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useRoomStore } from '../store'
 import { adoptRoomData, cancelSignup, claimHandleLocally, currentUserEmail, googleEnabled, handleTaken, isPlainRoot, isVisiting, myHandle, onAuthChange, ownedRoom, publishRoom, roomPath, sendOtpCode, setPassword as setPassword_, signInWithGoogle, signInWithPassword, verifyOtpCode } from '../services/social'
 
 // First-time onboarding: email → emailed 6-digit code → pick a unique id. Claiming publishes the personal
 // room, binds it to the account, and moves to its address (domain)/(id).
 export default function HandleSetup() {
-  const { setProfileHandle } = useRoomStore()
   // never read the store's profile here: while visiting it holds the host's, whose handle would look like mine
   const mine = myHandle()
   const [session, setSession] = useState<string | null>(null)
@@ -122,9 +120,9 @@ export default function HandleSetup() {
     if (!valid || busy) return
     setBusy('claim')
     if (await handleTaken(clean)) { setTaken(true); setBusy(null); return }
-    // Establish the account's in-memory room identity before React's profile update lands, then save it now.
+    // Establish the new account with a clean default profile. Never merge the room currently being viewed:
+    // while signing up there, its profile belongs to the host, not to this new account.
     claimHandleLocally(clean)
-    setProfileHandle(clean)
     if (!await publishRoom()) { setPublishFailed(true); setBusy(null); return }
     location.replace(roomPath(clean))
   }
