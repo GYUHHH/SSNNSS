@@ -49,6 +49,13 @@ export const explorerMode = () => mode
 export const setExplorerMode = (next: ExplorerMode) => { if (mode !== next) { mode = next; modeListeners.forEach((listener) => listener(next)) } }
 export const onExplorerMode = (listener: (next: ExplorerMode) => void) => { modeListeners.add(listener); return () => { modeListeners.delete(listener) } }
 
+// The two explorers are separate places, each holding its own position: walking the follow graph to someone's
+// room and then opening discover must not drag that room along, and coming back has to land where the walk
+// left off rather than wherever discover wandered to.
+const modeRooms: Record<ExplorerMode, string | null> = { home: null, discover: null }
+export const rememberModeRoom = (mode: ExplorerMode, handle: string) => { modeRooms[mode] = handle }
+export const modeRoom = (mode: ExplorerMode) => modeRooms[mode]
+
 // ---- invite links (mutual follow) ----
 
 // captured once at load: entering a room later rewrites the address and would lose the token

@@ -55,6 +55,9 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
   const dragZoom = useRef<{ identifier: number; startY: number; startZoom: number; lastX: number; lastY: number } | null>(null)
   const controls = useRef<ControlsRef | null>(null)
   const centringExplorer = useRef(false)
+  // Switching explorer spaces loads another room, but it is not an entry — while this window is open the room-entry
+  // framing below stays out of the way so the view lands zoomed out in the new space.
+  const holdZoomedOut = useRef(0)
   const [dragZooming, setDragZooming] = useState(false)
   // the long-press reaction picker owns the pointer while it is up — the slide toward an icon must not swing
   // or zoom the camera, so every camera input is held off until the picker closes
@@ -106,6 +109,13 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
       controls.current.target.sub(delta)
       camera.position.sub(delta)
     }
+    if (performance.now() < holdZoomedOut.current) {
+      zoomTarget.current = minZoom
+      entryZoomAt.current = 0
+      targetGoal.current.set(0, 3.5, 0)
+      centringExplorer.current = true
+      return
+    }
     targetGoal.current.set(focusRoom.position[0], focusRoom.position[1] + 3.5, focusRoom.position[2])
     // Entry is the user's own zoom-in now, so the standard framing is a floor rather than an override — forcing
     // the zoom back to it would fight the wheel that is still turning. Wind past it and the extra is kept.
@@ -114,12 +124,13 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
     if (!enteringFromExplorer) zoomTarget.current = Math.max(zoomTarget.current, baseZoom)
     // whatever the explorer was left rotated or panned to, entering a room lands dead-centre on the 45° view
     angleGoal.current = { azimuth: DEFAULT_AZIMUTH, polar: DEFAULT_POLAR, life: 2 }
-  }, [baseZoom, camera, focusRoom?.token])
+  }, [baseZoom, camera, minZoom, focusRoom?.token])
 
   useEffect(() => { zoomTarget.current = Math.max(zoomTarget.current, minZoom) }, [minZoom])
   useEffect(() => {
     const onZoomOut = (event: Event) => {
       zoomTarget.current = minZoom
+      holdZoomedOut.current = performance.now() + 900
       if (!(event as CustomEvent<boolean>).detail) return
       targetGoal.current.set(0, 3.5, 0)
       centringExplorer.current = true

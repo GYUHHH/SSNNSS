@@ -5,7 +5,7 @@ import { type AmbientLight, Color, type DirectionalLight, type Group, type Mater
 import { NeighbourRoomProvider, useRoomStore } from '../store'
 import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDirectory, isSignedIn, myHandle, subscribeRoomBundles } from '../services/social'
 import { snapshotActiveFrames } from '../services/ytResume'
-import { type ExplorerMode, explorerMode, fetchFollowing, onExplorerMode, onFollowsChange, sortByActivity } from '../services/follows'
+import { type ExplorerMode, explorerMode, fetchFollowing, onExplorerMode, onFollowsChange, rememberModeRoom, sortByActivity } from '../services/follows'
 import { flushCapture } from '../services/capture'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
@@ -526,6 +526,16 @@ function RoomWorld() {
   const [followsTick, setFollowsTick] = useState(0)
   const [swapping, setSwapping] = useState(false)
   const discoverPage = useRef<string[] | null>(null)
+  // The pin moves with the room, under whichever explorer is open at the time. A room reached without a click
+  // — the dock's home button, or an explorer toggle restoring its pin — also has to cancel whatever the mouse
+  // had picked out here and latch entry, or the camera's own entry zoom reads as a second choice and carries
+  // the visitor into the room that happened to be centred.
+  useEffect(() => {
+    picked.current = null
+    requestedEntry.current = false
+    entryLatched.current = true
+    if (isEnterable(activeHandle)) rememberModeRoom(explorerMode(), activeHandle)
+  }, [activeHandle])
   useEffect(() => onExplorerMode(setRingMode), [])
   useEffect(() => onFollowsChange(() => setFollowsTick((value) => value + 1)), [])
   useEffect(() => {

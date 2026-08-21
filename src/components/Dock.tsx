@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { MAX_ROOMS, useRoomStore } from '../store'
 import { enterRoom, isVisiting, myHandle } from '../services/social'
-import { explorerMode, isFollowingRoom, myInviteLink, onFollowsChange, setExplorerMode, setFollowing } from '../services/follows'
+import { explorerMode, isFollowingRoom, modeRoom, myInviteLink, onFollowsChange, rememberModeRoom, setExplorerMode, setFollowing } from '../services/follows'
+import { snapshotActiveFrames } from '../services/ytResume'
 import { shareRoom } from '../services/capture'
 import SoundHub from './SoundHub'
 import { requestExplorerZoom } from './CameraController'
@@ -39,13 +40,28 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
   // home = only rooms I follow around mine, discover = the public directory; the explorer listens to this
   const [explore, setExplore] = useState(explorerMode())
   const { currentHandle } = useRoomStore()
-  // Home is the neighbourhood of whichever room is open, so neither mode has to move the visitor first —
-  // the explorer just pulls back around where they already are.
+  // Each explorer is its own place. Leaving one drops a pin where you stood; entering the other returns to its
+  // pin, or adopts the current room the first time it is opened.
+  const switching = useRef(false)
   const toggleExplorer = () => {
+    if (switching.current) return
     const next = explore === 'home' ? 'discover' : 'home'
+    const here = currentHandle
+    if (here) rememberModeRoom(explore, here)
     setExplore(next)
     setExplorerMode(next)
+    const target = modeRoom(next)
+    if (!target || target === here) {
+      if (here) rememberModeRoom(next, here)
+      requestExplorerZoom(true)
+      return
+    }
+    switching.current = true
     requestExplorerZoom(true)
+    void snapshotActiveFrames()
+      .then(() => enterRoom(target))
+      .then(() => requestExplorerZoom(true))
+      .finally(() => { switching.current = false })
   }
   // follow state for the room being visited (null until known)
   const visiting = isVisiting()
