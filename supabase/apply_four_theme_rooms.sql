@@ -62,7 +62,7 @@ create temp table theme_room_updates (
   concept text not null,
   items jsonb not null,
   style jsonb not null
-) on commit drop;
+);
 
 insert into theme_room_updates values
 (
@@ -285,5 +285,7 @@ join theme_room_updates as update_row using (handle)
 cross join lateral jsonb_array_elements((room.data ->> 'my-room-slots-v1')::jsonb -> 'slots') as active_slot(value)
 where active_slot.value ->> 'id' = (room.data ->> 'my-room-slots-v1')::jsonb ->> 'active'
 order by room.handle;
+
+drop table theme_room_updates;
 
 commit;
