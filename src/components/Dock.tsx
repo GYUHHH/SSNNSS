@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { MAX_ROOMS, useRoomStore } from '../store'
 import { isVisiting, myHandle } from '../services/social'
-import { explorerMode, isFollowingRoom, onFollowsChange, setExplorerMode, setFollowing } from '../services/follows'
+import { explorerMode, isFollowingRoom, myInviteLink, onFollowsChange, setExplorerMode, setFollowing } from '../services/follows'
 import SoundHub from './SoundHub'
 
 const icon = (children: React.ReactNode) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
@@ -20,6 +20,11 @@ const BoxIcon = () => icon(<><polyline points="21 8 21 21 3 21 3 8" /><rect x="1
 export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventory: () => void; onDeleteRoom: (id: string) => void }) {
   const { rooms, activeRoomId, openRoom, createRoom, mode, timeOfDay, setTimeOfDay } = useRoomStore()
   const [roomsOpen, setRoomsOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const copyInvite = () => void myInviteLink().then((link) => {
+    if (!link) return
+    void navigator.clipboard.writeText(link).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) })
+  })
   // home = only rooms I follow around mine, discover = the public directory; the explorer listens to this
   const [explore, setExplore] = useState(explorerMode())
   const { currentHandle } = useRoomStore()
@@ -51,6 +56,7 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
           {rooms.length > 1 && <button type="button" className="dock-pop-delete" aria-label={`${room.name} 삭제`} onClick={() => { setRoomsOpen(false); onDeleteRoom(room.id) }}>×</button>}
         </li>)}
         {rooms.length < MAX_ROOMS && <li><button type="button" onClick={() => { createRoom(); setRoomsOpen(false) }}>+ 새 방 만들기</button></li>}
+        <li><button type="button" onClick={copyInvite}>{copied ? '복사됨' : '초대 링크 복사'}</button></li>
       </ul>}
       <button type="button" className="dock-button" aria-label="내 방 목록" onClick={() => setRoomsOpen((value) => !value)}><HouseIcon /></button>
     </div>}

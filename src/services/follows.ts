@@ -48,3 +48,44 @@ const modeListeners = new Set<(next: ExplorerMode) => void>()
 export const explorerMode = () => mode
 export const setExplorerMode = (next: ExplorerMode) => { if (mode !== next) { mode = next; modeListeners.forEach((listener) => listener(next)) } }
 export const onExplorerMode = (listener: (next: ExplorerMode) => void) => { modeListeners.add(listener); return () => { modeListeners.delete(listener) } }
+
+// ---- invite links (mutual follow) ----
+
+// captured once at load: entering a room later rewrites the address and would lose the token
+const pendingInvite: string | null = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('invite') : null
+export const inviteToken = () => pendingInvite
+export const clearInviteFromUrl = () => {
+  try { const url = new URL(location.href); url.searchParams.delete('invite'); history.replaceState(null, '', url.pathname + (url.search || '')) } catch { /* fine */ }
+}
+
+// one standing invite per owner: reuse the existing token, create it on first ask
+export async function myInviteLink(): Promise<string | null> {
+  const me = myHandle()
+  if (!me) return null
+  try {
+    const headers = await authHeaders()
+    let response = await fetch(`${SUPABASE_URL}/rest/v1/follow_invites?owner=eq.${escape(me)}&select=token`, { headers })
+    let rows = await response.json()
+    let token = response.ok && Array.isArray(rows) ? rows[0]?.token : null
+    if (!token) {
+      response = await fetch(`${SUPABASE_URL}/rest/v1/follow_invites`, { method: 'POST', headers: { ...headers, Prefer: 'return=representation' }, body: JSON.stringify({ owner: me }) })
+      rows = await response.json()
+      token = response.ok && Array.isArray(rows) ? rows[0]?.token : null
+    }
+    return typeof token === 'string' && token ? `${location.origin}/${escape(me)}?invite=${token}` : null
+  } catch { return null }
+}
+
+// the server function validates the token and writes BOTH follow rows — returns the inviter's handle
+export async function acceptFollowInvite(token: string): Promise<string | null> {
+  try {
+    const headers = await authHeaders()
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/accept_follow_invite`, { method: 'POST', headers, body: JSON.stringify({ invite_token: token }) })
+    const result = await response.json()
+    if (response.ok && typeof result === 'string' && result) {
+      changeListeners.forEach((listener) => listener())
+      return result
+    }
+    return null
+  } catch { return null }
+}
