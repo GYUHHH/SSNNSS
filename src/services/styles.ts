@@ -22,11 +22,11 @@ export const DEFAULT_WALL_COLOR = { leftWall: '#f1dfc4', rightWall: '#f8e9d1' } 
 // walls only offer a subset that reads as "wallpaper" rather than furniture-saturated colors
 export const wallStylePresets = ['cream', 'beige', 'sage', 'dustyPink', 'brown', 'white', 'ivory', 'lightGray'] as const
 
-export type FloorStyle = { id: string; label: string; color: string; roughness: number; pattern?: 'grout' }
+export type FloorStyle = { id: string; label: string; color: string; roughness: number }
 export const floorStyles: FloorStyle[] = [
   { id: 'wood', label: '원목', color: '#cf914f', roughness: 0.75 },
   { id: 'carpet', label: '카펫', color: '#b58a63', roughness: 0.97 },
-  { id: 'tile', label: '타일', color: '#e7ddc9', roughness: 0.3, pattern: 'grout' },
+  { id: 'tile', label: '타일', color: '#e7ddc9', roughness: 0.3 },
   { id: 'whitewood', label: '화이트 우드', color: '#e9e4da', roughness: 0.6 },
 ]
 // A floor is a material plus a colour: "tile" keeps the material's own tone, "tile#c9a06a" repaints it while
