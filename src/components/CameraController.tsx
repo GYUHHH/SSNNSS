@@ -89,10 +89,10 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
   // than at the room the user came from. Without it, the instant a zoom-in starts the damping drags the view back
   // toward the old room: on a gentle wheel the picked room slides out of the middle before the entry line is even
   // crossed, and on a fast one the user watches the room they chose leave the screen while zooming into it.
-  useEffect(() => {
-    if (!aim) return
-    targetGoal.current.set(aim[0], aim[1] + 3.5, aim[2])
-  }, [aim])
+  // 호버 즉시 카메라를 끌면 탐색기에서 멈춰 구경하는 중에도 시점이 방을 따라다닌다(버그).
+  // 조준값은 ref로만 들고 있다가, 아래 프레임 루프에서 "실제로 줌인 중일 때"만 타깃에 적용한다.
+  const aimRef = useRef<typeof aim>(null)
+  useEffect(() => { aimRef.current = aim }, [aim])
 
   // LAYOUT effect on purpose: the re-base and this camera slide must land in the same painted frame. As a plain
   // effect it ran after the browser had already painted the re-based cluster once — a single flashed frame of the
@@ -232,6 +232,11 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
       }
     }
     lastZoomTarget.current = zoomTarget.current
+    // 고른 방을 중앙으로 당기는 조준은 줌 목표가 진입선을 향할 때만 — 탐색기 바닥에서 쉬거나(호버만),
+    // 줌아웃 중이거나, 지도를 드래그하는 동안엔 시점이 호버를 따라가면 안 된다.
+    if (aimRef.current && mode === 'normal' && zoomTarget.current >= entryZoom(size.width, size.height) - .01) {
+      targetGoal.current.set(aimRef.current[0], aimRef.current[1] + 3.5, aimRef.current[2])
+    }
     // Only in normal mode. Edit mode has its OWN, much higher floor, and on a phone the default zoom sits exactly
     // on it — so this read as "fully zoomed out", switched panning on, and a one-finger drag shoved the room away
     // while the user was arranging furniture.
