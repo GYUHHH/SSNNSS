@@ -146,7 +146,16 @@ export const decodeTarget = (stored: string): YouTubeTarget => {
 // trusted when it lands near a common aspect — anything odd resolves to null so the caller skips cropping.
 const aspectCache: Record<string, Promise<number | null>> = {}
 export function videoAspect(id: string): Promise<number | null> {
-  return aspectCache[id] ??= new Promise((resolve) => {
+  // 1차: oEmbed의 width/height — 실제 영상 비율을 그대로 준다(4:3은 200x150, 16:9는 200x113로 실측 확인).
+  // 예전 주석의 "oEmbed는 전부 16:9" 전제는 틀렸었다. 썸네일 픽셀 측정은 레터박스가 순흑이 아니면
+  // 흔들려서(실측 1.486 같은 오값) 폴백으로만 남긴다.
+  return aspectCache[id] ??= fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}&format=json`)
+    .then((response) => response.ok ? response.json() : null)
+    .then((meta) => (meta && meta.width > 0 && meta.height > 0 ? meta.width / meta.height : thumbnailAspect(id)))
+    .catch(() => thumbnailAspect(id))
+}
+function thumbnailAspect(id: string): Promise<number | null> {
+  return new Promise((resolve) => {
     const oar = new Image()
     // 과거엔 일반 영상이면 404였지만 지금은 120x90 플레이스홀더가 로드된다 — 세로 비율일 때만 쇼츠로 인정
     oar.onload = () => { if (oar.naturalHeight > oar.naturalWidth) resolve(9 / 16); else measure() }
