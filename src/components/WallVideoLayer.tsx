@@ -16,6 +16,11 @@ const VIDEO_MASK_VERTEX = 'void main(){gl_Position=projectionMatrix*modelViewMat
 const VIDEO_MASK_FRAGMENT = 'void main(){gl_FragColor=vec4(0.0);}'
 
 // ?vdbg=1 진단 모드: 실기기에서 iframe(div)의 실제 위치·수치를 눈으로 읽기 위한 옵트인 오버레이
+// 아이폰 크롬(CriOS)의 유튜브 플레이어는 영상을 div 높이의 ~9%만큼 아래로 밀어 그린다(위 띠 + 아래 잘림,
+// 같은 폰 사파리는 정상 — 실기기 vdbg 스크린샷 2종 실측 8.7~9.1%). 리사이즈 유도로는 안 고쳐져서,
+// 밀린 만큼 iframe을 위로 당기고 그만큼 높이를 더 줘 보이는 창에 영상만 정확히 담는다.
+const CRIOS_SHIFT_RATIO = /CriOS/.test(typeof navigator === 'undefined' ? '' : navigator.userAgent) ? .09 : 0
+
 const VIDEO_DEBUG = typeof location !== 'undefined' && new URLSearchParams(location.search).has('vdbg')
 
 // The playing iframes live here, OUTSIDE the furniture tree: entering edit mode swaps every piece into a
@@ -154,7 +159,7 @@ function WallVideo({ frameId }: { frameId: string }) {
           {VIDEO_DEBUG && <div style={{ position: 'absolute', top: 0, left: 0, zIndex: 99, background: '#ff0', color: '#000', fontSize: 26, padding: 4, pointerEvents: 'none' }}>{`dh${divHeight} c${crop} r${videoRatio == null ? String(videoRatio) : videoRatio.toFixed(2)} vv${globalThis.visualViewport?.scale.toFixed(2) ?? '-'} ${navigator.userAgent.match(/(CriOS|Version)\/[\d.]+/)?.[0] ?? ''}`}</div>}
           {/* controls=0 keeps YouTube's control bar from popping over the wall screen (it auto-shows on tab
               return); the expanded panel player keeps its controls */}
-          <ResumingIframe key={`${frameId}:${divHeight}`} videoId={videoId} frameId={frameId} extra="autoplay=1&playsinline=1&mute=1&controls=0" frameStyle={{ ...(crop ? { width: 640, top: -crop, height: divHeight + crop * 2 } : { width: 640, height: divHeight }), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} />
+          <ResumingIframe key={`${frameId}:${divHeight}`} videoId={videoId} frameId={frameId} extra="autoplay=1&playsinline=1&mute=1&controls=0" frameStyle={{ ...(crop ? { width: 640, top: -crop, height: divHeight + crop * 2 } : { width: 640, top: -Math.round(divHeight * CRIOS_SHIFT_RATIO), height: divHeight + Math.round(divHeight * CRIOS_SHIFT_RATIO) }), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} />
           {/* the two shields carry the open-the-panel click and together cover everything but YouTube's own
               skip-ad corner, which is left live so the visitor can press it themselves */}
           {mode !== 'edit' && ['top', 'rest'].map((part) => <div key={part} className={`wall-video-shield ${part}`}
@@ -190,22 +195,5 @@ export function ResumingIframe({ videoId, frameId, extra, frameStyle }: { videoI
   const frame = useRef<HTMLIFrameElement>(null)
   const [src] = useState(() => embedSrc(videoId, frameId, extra))
   useEffect(() => { if (frame.current) return trackIframe(frame.current, frameId) }, [frameId])
-  // 아이폰 크롬(CriOS)의 유튜브 플레이어는 3D 변환된 iframe에서 초기 레이아웃을 잘못 잡아 영상이
-  // 아래로 밀린다(같은 폰 사파리는 정상 — 실기기 vdbg로 확인). 로드 뒤 iframe 높이를 1px 흔들었다
-  // 되돌리면 플레이어가 resize를 받고 올바르게 재배치한다. 두 번 쏘는 건 플레이어 부팅이 늦는 경우 대비.
-  useEffect(() => {
-    if (!/CriOS/.test(navigator.userAgent)) return
-    const element = frame.current
-    if (!element) return
-    const jiggle = () => {
-      const height = element.style.height
-      if (!height) return
-      element.style.height = `${parseFloat(height) + 1}px`
-      setTimeout(() => { element.style.height = height }, 80)
-    }
-    const first = setTimeout(jiggle, 1500)
-    const second = setTimeout(jiggle, 5000)
-    return () => { clearTimeout(first); clearTimeout(second) }
-  }, [])
   return <iframe ref={frame} title="유튜브 재생" src={src} style={frameStyle} referrerPolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
 }
