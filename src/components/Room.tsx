@@ -68,7 +68,7 @@ function CrossfadingLights({ preset }: { preset: typeof LIGHTING[keyof typeof LI
   })
   return <>
     <ambientLight ref={ambient} intensity={initial.ambient} color={initial.ambientColor} />
-    <directionalLight ref={dir} castShadow position={[6, 4.5, 2.5]} intensity={initial.dir} color={initial.dirColor} shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
+    <directionalLight ref={dir} castShadow position={[3, 8, 1.8]} intensity={initial.dir} color={initial.dirColor} shadow-mapSize-width={1024} shadow-mapSize-height={1024} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
   </>
 }
 
@@ -81,7 +81,7 @@ function TimeLayerLights({ time }: { time: TimeOfDay }) {
     ambient.current?.layers.set(layer); ambient.current?.layers.enable(HOVER_LAYER[time])
     dir.current?.layers.set(layer)
   }, [layer, time])
-  return <><ambientLight ref={ambient} intensity={preset.ambient} color={preset.ambientColor} /><directionalLight ref={dir} position={[6, 4.5, 2.5]} intensity={preset.dir} color={preset.dirColor} /></>
+  return <><ambientLight ref={ambient} intensity={preset.ambient} color={preset.ambientColor} /><directionalLight ref={dir} position={[3, 8, 1.8]} intensity={preset.dir} color={preset.dirColor} /></>
 }
 
 // Hovered rooms are rendered once more after the cluster so they stay in front. That foreground pass needs its
