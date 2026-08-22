@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MathUtils, MOUSE, OrthographicCamera, TOUCH, Vector3 } from 'three'
 import { useRoomStore } from '../store'
+import { currentRoomHandle, isSignedIn } from '../services/social'
 import { PICKER_HOLD_EVENT } from './ReactionPicker'
 
 const DESKTOP_DETAIL_MIN_ZOOM = 42
@@ -40,6 +41,11 @@ type ControlsRef = { target: Vector3; update: () => void; getAzimuthalAngle: () 
 export default function CameraController({ focusRoom, aim }: { focusRoom?: FocusRoom; aim?: [number, number, number] | null }) {
   const { camera, gl, size } = useThree()
   const { mode } = useRoomStore()
+  // 비로그인 첫 진입(로비)은 탐색기(지구본)를 펼친 채로 시작해 방들부터 보인다 — 특정 방 링크로 온
+  // 방문(isVisiting)은 그 방을 보여주러 온 것이니 평소처럼 방 안에서 시작한다. 1은 minZoom 아래 아무 값:
+  // 첫 프레임 damp가 곧장 탐색기 바닥으로 정착한다.
+  // 비로그인의 맨 루트(로비, plainRoot)는 currentRoomHandle이 null — 특정 방 링크로 온 방문과 이걸로 구분한다
+  const startExploring = useRef(!isSignedIn() && currentRoomHandle() === null).current
   const zoomTarget = useRef(59)
   // last frame's goal, so the band snap below can tell which way the user was winding
   const lastZoomTarget = useRef(59)
@@ -57,7 +63,9 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
   const centringExplorer = useRef(false)
   // Switching explorer spaces loads another room, but it is not an entry — while this window is open the room-entry
   // framing below stays out of the way so the view lands zoomed out in the new space.
-  const holdZoomedOut = useRef(0)
+  // 비로그인 로비 부팅은 '탐색기를 편 채 시작'으로 취급 — 부팅 중 발사되는 focusRoom/재배치가
+  // 줌을 방 안(baseZoom)으로 끌어올리지 못하게, 방 전환용 hold 장치를 부팅 구간에 걸어둔다
+  const holdZoomedOut = useRef(startExploring ? performance.now() + 3000 : 0)
   const [dragZooming, setDragZooming] = useState(false)
   // the long-press reaction picker owns the pointer while it is up — the slide toward an icon must not swing
   // or zoom the camera, so every camera input is held off until the picker closes
@@ -81,7 +89,8 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
 
   useEffect(() => {
     const camera2d = camera as OrthographicCamera
-    camera2d.zoom = zoomTarget.current = baseZoom
+    // 비로그인 로비 시작은 탐색기를 펼친 채로 — 방들부터 보인다 (특정 방 링크 방문은 평소대로 방 안)
+    camera2d.zoom = zoomTarget.current = startExploring ? exploreMinZoom(size.width, size.height) : baseZoom
     camera2d.updateProjectionMatrix()
   }, [camera, compactScreen, baseZoom])
 

@@ -1,4 +1,4 @@
-import { SUPABASE_URL, anonHeaders, authHeaders, myHandle } from './social'
+import { SUPABASE_URL, anonHeaders, authHeaders, isSignedIn, myHandle } from './social'
 
 // Follow graph + the explorer's home/discover split. Every call degrades gracefully while the `follows`
 // table does not exist yet on the server: reads resolve to empty, writes report failure, nothing throws.
@@ -43,7 +43,8 @@ export async function setFollowing(followee: string, follow: boolean): Promise<b
 // Module-level rather than store state because the writer (Dock, DOM root) and the reader (explorer, canvas
 // root) live on different React roots — same channel pattern as the reaction picker.
 export type ExplorerMode = 'home' | 'discover'
-let mode: ExplorerMode = 'home'
+// 비로그인 방문자에겐 팔로우 링이 없다 — 공개 디렉터리(지구본)가 기본
+let mode: ExplorerMode = isSignedIn() ? 'home' : 'discover'
 const modeListeners = new Set<(next: ExplorerMode) => void>()
 export const explorerMode = () => mode
 export const setExplorerMode = (next: ExplorerMode) => { if (mode !== next) { mode = next; modeListeners.forEach((listener) => listener(next)) } }
