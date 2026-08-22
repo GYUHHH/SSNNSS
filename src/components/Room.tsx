@@ -91,7 +91,7 @@ function HoverLayerLight({ time }: { time: TimeOfDay }) {
   const dir = useRef<DirectionalLight>(null)
   const preset = LIGHTING[time]
   useLayoutEffect(() => { dir.current?.layers.set(HOVER_LAYER[time]) }, [time])
-  return <directionalLight ref={dir} castShadow position={[6, 4.5, 2.5]} intensity={preset.dir} color={preset.dirColor} shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
+  return <directionalLight ref={dir} castShadow position={[3, 8, 1.8]} intensity={preset.dir} color={preset.dirColor} shadow-mapSize-width={1024} shadow-mapSize-height={1024} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
 }
 
 // Idle power saver, second attempt — this one cannot touch animation speed. The loop still runs at the display's
