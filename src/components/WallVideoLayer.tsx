@@ -148,8 +148,8 @@ function WallVideo({ frameId }: { frameId: string }) {
   const [crop, setCrop] = useState(0)
   const dims = VIDEO_FRAME_SIZES[(item?.type ?? '')] ?? VIDEO_FRAME_SIZES['video-frame-3']
   const turned = !!item && Math.abs(Math.round(item.rotation[1] / (Math.PI / 2))) % 2 === 1
-  const screenWidth = (turned ? dims[1] : dims[0]) - .06
-  const screenHeight = (turned ? dims[0] : dims[1]) - .06
+  const screenWidth = turned ? dims[1] : dims[0]
+  const screenHeight = turned ? dims[0] : dims[1]
   const divHeight = Math.round(640 * (screenHeight / screenWidth))
   useEffect(() => {
     if (!active || !videoId) return

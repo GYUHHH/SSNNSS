@@ -829,10 +829,12 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     const [w, h] = VIDEO_FRAME_SIZES[item.type] ?? VIDEO_FRAME_SIZES['video-frame-3']
     const rotationY = item.rotation?.[1] ?? 0
     const turned = Math.abs(Math.round(rotationY / (Math.PI / 2))) % 2 === 1
-    const screenWidth = (turned ? h : w) - .06
-    const screenHeight = (turned ? w : h) - .06
+    const screenWidth = turned ? h : w
+    const screenHeight = turned ? w : h
     return <>
-      <RoundedBox castShadow args={[w, h, .04]} radius={.015} smoothness={2} position={[0, 0, .02]}>{mat('#3a332c')}</RoundedBox>
+      {/* 화면과 같은 크기의 얇은 백킹 — 베젤 없이 보이지만, DOM 화면은 mesh가 아니라서
+          이게 없으면 FittedMesh 바운즈가 0이 되어 스케일이 무한대로 터진다 (실제 발생) */}
+      <mesh position={[0, 0, .01]}><boxGeometry args={[w, h, .02]} />{mat('#20262b')}</mesh>
       <group rotation={[0, 0, -rotationY]}>
         {preview ? <mesh position={[0, 0, .042]}><planeGeometry args={[screenWidth, screenHeight]} />{mat('#20262b')}</mesh> : <VideoScreen id={item.id} width={screenWidth} height={screenHeight} />}
       </group>
@@ -915,9 +917,9 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'book-prop') return <>{[0, 1].map((index) => <mesh castShadow key={index} position={[index * .03, .02 + index * .045, index * -.02]} rotation={[0, index * .3, 0]}><boxGeometry args={[.26, .04, .19]} /><meshStandardMaterial color={material.color ?? (index ? '#b06952' : '#8a9c82')} transparent={material.transparent} opacity={material.opacity} /></mesh>)}</>
   if (item.type === 'speaker') return <><RoundedBox castShadow args={[.16, .26, .14]} radius={.02} smoothness={2} position={[0, .13, 0]}><meshStandardMaterial color={material.color ?? '#4c4038'} transparent={material.transparent} opacity={material.opacity} /></RoundedBox><mesh position={[0, .18, .071]}><circleGeometry args={[.045, 14]} /><meshStandardMaterial color="#2b2621" transparent={material.transparent} opacity={material.opacity} /></mesh><mesh position={[0, .08, .071]}><circleGeometry args={[.03, 14]} /><meshStandardMaterial color="#2b2621" transparent={material.transparent} opacity={material.opacity} /></mesh></>
   if (item.type === 'animated-poster') return <><mesh castShadow position={[0, 0, .04]}><boxGeometry args={[1.4, 2.1, .03]} /><meshStandardMaterial color={material.color ?? '#4a4238'} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh position={[0, 0, .058]}><planeGeometry args={[1.2, 1.9]} />{preview ? <meshStandardMaterial color={material.color ?? '#2c3b57'} transparent opacity={material.opacity} /> : <NightSkyArt />}</mesh></>
-  if (item.type.startsWith('photo-frame')) return <group rotation={item.wallId ? [0, 0, 0] : [-Math.PI / 2, 0, 0]}><mesh castShadow position={[0, 0, .006]}><boxGeometry args={[.34, .34, .012]} /><meshStandardMaterial color={material.color ?? '#8a6a52'} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh position={[0, 0, .014]}><planeGeometry args={[artAspect >= 1 ? .33 : .33 * artAspect, artAspect >= 1 ? .33 / artAspect : .33]} />{art && !preview
+  if (item.type.startsWith('photo-frame')) return <group rotation={item.wallId ? [0, 0, 0] : [-Math.PI / 2, 0, 0]}><mesh position={[0, 0, .014]}><planeGeometry args={[artAspect >= 1 ? .34 : .34 * artAspect, artAspect >= 1 ? .34 / artAspect : .34]} />{art && !preview
     ? <meshBasicMaterial key="art" map={art} transparent={material.transparent} opacity={material.opacity} />
-    : <meshStandardMaterial key="plain" color="#8a9c82" transparent={material.transparent} opacity={material.opacity} />}</mesh></group>
+    : <meshStandardMaterial key="plain" color={material.color ?? '#8a9c82'} transparent={material.transparent} opacity={material.opacity} />}</mesh></group>
   if (item.type === 'computer') return <><mesh castShadow position={[0, .6, -.08]}><boxGeometry args={[1.06, .64, .1]} />{mat('#4b4c50')}</mesh><mesh castShadow position={[0, .15, -.08]}><boxGeometry args={[.12, .32, .12]} />{mat('#49454a')}</mesh><mesh castShadow position={[0, .02, -.02]}><boxGeometry args={[.56, .07, .3]} />{mat('#49454a')}</mesh><mesh castShadow position={[-.05, .025, .43]}><boxGeometry args={[.66, .05, .25]} />{mat('#e9deca')}</mesh></>
   if (item.type === 'rug') return <><RoundedBox castShadow args={[2.1, .06, 1.4]} radius={.025} smoothness={2} position={[0, .03, 0]}>{mat('#b98363')}</RoundedBox><RoundedBox args={[1.74, .012, 1.04]} radius={.02} smoothness={2} position={[0, .063, 0]}>{mat('#e8dcc7')}</RoundedBox></>
   if (item.type === 'plant') return <><mesh castShadow position={[0, .32, 0]}><cylinderGeometry args={[.34, .26, .62, 10]} />{mat('#b06952')}</mesh>{[[-.28, .9, 0], [.25, 1.05, .08], [0, 1.18, -.22]].map(([x, y, z], index) => <mesh castShadow key={index} position={[x, y, z]}><sphereGeometry args={[.32, 8, 8]} />{mat('#8a9c82')}</mesh>)}</>
