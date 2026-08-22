@@ -1,7 +1,7 @@
 import { Billboard, Html, RoundedBox, Text } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useMemo } from 'react'
-import { CanvasTexture, CatmullRomCurve3, Color, EdgesGeometry, MathUtils, Object3D, Shape, ShapeGeometry, SRGBColorSpace, type Texture, TextureLoader, Vector3, VideoTexture, type PointLight } from 'three'
+import { CanvasTexture, CatmullRomCurve3, Color, EdgesGeometry, MathUtils, Object3D, Path, Shape, ShapeGeometry, SRGBColorSpace, type Texture, TextureLoader, Vector3, VideoTexture, type PointLight } from 'three'
 import { BannerTextInput, SpeechBubbleInput, useArtTexture } from './ArtEditor'
 import { isDefaultProfilePhoto, isVisiting } from '../services/social'
 import { type ReactNode, useRef, useState } from 'react'
@@ -350,6 +350,144 @@ function VanityDesk({ preview }: { preview: boolean }) {
   </>
 }
 
+
+// 버섯 램프: 돔이 전체 폭, 몸통은 돔의 절반 폭으로 잘록하다. 켜면 돔 안쪽 면과 몸통이 발광.
+function MushroomLamp({ preview, lit }: { preview: boolean; lit: boolean }) {
+  const opacity = preview ? .5 : 1
+  const shell = (color: string, emissive = 0) => <meshStandardMaterial color={color} roughness={.28} emissive={color} emissiveIntensity={emissive} transparent={preview} opacity={opacity} />
+  return <>
+    <mesh castShadow position={[0, .3, 0]} scale={[.62, 1, .62]}><sphereGeometry args={[.26, 14, 10]} />{shell(lit ? '#f09340' : '#e07f26', lit ? .55 : 0)}</mesh>
+    <mesh position={[0, .07, 0]}><cylinderGeometry args={[.15, .16, .1, 12]} />{shell('#d8771f')}</mesh>
+    <mesh castShadow position={[0, .56, 0]} scale={[1, .74, 1]}><sphereGeometry args={[.36, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />{shell('#e2701d')}</mesh>
+    <mesh position={[0, .555, 0]} rotation={[Math.PI / 2, 0, 0]}><circleGeometry args={[.35, 18]} /><meshStandardMaterial color={lit ? '#ffc45e' : '#c96a1e'} emissive={lit ? '#ffb043' : '#000000'} emissiveIntensity={lit ? 1.2 : 0} transparent={preview} opacity={opacity} /></mesh>
+    {lit && <pointLight color="#ffab52" intensity={5} distance={2} position={[0, .42, 0]} />}
+  </>
+}
+
+// 라벤더 소파: 쿠션 밖으로 노출된 크롬 파이프 프레임(LC2 방식)이 정체성. 등받이엔 세로 채널 스티칭.
+function LavenderSofa({ preview }: { preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  const pad = (color: string) => <meshStandardMaterial color={color} roughness={.55} transparent={preview} opacity={opacity} />
+  // 환경맵이 없어서 metalness를 올리면 검게 죽는다 — 밝은 색 + 중간 metalness로 크롬 흉내
+  const chrome = <meshStandardMaterial color="#d9dee2" metalness={.5} roughness={.22} transparent={preview} opacity={opacity} />
+  const heart = useMemo(() => {
+    const value = new Shape()
+    value.moveTo(0, -.09)
+    value.bezierCurveTo(-.025, -.06, -.095, -.02, -.095, .038)
+    value.bezierCurveTo(-.095, .095, -.025, .108, 0, .062)
+    value.bezierCurveTo(.025, .108, .095, .095, .095, .038)
+    value.bezierCurveTo(.095, -.02, .025, -.06, 0, -.09)
+    return value
+  }, [])
+  return <>
+    <RoundedBox castShadow args={[1.98, .3, .68]} radius={.05} smoothness={2} position={[0, .43, .04]}>{pad('#b49bd8')}</RoundedBox>
+    <RoundedBox castShadow args={[1.98, .2, .66]} radius={.05} smoothness={2} position={[0, .24, .04]}>{pad('#a98fd0')}</RoundedBox>
+    <RoundedBox castShadow args={[1.72, .62, .17]} radius={.08} smoothness={2} position={[0, .78, -.26]}>{pad('#b49bd8')}</RoundedBox>
+    {Array.from({ length: 9 }, (_, index) => <mesh key={index} position={[-.68 + index * .17, .8, -.168]}><boxGeometry args={[.012, .5, .012]} />{pad('#a288c9')}</mesh>)}
+    {[-1, 1].map((side) => <RoundedBox castShadow key={side} args={[.24, .34, .6]} radius={.05} smoothness={2} position={[side * .93, .62, 0]}>{pad('#b49bd8')}</RoundedBox>)}
+    <mesh position={[0, .155, .36]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[.024, .024, 1.96, 8]} />{chrome}</mesh>
+    {[-1, 1].map((side) => <mesh key={side} position={[side * .97, .35, 0]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[.024, .024, .72, 8]} />{chrome}</mesh>)}
+    {[[-.97, .34], [.97, .34], [-.97, -.32], [.97, -.32]].map(([x, z]) => <mesh key={`${x}:${z}`} position={[x, .17, z]}><cylinderGeometry args={[.024, .024, .34, 8]} />{chrome}</mesh>)}
+    <RoundedBox castShadow args={[.34, .34, .09]} radius={.04} smoothness={2} position={[-.52, .72, -.1]} rotation={[-.18, .12, .04]}><meshStandardMaterial color="#d9d9e2" metalness={.25} roughness={.4} transparent={preview} opacity={opacity} /></RoundedBox>
+    <RoundedBox castShadow args={[.32, .32, .09]} radius={.04} smoothness={2} position={[-.2, .7, -.04]} rotation={[-.2, -.08, -.05]}><meshStandardMaterial color="#eec3da" metalness={.25} roughness={.4} transparent={preview} opacity={opacity} /></RoundedBox>
+    <mesh castShadow position={[-.36, .66, .1]} rotation={[-.3, 0, -.08]}><extrudeGeometry args={[heart, { depth: .06, bevelEnabled: true, bevelSize: .02, bevelThickness: .02, bevelSegments: 2 }]} /><meshStandardMaterial color="#e8aed0" metalness={.3} roughness={.35} transparent={preview} opacity={opacity} /></mesh>
+  </>
+}
+
+// 페넌트 깃발: 오른쪽으로 뾰족한 삼각 벽 배너. 크림 테두리는 같은 삼각형을 살짝 키워 뒤에 깐다.
+function PennantFlag({ preview }: { preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  const [outer, inner, star, letter] = useMemo(() => {
+    const tri = (scale: number) => {
+      const value = new Shape()
+      value.moveTo(-.95 * scale, .42 * scale)
+      value.lineTo(1 * scale, 0)
+      value.lineTo(-.95 * scale, -.42 * scale)
+      value.closePath()
+      return value
+    }
+    const points = new Shape()
+    for (let index = 0; index < 10; index++) {
+      const angle = Math.PI / 2 + index * Math.PI / 5
+      const radius = index % 2 ? .035 : .085
+      const x = Math.cos(angle) * radius; const y = Math.sin(angle) * radius
+      if (index === 0) points.moveTo(x, y); else points.lineTo(x, y)
+    }
+    points.closePath()
+    // 블록체 D: drei Text는 폰트가 비동기라 썸네일 동기 캡처에서 빠진다 — Shape로 직접 그린다
+    const letter = new Shape()
+    letter.moveTo(-.17, -.26)
+    letter.lineTo(-.17, .26)
+    letter.lineTo(.0, .26)
+    letter.quadraticCurveTo(.21, .26, .21, 0)
+    letter.quadraticCurveTo(.21, -.26, 0, -.26)
+    letter.closePath()
+    const hole = new Path()
+    hole.moveTo(-.07, -.15)
+    hole.lineTo(-.07, .15)
+    hole.lineTo(0, .15)
+    hole.quadraticCurveTo(.1, .15, .1, 0)
+    hole.quadraticCurveTo(.1, -.15, 0, -.15)
+    hole.closePath()
+    letter.holes.push(hole)
+    return [tri(1), tri(.94), points, letter]
+  }, [])
+  const felt = (color: string) => <meshStandardMaterial color={color} roughness={.92} transparent={preview} opacity={opacity} />
+  return <>
+    <mesh castShadow position={[0, 0, .012]}><shapeGeometry args={[outer]} />{felt('#e9dfc8')}</mesh>
+    <mesh position={[.014, 0, .02]}><shapeGeometry args={[inner]} />{felt('#22304d')}</mesh>
+    <mesh position={[-.89, 0, .006]}><boxGeometry args={[.075, .9, .02]} />{felt('#e9dfc8')}</mesh>
+    {[.24, -.24].flatMap((y) => [.028, -.028].map((offset) => <mesh key={`${y}:${offset}`} position={[-.97, y + offset, .012]} rotation={[0, 0, offset * 6]}><boxGeometry args={[.14, .035, .012]} />{felt('#22304d')}</mesh>))}
+    <mesh position={[-.42, 0, .028]}><shapeGeometry args={[letter]} />{felt('#e9dfc8')}</mesh>
+    <mesh position={[.32, 0, .026]}><shapeGeometry args={[star]} />{felt('#e9dfc8')}</mesh>
+  </>
+}
+
+// 부클레 스툴: 낮은 원통이 위로 살짝 부풀고, 옆면을 세로 솔기 8개가 조각낸다.
+function BoucleStool({ preview }: { preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  const boucle = (color: string) => <meshStandardMaterial color={color} roughness={1} transparent={preview} opacity={opacity} />
+  return <>
+    <mesh castShadow position={[0, .19, 0]}><cylinderGeometry args={[.42, .4, .32, 22]} />{boucle('#efe7d7')}</mesh>
+    <mesh castShadow position={[0, .35, 0]} scale={[1, .32, 1]}><sphereGeometry args={[.42, 22, 10]} />{boucle('#f2ebdb')}</mesh>
+    {Array.from({ length: 8 }, (_, index) => {
+      const angle = index / 8 * Math.PI * 2
+      return <mesh key={index} position={[Math.cos(angle) * .414, .19, Math.sin(angle) * .414]} rotation={[0, -angle, 0]}><boxGeometry args={[.014, .3, .014]} />{boucle('#ddd2bd')}</mesh>
+    })}
+  </>
+}
+
+// 큐브 선반: 2열 3단 흰 판재 오픈 셸프. 뒷판 없음.
+function CubeShelf({ preview }: { preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  const board = () => <meshStandardMaterial color="#f2f2f0" roughness={.75} transparent={preview} opacity={opacity} />
+  return <>
+    {[-.66, 0, .66].map((x) => <mesh castShadow key={x} position={[x, .83, 0]}><boxGeometry args={[.05, 1.66, .42]} />{board()}</mesh>)}
+    {[.025, .565, 1.105, 1.635].map((y) => <mesh castShadow key={y} position={[0, y, 0]}><boxGeometry args={[1.37, .05, .42]} />{board()}</mesh>)}
+  </>
+}
+
+// 파파산 체어: 라탄 이중 링 받침 위에 뒤로 기운 큰 링, 그 안에 도넛형 부클레 쿠션.
+function PapasanChair({ preview }: { preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  const rattan = () => <meshStandardMaterial color="#c9a36a" roughness={.7} transparent={preview} opacity={opacity} />
+  const boucle = (color: string) => <meshStandardMaterial color={color} roughness={1} transparent={preview} opacity={opacity} />
+  return <>
+    <mesh castShadow position={[0, .04, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[.26, .028, 8, 24]} />{rattan()}</mesh>
+    {[.6, 2.2, 3.7, 5.3].map((angle) => <mesh castShadow key={angle} position={[Math.cos(angle) * .24, .17, Math.sin(angle) * .24]} rotation={[Math.sin(angle) * .12, 0, -Math.cos(angle) * .12]}><cylinderGeometry args={[.022, .022, .28, 6]} />{rattan()}</mesh>)}
+    <mesh castShadow position={[0, .3, -.02]} rotation={[Math.PI / 2 - .25, 0, 0]}><torusGeometry args={[.24, .028, 8, 24]} />{rattan()}</mesh>
+    <group position={[0, .46, -.04]} rotation={[-.32, 0, 0]}>
+      <mesh castShadow rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[.46, .022, 8, 28]} />{rattan()}</mesh>
+      <mesh castShadow rotation={[Math.PI / 2, 0, 0]} position={[0, .05, 0]}><torusGeometry args={[.34, .15, 10, 20]} />{boucle('#f1ead9')}</mesh>
+      <mesh position={[0, .04, 0]} scale={[1, .35, 1]}><sphereGeometry args={[.34, 16, 10]} />{boucle('#ece4d2')}</mesh>
+      {Array.from({ length: 10 }, (_, index) => {
+        const angle = index / 10 * Math.PI * 2
+        return <mesh key={index} position={[Math.cos(angle) * .34, .1, Math.sin(angle) * .34]} scale={[1, .8, 1]}><sphereGeometry args={[.13, 8, 6]} />{boucle(index % 2 ? '#f4eede' : '#ede5d3')}</mesh>
+      })}
+    </group>
+  </>
+}
+
 export function ItemVisual({ item, preview = false }: { item: FurnitureItem; preview?: boolean }) {
   const store = useOptionalRoomStore()
   const musicTrack = store?.musicTrack ?? null
@@ -403,6 +541,12 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'succulent-pot') return <SucculentPot preview={preview} />
   if (item.type === 'incense-burner') return <IncenseBurner preview={preview} />
   if (item.type === 'vanity-desk') return <VanityDesk preview={preview} />
+  if (item.type === 'mushroom-lamp') return <MushroomLamp preview={preview} lit={lit} />
+  if (item.type === 'lavender-sofa') return <LavenderSofa preview={preview} />
+  if (item.type === 'pennant') return <PennantFlag preview={preview} />
+  if (item.type === 'boucle-stool') return <BoucleStool preview={preview} />
+  if (item.type === 'cube-shelf') return <CubeShelf preview={preview} />
+  if (item.type === 'papasan-chair') return <PapasanChair preview={preview} />
   if (item.type === 'hotel-bed') return <HotelBed preview={preview} />
   if (item.type === 'guestbook') {
     const noteCount = Math.min(6, store?.guestbook[item.id]?.length ?? 0)
