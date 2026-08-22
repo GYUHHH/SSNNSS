@@ -79,9 +79,19 @@ function TimeLayerLights({ time }: { time: TimeOfDay }) {
   const layer = TIME_LAYER[time]
   useLayoutEffect(() => {
     ambient.current?.layers.set(layer); ambient.current?.layers.enable(HOVER_LAYER[time])
-    dir.current?.layers.set(layer); dir.current?.layers.enable(HOVER_LAYER[time])
+    dir.current?.layers.set(layer)
   }, [layer, time])
   return <><ambientLight ref={ambient} intensity={preset.ambient} color={preset.ambientColor} /><directionalLight ref={dir} position={[6, 4.5, 2.5]} intensity={preset.dir} color={preset.dirColor} /></>
+}
+
+// Hovered rooms are rendered once more after the cluster so they stay in front. That foreground pass needs its
+// own shadow-casting light; reusing the unshadowed time-layer light made the second copy cover the original room
+// and visually erase every shadow. Only the one active hover layer is rendered, so this adds no steady room cost.
+function HoverLayerLight({ time }: { time: TimeOfDay }) {
+  const dir = useRef<DirectionalLight>(null)
+  const preset = LIGHTING[time]
+  useLayoutEffect(() => { dir.current?.layers.set(HOVER_LAYER[time]) }, [time])
+  return <directionalLight ref={dir} castShadow position={[6, 4.5, 2.5]} intensity={preset.dir} color={preset.dirColor} shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
 }
 
 // Idle power saver, second attempt — this one cannot touch animation speed. The loop still runs at the display's
@@ -141,6 +151,7 @@ function Scene() {
     <RenderGovernor />
     <CrossfadingLights preset={light} />
     <TimeLayerLights time="day" /><TimeLayerLights time="evening" /><TimeLayerLights time="night" />
+    <HoverLayerLight time="day" /><HoverLayerLight time="evening" /><HoverLayerLight time="night" />
     <Suspense fallback={null}>
       <RoomWorld />
     </Suspense>
