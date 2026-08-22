@@ -124,7 +124,10 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
     if (!enteringFromExplorer) zoomTarget.current = Math.max(zoomTarget.current, baseZoom)
     // whatever the explorer was left rotated or panned to, entering a room lands dead-centre on the 45° view
     angleGoal.current = { azimuth: DEFAULT_AZIMUTH, polar: DEFAULT_POLAR, life: 2 }
-  }, [baseZoom, camera, minZoom, focusRoom?.token])
+  // This is a ROOM-ENTRY effect, not a mode-change effect. Edit mode has a different minimum zoom; keeping
+  // minZoom/baseZoom in this dependency list replayed the entry angle animation whenever editing opened or
+  // closed, making the unchanged room sweep in from the side. A fresh focus token is the only valid trigger.
+  }, [camera, focusRoom?.token])
 
   useEffect(() => { zoomTarget.current = Math.max(zoomTarget.current, minZoom) }, [minZoom])
   useEffect(() => {
