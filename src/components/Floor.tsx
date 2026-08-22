@@ -30,7 +30,7 @@ export default function Floor() {
     <mesh receiveShadow position={[0, -0.11, 0]}
       onPointerDown={(event) => { if (!readOnly && mode === 'edit') event.stopPropagation() }}
       onPointerMove={(event) => { if (readOnly) return; if (movingFurnitureId === selected?.id || (previewDragging && preview?.allowedSurfaces.includes('floor'))) { event.stopPropagation(); moveTo(event.point) } }}
-      onClick={(event) => { if (readOnly) return; event.stopPropagation(); if (mode === 'normal') moveCharacterTo([event.point.x, 0, event.point.z]); else if (selected?.movable && selected.allowedSurfaces.includes('floor') && !movingFurnitureId) placeFurnitureAt(selected.id, [event.point.x, 0, event.point.z], 'floor') }}
+      onClick={(event) => { if (readOnly || event.delta > 10) return; event.stopPropagation(); if (mode === 'normal') moveCharacterTo([event.point.x, 0, event.point.z]); else if (selected?.movable && selected.allowedSurfaces.includes('floor') && !movingFurnitureId) placeFurnitureAt(selected.id, [event.point.x, 0, event.point.z], 'floor') }}
     ><boxGeometry args={[floorSurface.width, 0.22, floorSurface.height]} /><meshStandardMaterial color={style.color} roughness={style.roughness} /></mesh>
     {style.pattern === 'grout' && <TileGrout />}
     {mode === 'edit' && (() => {
