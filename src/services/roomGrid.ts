@@ -50,6 +50,9 @@ const OWNED_SURFACES: Record<string, OwnedSurfaceConfig[]> = {
   'mini-fridge': [{ suffix: 'top', kind: 'tabletop', heightOffset: 0.86 }],
   'rocking-chair': [{ suffix: 'seat', kind: 'seat', heightOffset: 0.49 }],
 }
+// 위에 물건이 올라가는 가구: 상판/좌석 높이(heightOffset)가 이 모델들의 계약값이라, 맞춤 스케일이
+// 높이를 건드리면 안 된다 — FittedMesh가 이 셋만 기존 X/Z 맞춤을 유지한다
+export const SURFACED_TYPES = new Set([...Object.keys(OWNED_SURFACES), 'wall-shelf'])
 export type SurfaceHost = { id: string; type: string; position: [number, number, number]; rotation: [number, number, number]; footprint: Footprint; wallId?: WallId }
 
 // the surfaces a piece of furniture currently hosts, positioned/rotated from its LIVE position — move or rotate the

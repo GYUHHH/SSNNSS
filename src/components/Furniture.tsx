@@ -2,7 +2,7 @@ import { type ReactNode, useLayoutEffect, useRef, useState } from 'react'
 import { Box3, type Group, type Mesh, type Object3D, Vector3 } from 'three'
 import Interactive from './Interactive'
 import { type FurnitureId, type FurnitureItem, resolutionFor, useRoomStore } from '../store'
-import { fitMeshToFootprint, resolveSurface, wallSurfaces, withResolution } from '../services/roomGrid'
+import { fitMeshToFootprint, resolveSurface, SURFACED_TYPES, wallSurfaces, withResolution } from '../services/roomGrid'
 import { ROOM_OBJECT_ORDER, WALL_BACKDROP_ORDER } from '../services/renderOrder'
 
 // Every room in the explorer names its furniture identically — each one has a `desk` — so a scene-wide lookup for
@@ -46,10 +46,12 @@ export function FittedMesh({ item, children }: { item: FurnitureItem; children: 
     // Portable props keep one scale on every axis. Scaling only X/Z made cups, plants, books, etc. look
     // squashed after placement even though their footprint was correct.
     const uniformScale = Math.min(width / size.x, height / size.z)
+    // 바닥 가구도 소품처럼 균일 스케일로 비율을 지킨다 — X/Z만 늘리면 모델과 칸 비율이 다를 때 찌그러진다.
+    // 예외: 상판/좌석을 제공하는 가구(SURFACED_TYPES)는 heightOffset 상수가 높이에 묶여 있어 기존 X/Z 맞춤 유지.
     const fitted: [number, number, number] = (surface.type !== 'wall'
-      ? resolutionFor(item) === 'subgrid2'
-        ? [uniformScale, uniformScale, uniformScale]
-        : [width / size.x, 1, height / size.z]
+      ? SURFACED_TYPES.has(item.type)
+        ? [width / size.x, 1, height / size.z]
+        : [uniformScale, uniformScale, uniformScale]
       : item.type === 'wall-shelf'
         ? [width / size.x, 1, 1]
         : [width / size.x, height / size.y, 1])

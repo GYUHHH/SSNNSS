@@ -43,20 +43,21 @@ export function interactionAnchorsFor(item: FurnitureItem, typeOverride?: Intera
     action: { position: [0, topHeight(item), .04], rotation: 0 },
   }
   // 새 가구들은 owned surface가 없어 topHeight가 0이다 — 좌석 높이를 모델 좌표에서 직접 잰 값으로 박는다
+  // 균일 맞춤 스케일(u = 칸폭/모델폭)이 높이에도 걸린다 — 좌석 y는 "제작 좌표 × u"로 잰 값
   if (item.type === 'lavender-sofa') return {
     type: 'sit',
     approach: { position: [0, 0, .75], rotation: 0 },
-    action: { position: [0, .56, .12], rotation: 0 },
+    action: { position: [0, .4, .08], rotation: 0 },
   }
   if (item.type === 'pod-daybed') return {
     type: 'lie',
-    approach: { position: [0, 0, 1.15], rotation: 0 },
-    action: { position: [0, .77, .3], rotation: 0 },
+    approach: { position: [0, 0, 1.3], rotation: 0 },
+    action: { position: [0, .94, .37], rotation: 0 },
   }
   if (item.type === 'boucle-stool' || item.type === 'papasan-chair' || item.type === 'bubble-chair') return {
     type: 'sit',
     approach: { position: [0, 0, .75], rotation: 0 },
-    action: { position: [0, item.type === 'boucle-stool' ? .46 : item.type === 'papasan-chair' ? .52 : .66, item.type === 'boucle-stool' ? 0 : .06], rotation: 0 },
+    action: { position: [0, item.type === 'boucle-stool' ? .38 : item.type === 'papasan-chair' ? .82 : .62, item.type === 'boucle-stool' ? 0 : .08], rotation: 0 },
   }
   if (item.type === 'chair') return {
     type: typeOverride ?? 'sit',
