@@ -190,5 +190,22 @@ export function ResumingIframe({ videoId, frameId, extra, frameStyle }: { videoI
   const frame = useRef<HTMLIFrameElement>(null)
   const [src] = useState(() => embedSrc(videoId, frameId, extra))
   useEffect(() => { if (frame.current) return trackIframe(frame.current, frameId) }, [frameId])
+  // 아이폰 크롬(CriOS)의 유튜브 플레이어는 3D 변환된 iframe에서 초기 레이아웃을 잘못 잡아 영상이
+  // 아래로 밀린다(같은 폰 사파리는 정상 — 실기기 vdbg로 확인). 로드 뒤 iframe 높이를 1px 흔들었다
+  // 되돌리면 플레이어가 resize를 받고 올바르게 재배치한다. 두 번 쏘는 건 플레이어 부팅이 늦는 경우 대비.
+  useEffect(() => {
+    if (!/CriOS/.test(navigator.userAgent)) return
+    const element = frame.current
+    if (!element) return
+    const jiggle = () => {
+      const height = element.style.height
+      if (!height) return
+      element.style.height = `${parseFloat(height) + 1}px`
+      setTimeout(() => { element.style.height = height }, 80)
+    }
+    const first = setTimeout(jiggle, 1500)
+    const second = setTimeout(jiggle, 5000)
+    return () => { clearTimeout(first); clearTimeout(second) }
+  }, [])
   return <iframe ref={frame} title="유튜브 재생" src={src} style={frameStyle} referrerPolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
 }
