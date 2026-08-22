@@ -11,6 +11,8 @@ export default function Walls() {
   const selected = furniture.find((item) => item.id === selectedFurnitureId)
   const activeWall = selected?.wallId ?? preview?.wallId ?? null
   const floor = floorStyleOf(floorStyle)
+  const leftWallColor = colorOf(wallStyle.leftWall, DEFAULT_WALL_COLOR.leftWall)
+  const rightWallColor = colorOf(wallStyle.rightWall, DEFAULT_WALL_COLOR.rightWall)
   const posterArt = useArtTexture('poster')
   const photoArt = useArtTexture('photo')
   const moveTo = (wallId: WallId, point: { x: number; y: number; z: number }) => {
@@ -30,7 +32,16 @@ export default function Walls() {
         세로 코너 기둥은 왼쪽 벽의 연장이라 왼쪽 벽 색을 따른다. */}
     <mesh receiveShadow position={[-3.61, -0.11, -0.11]}><boxGeometry args={[.22, .22, 7.22]} /><meshStandardMaterial color={floor.color} roughness={floor.roughness} userData={{ lateFade: true }} /></mesh>
     <mesh receiveShadow position={[0, -0.11, -3.61]}><boxGeometry args={[7, .22, .22]} /><meshStandardMaterial color={floor.color} roughness={floor.roughness} userData={{ lateFade: true }} /></mesh>
-    <mesh receiveShadow position={[-3.61, 3.5, -3.61]}><boxGeometry args={[.22, 7, .22]} /><meshStandardMaterial color={colorOf(wallStyle.leftWall, DEFAULT_WALL_COLOR.leftWall)} userData={{ lateFade: true }} /></mesh>
+    {/* 코너 기둥은 반반: 왼쪽 벽과 이어지는 +x 면은 왼쪽 벽 색, 오른쪽 벽과 이어지는 +z 면은 오른쪽 벽 색 —
+        한 색으로 칠하면 반대편 벽 쪽에서 이질감이 난다. 안 보이는 면과 상단은 인접 벽 색을 나눠 갖는다. */}
+    <mesh receiveShadow position={[-3.61, 3.5, -3.61]}><boxGeometry args={[.22, 7, .22]} />
+      <meshStandardMaterial attach="material-0" color={leftWallColor} userData={{ lateFade: true }} />
+      <meshStandardMaterial attach="material-1" color={leftWallColor} userData={{ lateFade: true }} />
+      <meshStandardMaterial attach="material-2" color={leftWallColor} userData={{ lateFade: true }} />
+      <meshStandardMaterial attach="material-3" color={leftWallColor} userData={{ lateFade: true }} />
+      <meshStandardMaterial attach="material-4" color={rightWallColor} userData={{ lateFade: true }} />
+      <meshStandardMaterial attach="material-5" color={rightWallColor} userData={{ lateFade: true }} />
+    </mesh>
     {mode === 'edit' && activeWall && <PlacementGrid surface={wallSurfaces[activeWall]} />}
     <Furniture id="clock"><mesh position={[0, 0, .05]}><torusGeometry args={[.6, .1, 8, 20]} /><meshStandardMaterial color={palette.woodDark} roughness={0.7} /></mesh><mesh position={[0, 0, .06]}><circleGeometry args={[.52, 20]} /><meshStandardMaterial color={palette.linen} roughness={0.85} /></mesh><mesh position={[0, 0, .08]}><boxGeometry args={[.04, .42, .02]} /><meshStandardMaterial color={palette.charcoal} roughness={0.7} /></mesh></Furniture>
     <Furniture id="poster"><mesh position={[0, 0, .04]}><boxGeometry args={[1.4, 2.1, .03]} /><meshStandardMaterial color={palette.woodMid} roughness={0.7} /></mesh><mesh position={[0, 0, .065]}><planeGeometry args={[1.2, 1.85]} /><meshStandardMaterial key={posterArt ? 'art' : 'plain'} color={posterArt ? '#ffffff' : palette.sage} map={posterArt ?? undefined} roughness={0.85} /></mesh></Furniture>
