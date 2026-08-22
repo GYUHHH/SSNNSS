@@ -60,11 +60,13 @@ function CrossfadingLights({ preset }: { preset: typeof LIGHTING[keyof typeof LI
   const initial = useRef(preset).current
   const goal = useRef({ ambient: initial.ambient, dir: initial.dir, ambientColor: new Color(initial.ambientColor), dirColor: new Color(initial.dirColor) })
   useEffect(() => { goal.current = { ambient: preset.ambient, dir: preset.dir, ambientColor: new Color(preset.ambientColor), dirColor: new Color(preset.dirColor) } }, [preset])
-  useFrame((_, delta) => {
+  useFrame(({ camera, size }, delta) => {
     const step = Math.min(delta, 1 / 30)
     const blend = 1 - Math.exp(-6 * step)
     if (ambient.current) { ambient.current.intensity = MathUtils.damp(ambient.current.intensity, goal.current.ambient, 6, step); ambient.current.color.lerp(goal.current.ambientColor, blend) }
     if (dir.current) { dir.current.intensity = MathUtils.damp(dir.current.intensity, goal.current.dir, 6, step); dir.current.color.lerp(goal.current.dirColor, blend) }
+    // 탐색기의 이웃 방들은 그림자 없는 시간대 광원으로 그려진다 — 줌아웃하면 내 방 그림자도 꺼서 모든 방을 통일
+    if (dir.current) dir.current.castShadow = camera.zoom > entryZoom(size.width, size.height)
   })
   return <>
     <ambientLight ref={ambient} intensity={initial.ambient} color={initial.ambientColor} />
@@ -91,7 +93,7 @@ function HoverLayerLight({ time }: { time: TimeOfDay }) {
   const dir = useRef<DirectionalLight>(null)
   const preset = LIGHTING[time]
   useLayoutEffect(() => { dir.current?.layers.set(HOVER_LAYER[time]) }, [time])
-  return <directionalLight ref={dir} castShadow position={[4, 6.5, 2]} intensity={preset.dir} color={preset.dirColor} shadow-mapSize-width={1024} shadow-mapSize-height={1024} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
+  return <directionalLight ref={dir} position={[4, 6.5, 2]} intensity={preset.dir} color={preset.dirColor} />
 }
 
 // Idle power saver, second attempt — this one cannot touch animation speed. The loop still runs at the display's
