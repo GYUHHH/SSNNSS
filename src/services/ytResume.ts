@@ -283,6 +283,17 @@ export function requestSound(frameId: string, onBlocked: () => void, onSound?: (
 // it is redirected with playVideoAt. Deliberate jumps (panel clicks to an arbitrary video) don't match the
 // natural-next signature and are respected. The live id list from the player also keeps the stored order in
 // sync (new videos append, deleted ones drop). Never reloads the iframe or touches the current video.
+// 재생 중 플레이리스트가 지금 틀고 있는 곡 — 트랙이 넘어가면 액자 화면 비율을 새 곡에 맞춰야 해서,
+// watchPlaylistOrder가 곡 전환을 감지할 때마다 여기 기록하고 리스너에게 알린다
+export const playlistNowPlaying: Record<string, string> = {}
+const nowPlayingListeners = new Set<() => void>()
+export const onPlaylistNowPlaying = (listener: () => void) => { nowPlayingListeners.add(listener); return () => { nowPlayingListeners.delete(listener) } }
+const setNowPlaying = (frameId: string, videoId: string | undefined) => {
+  if (!videoId || playlistNowPlaying[frameId] === videoId) return
+  playlistNowPlaying[frameId] = videoId
+  nowPlayingListeners.forEach((listener) => listener())
+}
+
 export function watchPlaylistOrder(frameId: string, playlistId: string, iframe?: HTMLIFrameElement): () => void {
   let liveIds: string[] = []
   let helloTimer: ReturnType<typeof setInterval> | undefined
@@ -322,6 +333,7 @@ export function watchPlaylistOrder(frameId: string, playlistId: string, iframe?:
             send('playVideoAt', [liveIds.indexOf(ourNext)])
           }
         }
+        setNowPlaying(frameId, current)
       }
       // YouTube can repeat its own final item even when the user moved that item into the middle of our order.
       // Move explicitly at ENDED so both the wall and panel follow the site's saved next item instead.

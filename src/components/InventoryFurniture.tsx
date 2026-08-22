@@ -12,7 +12,7 @@ import { loadAudioPrefs, type FurnitureItem, useOptionalRoomStore, useRoomStore 
 import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
 import { CANVAS_UI_FONT, JONES_BOOK_OTF, PRETENDARD_WOFF, loadCanvasFonts } from '../services/fonts'
-import { clipResumeAt, fitToVideo, getVideo, registerClipPlayer, rememberClipAt, useVideoAspectRatio } from '../services/mediaStore'
+import { clipResumeAt, fitToVideo, getVideo, registerClipPlayer, rememberClipAt, useFrameVideoId, useVideoAspectRatio } from '../services/mediaStore'
 import { playlistVideoResume } from '../services/ytResume'
 import { Swing } from './motion'
 import { ROOM_HTML_Z_INDEX_RANGE } from '../services/renderOrder'
@@ -622,7 +622,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   const artAspect = artImage?.width && artImage.height ? artImage.width / artImage.height : 1
   // 영상 액자 전용: 걸린 영상의 실제 비율 (훅이라 분기 밖에서 항상 호출)
   const frameLink = item.type.startsWith('video-frame') && !preview ? store?.videoLinks[item.id] : undefined
-  const frameLookup = frameLink ? (frameLink.startsWith('pl:') ? playlistVideoResume[item.id] || frameLink.split('@')[1] : frameLink) : undefined
+  const frameLookup = useFrameVideoId(item.id, frameLink)
   const frameAspect = useVideoAspectRatio(frameLookup)
   if (item.type === 'speech-bubble') {
     const bubbleScale = 1.8

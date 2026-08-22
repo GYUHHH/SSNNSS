@@ -4,7 +4,7 @@ import { useFrame } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
 import { Matrix4, type Group } from 'three'
 import { loadAudioPrefs, useRoomStore } from '../store'
-import { fitToVideo, useVideoAspectRatio, videoAspect } from '../services/mediaStore'
+import { fitToVideo, useFrameVideoId, useVideoAspectRatio, videoAspect } from '../services/mediaStore'
 import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
 import { isVisiting } from '../services/social'
 import { openReactionPicker } from './ReactionPicker'
@@ -109,7 +109,7 @@ function WallVideo({ frameId }: { frameId: string }) {
   const dims = VIDEO_FRAME_SIZES[(item?.type ?? '')] ?? VIDEO_FRAME_SIZES['video-frame-3']
   const turned = !!item && Math.abs(Math.round(item.rotation[1] / (Math.PI / 2))) % 2 === 1
   // 화면을 영상의 실제 비율로 줄인다 — 액자 비율에 영상을 맞추면 레터박스가 남는다
-  const aspectLookup = videoId ? (videoId.startsWith('pl:') ? playlistVideoResume[frameId] ?? videoId.split('@')[1] : videoId) : undefined
+  const aspectLookup = useFrameVideoId(frameId, videoId)
   const videoRatio = useVideoAspectRatio(active ? aspectLookup : undefined)
   const [screenWidth, screenHeight] = fitToVideo(turned ? dims[1] : dims[0], turned ? dims[0] : dims[1], videoRatio)
   const divHeight = Math.round(640 * (screenHeight / screenWidth))

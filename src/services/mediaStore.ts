@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { isReadingBundle, isVisiting, readStored, uploadMedia, writeStored } from './social'
+import { onPlaylistNowPlaying, playlistNowPlaying, playlistVideoResume } from './ytResume'
 
 // Video clips are far too big for localStorage (a few MB blows the whole quota and would take the room layout
 // down with it), so they live in IndexedDB as blobs keyed by the frame's furniture id.
@@ -200,4 +201,14 @@ export const fitToVideo = (width: number, height: number, aspect: number | null)
   if (!aspect) return [width, height]
   const fitted = Math.min(width, height * aspect)
   return [fitted, fitted / aspect]
+}
+
+// 액자에 걸린 링크에서 "비율을 재야 할 실제 영상 id"를 리액티브하게 — 플레이리스트는 지금 재생 중인 곡을
+// 따라가고(트랙 전환 시 재렌더), 일반 링크는 그 자체다.
+export function useFrameVideoId(frameId: string, link: string | undefined): string | undefined {
+  const [, bump] = useState(0)
+  useEffect(() => (link?.startsWith('pl:') ? onPlaylistNowPlaying(() => bump((n) => n + 1)) : undefined), [frameId, link])
+  if (!link) return undefined
+  if (!link.startsWith('pl:')) return link
+  return playlistNowPlaying[frameId] ?? playlistVideoResume[frameId] ?? link.split('@')[1]
 }
