@@ -138,6 +138,9 @@ function WallVideo({ frameId }: { frameId: string }) {
     holdTimer.current = setTimeout(() => { held.current = true; if (isVisiting()) openReactionPicker({ id: frameId, x: clientX, y: clientY }); else enterEditFurniture(frameId) }, 500)
   }
   if (!active) return null
+  // 비율 조회가 끝나기 전에 띄우면 나중에 리사이즈해야 하는데, iOS 유튜브 모바일 플레이어는
+  // 리사이즈에 영상을 재배치하지 않아 위에 배경 띠가 남는다 — 확정될 때까지 3D 포스터가 대신 보인다
+  if (videoRatio === undefined) return null
   return <FollowFit fitName={`fit:${item.id}`}>
     <group rotation={[0, 0, -item.rotation[1]]}>
       {/* 640 CSS px stretched to the frame: YouTube lays its controls out for a small player, so they read 2x bigger */}
@@ -147,7 +150,7 @@ function WallVideo({ frameId }: { frameId: string }) {
         <div className="wall-video" data-frame-id={frameId} style={{ width: 640, height: divHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
           {/* controls=0 keeps YouTube's control bar from popping over the wall screen (it auto-shows on tab
               return); the expanded panel player keeps its controls */}
-          <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra="autoplay=1&playsinline=1&mute=1&controls=0" frameStyle={{ ...(crop ? { width: 640, top: -crop, height: divHeight + crop * 2 } : { width: 640, height: divHeight }), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} />
+          <ResumingIframe key={`${frameId}:${divHeight}`} videoId={videoId} frameId={frameId} extra="autoplay=1&playsinline=1&mute=1&controls=0" frameStyle={{ ...(crop ? { width: 640, top: -crop, height: divHeight + crop * 2 } : { width: 640, height: divHeight }), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} />
           {/* the two shields carry the open-the-panel click and together cover everything but YouTube's own
               skip-ad corner, which is left live so the visitor can press it themselves */}
           {mode !== 'edit' && ['top', 'rest'].map((part) => <div key={part} className={`wall-video-shield ${part}`}
