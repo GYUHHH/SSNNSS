@@ -65,8 +65,14 @@ function CrossfadingLights({ preset }: { preset: typeof LIGHTING[keyof typeof LI
     const blend = 1 - Math.exp(-6 * step)
     if (ambient.current) { ambient.current.intensity = MathUtils.damp(ambient.current.intensity, goal.current.ambient, 6, step); ambient.current.color.lerp(goal.current.ambientColor, blend) }
     if (dir.current) { dir.current.intensity = MathUtils.damp(dir.current.intensity, goal.current.dir, 6, step); dir.current.color.lerp(goal.current.dirColor, blend) }
-    // 탐색기의 이웃 방들은 그림자 없는 시간대 광원으로 그려진다 — 줌아웃하면 내 방 그림자도 꺼서 모든 방을 통일
-    if (dir.current) dir.current.castShadow = camera.zoom > entryZoom(size.width, size.height)
+    // 탐색기의 이웃 방들은 그림자 없는 시간대 광원으로 그려진다 — 줌아웃하면 내 방 그림자도 꺼서 모든 방을 통일.
+    // 스위치로 끄면 문턱에서 뚝 사라져서, shadow.intensity를 감쇠시켜 방이 모이고 흩어지는 동안 페이드시킨다.
+    // castShadow는 완전히 사라진 뒤에만 꺼서 그림자 패스 비용도 같이 없앤다.
+    if (dir.current) {
+      const zoomedIn = camera.zoom > entryZoom(size.width, size.height)
+      dir.current.shadow.intensity = MathUtils.damp(dir.current.shadow.intensity, zoomedIn ? 1 : 0, 6, step)
+      dir.current.castShadow = dir.current.shadow.intensity > .01
+    }
   })
   return <>
     <ambientLight ref={ambient} intensity={initial.ambient} color={initial.ambientColor} />
