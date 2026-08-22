@@ -12,7 +12,7 @@ import { loadAudioPrefs, type FurnitureItem, useOptionalRoomStore, useRoomStore 
 import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
 import { CANVAS_UI_FONT, JONES_BOOK_OTF, PRETENDARD_WOFF, loadCanvasFonts } from '../services/fonts'
-import { clipResumeAt, getVideo, registerClipPlayer, rememberClipAt } from '../services/mediaStore'
+import { clipResumeAt, fitToVideo, getVideo, registerClipPlayer, rememberClipAt, useVideoAspectRatio } from '../services/mediaStore'
 import { playlistVideoResume } from '../services/ytResume'
 import { Swing } from './motion'
 import { ROOM_HTML_Z_INDEX_RANGE } from '../services/renderOrder'
@@ -620,6 +620,10 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   // photos keep their own aspect inside the square photo frame: the plane shrinks on one axis (contain)
   const artImage = art?.image as { width?: number; height?: number } | undefined
   const artAspect = artImage?.width && artImage.height ? artImage.width / artImage.height : 1
+  // 영상 액자 전용: 걸린 영상의 실제 비율 (훅이라 분기 밖에서 항상 호출)
+  const frameLink = item.type.startsWith('video-frame') && !preview ? store?.videoLinks[item.id] : undefined
+  const frameLookup = frameLink ? (frameLink.startsWith('pl:') ? playlistVideoResume[item.id] || frameLink.split('@')[1] : frameLink) : undefined
+  const frameAspect = useVideoAspectRatio(frameLookup)
   if (item.type === 'speech-bubble') {
     const bubbleScale = 1.8
     const bubbleText = preview ? '말풍선' : store?.artworks[item.id] ?? ''
@@ -829,13 +833,14 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     const [w, h] = VIDEO_FRAME_SIZES[item.type] ?? VIDEO_FRAME_SIZES['video-frame-3']
     const rotationY = item.rotation?.[1] ?? 0
     const turned = Math.abs(Math.round(rotationY / (Math.PI / 2))) % 2 === 1
-    const screenWidth = turned ? h : w
-    const screenHeight = turned ? w : h
+    // 화면·백킹은 걸린 영상의 비율로 줄어든다 — 16:9든 세로 쇼츠든 레터박스 없이 꽉 찬다
+    const [screenWidth, screenHeight] = fitToVideo(turned ? h : w, turned ? w : h, frameAspect)
     return <>
-      {/* 화면과 같은 크기의 얇은 백킹 — 베젤 없이 보이지만, DOM 화면은 mesh가 아니라서
-          이게 없으면 FittedMesh 바운즈가 0이 되어 스케일이 무한대로 터진다 (실제 발생) */}
-      <mesh position={[0, 0, .01]}><boxGeometry args={[w, h, .02]} />{mat('#20262b')}</mesh>
+      {/* 크기 기준용 투명 풀사이즈 박스: FittedMesh는 이 바운즈로 맞춘다 — 화면이 영상 비율로 줄어도
+          맞춤 스케일이 흔들리지 않고, DOM 화면만 남았을 때 바운즈 0으로 터지는 사고(실제 발생)도 막는다 */}
+      <mesh visible={false} position={[0, 0, .01]}><boxGeometry args={[w, h, .02]} /><meshBasicMaterial /></mesh>
       <group rotation={[0, 0, -rotationY]}>
+        <mesh position={[0, 0, .01]}><boxGeometry args={[screenWidth, screenHeight, .02]} />{mat('#20262b')}</mesh>
         {preview ? <mesh position={[0, 0, .042]}><planeGeometry args={[screenWidth, screenHeight]} />{mat('#20262b')}</mesh> : <VideoScreen id={item.id} width={screenWidth} height={screenHeight} />}
       </group>
     </>

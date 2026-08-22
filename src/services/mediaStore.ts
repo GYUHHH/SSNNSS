@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { isReadingBundle, isVisiting, readStored, uploadMedia, writeStored } from './social'
 
 // Video clips are far too big for localStorage (a few MB blows the whole quota and would take the room layout
@@ -136,4 +137,67 @@ export const decodeTarget = (stored: string): YouTubeTarget => {
   if (!stored.startsWith('pl:')) return { type: 'video', videoId: stored }
   const [playlistId, videoId, index] = stored.slice(3).split('@')
   return { type: 'playlist', playlistId, videoId: videoId || undefined, index: index ? Number(index) : undefined }
+}
+
+// The true aspect of a YouTube video, found without any API key: shorts are detected by their portrait "oar"
+// thumbnail (it 404s for normal videos), and everything else is measured by reading the letterbox bars inside
+// the 480x360 hqdefault thumbnail (pure-black rows/columns around the content). The measured ratio is only
+// trusted when it lands near a common aspect — anything odd resolves to null so the caller skips cropping.
+const aspectCache: Record<string, Promise<number | null>> = {}
+export function videoAspect(id: string): Promise<number | null> {
+  return aspectCache[id] ??= new Promise((resolve) => {
+    const oar = new Image()
+    // 과거엔 일반 영상이면 404였지만 지금은 120x90 플레이스홀더가 로드된다 — 세로 비율일 때만 쇼츠로 인정
+    oar.onload = () => { if (oar.naturalHeight > oar.naturalWidth) resolve(9 / 16); else measure() }
+    oar.onerror = () => measure()
+    const measure = () => {
+      const thumb = new Image()
+      thumb.crossOrigin = 'anonymous'
+      thumb.onload = () => {
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = thumb.naturalWidth; canvas.height = thumb.naturalHeight
+          const context = canvas.getContext('2d')
+          if (!context) return resolve(null)
+          context.drawImage(thumb, 0, 0)
+          const { data, width, height } = context.getImageData(0, 0, canvas.width, canvas.height)
+          const dark = (x: number, y: number) => { const at = (y * width + x) * 4; return data[at] < 24 && data[at + 1] < 24 && data[at + 2] < 24 }
+          const rowDark = (y: number) => { for (let x = 0; x < width; x += 6) if (!dark(x, y)) return false; return true }
+          const colDark = (x: number) => { for (let y = 0; y < height; y += 6) if (!dark(x, y)) return false; return true }
+          let top = 0; while (top < height / 3 && rowDark(top)) top++
+          let bottom = 0; while (bottom < height / 3 && rowDark(height - 1 - bottom)) bottom++
+          let left = 0; while (left < width / 3 && colDark(left)) left++
+          let right = 0; while (right < width / 3 && colDark(width - 1 - right)) right++
+          const contentWidth = width - left - right, contentHeight = height - top - bottom
+          if (contentWidth <= 0 || contentHeight <= 0) return resolve(null)
+          const measured = contentWidth / contentHeight
+          const known = [16 / 9, 4 / 3, 1, 9 / 16].find((value) => Math.abs(measured - value) / value < .08)
+          resolve(known ?? null)
+        } catch { resolve(null) }
+      }
+      thumb.onerror = () => resolve(null)
+      thumb.src = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`
+    }
+    oar.src = `https://i.ytimg.com/vi/${id}/oardefault.jpg`
+  })
+}
+
+// videoAspect의 결과를 동기적으로 재사용하는 훅 — 3D 화면(InventoryFurniture)과 DOM 영상(WallVideoLayer)이
+// 같은 값을 보고 같은 크기로 맞아떨어진다. 아직 모르는 비율은 null(=액자 비율 그대로).
+const knownAspects: Record<string, number | null> = {}
+export function useVideoAspectRatio(id: string | undefined): number | null {
+  const [aspect, setAspect] = useState<number | null>(id ? knownAspects[id] ?? null : null)
+  useEffect(() => {
+    if (!id) { setAspect(null); return }
+    if (id in knownAspects) { setAspect(knownAspects[id]); return }
+    let live = true
+    void videoAspect(id).then((value) => { knownAspects[id] = value; if (live) setAspect(value) })
+    return () => { live = false }
+  }, [id])
+  return id ? aspect : null
+}
+export const fitToVideo = (width: number, height: number, aspect: number | null): [number, number] => {
+  if (!aspect) return [width, height]
+  const fitted = Math.min(width, height * aspect)
+  return [fitted, fitted / aspect]
 }

@@ -4,6 +4,7 @@ import { useFrame } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
 import { Matrix4, type Group } from 'three'
 import { loadAudioPrefs, useRoomStore } from '../store'
+import { fitToVideo, useVideoAspectRatio, videoAspect } from '../services/mediaStore'
 import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
 import { isVisiting } from '../services/social'
 import { openReactionPicker } from './ReactionPicker'
@@ -19,47 +20,6 @@ const VIDEO_MASK_FRAGMENT = 'void main(){gl_FragColor=vec4(0.0);}'
 // mounted through mode changes and simply copies each frame's live world matrix per frame, so playback survives
 // editing and even follows the frame while it is being dragged. Every playing frame gets its own player, so
 // several frames can run at once, each with its own mute toggle.
-// The true aspect of a YouTube video, found without any API key: shorts are detected by their portrait "oar"
-// thumbnail (it 404s for normal videos), and everything else is measured by reading the letterbox bars inside
-// the 480x360 hqdefault thumbnail (pure-black rows/columns around the content). The measured ratio is only
-// trusted when it lands near a common aspect — anything odd resolves to null so the caller skips cropping.
-const aspectCache: Record<string, Promise<number | null>> = {}
-export function videoAspect(id: string): Promise<number | null> {
-  return aspectCache[id] ??= new Promise((resolve) => {
-    const oar = new Image()
-    oar.onload = () => resolve(9 / 16)
-    oar.onerror = () => {
-      const thumb = new Image()
-      thumb.crossOrigin = 'anonymous'
-      thumb.onload = () => {
-        try {
-          const canvas = document.createElement('canvas')
-          canvas.width = thumb.naturalWidth; canvas.height = thumb.naturalHeight
-          const context = canvas.getContext('2d')
-          if (!context) return resolve(null)
-          context.drawImage(thumb, 0, 0)
-          const { data, width, height } = context.getImageData(0, 0, canvas.width, canvas.height)
-          const dark = (x: number, y: number) => { const at = (y * width + x) * 4; return data[at] < 24 && data[at + 1] < 24 && data[at + 2] < 24 }
-          const rowDark = (y: number) => { for (let x = 0; x < width; x += 6) if (!dark(x, y)) return false; return true }
-          const colDark = (x: number) => { for (let y = 0; y < height; y += 6) if (!dark(x, y)) return false; return true }
-          let top = 0; while (top < height / 3 && rowDark(top)) top++
-          let bottom = 0; while (bottom < height / 3 && rowDark(height - 1 - bottom)) bottom++
-          let left = 0; while (left < width / 3 && colDark(left)) left++
-          let right = 0; while (right < width / 3 && colDark(width - 1 - right)) right++
-          const contentWidth = width - left - right, contentHeight = height - top - bottom
-          if (contentWidth <= 0 || contentHeight <= 0) return resolve(null)
-          const measured = contentWidth / contentHeight
-          const known = [16 / 9, 4 / 3, 1, 9 / 16].find((value) => Math.abs(measured - value) / value < .08)
-          resolve(known ?? null)
-        } catch { resolve(null) }
-      }
-      thumb.onerror = () => resolve(null)
-      thumb.src = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`
-    }
-    oar.src = `https://i.ytimg.com/vi/${id}/oardefault.jpg`
-  })
-}
-
 export default function WallVideoLayer() {
   const { playingFrames, setFrameMuted, videoLinks, activeRoomId, currentHandle, furniture, videoFrames } = useRoomStore()
   const clipIds = new Set([...Object.keys(videoFrames), ...Object.keys(loadClipUrls())])
@@ -148,8 +108,10 @@ function WallVideo({ frameId }: { frameId: string }) {
   const [crop, setCrop] = useState(0)
   const dims = VIDEO_FRAME_SIZES[(item?.type ?? '')] ?? VIDEO_FRAME_SIZES['video-frame-3']
   const turned = !!item && Math.abs(Math.round(item.rotation[1] / (Math.PI / 2))) % 2 === 1
-  const screenWidth = turned ? dims[1] : dims[0]
-  const screenHeight = turned ? dims[0] : dims[1]
+  // 화면을 영상의 실제 비율로 줄인다 — 액자 비율에 영상을 맞추면 레터박스가 남는다
+  const aspectLookup = videoId ? (videoId.startsWith('pl:') ? playlistVideoResume[frameId] ?? videoId.split('@')[1] : videoId) : undefined
+  const videoRatio = useVideoAspectRatio(active ? aspectLookup : undefined)
+  const [screenWidth, screenHeight] = fitToVideo(turned ? dims[1] : dims[0], turned ? dims[0] : dims[1], videoRatio)
   const divHeight = Math.round(640 * (screenHeight / screenWidth))
   useEffect(() => {
     if (!active || !videoId) return
