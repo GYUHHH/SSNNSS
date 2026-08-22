@@ -113,6 +113,7 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
   { type: 'succulent-pot', name: '다육 화분', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
   { type: 'incense-burner', name: '금동대향로', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
   { type: 'hotel-bed', name: '호텔 침대', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 3, depth: 4 }, size: [3, 4], scale: 1, allowedSurfaces: ['floor'] },
+  { type: 'vanity-desk', name: '핑크 화장대', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'string-lights', name: '스트링 라이트', category: 'wallItem', movable: true, interactable: true, footprint: { width: 3, depth: 1 }, size: [3, 1], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'wall-sconce-2', name: '벽조명2', category: 'wallItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'calendar', name: '달력', category: 'wallItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['wall'] },

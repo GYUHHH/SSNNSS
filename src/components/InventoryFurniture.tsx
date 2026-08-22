@@ -271,6 +271,85 @@ function HotelBed({ preview }: { preview: boolean }) {
   </group>
 }
 
+// 핑크 화장대. 정체성은 두 가지 — 통판 다리의 S자 물결 옆선, 그리고 스캘럽 아치 거울.
+// 둘 다 박스로는 안 나와서 Shape + extrude로 뽑는다. 나머지(상판·서랍·손잡이)는 박스로 충분.
+const VANITY_PINK = '#f0c3c9'
+const VANITY_LIGHT = '#f7d8dc'
+const VANITY_DEEP = '#e3a9b2'
+
+function VanityDesk({ preview }: { preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  const paint = (color: string) => <meshStandardMaterial color={color} roughness={.62} transparent={preview} opacity={opacity} />
+  const [legShape, boardShape, glassShape, heartShape] = useMemo(() => {
+    // 옆판: 뒷선은 직선, 앞선만 S자로 들어갔다 나온다 (shape의 x가 방의 z축이 된다)
+    const leg = new Shape()
+    leg.moveTo(-.34, 0)
+    leg.lineTo(-.34, 1)
+    leg.lineTo(.34, 1)
+    leg.quadraticCurveTo(.34, .7, .1, .56)
+    leg.quadraticCurveTo(-.02, .48, .06, .3)
+    leg.quadraticCurveTo(.14, .14, .3, .1)
+    leg.lineTo(.3, 0)
+    leg.closePath()
+    // 보닛 아치: 아래는 넓게 벌어졌다가 완만히 좁아지고, 어깨 턱을 거쳐 둥근 관으로 올라간다.
+    // 모든 오프셋을 높이(h) 비율로 잡아야 거울 유리(더 작은 아치)가 같은 곡선을 쓴다.
+    const arch = (halfWidth: number, bottom: number, peak: number) => {
+      const h = peak - bottom
+      const value = new Shape()
+      value.moveTo(-halfWidth, bottom)
+      value.lineTo(-halfWidth, bottom + h * .1)
+      value.quadraticCurveTo(-halfWidth * .98, bottom + h * .4, -halfWidth * .8, bottom + h * .6)
+      value.quadraticCurveTo(-halfWidth * .66, bottom + h * .71, -halfWidth * .5, bottom + h * .76)
+      value.quadraticCurveTo(-halfWidth * .3, bottom + h * .81, -halfWidth * .22, bottom + h * .9)
+      value.quadraticCurveTo(-halfWidth * .12, peak, 0, peak)
+      value.quadraticCurveTo(halfWidth * .12, peak, halfWidth * .22, bottom + h * .9)
+      value.quadraticCurveTo(halfWidth * .3, bottom + h * .81, halfWidth * .5, bottom + h * .76)
+      value.quadraticCurveTo(halfWidth * .66, bottom + h * .71, halfWidth * .8, bottom + h * .6)
+      value.quadraticCurveTo(halfWidth * .98, bottom + h * .4, halfWidth, bottom + h * .1)
+      value.lineTo(halfWidth, bottom)
+      value.closePath()
+      return value
+    }
+    const heart = new Shape()
+    heart.moveTo(0, -.028)
+    heart.bezierCurveTo(-.008, -.018, -.03, -.006, -.03, .012)
+    heart.bezierCurveTo(-.03, .03, -.008, .034, 0, .02)
+    heart.bezierCurveTo(.008, .034, .03, .03, .03, .012)
+    heart.bezierCurveTo(.03, -.006, .008, -.018, 0, -.028)
+    return [leg, arch(.55, 1.06, 1.92), arch(.27, 1.24, 1.84), heart]
+  }, [])
+  return <>
+    {/* 물결 통판 다리 */}
+    {[-.595, .665].map((x) => <mesh castShadow key={x} position={[x, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
+      <extrudeGeometry args={[legShape, { depth: .07, bevelEnabled: false }]} />{paint(VANITY_PINK)}
+    </mesh>)}
+    <mesh castShadow position={[0, .5, -.16]}><boxGeometry args={[1.15, .42, .04]} />{paint(VANITY_DEEP)}</mesh>
+    {/* 상판 */}
+    <RoundedBox castShadow args={[1.4, .055, .72]} radius={.02} smoothness={2} position={[0, 1.028, 0]}>{paint(VANITY_LIGHT)}</RoundedBox>
+    {/* 서랍 3칸 */}
+    <mesh castShadow position={[0, .855, 0]}><boxGeometry args={[1.3, .26, .58]} />{paint(VANITY_PINK)}</mesh>
+    {[-.44, 0, .44].map((x) => <group key={x}>
+      <RoundedBox castShadow args={[.4, .21, .03]} radius={.012} smoothness={2} position={[x, .855, .3]}>{paint(VANITY_PINK)}</RoundedBox>
+      <RoundedBox args={[.33, .14, .016]} radius={.01} smoothness={2} position={[x, .855, .314]}>{paint(VANITY_DEEP)}</RoundedBox>
+      <mesh castShadow position={[x, .855, .335]}><sphereGeometry args={[.028, 10, 8]} /><meshStandardMaterial color="#eef4f7" metalness={.35} roughness={.14} transparent={preview} opacity={opacity} /></mesh>
+    </group>)}
+    {/* 상단 단: 좌우 작은 서랍 + 가운데는 비운다 */}
+    <mesh castShadow position={[0, 1.08, -.2]}><boxGeometry args={[1.34, .05, .3]} />{paint(VANITY_LIGHT)}</mesh>
+    {[-.47, .47].map((x) => <group key={x}>
+      <mesh castShadow position={[x, 1.14, -.13]}><boxGeometry args={[.34, .17, .28]} />{paint(VANITY_PINK)}</mesh>
+      <RoundedBox castShadow args={[.34, .17, .03]} radius={.012} smoothness={2} position={[x, 1.14, .015]}>{paint(VANITY_PINK)}</RoundedBox>
+      <mesh castShadow position={[x, 1.14, .045]}><sphereGeometry args={[.024, 10, 8]} /><meshStandardMaterial color="#eef4f7" metalness={.35} roughness={.14} transparent={preview} opacity={opacity} /></mesh>
+    </group>)}
+    {/* 아치 거울 */}
+    <mesh castShadow position={[0, 0, -.26]}><extrudeGeometry args={[boardShape, { depth: .05, bevelEnabled: false }]} />{paint(VANITY_PINK)}</mesh>
+    <mesh position={[0, 0, -.208]}><shapeGeometry args={[glassShape]} /><meshStandardMaterial color="#dee7ec" metalness={.3} roughness={.24} transparent={preview} opacity={opacity} /></mesh>
+    {[-.44, .44].map((x) => <mesh key={x} position={[x, 1.52, -.207]} scale={1.6}><shapeGeometry args={[heartShape]} />{paint(VANITY_DEEP)}</mesh>)}
+    {[-.44, .44].flatMap((x) => [1.42, 1.36, 1.3, 1.24, 1.18].map((y) => <mesh key={`${x}:${y}`} position={[x, y, -.204]}>
+      <sphereGeometry args={[.014, 8, 6]} /><meshStandardMaterial color="#eef4f7" metalness={.35} roughness={.14} transparent={preview} opacity={opacity} />
+    </mesh>))}
+  </>
+}
+
 export function ItemVisual({ item, preview = false }: { item: FurnitureItem; preview?: boolean }) {
   const store = useOptionalRoomStore()
   const musicTrack = store?.musicTrack ?? null
@@ -323,6 +402,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'herb-pot-2') return <HerbPotTwo preview={preview} />
   if (item.type === 'succulent-pot') return <SucculentPot preview={preview} />
   if (item.type === 'incense-burner') return <IncenseBurner preview={preview} />
+  if (item.type === 'vanity-desk') return <VanityDesk preview={preview} />
   if (item.type === 'hotel-bed') return <HotelBed preview={preview} />
   if (item.type === 'guestbook') {
     const noteCount = Math.min(6, store?.guestbook[item.id]?.length ?? 0)
