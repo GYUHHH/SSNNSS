@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { type FurnitureItem, initialFurniture, inventoryItems, type InventoryCategory, useRoomStore } from '../store'
-import { thumbnailFor } from '../services/thumbnails'
-import { colorOf, customizableTypes, DEFAULT_WALL_COLOR, floorStyleOf, floorStyles } from '../services/styles'
+import { thumbnailFor, thumbnailForFloorStyle } from '../services/thumbnails'
+import { colorOf, customizableTypes, DEFAULT_WALL_COLOR, floorStyleOf, floorStyles, type FloorStyle } from '../services/styles'
 import { DEFAULT_APPEARANCE as CHARACTER_DEFAULTS } from './Character'
 
 function ItemIcon({ item }: { item: { type: string; styleId?: string } }) {
@@ -59,6 +59,13 @@ function CharacterLookEditor() {
   </div>
 }
 
+// 재질 스와치: 평면 색 대신 실제 거칠기로 렌더된 슬래브 썸네일 — 광택 차이가 보인다
+function FloorMaterialSwatch({ style, active, onPick }: { style: FloorStyle; active: boolean; onPick: () => void }) {
+  const [src, setSrc] = useState<string | null>(null)
+  useEffect(() => { let live = true; thumbnailForFloorStyle(style).then((url) => { if (live && url) setSrc(url) }); return () => { live = false } }, [style.id])
+  return <button type="button" title={style.label} className={active ? 'active' : ''} style={src ? undefined : { background: style.color }} onClick={onPick}>{src && <img src={src} alt={style.label} />}</button>
+}
+
 // wall and floor recolors live in the inventory now — clicking the room surfaces no longer opens a picker
 function RoomColorEditor() {
   const { wallStyle, floorStyle, setWallStyle, setFloorStyle } = useRoomStore()
@@ -68,7 +75,7 @@ function RoomColorEditor() {
       <ColorField value={colorOf(wallStyle[wallId], DEFAULT_WALL_COLOR[wallId])} onPick={(hex) => setWallStyle(wallId, hex)} />
     </div>)}
     <div className="room-color-row"><span>바닥 재질</span>
-      <div className="style-swatches">{floorStyles.map((style) => <button key={style.id} type="button" title={style.label} className={floor.id === style.id ? 'active' : ''} style={{ background: style.color }} onClick={() => setFloorStyle(style.id)} />)}</div>
+      <div className="style-swatches">{floorStyles.map((style) => <FloorMaterialSwatch key={style.id} style={style} active={floor.id === style.id} onPick={() => setFloorStyle(style.id)} />)}</div>
     </div>
     <div className="room-color-row"><span>바닥 색상</span>
       <ColorField value={floor.color} onPick={(hex) => setFloorStyle(`${floor.id}${hex}`)} />
