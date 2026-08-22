@@ -2,7 +2,7 @@ import { useRoomStore } from '../store'
 import { interactionAnchorsFor, localAnchorToWorld } from '../services/interactionAnchors'
 import { GRID_SIZE } from '../services/roomGrid'
 
-const DEBUGGED_TYPES = new Set(['bed', 'sofa', 'chair'])
+const DEBUGGED_TYPES = new Set(['bed', 'hotel-bed', 'sofa', 'chair'])
 
 export default function DebugAnchors() {
   const { debugAnchors, furniture } = useRoomStore()

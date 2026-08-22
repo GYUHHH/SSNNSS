@@ -25,7 +25,7 @@ export function interactionAnchorsFor(item: FurnitureItem, typeOverride?: Intera
   // lying rotates the body -90° about X at the anchor, so: +.15 in y rests the body's BACK on the mattress
   // (torso half-depth), and z=.9 shifts the whole body south so the head (body length ~1.77 toward -z after
   // rotation) stays on the pillows instead of clipping into the headboard at the bed's north edge
-  if (item.type === 'bed') return {
+  if (item.type === 'bed' || item.type === 'hotel-bed') return {
     type: 'lie',
     approach: { position: [.95, 0, .45], rotation: -Math.PI / 2 },
     action: { position: [0, topHeight(item) + .13, .78], rotation: 0 },

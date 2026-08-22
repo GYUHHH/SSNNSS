@@ -251,6 +251,26 @@ function IncenseBurner({ preview }: { preview: boolean }) {
   </>
 }
 
+function HotelBed({ preview }: { preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  const fabric = (color: string, roughness = .94) => <meshStandardMaterial color={color} roughness={roughness} transparent={preview} opacity={opacity} />
+  return <group name="hotel-bed">
+    <RoundedBox castShadow args={[2.04, .22, 2.72]} radius={.04} smoothness={2} position={[0, .16, 0]}>
+      <meshStandardMaterial color="#403832" roughness={.72} transparent={preview} opacity={opacity} />
+    </RoundedBox>
+    <RoundedBox castShadow args={[2.04, .86, .14]} radius={.05} smoothness={2} position={[0, .78, -1.29]}>
+      <meshStandardMaterial color="#51443b" roughness={.76} transparent={preview} opacity={opacity} />
+    </RoundedBox>
+    <RoundedBox castShadow args={[2, .34, 2.58]} radius={.08} smoothness={3} position={[0, .43, 0]}>{fabric('#f2f1ed', .9)}</RoundedBox>
+    <RoundedBox castShadow args={[2.02, .1, 2.5]} radius={.055} smoothness={2} position={[0, .63, .02]}>{fabric('#faf9f6')}</RoundedBox>
+    <RoundedBox castShadow args={[2.08, .16, 2.08]} radius={.08} smoothness={3} position={[0, .74, .23]}>{fabric('#f7f7f4')}</RoundedBox>
+    {[-1, 1].map((side) => <RoundedBox key={`duvet-side-${side}`} castShadow args={[.16, .38, 1.95]} radius={.06} smoothness={2} position={[side * .98, .54, .27]}>{fabric('#efefec')}</RoundedBox>)}
+    <RoundedBox castShadow args={[2.06, .4, .34]} radius={.07} smoothness={3} position={[0, .53, 1.16]}>{fabric('#ececea')}</RoundedBox>
+    {[-.42, .38].map((x) => <RoundedBox key={`duvet-fold-${x}`} args={[.035, .025, 1.45]} radius={.012} smoothness={2} position={[x, .835, .32]} rotation={[0, x * .035, 0]}>{fabric('#dfdfdc')}</RoundedBox>)}
+    {[-1, 1].map((side) => <RoundedBox key={`pillow-${side}`} castShadow args={[.86, .18, .6]} radius={.11} smoothness={3} position={[side * .45, .88, -.76]} rotation={[.34, 0, side * -.055]}>{fabric(side < 0 ? '#fbfaf7' : '#f4f3ef', .96)}</RoundedBox>)}
+  </group>
+}
+
 export function ItemVisual({ item, preview = false }: { item: FurnitureItem; preview?: boolean }) {
   const store = useOptionalRoomStore()
   const musicTrack = store?.musicTrack ?? null
@@ -303,6 +323,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'herb-pot-2') return <HerbPotTwo preview={preview} />
   if (item.type === 'succulent-pot') return <SucculentPot preview={preview} />
   if (item.type === 'incense-burner') return <IncenseBurner preview={preview} />
+  if (item.type === 'hotel-bed') return <HotelBed preview={preview} />
   if (item.type === 'guestbook') {
     const noteCount = Math.min(6, store?.guestbook[item.id]?.length ?? 0)
     return <><RoundedBox castShadow args={[1.34, 1.34, .05]} radius={.03} smoothness={2} position={[0, 0, .025]}>{mat('#8a6048')}</RoundedBox><mesh position={[0, 0, .055]}><planeGeometry args={[1.18, 1.18]} />{mat('#c9a06c')}</mesh><mesh position={[0, .47, .06]}><planeGeometry args={[.62, .16]} />{mat('#f3ead9')}</mesh>{Array.from({ length: noteCount }, (_, index) => <group key={index} position={[-.36 + (index % 3) * .36, .16 - Math.floor(index / 3) * .42, .06]} rotation={[0, 0, (index % 2 ? 1 : -1) * .06]}><mesh><planeGeometry args={[.26, .26]} /><meshStandardMaterial color={['#fffaf0', '#f9e9c8', '#e8f0dd'][index % 3]} transparent={material.transparent} opacity={material.opacity} /></mesh><mesh position={[0, .11, .005]}><circleGeometry args={[.022, 8]} /><meshStandardMaterial color="#b3563f" transparent={material.transparent} opacity={material.opacity} /></mesh></group>)}{noteCount === 0 && <mesh position={[0, -.05, .06]}><planeGeometry args={[.5, .3]} />{mat('#fffaf0')}</mesh>}</>
