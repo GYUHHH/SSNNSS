@@ -507,7 +507,18 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     setDragOrigin(null); setMovingFurnitureId(null)
   }
   // Rotation is always applied. If it overlaps or crosses a boundary the toolbar warns the user until they move it.
-  const rotateFurniture = () => { const id = selectedFurnitureId; if (!id) return; const previous = furniture; const next = furniture.map((value) => value.id === id ? placeOnSurface(furniture, value, value.surfaceId, placementGrid(value), [0, (value.rotation[1] + Math.PI / 2) % (Math.PI * 2), 0]) : value); commit(next, previous) }
+  const rotateFurniture = () => {
+    // 배치 전 미리보기도 같은 버튼으로 돌린다 — 회전된 발자국이 못 들어가는 위치면 valid만 꺼진다
+    if (preview) {
+      const rotation: [number, number, number] = [0, (preview.rotation[1] + Math.PI / 2) % (Math.PI * 2), 0]
+      const surface = resolveSurface(furniture, preview.surfaceId); if (!surface) return
+      const resolved = withResolution(surface, resolutionFor(preview))
+      const grid = clampGrid(resolved, placementGrid(preview), preview.footprint, rotation[1])
+      const next = placeOnSurface(furniture, preview, preview.surfaceId, grid, rotation)
+      setPreview(next); setPreviewValid(isAvailable(next))
+      return
+    }
+    const id = selectedFurnitureId; if (!id) return; const previous = furniture; const next = furniture.map((value) => value.id === id ? placeOnSurface(furniture, value, value.surfaceId, placementGrid(value), [0, (value.rotation[1] + Math.PI / 2) % (Math.PI * 2), 0]) : value); commit(next, previous) }
   // deleting also cancels any move-in-progress — otherwise a later endMove would restore the pre-delete copy
   // held in pendingMove/dragOrigin and the item would pop back
   const removeFurniture = (targetId = selectedFurnitureId ?? undefined) => { if (!targetId) return; const group = (value: FurnitureItem) => value.id === targetId || (isOwnedSurfaceId(value.surfaceId) && ownerIdOf(value.surfaceId) === targetId); const gone = furniture.filter((value) => group(value) && !value.removed).map((value) => value.id); const next = furniture.map((value) => group(value) && !value.removed ? { ...value, removed: true, updatedAt: new Date().toISOString() } : value); void purgeReactions(gone); dropReactions(gone); pendingMove.current = null; setDragOrigin(null); setMovingFurnitureId(null); commit(next); setSelectedFurnitureId(null) }
