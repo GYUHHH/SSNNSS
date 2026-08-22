@@ -488,6 +488,128 @@ function PapasanChair({ preview }: { preview: boolean }) {
   </>
 }
 
+
+// Y2K 세트 공용: 환경맵이 없어서 transmission·고금속은 못 쓴다 — 반투명 standard 재질로 유리 흉내.
+// depthWrite를 꺼야 유리 뒤 물체가 사라지는 정렬 사고가 없다.
+const glassMat = (color: string, opacity: number, preview: boolean) =>
+  <meshStandardMaterial color={color} roughness={.15} transparent opacity={preview ? opacity * .6 : opacity} depthWrite={false} />
+const chromeMat = (preview: boolean) =>
+  <meshStandardMaterial color="#dde2e6" metalness={.5} roughness={.2} transparent={preview} opacity={preview ? .5 : 1} />
+
+// 유리 아메바 테이블: 콩팥형 유리 상판 + 크롬 타원 링 받침
+function GlassTable({ preview }: { preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  const top = useMemo(() => {
+    const value = new Shape()
+    value.moveTo(-.9, .1)
+    value.bezierCurveTo(-.95, .38, -.55, .5, -.25, .42)
+    value.bezierCurveTo(.05, .34, .25, .46, .55, .46)
+    value.bezierCurveTo(.9, .46, .98, .2, .9, -.02)
+    value.bezierCurveTo(.82, -.24, .5, -.32, .2, -.26)
+    value.bezierCurveTo(-.1, -.2, -.3, -.38, -.6, -.34)
+    value.bezierCurveTo(-.88, -.3, -.86, -.14, -.9, .1)
+    value.closePath()
+    return value
+  }, [])
+  return <>
+    <mesh castShadow position={[0, .21, 0]} scale={[1.5, .58, 1]}><torusGeometry args={[.28, .08, 12, 26]} />{chromeMat(preview)}</mesh>
+    <mesh position={[0, .42, 0]} rotation={[-Math.PI / 2, 0, 0]}><extrudeGeometry args={[top, { depth: .045, bevelEnabled: true, bevelSize: .02, bevelThickness: .012, bevelSegments: 2 }]} />{glassMat('#7fd4dc', .5, preview)}</mesh>
+    {[[-.3, .1], [.45, -.02]].map(([x, z]) => <mesh key={`${x}`} position={[x, .43, z]}><cylinderGeometry args={[.035, .045, .05, 10]} /><meshStandardMaterial color="#bfe4e8" roughness={.3} transparent opacity={opacity * .8} /></mesh>)}
+  </>
+}
+
+// 유리 버섯 램프: 청록 유리 갓 + 발광 스템. 클릭 점등.
+function GlassMushroomLamp({ preview, lit }: { preview: boolean; lit: boolean }) {
+  const opacity = preview ? .5 : 1
+  return <>
+    <mesh position={[0, .045, 0]}><cylinderGeometry args={[.24, .26, .07, 18]} />{glassMat('#2fa8b5', .75, preview)}</mesh>
+    <mesh position={[0, .24, 0]}><cylinderGeometry args={[.1, .16, .34, 14]} /><meshStandardMaterial color={lit ? '#eafcfc' : '#bfe8ea'} emissive={lit ? '#d8fbff' : '#000000'} emissiveIntensity={lit ? 1.1 : 0} roughness={.3} transparent opacity={opacity * .92} /></mesh>
+    <mesh castShadow position={[0, .5, 0]} scale={[1, .82, 1]}><sphereGeometry args={[.34, 20, 12, 0, Math.PI * 2, 0, Math.PI * .62]} />{glassMat(lit ? '#33b9c6' : '#2fa8b5', .8, preview)}</mesh>
+    {lit && <pointLight color="#9fe8ee" intensity={4.5} distance={1.8} position={[0, .35, 0]} />}
+  </>
+}
+
+// 팝 선반: 흰 라운드 프레임에 아쿠아·라임 큐비가 2열 3단으로 박힌다
+function PopShelf({ preview }: { preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  const gloss = (color: string) => <meshStandardMaterial color={color} roughness={.35} transparent={preview} opacity={opacity} />
+  const colors = ['#7cc9da', '#b8d054', '#b8d054', '#7cc9da', '#7cc9da', '#b8d054']
+  return <>
+    <RoundedBox castShadow args={[1.42, 1.84, .52]} radius={.12} smoothness={3} position={[0, .96, 0]}>{gloss('#f4f4f2')}</RoundedBox>
+    <RoundedBox args={[1.1, .1, .56]} radius={.03} smoothness={2} position={[0, .05, 0]}>{gloss('#eeeeec')}</RoundedBox>
+    {[0, 1, 2].flatMap((row) => [0, 1].map((column) => <RoundedBox key={`${row}:${column}`} args={[.54, .48, .5]} radius={.08} smoothness={2} position={[column === 0 ? -.32 : .32, 1.5 - row * .54, .04]}>{gloss(colors[row * 2 + column])}</RoundedBox>))}
+  </>
+}
+
+// 버블 체어: 크롬 스탠드에 매달린 투명 구 + 라임 쿠션
+function BubbleChair({ preview }: { preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  const cushion = (color: string) => <meshStandardMaterial color={color} roughness={.6} transparent={preview} opacity={opacity} />
+  return <>
+    <mesh castShadow position={[0, .04, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[.36, .028, 8, 24]} />{chromeMat(preview)}</mesh>
+    {/* 스탠드 아치: 바닥 링 뒤에서 구 위까지 감아 올라간다 */}
+    <mesh castShadow position={[-.02, .74, -.33]} rotation={[0, Math.PI / 2, 0]}><torusGeometry args={[.72, .026, 8, 30, Math.PI * .78]} />{chromeMat(preview)}</mesh>
+    {/* 체인 */}
+    <mesh position={[0, 1.38, -.02]}><cylinderGeometry args={[.008, .008, .16, 6]} />{chromeMat(preview)}</mesh>
+    {/* 투명 구: 아래 앞쪽이 트인 셸 */}
+    <mesh position={[0, .82, 0]} rotation={[.5, 0, 0]}><sphereGeometry args={[.46, 22, 14, 0, Math.PI * 2, 0, Math.PI * .72]} />{glassMat('#bfe9ec', .35, preview)}</mesh>
+    {/* 쿠션 */}
+    <mesh castShadow position={[0, .62, .02]} scale={[1, .38, 1]}><sphereGeometry args={[.34, 16, 10]} />{cushion('#b5d36a')}</mesh>
+    <mesh castShadow position={[0, .82, -.2]} rotation={[.35, 0, 0]} scale={[1, 1.15, .42]}><sphereGeometry args={[.26, 14, 10]} />{cushion('#c0dc78')}</mesh>
+  </>
+}
+
+// Y2K 책상: 흰 쉘 + 파랑 인서트. 왼쪽 C자 다리, 오른쪽 서랍 페데스탈, 위 허치.
+function Y2kDesk({ preview }: { preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  const white = () => <meshStandardMaterial color="#f4f4f2" roughness={.3} transparent={preview} opacity={opacity} />
+  const blue = () => <meshStandardMaterial color="#a3c9ec" roughness={.35} transparent={preview} opacity={opacity} />
+  return <>
+    {/* 상판 */}
+    <RoundedBox castShadow args={[1.9, .12, .78]} radius={.05} smoothness={2} position={[0, .72, .04]}>{white()}</RoundedBox>
+    <RoundedBox args={[1.5, .02, .56]} radius={.04} smoothness={2} position={[-.1, .785, .06]}>{blue()}</RoundedBox>
+    {/* 왼쪽 C자 다리 */}
+    <RoundedBox castShadow args={[.16, .72, .76]} radius={.06} smoothness={2} position={[-.87, .36, .04]}>{white()}</RoundedBox>
+    <RoundedBox args={[.05, .56, .6]} radius={.04} smoothness={2} position={[-.78, .3, .04]}>{blue()}</RoundedBox>
+    {/* 가운데 서랍 */}
+    <RoundedBox args={[.8, .14, .04]} radius={.03} smoothness={2} position={[-.1, .58, .42]}>{blue()}</RoundedBox>
+    {/* 오른쪽 페데스탈 */}
+    <RoundedBox castShadow args={[.52, .72, .74]} radius={.07} smoothness={2} position={[.68, .36, .04]}>{white()}</RoundedBox>
+    <RoundedBox args={[.4, .16, .04]} radius={.03} smoothness={2} position={[.68, .17, .42]}>{blue()}</RoundedBox>
+    <RoundedBox args={[.4, .16, .04]} radius={.03} smoothness={2} position={[.68, .36, .42]}>{blue()}</RoundedBox>
+    <RoundedBox args={[.4, .14, .04]} radius={.03} smoothness={2} position={[.68, .55, .42]}>{blue()}</RoundedBox>
+    {/* 허치: 기둥 2 + 브리지 + 파랑 백패널 + 선반 */}
+    {[-.86, .86].map((x) => <RoundedBox castShadow key={x} args={[.14, .62, .3]} radius={.05} smoothness={2} position={[x, 1.09, -.22]}>{white()}</RoundedBox>)}
+    <RoundedBox castShadow args={[1.86, .34, .3]} radius={.08} smoothness={2} position={[0, 1.28, -.22]}>{white()}</RoundedBox>
+    <RoundedBox args={[1.56, .24, .04]} radius={.03} smoothness={2} position={[0, 1.28, -.2]}>{blue()}</RoundedBox>
+    <RoundedBox args={[1.6, .04, .26]} radius={.02} smoothness={2} position={[0, 1.1, -.22]}>{white()}</RoundedBox>
+  </>
+}
+
+// 포드 데이베드: 흰 포드 쉘 + 유리 캐노피 + 아쿠아 원형 쿠션
+function PodDaybed({ preview }: { preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  const gloss = (color: string, rough = .35) => <meshStandardMaterial color={color} roughness={rough} transparent={preview} opacity={opacity} />
+  return <>
+    {/* 하부 쉘: 아래 반구 */}
+    <mesh castShadow position={[0, .52, 0]} scale={[1, .62, 1]}><sphereGeometry args={[.86, 24, 12, 0, Math.PI * 2, Math.PI * .48, Math.PI * .52]} />{gloss('#f4f4f2')}</mesh>
+    <mesh position={[0, .5, 0]}><cylinderGeometry args={[.84, .78, .28, 24]} />{gloss('#f4f4f2')}</mesh>
+    {/* 유리 캐노피: 뒤~위를 덮고 앞이 트인다 */}
+    <mesh position={[0, .52, 0]} rotation={[-.35, 0, 0]}><sphereGeometry args={[.84, 24, 14, 0, Math.PI * 2, 0, Math.PI * .42]} />{glassMat('#cdeef2', .4, preview)}</mesh>
+    {/* 캐노피 흰 테두리 아치 */}
+    <mesh castShadow position={[0, .62, .12]} rotation={[Math.PI * .08, 0, 0]}><torusGeometry args={[.78, .05, 10, 26, Math.PI]} />{gloss('#f4f4f2')}</mesh>
+    {/* 쿠션 */}
+    <mesh castShadow position={[0, .56, .08]}><cylinderGeometry args={[.66, .68, .16, 22]} />{gloss('#7fcbdc', .8)}</mesh>
+    {/* 등쿠션 아치 */}
+    <mesh castShadow position={[0, .74, .02]} rotation={[Math.PI / 2 + .18, 0, 0]}><torusGeometry args={[.56, .13, 10, 20, Math.PI]} />{gloss('#66bdd2', .8)}</mesh>
+    {/* 베개: 라임 원형 2 + 아쿠아 사각 3 */}
+    {[-.42, .42].map((x) => <mesh castShadow key={x} position={[x, .74, -.1]} rotation={[.3, 0, 0]}><cylinderGeometry args={[.15, .15, .1, 14]} /><meshStandardMaterial color="#a8cc52" roughness={.8} transparent={preview} opacity={opacity} /></mesh>)}
+    {[[-.22, '#6fc3d8'], [0, '#9adfe4'], [.22, '#6fc3d8']].map(([x, color]) => <RoundedBox castShadow key={`${x}`} args={[.26, .22, .1]} radius={.03} smoothness={2} position={[x as number, .74, -.14]} rotation={[.35, 0, 0]}><meshStandardMaterial color={color as string} roughness={.8} transparent={preview} opacity={opacity} /></RoundedBox>)}
+    {/* 발 */}
+    {[[-.5, .3], [.5, .3], [-.5, -.3], [.5, -.3]].map(([x, z]) => <mesh key={`${x}:${z}`} position={[x, .05, z]}><sphereGeometry args={[.06, 8, 6]} />{gloss('#eeeeec')}</mesh>)}
+  </>
+}
+
 export function ItemVisual({ item, preview = false }: { item: FurnitureItem; preview?: boolean }) {
   const store = useOptionalRoomStore()
   const musicTrack = store?.musicTrack ?? null
@@ -547,6 +669,12 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'boucle-stool') return <BoucleStool preview={preview} />
   if (item.type === 'cube-shelf') return <CubeShelf preview={preview} />
   if (item.type === 'papasan-chair') return <PapasanChair preview={preview} />
+  if (item.type === 'glass-table') return <GlassTable preview={preview} />
+  if (item.type === 'glass-mushroom-lamp') return <GlassMushroomLamp preview={preview} lit={lit} />
+  if (item.type === 'pop-shelf') return <PopShelf preview={preview} />
+  if (item.type === 'bubble-chair') return <BubbleChair preview={preview} />
+  if (item.type === 'y2k-desk') return <Y2kDesk preview={preview} />
+  if (item.type === 'pod-daybed') return <PodDaybed preview={preview} />
   if (item.type === 'hotel-bed') return <HotelBed preview={preview} />
   if (item.type === 'guestbook') {
     const noteCount = Math.min(6, store?.guestbook[item.id]?.length ?? 0)
