@@ -592,8 +592,7 @@ function PodDaybed({ preview }: { preview: boolean }) {
   const gloss = (color: string, rough = .35) => <meshStandardMaterial color={color} roughness={rough} transparent={preview} opacity={opacity} />
   return <>
     {/* 하부 쉘: 아래 반구 */}
-    <mesh castShadow position={[0, .52, 0]} scale={[1, .62, 1]}><sphereGeometry args={[.86, 24, 12, 0, Math.PI * 2, Math.PI * .48, Math.PI * .52]} />{gloss('#f4f4f2')}</mesh>
-    <mesh position={[0, .5, 0]}><cylinderGeometry args={[.84, .78, .28, 24]} />{gloss('#f4f4f2')}</mesh>
+    <mesh castShadow position={[0, .52, 0]} scale={[1, .6, 1]}><sphereGeometry args={[.86, 24, 12, 0, Math.PI * 2, Math.PI * .48, Math.PI * .52]} />{gloss('#f4f4f2')}</mesh>
     {/* 유리 캐노피: 뒤~위를 덮고 앞이 트인다 */}
     <mesh position={[0, .52, 0]} rotation={[-.35, 0, 0]}><sphereGeometry args={[.84, 24, 14, 0, Math.PI * 2, 0, Math.PI * .42]} />{glassMat('#cdeef2', .4, preview)}</mesh>
     {/* 캐노피 흰 테두리 아치 */}
@@ -606,7 +605,7 @@ function PodDaybed({ preview }: { preview: boolean }) {
     {[-.42, .42].map((x) => <mesh castShadow key={x} position={[x, .74, -.1]} rotation={[.3, 0, 0]}><cylinderGeometry args={[.15, .15, .1, 14]} /><meshStandardMaterial color="#a8cc52" roughness={.8} transparent={preview} opacity={opacity} /></mesh>)}
     {[[-.22, '#6fc3d8'], [0, '#9adfe4'], [.22, '#6fc3d8']].map(([x, color]) => <RoundedBox castShadow key={`${x}`} args={[.26, .22, .1]} radius={.03} smoothness={2} position={[x as number, .74, -.14]} rotation={[.35, 0, 0]}><meshStandardMaterial color={color as string} roughness={.8} transparent={preview} opacity={opacity} /></RoundedBox>)}
     {/* 발 */}
-    {[[-.5, .3], [.5, .3], [-.5, -.3], [.5, -.3]].map(([x, z]) => <mesh key={`${x}:${z}`} position={[x, .05, z]}><sphereGeometry args={[.06, 8, 6]} />{gloss('#eeeeec')}</mesh>)}
+    {[[-.5, .3], [.5, .3], [-.5, -.3], [.5, -.3]].map(([x, z]) => <mesh key={`${x}:${z}`} position={[x, .06, z]}><sphereGeometry args={[.06, 8, 6]} />{gloss('#eeeeec')}</mesh>)}
   </>
 }
 
