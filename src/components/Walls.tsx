@@ -5,7 +5,6 @@ import { useRoomStore } from '../store'
 import { type WallId, wallSurfaces } from '../services/roomGrid'
 import { palette } from '../services/palette'
 import { colorOf, DEFAULT_WALL_COLOR, floorStyleOf } from '../services/styles'
-import { useArtTexture } from './ArtEditor'
 
 // 코너 마이터 삼각형: 평면도 기준 안쪽 모서리(+x,+z)에서 바깥 모서리(-x,-z)로 그은 대각선이 경계.
 // (extrude는 XY 평면 기준이라 y_geo = -z_world 로 뒤집어 적는다)
@@ -22,8 +21,6 @@ export default function Walls() {
   const floor = floorStyleOf(floorStyle)
   const leftWallColor = colorOf(wallStyle.leftWall, DEFAULT_WALL_COLOR.leftWall)
   const rightWallColor = colorOf(wallStyle.rightWall, DEFAULT_WALL_COLOR.rightWall)
-  const posterArt = useArtTexture('poster')
-  const photoArt = useArtTexture('photo')
   const moveTo = (wallId: WallId, point: { x: number; y: number; z: number }) => {
     if (previewDragging && preview?.allowedSurfaces.includes('wall')) return movePreview([point.x, point.y, point.z], wallId)
     if (movingFurnitureId && selected?.id === movingFurnitureId && selected.allowedSurfaces.includes('wall')) moveFurniture(selected.id, [point.x, point.y, point.z], wallId)
@@ -47,7 +44,5 @@ export default function Walls() {
     <mesh receiveShadow position={[-3.61, 0, -3.61]} rotation={[-Math.PI / 2, 0, 0]}><extrudeGeometry args={[RIGHT_MITER, { depth: 7, bevelEnabled: false }]} /><meshStandardMaterial color={rightWallColor} userData={{ lateFade: true }} /></mesh>
     {mode === 'edit' && activeWall && activeItem && <PlacementGrid surface={wallSurfaces[activeWall]} area={gridAreaFor(activeItem)} />}
     <Furniture id="clock"><mesh position={[0, 0, .05]}><torusGeometry args={[.6, .1, 8, 20]} /><meshStandardMaterial color={palette.woodDark} roughness={0.7} /></mesh><mesh position={[0, 0, .06]}><circleGeometry args={[.52, 20]} /><meshStandardMaterial color={palette.linen} roughness={0.85} /></mesh><mesh position={[0, 0, .08]}><boxGeometry args={[.04, .42, .02]} /><meshStandardMaterial color={palette.charcoal} roughness={0.7} /></mesh></Furniture>
-    <Furniture id="poster"><mesh position={[0, 0, .04]}><boxGeometry args={[1.4, 2.1, .03]} /><meshStandardMaterial color={palette.woodMid} roughness={0.7} /></mesh><mesh position={[0, 0, .065]}><planeGeometry args={[1.2, 1.85]} /><meshStandardMaterial key={posterArt ? 'art' : 'plain'} color={posterArt ? '#ffffff' : palette.sage} map={posterArt ?? undefined} roughness={0.85} /></mesh></Furniture>
-    <Furniture id="photo"><mesh position={[0, 0, .04]}><boxGeometry args={[.7, .7, .03]} /><meshStandardMaterial color={palette.woodDark} roughness={0.7} /></mesh><mesh position={[0, 0, .065]}><planeGeometry args={[.58, .42]} /><meshStandardMaterial key={photoArt ? 'art' : 'plain'} color={photoArt ? '#ffffff' : palette.rust} map={photoArt ?? undefined} roughness={0.85} /></mesh></Furniture>
   </>
 }

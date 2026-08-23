@@ -91,8 +91,6 @@ const rugItem = floorItem('rug', '러그', 'rug', 3, 3, { width: 3, depth: 2 })
 const binItem = staticItem('bin', '휴지통', 'bin', [-2.75, 0, -0.85], 'decoration', ['floor'])
 const cupItem = surfaceItem('cup', '머그컵', 'cup', 'desk:top', 3, 0, { width: 1, depth: 1 }, ['floor', 'tabletop', 'shelf'], [deskItem])
 const clockItem = wallItem('clock', '벽 시계', 'clock', 'leftWall', 1, 6, { width: 2, depth: 2 })
-const posterItem = wallItem('poster', '포스터', 'poster', 'leftWall', 4, 3, { width: 2, depth: 3 })
-const photoItem = wallItem('photo', '사진', 'photo', 'leftWall', 7, 1, { width: 1, depth: 1 })
 // default wall decor — ids start with `inventory-` because InventoryFurniture only renders that prefix
 const profileBoardItem = wallItem('inventory-profile-default', '내 프로필', 'profile-board', 'leftWall', 2, 4, { width: 2, depth: 3 })
 const guestbookWallItem = wallItem('inventory-guestbook-default', '방명록', 'guestbook', 'leftWall', 5, 5, { width: 1, depth: 1 })
@@ -101,19 +99,17 @@ const cdPlayerItem = wallItem('inventory-cd-default', 'CD 플레이어', 'cd-pla
 // beneath them — every other piece starts in storage, ready to be placed from the 가구함
 export const initialFurniture: FurnitureItem[] = [
   deskItem, chairItem, bookshelfItem, profileBoardItem, guestbookWallItem, cdPlayerItem,
-  ...[bedItem, computerItem, sofaItem, plantItem, lampItem, cabinetItem, rugItem, binItem, cupItem, clockItem, posterItem, photoItem].map((item) => ({ ...item, removed: true })),
+  ...[bedItem, computerItem, sofaItem, plantItem, lampItem, cabinetItem, rugItem, binItem, cupItem, clockItem].map((item) => ({ ...item, removed: true })),
 ]
 
 export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surfaceId' | 'gridX' | 'gridY' | 'gridZ' | 'wallId' | 'rotation' | 'updatedAt'>> = [
   { type: 'side-table', name: '사이드 테이블', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'music-player', name: '뮤직 플레이어', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'floor-lamp', name: '플로어 램프', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor'] },
-  { type: 'potted-plant', name: '작은 화분', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
   { type: 'herb-pot', name: '허브 화분', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
   { type: 'herb-pot-2', name: '허브 화분2', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
   { type: 'succulent-pot', name: '다육 화분', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
   { type: 'incense-burner', name: '금동대향로', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
-  { type: 'hotel-bed', name: '호텔 침대', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 3, depth: 4 }, size: [3, 4], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'vanity-desk', name: '핑크 화장대', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'mushroom-lamp', name: '버섯 램프', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
   { type: 'lavender-sofa', name: '라벤더 소파', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
@@ -135,9 +131,7 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
   { type: 'whiteboard', name: '이젤 보드', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'easel-photo', name: '이젤 보드 (사진)', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'rocking-chair', name: '흔들의자', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor'] },
-  { type: 'beanbag', name: '빈백', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'mini-fridge', name: '미니 냉장고', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor'] },
-  { type: 'hanger', name: '행거', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'dual-monitors', name: '듀얼 모니터', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 3, depth: 1 }, size: [3, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop'] },
   { type: 'full-mirror', name: '전신거울', category: 'wallItem', movable: true, interactable: true, footprint: { width: 2, depth: 5 }, size: [2, 5], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'heart-mirror', name: '하트 거울', category: 'wallItem', movable: true, interactable: true, footprint: { width: 2, depth: 2 }, size: [2, 2], scale: 1, allowedSurfaces: ['wall'] },
@@ -161,14 +155,12 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
   { type: 'wardrobe', name: '옷장', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'fish-tank', name: '어항', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop'] },
   { type: 'candle', name: '캔들', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop'] },
-  { type: 'animated-poster', name: '무빙 포스터', category: 'wallItem', movable: true, interactable: true, footprint: { width: 2, depth: 3 }, size: [2, 3], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'wall-art', name: '벽 포스터', category: 'wallItem', movable: true, interactable: true, footprint: { width: 2, depth: 3 }, size: [2, 3], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'wall-art-3', name: '벽 포스터 3×4', category: 'wallItem', movable: true, interactable: true, footprint: { width: 3, depth: 4 }, size: [3, 4], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'wall-art-4', name: '벽 포스터 4×5', category: 'wallItem', movable: true, interactable: true, footprint: { width: 4, depth: 5 }, size: [4, 5], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'wall-art-5', name: '벽 포스터 5×6', category: 'wallItem', movable: true, interactable: true, footprint: { width: 5, depth: 6 }, size: [5, 6], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'wall-shelf', name: '벽 선반', category: 'wallItem', movable: true, interactable: true, footprint: { width: 3, depth: 1 }, size: [3, 1], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'vase', name: '화병', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 2 }, size: [2, 2], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
-  { type: 'cushion', name: '쿠션', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop'] },
   { type: 'plush', name: '인형', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop'] },
   { type: 'mug', name: '머그컵', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
   { type: 'book-prop', name: '책', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },

@@ -23,9 +23,7 @@ const categoryFor = (type: string): InventoryCategory => ({ 'side-table': '가�
 const OWNABLE: Array<{ type: string; name: string; size: [number, number]; footprint: FurnitureItem['footprint']; allowedSurfaces: FurnitureItem['allowedSurfaces']; styleId?: string }> = [...inventoryItems, ...initialFurniture.filter((item) => item.movable)]
   .filter((entry, index, all) => all.findIndex((other) => other.type === entry.type) === index)
   .map((entry) => ({ type: entry.type, name: entry.name, size: entry.size, footprint: entry.footprint, allowedSurfaces: entry.allowedSurfaces }))
-// the white line: the same furniture pre-tinted white, offered as its own catalog entries
-const WHITE_LINE = OWNABLE.filter((entry) => customizableTypes.has(entry.type)).map((entry) => ({ ...entry, styleId: 'white', name: `화이트 ${entry.name}` }))
-const CATALOG = [...OWNABLE, ...WHITE_LINE]
+const CATALOG = OWNABLE
 
 // Colours are picked freely off the native wheel rather than off a fixed swatch row. The store write waits for
 // the drag to settle: every write publishes the whole room, and a colour input fires on each pointer move.
