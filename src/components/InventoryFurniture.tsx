@@ -618,16 +618,16 @@ function DiaryBookItem({ itemId, preview }: { itemId: string; preview: boolean }
   const opacity = preview ? .5 : 1
   const cover = book?.coverColor ?? '#718475'
   // 방문자에게 비공개 책은 자리만 차지하고 보이지 않는다 (visibleBooks 필터를 그대로 탄다)
-  if (!book && !preview) return <mesh visible={false} position={[0, .06, 0]}><boxGeometry args={[.34, .12, .34]} /><meshBasicMaterial /></mesh>
+  if (!book && !preview) return <mesh visible={false} position={[0, .06, 0]}><boxGeometry args={[.68, .12, .34]} /><meshBasicMaterial /></mesh>
   return <>
-    <mesh visible={false} position={[0, .06, 0]}><boxGeometry args={[.34, .12, .34]} /><meshBasicMaterial /></mesh>
+    <mesh visible={false} position={[0, .06, 0]}><boxGeometry args={[.68, .12, .34]} /><meshBasicMaterial /></mesh>
     {/* 속지: 표지보다 살짝 안쪽, 밝은 종이색 */}
-    <mesh castShadow position={[.01, .048, 0]}><boxGeometry args={[.27, .066, .33]} /><meshStandardMaterial color="#f4efe4" roughness={.9} transparent={preview} opacity={opacity} /></mesh>
+    <mesh castShadow position={[.02, .048, 0]}><boxGeometry args={[.56, .066, .26]} /><meshStandardMaterial color="#f4efe4" roughness={.9} transparent={preview} opacity={opacity} /></mesh>
     {/* 표지: 위·아래 판 + 왼쪽 책등 */}
-    <mesh castShadow position={[0, .088, 0]}><boxGeometry args={[.3, .016, .36]} /><meshStandardMaterial color={cover} roughness={.75} transparent={preview} opacity={opacity} /></mesh>
-    <mesh position={[0, .008, 0]}><boxGeometry args={[.3, .016, .36]} /><meshStandardMaterial color={cover} roughness={.75} transparent={preview} opacity={opacity} /></mesh>
-    <mesh castShadow position={[-.145, .048, 0]}><boxGeometry args={[.024, .096, .36]} /><meshStandardMaterial color={cover} roughness={.75} transparent={preview} opacity={opacity} /></mesh>
-    {!!title && !preview && <Text userData={{ excludeFromFit: true }} font={titleFont} position={[.01, .098, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={.05} maxWidth={.3} color="#faf6ee" anchorX="center" anchorY="middle">{title.length > 8 ? `${title.slice(0, 8)}…` : title}</Text>}
+    <mesh castShadow position={[0, .088, 0]}><boxGeometry args={[.62, .016, .3]} /><meshStandardMaterial color={cover} roughness={.75} transparent={preview} opacity={opacity} /></mesh>
+    <mesh position={[0, .008, 0]}><boxGeometry args={[.62, .016, .3]} /><meshStandardMaterial color={cover} roughness={.75} transparent={preview} opacity={opacity} /></mesh>
+    <mesh castShadow position={[-.3, .048, 0]}><boxGeometry args={[.024, .096, .3]} /><meshStandardMaterial color={cover} roughness={.75} transparent={preview} opacity={opacity} /></mesh>
+    {!!title && !preview && <Text userData={{ excludeFromFit: true }} font={titleFont} position={[.02, .098, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={.07} maxWidth={.55} color="#faf6ee" anchorX="center" anchorY="middle">{title.length > 10 ? `${title.slice(0, 10)}…` : title}</Text>}
   </>
 }
 
