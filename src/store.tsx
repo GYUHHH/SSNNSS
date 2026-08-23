@@ -1,6 +1,6 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { createSlot, deleteSlot, loadArtworks, loadProfile, saveProfile, type Profile, loadBooks, loadSlots, placedInOtherSlots, saveArtworks, saveBooks, saveSlotItems, saveSlotStyle, setActiveSlot, slotItems, slotStyle, type FurniturePlacement, type RoomStyle } from './services/roomLayoutStorage'
-import { canPlaceItem, cellsFor, clampGrid, floorSurface, GRID_COUNT, gridToWorld, isOwnedSurfaceId, nearestWallId, normalizedCells, ownerIdOf, resolveSurface, withResolution, type Footprint, type GridPosition, type PlacementItem, type PlacementResolution, type PlacementSurface, type SurfaceId, type SurfaceKind, type WallId, worldToGrid } from './services/roomGrid'
+import { canPlaceItem, surfacesForOwner, cellsFor, clampGrid, floorSurface, GRID_COUNT, gridToWorld, isOwnedSurfaceId, nearestWallId, normalizedCells, ownerIdOf, resolveSurface, withResolution, type Footprint, type GridPosition, type PlacementItem, type PlacementResolution, type PlacementSurface, type SurfaceId, type SurfaceKind, type WallId, worldToGrid } from './services/roomGrid'
 import { characterPosition } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
 import { loadOrders } from './services/playlistOrder'
@@ -604,7 +604,10 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     const found = stored ?? inventoryItems.find((entry) => entry.type === type) ?? storedTemplateFor(type); if (!found) return
     // a catalog variant (e.g. the white line) is the same furniture pre-tinted with a styleId
     const template = styleId ? { ...found, styleId } : found
-    const surfaceIds: SurfaceId[] = template.allowedSurfaces.includes('wall') ? ['leftWall', 'rightWall'] : ['floor']
+    // 바닥도 벽도 못 가는 아이템(책 등 선반·상판 전용)은 방에 놓인 가구의 해당 표면들에서 시작한다
+    const surfaceIds: SurfaceId[] = template.allowedSurfaces.includes('wall') ? ['leftWall', 'rightWall']
+      : template.allowedSurfaces.includes('floor') ? ['floor']
+      : furniture.filter((item) => !item.removed).flatMap((item) => surfacesForOwner(item)).filter((surface) => template.allowedSurfaces.includes(surface.type)).map((surface) => surface.id)
     let fallback: FurnitureItem | undefined
     let next: FurnitureItem | undefined
     for (const surfaceId of surfaceIds) {
