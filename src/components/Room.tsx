@@ -7,6 +7,7 @@ import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDir
 import { snapshotActiveFrames } from '../services/ytResume'
 import { type ExplorerMode, explorerMode, fetchFollowing, onExplorerMode, onFollowsChange, rememberModeRoom, sortByActivity } from '../services/follows'
 import { flushCapture } from '../services/capture'
+import { setRoomFrameRendered } from '../services/renderSync'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
 import CameraController, { entryZoom, exploreMinZoom } from './CameraController'
@@ -120,6 +121,7 @@ function RenderGovernor() {
     return () => inputs.forEach((name) => window.removeEventListener(name, wake))
   }, [])
   useFrame(({ gl, scene, camera, size }) => {
+    setRoomFrameRendered(false)
     const characterMoving = characterState === 'walking' || characterState === 'aligning'
     if (!characterMoving && performance.now() >= activeUntil.current) {
       skip.current = !skip.current
@@ -142,6 +144,7 @@ function RenderGovernor() {
     camera.layers.mask = EXPLORER_LAYER_MASK
     // a pending room capture copies the pixels NOW, while this frame's drawing buffer is still intact
     flushCapture(gl.domElement)
+    setRoomFrameRendered(true)
   }, 1)
   return null
 }

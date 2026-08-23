@@ -12,6 +12,7 @@ import { embedSrc, trackIframe, watchPlaylistOrder, playFrame, framePlayerStates
 import { clipIsPlaying, loadClipUrls, playClip } from '../services/mediaStore'
 import { t } from '../services/i18n'
 import { WALL_HTML_Z_INDEX_RANGE, WALL_VIDEO_ORDER } from '../services/renderOrder'
+import { didRenderRoomFrame } from '../services/renderSync'
 
 const VIDEO_MASK_VERTEX = 'void main(){gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}'
 const VIDEO_MASK_FRAGMENT = 'void main(){gl_FragColor=vec4(0.0);}'
@@ -124,6 +125,10 @@ function WallVideo({ frameId }: { frameId: string }) {
   const corners = useRef([new Vector3(), new Vector3(), new Vector3()])
   const previousTransform = useRef('')
   useFrame(({ camera, gl }) => {
+    // RenderGovernor intentionally skips WebGL frames while idle. Moving this DOM iframe on a skipped frame
+    // made it run ahead of the still-visible 3D frame, which looked like the video was rubber-banding after it.
+    // Apply the matching projection only after the Canvas has actually drawn that exact camera frame.
+    if (!didRenderRoomFrame()) return
     if (!screen.current || !element.current) { fitSynced.current = false; return }
     if (!fitSynced.current) { element.current.style.visibility = 'hidden'; return }
     screen.current.updateWorldMatrix(true, false)
@@ -139,7 +144,7 @@ function WallVideo({ frameId }: { frameId: string }) {
     const transform = `matrix(${(tr[0] - tl[0]) / 640},${(tr[1] - tl[1]) / 640},${(bl[0] - tl[0]) / divHeight},${(bl[1] - tl[1]) / divHeight},${tl[0]},${tl[1]})`
     if (transform !== previousTransform.current) { previousTransform.current = transform; element.current.style.transform = transform }
     element.current.style.visibility = !displayReady || topLeft.z < -1 || topLeft.z > 1 ? 'hidden' : 'visible'
-  }, .5) // after camera/furniture updates, before RenderGovernor: playback stays independent and the frame never trails acceleration
+  }, 2) // after RenderGovernor: the DOM video and its WebGL frame reach the browser in the same painted frame
   // the shields cover the screen, so without this a hold would only register on the frame's edge
   const holdTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const held = useRef(false)
