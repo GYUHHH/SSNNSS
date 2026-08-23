@@ -1,5 +1,5 @@
 import Furniture from './Furniture'
-import PlacementGrid from './PlacementGrid'
+import PlacementGrid, { gridAreaFor } from './PlacementGrid'
 import { Shape } from 'three'
 import { useRoomStore } from '../store'
 import { type WallId, wallSurfaces } from '../services/roomGrid'
@@ -17,7 +17,8 @@ export default function Walls() {
 
   const { readOnly, mode, furniture, selectedFurnitureId, movingFurnitureId, preview, previewDragging, wallStyle, floorStyle, moveFurniture, placeFurnitureAt, movePreview, openStyleTarget } = useRoomStore()
   const selected = furniture.find((item) => item.id === selectedFurnitureId)
-  const activeWall = selected?.wallId ?? preview?.wallId ?? null
+  const activeItem = preview?.allowedSurfaces.includes('wall') ? preview : selected?.allowedSurfaces.includes('wall') ? selected : null
+  const activeWall = activeItem?.wallId ?? null
   const floor = floorStyleOf(floorStyle)
   const leftWallColor = colorOf(wallStyle.leftWall, DEFAULT_WALL_COLOR.leftWall)
   const rightWallColor = colorOf(wallStyle.rightWall, DEFAULT_WALL_COLOR.rightWall)
@@ -44,7 +45,7 @@ export default function Walls() {
         위에서 보면 액자 모서리처럼 45° 삼각형 반반으로 만난다 */}
     <mesh receiveShadow position={[-3.61, 0, -3.61]} rotation={[-Math.PI / 2, 0, 0]}><extrudeGeometry args={[LEFT_MITER, { depth: 7, bevelEnabled: false }]} /><meshStandardMaterial color={leftWallColor} userData={{ lateFade: true }} /></mesh>
     <mesh receiveShadow position={[-3.61, 0, -3.61]} rotation={[-Math.PI / 2, 0, 0]}><extrudeGeometry args={[RIGHT_MITER, { depth: 7, bevelEnabled: false }]} /><meshStandardMaterial color={rightWallColor} userData={{ lateFade: true }} /></mesh>
-    {mode === 'edit' && activeWall && <PlacementGrid surface={wallSurfaces[activeWall]} />}
+    {mode === 'edit' && activeWall && activeItem && <PlacementGrid surface={wallSurfaces[activeWall]} area={gridAreaFor(activeItem)} />}
     <Furniture id="clock"><mesh position={[0, 0, .05]}><torusGeometry args={[.6, .1, 8, 20]} /><meshStandardMaterial color={palette.woodDark} roughness={0.7} /></mesh><mesh position={[0, 0, .06]}><circleGeometry args={[.52, 20]} /><meshStandardMaterial color={palette.linen} roughness={0.85} /></mesh><mesh position={[0, 0, .08]}><boxGeometry args={[.04, .42, .02]} /><meshStandardMaterial color={palette.charcoal} roughness={0.7} /></mesh></Furniture>
     <Furniture id="poster"><mesh position={[0, 0, .04]}><boxGeometry args={[1.4, 2.1, .03]} /><meshStandardMaterial color={palette.woodMid} roughness={0.7} /></mesh><mesh position={[0, 0, .065]}><planeGeometry args={[1.2, 1.85]} /><meshStandardMaterial key={posterArt ? 'art' : 'plain'} color={posterArt ? '#ffffff' : palette.sage} map={posterArt ?? undefined} roughness={0.85} /></mesh></Furniture>
     <Furniture id="photo"><mesh position={[0, 0, .04]}><boxGeometry args={[.7, .7, .03]} /><meshStandardMaterial color={palette.woodDark} roughness={0.7} /></mesh><mesh position={[0, 0, .065]}><planeGeometry args={[.58, .42]} /><meshStandardMaterial key={photoArt ? 'art' : 'plain'} color={photoArt ? '#ffffff' : palette.rust} map={photoArt ?? undefined} roughness={0.85} /></mesh></Furniture>

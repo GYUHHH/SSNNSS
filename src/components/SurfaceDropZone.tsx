@@ -1,4 +1,4 @@
-import PlacementGrid from './PlacementGrid'
+import PlacementGrid, { gridAreaFor } from './PlacementGrid'
 import { resolutionFor, useRoomStore } from '../store'
 import { resolveSurface, surfacesForOwner, withResolution, type SurfaceId } from '../services/roomGrid'
 
@@ -31,6 +31,9 @@ export default function SurfaceDropZone({ surfaceId }: { surfaceId: SurfaceId })
       <boxGeometry args={[surface.width, surface.height, .03]} />
       <meshBasicMaterial visible={false} />
     </mesh>
-    {(forPreview || (forSelected && selected?.surfaceId === surfaceId)) && <PlacementGrid surface={withResolution(surface, resolutionFor(forPreview ? preview! : selected!))} />}
+    {(forPreview || (forSelected && selected?.surfaceId === surfaceId)) && (() => {
+      const item = forPreview ? preview! : selected!
+      return <PlacementGrid surface={withResolution(surface, resolutionFor(item))} area={gridAreaFor(item)} />
+    })()}
   </>
 }

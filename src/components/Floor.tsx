@@ -1,6 +1,6 @@
 import { resolutionFor, useRoomStore } from '../store'
-import PlacementGrid from './PlacementGrid'
-import { cellsFor, floorSurface, withResolution } from '../services/roomGrid'
+import PlacementGrid, { gridAreaFor } from './PlacementGrid'
+import { floorSurface, withResolution } from '../services/roomGrid'
 import { floorStyleOf } from '../services/styles'
 
 export default function Floor() {
@@ -19,15 +19,8 @@ export default function Floor() {
     ><boxGeometry args={[floorSurface.width, 0.22, floorSurface.height]} /><meshStandardMaterial color={style.color} roughness={style.roughness} /></mesh>
     {mode === 'edit' && (() => {
       const relevant = preview?.allowedSurfaces.includes('floor') ? preview : selected?.allowedSurfaces.includes('floor') ? selected : null
-      if (!relevant) return <PlacementGrid surface={floorSurface} />
-      // just the neighbourhood of what is being placed, at that item's own cell size
-      const cells = cellsFor(relevant, relevant.footprint, relevant.rotation[1])
-      const pad = resolutionFor(relevant) === 'subgrid2' ? 2 : 1
-      const area = {
-        x0: Math.min(...cells.map((cell) => cell.x)) - pad, x1: Math.max(...cells.map((cell) => cell.x)) + 1 + pad,
-        y0: Math.min(...cells.map((cell) => cell.y)) - pad, y1: Math.max(...cells.map((cell) => cell.y)) + 1 + pad,
-      }
-      return <PlacementGrid surface={withResolution(floorSurface, resolutionFor(relevant))} area={area} />
+      if (!relevant) return null
+      return <PlacementGrid surface={withResolution(floorSurface, resolutionFor(relevant))} area={gridAreaFor(relevant)} />
     })()}
   </>
 }

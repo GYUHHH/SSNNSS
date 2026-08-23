@@ -1,8 +1,16 @@
 import { useMemo } from 'react'
 import { BufferGeometry, Float32BufferAttribute } from 'three'
-import { getCellSize, type PlacementSurface } from '../services/roomGrid'
+import { cellsFor, getCellSize, type PlacementItem, type PlacementSurface } from '../services/roomGrid'
 
 export type GridArea = { x0: number; y0: number; x1: number; y1: number }
+
+export const gridAreaFor = (item: Pick<PlacementItem, 'gridX' | 'gridY' | 'footprint' | 'rotation'>): GridArea => {
+  const cells = cellsFor(item, item.footprint, item.rotation[1])
+  return {
+    x0: Math.min(...cells.map((cell) => cell.x)), x1: Math.max(...cells.map((cell) => cell.x)) + 1,
+    y0: Math.min(...cells.map((cell) => cell.y)), y1: Math.max(...cells.map((cell) => cell.y)) + 1,
+  }
+}
 
 export default function PlacementGrid({ surface, area }: { surface: PlacementSurface; area?: GridArea }) {
   const geometry = useMemo(() => {
