@@ -522,7 +522,7 @@ export function fetchRoomBundle(handle: string, fresh = false): Promise<Record<s
 
 // The explorer only needs public room ids up front; each neighbour's bundle is fetched lazily by fetchRoomBundle
 // once the zoom-out actually reveals it, so a directory of many rooms costs one request until it is looked at.
-export async function fetchRoomDirectory(limit = 37): Promise<string[]> {
+export async function fetchRoomDirectory(limit = 1000): Promise<string[]> {
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?select=handle&order=updated_at.desc&limit=${limit}`, { headers })
     const rows = await response.json()

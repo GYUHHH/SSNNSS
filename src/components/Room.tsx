@@ -172,13 +172,6 @@ const LOBBY = '__lobby__'
 const VACANT = '__vacant-'
 // one room plus a full ring of six neighbours
 const CLUSTER_SIZE = 7
-// How much of the neighbourhood is actually built. Every slot used to mount a whole room — dozens of meshes each —
-// whether or not it could reach the screen, so the cost tracked the size of the entire directory rather than the
-// view: fifty rooms would have meant thousands of objects held in memory and walked every frame to build the
-// render list, for three rooms' worth of picture. Two rings is eighteen neighbours, and the zoom floor fits about
-// three rooms across, so what gets dropped was never close to the frame.
-const VISIBLE_RINGS = 2
-
 // A room lives at plan-grid cell (a, b) — world (a·CELL, storey·CELL, b·CELL) — and its storey is exactly −(a + b).
 // Measured under the 45° isometric camera (x === z): one room projects to a 200×200px box, a step of 7 along the
 // screen-horizontal axis is 100px, and a storey of 7 in Y is 133.3px up. So a cell lands at screen
@@ -208,16 +201,26 @@ const ringDistance = (from: Pick<RoomSlot, 'a' | 'b'>, to: Pick<RoomSlot, 'a' | 
 }
 
 const roomSlots = (handles: string[]): RoomSlot[] => {
+  let radius = 0
+  while (1 + 3 * radius * (radius + 1) < handles.length) radius += 1
   const cells: Array<[number, number]> = [[0, 0]]
   const seen = new Set(['0:0'])
-  for (let index = 0; index < cells.length && cells.length < handles.length; index += 1) {
+  for (let index = 0; index < cells.length; index += 1) {
     for (const [a, b] of neighbourCells(cells[index][0], cells[index][1])) {
       const key = `${a}:${b}`
-      if (seen.has(key)) continue
+      if (seen.has(key) || ringDistance({ a, b }, { a: 0, b: 0 }) > radius) continue
       seen.add(key); cells.push([a, b])
-      if (cells.length === handles.length) break
     }
   }
+  const order = new Map(cells.map(([a, b], index) => [`${a}:${b}`, index]))
+  cells.sort(([a1, b1], [a2, b2]) => {
+    const distance1 = ringDistance({ a: a1, b: b1 }, { a: 0, b: 0 })
+    const distance2 = ringDistance({ a: a2, b: b2 }, { a: 0, b: 0 })
+    if (distance1 !== distance2) return distance1 - distance2
+    const inner1 = neighbourCells(a1, b1).filter(([a, b]) => ringDistance({ a, b }, { a: 0, b: 0 }) === distance1 - 1).length
+    const inner2 = neighbourCells(a2, b2).filter(([a, b]) => ringDistance({ a, b }, { a: 0, b: 0 }) === distance2 - 1).length
+    return inner2 - inner1 || order.get(`${a1}:${b1}`)! - order.get(`${a2}:${b2}`)!
+  })
   return handles.map((handle, index) => { const [a, b] = cells[index]; return { handle, a, b, position: cellPosition(a, b) } })
 }
 // pads the cluster with vacant slots so the ring is always complete; real handles always take the nearest cells
@@ -250,6 +253,8 @@ if (import.meta.env.DEV) {
   const screenY = ([x, y, z]: [number, number, number]) => (33.3 * (x + z) - 133.3 * y) / CELL
   const nearness = ([x, y, z]: [number, number, number]) => (2 * x + y + 2 * z) / CELL
   if (check.some((slot) => Math.sign(Math.round(screenY(slot.position))) !== Math.sign(Math.round(nearness(slot.position))))) throw new Error('Rooms stacked upward must sit behind, and rooms stacked downward in front')
+  const firstGap = roomSlots(['0', '1', '2', '3', '4', '5', '6', '7'])[7]
+  if (neighbourCells(firstGap.a, firstGap.b).filter(([a, b]) => check.some((slot) => slot.a === a && slot.b === b)).length !== 2) throw new Error('New rooms must fill gaps between existing rooms before extending outward')
 }
 
 // The room you are standing in goes inert while the explorer is open, so browsing cannot walk its character or open
@@ -686,7 +691,7 @@ function RoomWorld() {
         let best = Infinity
         let winner: RoomSlot | null = null
         for (const slot of slots) {
-          if (slot !== active && (!canEnter(slot.handle) || ringDistance(slot, active) > VISIBLE_RINGS)) continue
+          if (slot !== active && !canEnter(slot.handle)) continue
           probe.set(slot.position[0], slot.position[1] + 3.5, slot.position[2]).project(camera)
           const offset = Math.hypot((probe.x - atX) * halfW, (probe.y - atY) * halfH)
           if (offset < best) { best = offset; winner = slot }
@@ -726,7 +731,7 @@ function RoomWorld() {
   // the picked room, or the one already being viewed when nothing is picked — what the camera should be aiming at
   const aim = useMemo(() => (slots.find((slot) => slot.handle === centredHandle) ?? active)?.position ?? null, [slots, active, centredHandle])
   return <>
-    {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY) && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} swapping={swapping} blocked={bookPanelOpen} closePanel={clearSelection} />)}
+    {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY)).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} swapping={swapping} blocked={bookPanelOpen} closePanel={clearSelection} />)}
     <group ref={activeGroup} position={active.position}>
       <Inert off={exploring}><RoomRoot /></Inert>
       <ExplorerRoomHitbox off={exploring} open={() => beginEntry(active)} blocked={bookPanelOpen} closePanel={clearSelection} />
