@@ -19,6 +19,10 @@ export default function PanelHistory() {
   const depth = Object.keys(state).length
   const previous = useRef<{ key: string; depth: number } | null>(null)
   const restore = useRef((next: PanelState) => {})
+  // 우리가 실제로 push한 항목 수. 깊이 차이로 되감으면(예전 방식) 책처럼 한 번에 2단계 깊이로
+  // 열리는 패널에서 push(1) < back(2)이 되어 방 밖(이전 방)으로 튕긴다 — 실측 개수만 되감는다.
+  const pushed = useRef(0)
+  const unwinding = useRef(false)
 
   restore.current = (next) => {
     setCommentTarget(null)
@@ -35,6 +39,8 @@ export default function PanelHistory() {
   useEffect(() => {
     const onPop = (event: PopStateEvent) => {
       const next = (event.state?.ssnnssPanel ?? {}) as PanelState
+      if (unwinding.current) unwinding.current = false
+      else pushed.current = Math.max(0, pushed.current - 1)
       previous.current = { key: JSON.stringify(next), depth: Object.keys(next).length }
       restore.current(next)
     }
@@ -47,8 +53,12 @@ export default function PanelHistory() {
     if (!before) { previous.current = { key, depth }; return }
     if (key === before.key) return
     previous.current = { key, depth }
-    if (depth >= before.depth) history.pushState({ ssnnssPanel: state }, '', location.href)
-    else history.go(-(before.depth - depth))
+    if (depth >= before.depth) { history.pushState({ ssnnssPanel: state }, '', location.href); pushed.current += 1 }
+    else {
+      const steps = depth === 0 ? pushed.current : Math.min(1, pushed.current)
+      pushed.current -= steps
+      if (steps > 0) { unwinding.current = true; history.go(-steps) }
+    }
   }, [key, depth, state])
   return null
 }
