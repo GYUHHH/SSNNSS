@@ -1,4 +1,4 @@
-import { currentRoomHandle, DEFAULT_PROFILE_PHOTO, defaultProfileData, isReadingBundle, isVisiting, normalizeProfilePhoto, readStored, writeStored } from './social'
+import { currentRoomHandle, DEFAULT_PROFILE_PHOTO, defaultProfileData, isReadingBundle, isVisiting, normalizeProfilePhoto, readStored, writeStored, readPrivate, writePrivate } from './social'
 import { t } from './i18n'
 
 export type FurniturePlacement = { id: string; type: string; position?: [number, number, number]; rotation: [number, number, number]; scale: number; surfaceId?: string; gridX?: number; gridZ?: number; gridY?: number; wallId?: 'leftWall' | 'rightWall'; footprint?: { width: number; depth: number }; resolution?: 'base' | 'subgrid2'; styleId?: string; removed?: boolean; updatedAt: string }
@@ -91,12 +91,28 @@ export function saveArtworks(artworks: Record<string, string>) {
 
 // diary books/entries live under their own key so the layout blob stays small and the two never clobber each other
 const booksKey = 'my-room-books-v1'
+type BookLike = { visibility: string; entries: Array<{ visibility: string }> }
 export function loadBooks<T>(): T | null {
-  try { const raw = readStored(booksKey); return raw ? JSON.parse(raw) as T : null } catch { return null }
+  try {
+    // 주인은 비공개 보관소의 전체본을, 방문자·번들 읽기는 공개 번들의 공개본만 본다.
+    // 비공개 보관소가 아직 빈 기존 계정은 공개 번들의 옛 전체본으로 폴백 — 첫 저장 때 자동 이관된다.
+    const priv = readPrivate(booksKey)
+    if (priv) return JSON.parse(priv) as T
+    const raw = readStored(booksKey)
+    return raw ? JSON.parse(raw) as T : null
+  } catch { return null }
 }
 export function saveBooks(books: unknown) {
   if (isVisiting() || isReadingBundle()) return
-  writeStored(booksKey, JSON.stringify(books))
+  // 전체본은 비공개 보관소로. 공개 번들은 비공개 저장이 서버에 확정된 경우에만 공개본으로 좁힌다 —
+  // 확정 전에 좁히면(예: SQL 미설치) 다음 부팅이 좁힌 공개본만 읽어 비공개 책이 유실된다.
+  const full = JSON.stringify(books)
+  void writePrivate(booksKey, full).then((confirmed) => {
+    if (!confirmed) { writeStored(booksKey, full); return }
+    const publicBooks = (books as BookLike[]).filter((book) => book.visibility === 'public')
+      .map((book) => ({ ...book, entries: book.entries.filter((entry) => entry.visibility === 'public') }))
+    writeStored(booksKey, JSON.stringify(publicBooks))
+  })
 }
 
 // visitor counts and the profile photo — counted locally until there is a server to ask

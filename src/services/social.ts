@@ -124,6 +124,50 @@ export const removeStored = (key: string) => {
   schedulePublish()
 }
 
+// ── 비공개 보관소 ─────────────────────────────────────────────────────────────
+// 비공개 책처럼 방문자에게 내용 자체가 내려가면 안 되는 데이터는 공개 번들(rooms.data)에서 분리해
+// room_private 테이블에 둔다. 그 테이블은 RLS로 REST 접근이 전면 차단되고, save_room과 같은
+// 방 비밀값을 검증하는 SECURITY DEFINER RPC 둘로만 읽고 쓴다 — 네트워크를 뜯어도 안 보인다.
+let privateData: Record<string, string> = {}
+let privateQueued = false
+let privateTask: Promise<boolean> | null = null
+export const readPrivate = (key: string): string | null => (isVisiting() || isReadingBundle()) ? null : privateData[key] ?? null
+// 반환값: 서버 저장 확정 여부. 확정 전에는 호출자가 공개 번들을 좁히면 안 된다(유실 방지).
+export const writePrivate = (key: string, value: string): Promise<boolean> => {
+  if (isVisiting() || isReadingBundle()) return Promise.resolve(false)
+  if (privateData[key] === value) return privateTask ?? Promise.resolve(true)
+  privateData[key] = value
+  return publishPrivate()
+}
+function publishPrivate(): Promise<boolean> {
+  privateQueued = true
+  if (privateTask) return privateTask
+  privateTask = (async () => {
+    let ok = true
+    while (privateQueued) {
+      privateQueued = false
+      const handle = ownHandle()
+      if (!handle) return false // 익명 방은 서버 비공개 보관소가 없다 — 메모리에만 남는다
+      let notReady = false
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/save_room_private`, { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ p_handle: handle, p_secret: roomSecret(), p_data: privateData }) })
+        ok = response.ok
+        notReady = response.status === 404 // SQL 함수 미설치 — 느긋하게 재시도
+      } catch { ok = false }
+      if (!ok) { privateQueued = true; setTimeout(() => { void publishPrivate() }, notReady ? 60_000 : 2500); break }
+    }
+    return ok
+  })().finally(() => { privateTask = null })
+  return privateTask
+}
+async function loadPrivateStore(handle: string) {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/read_room_private`, { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ p_handle: handle, p_secret: roomSecret() }) })
+    const data = await response.json()
+    if (response.ok && data && typeof data === 'object' && !Array.isArray(data)) privateData = data as Record<string, string>
+  } catch { /* 오프라인 — 다음 부팅에서 다시 읽는다 */ }
+}
+
 export async function initVisit() {
   if (!visitHandle || !isVisiting()) return
   try {
@@ -588,6 +632,7 @@ export async function initOwnSync() {
   const room = await ownedRoom()
   if (!room) return
   adoptRoomData(room.data, room.handle)
+  await loadPrivateStore(room.handle)
   if (plainRoot) {
     visitHandle = room.handle
     plainRoot = false
