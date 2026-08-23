@@ -149,7 +149,6 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
   { type: 'glass-shelf', name: '투명 선반', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'cd-player', name: 'CD 플레이어', category: 'wallItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'banner', name: '움직이는 배너', category: 'wallItem', movable: true, interactable: true, footprint: { width: 3, depth: 1 }, size: [3, 1], scale: 1, allowedSurfaces: ['wall'] },
-  { type: 'window', name: '창문', category: 'wallItem', movable: true, interactable: true, footprint: { width: 3, depth: 2 }, size: [3, 2], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'curtain', name: '커튼', category: 'wallItem', movable: true, interactable: true, footprint: { width: 2, depth: 4 }, size: [2, 4], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'fireplace', name: '벽난로', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'coffee-table', name: '좌식 테이블', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
