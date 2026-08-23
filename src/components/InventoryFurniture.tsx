@@ -635,7 +635,7 @@ function DiaryBookItem({ itemId, preview }: { itemId: string; preview: boolean }
     <mesh castShadow position={[0, .26, .132]}><boxGeometry args={[.66, .52, .022]} />{coverMat()}</mesh>
     <mesh castShadow position={[0, .26, -.132]}><boxGeometry args={[.66, .52, .022]} />{coverMat()}</mesh>
     <mesh castShadow position={[-.325, .26, 0]}><boxGeometry args={[.03, .52, .286]} />{coverMat()}</mesh>
-    {!!title && !preview && <Text userData={{ excludeFromFit: true }} font={titleFont} position={[0, .3, .144]} fontSize={.08} maxWidth={.56} color="#faf6ee" anchorX="center" anchorY="middle">{title.length > 8 ? `${title.slice(0, 8)}…` : title}</Text>}
+    {!!title && !preview && <Text userData={{ excludeFromFit: true }} font={titleFont} position={[-.342, .26, 0]} rotation={[0, -Math.PI / 2, -Math.PI / 2]} fontSize={.06} maxWidth={.46} color="#faf6ee" anchorX="center" anchorY="middle">{title.length > 7 ? `${title.slice(0, 7)}…` : title}</Text>}
   </group>
 }
 
