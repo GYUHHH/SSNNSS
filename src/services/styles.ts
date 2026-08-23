@@ -9,7 +9,8 @@ export const colorPresets: ColorPreset[] = [
   { id: 'sage', label: '세이지', color: '#8a9c82' },
   { id: 'mutedYellow', label: '머스터드', color: '#cba24d' },
   { id: 'dustyPink', label: '더스티 핑크', color: '#cf9a92' },
-  { id: 'white', label: '화이트', color: '#f4f4f1' },
+  // Keep white walls distinct from the explorer's warm-white background when rooms are zoomed out.
+  { id: 'white', label: '화이트', color: '#e7e5df' },
   { id: 'ivory', label: '아이보리', color: '#efe9dc' },
   { id: 'lightGray', label: '라이트 그레이', color: '#d8d8d4' },
 ]
