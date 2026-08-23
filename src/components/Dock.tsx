@@ -128,6 +128,7 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
     <span className="dock-slot"><SoundHub /></span>
     {owner && <div className="dock-item dock-fade" ref={moreItem}>
       {moreOpen && <div className="dock-stack">
+        <button type="button" className="dock-button" aria-label="상점" onClick={() => { setMoreOpen(false); setShopOpen(true) }}><ShopIcon /></button>
         <div className="dock-item">
           {roomsOpen && <ul className="dock-pop dock-pop-side" aria-label="내 방 목록">
             {rooms.map((room) => <li key={room.id}>
@@ -142,7 +143,6 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
         </div>
         <button type="button" className="dock-button" aria-label="시간대 변경" onClick={cycleTime}>{timeOfDay === 'day' ? <SunIcon /> : timeOfDay === 'evening' ? <SunsetIcon /> : <MoonIcon />}</button>
         <button type="button" className="dock-button" aria-label="보관함" onClick={() => { setMoreOpen(false); onOpenInventory() }}><BoxIcon /></button>
-        <button type="button" className="dock-button" aria-label="상점" onClick={() => { setMoreOpen(false); setShopOpen(true) }}><ShopIcon /></button>
       </div>}
       <button type="button" className="dock-button" aria-label="더보기" onClick={() => { setMoreOpen((value) => { if (value) setRoomsOpen(false); return !value }) }}><DotsIcon /></button>
     </div>}
