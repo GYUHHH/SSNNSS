@@ -85,7 +85,7 @@ const sofaItem = floorItem('sofa', '소파', 'sofa', 6, 6, { width: 3, depth: 1 
 // the default bookshelf stands against the left wall (under the wall decor), turned to face into the room
 const bookshelfItem = placeOnSurface([], { ...floorItem('bookshelf', '책장', 'bookshelf', 0, 4, { width: 2, depth: 1 }), rotation: [0, Math.PI / 2, 0] }, 'floor', { gridX: 0, gridY: 4 }, [0, Math.PI / 2, 0])
 // 기본 일기장의 몸: 책장 1단 첫 칸에 기본 배치되는 정식 기본 가구 (id가 책 데이터 daily-2026과 짝)
-const defaultBookItem = surfaceItem('inventory-book-daily-2026', '기록장', 'diary-book', 'bookshelf:shelf1', 0, 0, { width: 2, depth: 1 }, ['shelf', 'tabletop'], [bookshelfItem])
+const defaultBookItem = surfaceItem('inventory-book-daily-2026', '기록장', 'diary-book', 'bookshelf:shelf1', 0, 0, { width: 2, depth: 1 }, ['floor', 'shelf', 'tabletop'], [bookshelfItem])
 // decor footprints AND their floor grid coords are in SUBCELL units (2 subcells = 1 base cell) — see resolutionFor
 const plantItem = floorItem('plant', '화분', 'plant', 0, 8, { width: 1, depth: 1 })
 const lampItem = floorItem('lamp', '스탠드 조명', 'lamp', 0, 6, { width: 1, depth: 1 })
@@ -109,7 +109,7 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
   { type: 'inflatable-sofa', name: '풍선 소파', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'blob-sculpture', name: '크롬 조형물', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 3, depth: 3 }, size: [3, 3], scale: 1, allowedSurfaces: ['floor'] },
   // 기록장(책): 무한 생성 인스턴스형 소품 — 보관함 '책' 탭에서만 다루고 일반 카탈로그에는 안 보인다
-  { type: 'diary-book', name: '기록장', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['shelf', 'tabletop'] },
+  { type: 'diary-book', name: '기록장', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor', 'shelf', 'tabletop'] },
   { type: 'side-table', name: '사이드 테이블', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'music-player', name: '뮤직 플레이어', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'floor-lamp', name: '플로어 램프', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor'] },
