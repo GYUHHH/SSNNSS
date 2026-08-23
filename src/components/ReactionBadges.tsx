@@ -7,6 +7,7 @@ import { findFit } from './Furniture'
 import { setExternalHover } from './Interactive'
 import { isVisiting } from '../services/social'
 import { ROOM_HTML_Z_INDEX_RANGE } from '../services/renderOrder'
+import { tp } from '../services/i18n'
 
 // A red dot at the top-right of any object carrying NEW reactions from other people — likes and comments,
 // including those left on the records inside a bookshelf. Owner-only; visitors never see them. The dot rides
@@ -37,7 +38,7 @@ function Badge({ id, count }: { id: string; count: number }) {
       <button
         type="button"
         className="reaction-badge"
-        aria-label={`반응 ${count}개`}
+        aria-label={tp('반응 {n}개', { n: count })}
         onPointerDown={(event) => event.stopPropagation()}
         onPointerEnter={() => setExternalHover(id)}
         onPointerLeave={() => setExternalHover(null)}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { currentRoomHandle, isSignedIn, myHandle, onAuthChange } from '../services/social'
 import { acceptFollowInvite, clearInviteFromUrl, inviteToken } from '../services/follows'
+import { t, tp } from '../services/i18n'
 
 // The ?invite= confirmation bar. An invite link opens the inviter's room with the token in the address;
 // this offers the mutual follow once, and disappears for good on accept, decline or an invalid token.
@@ -19,12 +20,12 @@ export default function FollowInvite() {
     setDoneWith(owner)
     setState('done')
   })
-  if (state === 'done') return <div className="invite-bar"><span>{doneWith}님과 서로 팔로우했어요</span><button type="button" onClick={() => setState('gone')}>확인</button></div>
+  if (state === 'done') return <div className="invite-bar"><span>{tp('{name}님과 서로 팔로우했어요', { name: doneWith })}</span><button type="button" onClick={() => setState('gone')}>{t('확인')}</button></div>
   return <div className="invite-bar">
-    <span>{host}님과 서로 팔로우할까요?</span>
+    <span>{tp('{name}님과 서로 팔로우할까요?', { name: host })}</span>
     {signedIn
-      ? <button type="button" className="primary" onClick={accept}>서로 팔로우</button>
-      : <button type="button" className="primary" onClick={() => window.dispatchEvent(new CustomEvent('need-id', { detail: 'signup' }))}>가입하고 서로 팔로우</button>}
-    <button type="button" onClick={() => { setState('gone'); clearInviteFromUrl() }}>닫기</button>
+      ? <button type="button" className="primary" onClick={accept}>{t('서로 팔로우')}</button>
+      : <button type="button" className="primary" onClick={() => window.dispatchEvent(new CustomEvent('need-id', { detail: 'signup' }))}>{t('가입하고 서로 팔로우')}</button>}
+    <button type="button" onClick={() => { setState('gone'); clearInviteFromUrl() }}>{t('닫기')}</button>
   </div>
 }

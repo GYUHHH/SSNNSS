@@ -2,6 +2,7 @@ import { loadVideoLinks, videoDisplayMeta } from './mediaStore'
 import { playlistVideoResume } from './ytResume'
 import { myInviteLink } from './follows'
 import { myHandle } from './social'
+import { t } from './i18n'
 
 // Room snapshot for sharing. The GL canvas cannot be read at an arbitrary moment (the drawing buffer is
 // cleared after compositing), so the render loop calls flushCapture right after it draws and the pixels are
@@ -77,7 +78,7 @@ export async function shareRoom(): Promise<'shared' | 'saved' | null> {
   const file = new File([blob], 'my-room.jpg', { type: 'image/jpeg' })
   if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], text: '내 방에 놀러와', url: link })
+      await navigator.share({ files: [file], text: t('내 방에 놀러와'), url: link })
       return 'shared'
     } catch { return null } // user closed the sheet
   }

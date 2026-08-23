@@ -19,9 +19,10 @@ import { MAX_ROOMS, RoomProvider, useRoomStore } from './store'
 import { customizableTypes } from './services/styles'
 import { isSignedIn, isVisiting, myHandle } from './services/social'
 import { thumbnailFor } from './services/thumbnails'
+import { lang, t } from './services/i18n'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 492
+const BUILD = 493
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume } = useRoomStore()
@@ -59,7 +60,7 @@ function Interface() {
   useEffect(() => { let live = true; if (!movingItem) { setDragThumbnail(null); return }; thumbnailFor(movingItem).then((src) => { if (live) setDragThumbnail(src) }); return () => { live = false } }, [movingItem?.type, movingItem?.styleId])
   const selectedItem = furniture.find((entry) => entry.id === selectedObject)
   const cardControls = selectedObject === 'clock'
-  const time = new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit' }).format(new Date())
+  const time = new Intl.DateTimeFormat(lang === 'ko' ? 'ko-KR' : 'en-US', { hour: '2-digit', minute: '2-digit' }).format(new Date())
   const artOpen = (!!selectedItem && !!artworkKindOf(selectedItem.type)) || bookshelfOpen || !!openBookId
   const musicOpen = mobile && !!selectedItem && ['music-player', 'record-player', 'cd-player'].includes(selectedItem.type)
   // On a phone the inventory is not its own box: it rides the one bottom sheet every panel uses, sitting just
@@ -143,15 +144,15 @@ function Interface() {
       <StylePanel />
     </aside>
     {/* the way in for anyone without an account — stays up on every address, including someone else's room */}
-    {mode === 'normal' && !isSignedIn() && <nav className="entry-buttons" aria-label="시작하기">
-      <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('need-id', { detail: 'login' }))}>로그인</button>
-      <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('need-id', { detail: 'signup' }))}>가입하기</button>
+    {mode === 'normal' && !isSignedIn() && <nav className="entry-buttons" aria-label={t('시작하기')}>
+      <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('need-id', { detail: 'login' }))}>{t('로그인')}</button>
+      <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('need-id', { detail: 'signup' }))}>{t('가입하기')}</button>
     </nav>}
-    {mode === 'edit' && movingFurnitureId && <div className={`storage-drop-zone${dragPointer?.overStorage ? ' active' : ''}`} data-storage-dropzone>보관함</div>}
+    {mode === 'edit' && movingFurnitureId && <div className={`storage-drop-zone${dragPointer?.overStorage ? ' active' : ''}`} data-storage-dropzone>{t('보관함')}</div>}
     {movingFurnitureId && dragPointer?.overStorage && dragThumbnail && <img className="drag-thumbnail" src={dragThumbnail} alt="" style={{ left: dragPointer.x, top: dragPointer.y }} />}
-    {mode === 'edit' && <><nav className="edit-toolbar" aria-label="꾸미기 도구"><span className={selectedPlacementValid ? '' : 'invalid-placement'}>{selectedFurnitureId ? (() => { const selected = furniture.find((item) => item.id === selectedFurnitureId); return selected ? `${selected.name} · ${selected.footprint.width ? `${selected.footprint.width}×${selected.footprint.depth}` : '벽'}${selectedPlacementValid ? '' : ' · 놓을 수 없는 위치'}` : '' })() : ''}</span><button type="button" onClick={() => setInventoryOpen((open) => !open)}>보관함</button><button type="button" disabled={!selectedFurnitureId && !preview} onClick={rotateFurniture}>회전</button><button type="button" disabled={!selectedFurnitureId || !customizableTypes.has(furniture.find((item) => item.id === selectedFurnitureId)?.type ?? '')} onClick={() => selectedFurnitureId && openStyleTarget({ kind: 'furniture', id: selectedFurnitureId })}>색상</button><button type="button" onClick={undoLayout}>되돌리기</button><button type="button" onClick={() => setConfirmingReset(true)}>초기화</button><button type="button" onClick={() => { if (preview && previewValid) placePreview(); setInventoryOpen(false); toggleEditMode() }}>완료</button></nav>{inventoryOpen && !mobile && <InventoryPanel />}</>}
-    {confirmingRoom && <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setConfirmingRoom(null)}><section className="reset-confirm"><p>이 방을 삭제할까요? 안에 놓인 가구는 보관함으로 돌아옵니다.</p><div><button type="button" onClick={() => setConfirmingRoom(null)}>취소</button><button type="button" onClick={() => { removeRoom(confirmingRoom); setConfirmingRoom(null) }}>삭제</button></div></section></div>}
-    {confirmingReset && <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setConfirmingReset(false)}><section className="reset-confirm"><p>모든 가구를 처음 위치로 되돌릴까요?</p><div><button type="button" onClick={() => setConfirmingReset(false)}>취소</button><button type="button" onClick={() => { resetLayout(); setConfirmingReset(false) }}>초기화</button></div></section></div>}
+    {mode === 'edit' && <><nav className="edit-toolbar" aria-label={t('꾸미기 도구')}><span className={selectedPlacementValid ? '' : 'invalid-placement'}>{selectedFurnitureId ? (() => { const selected = furniture.find((item) => item.id === selectedFurnitureId); return selected ? `${t(selected.name)} · ${selected.footprint.width ? `${selected.footprint.width}×${selected.footprint.depth}` : t('벽')}${selectedPlacementValid ? '' : ` · ${t('놓을 수 없는 위치')}`}` : '' })() : ''}</span><button type="button" onClick={() => setInventoryOpen((open) => !open)}>{t('보관함')}</button><button type="button" disabled={!selectedFurnitureId && !preview} onClick={rotateFurniture}>{t('회전')}</button><button type="button" disabled={!selectedFurnitureId || !customizableTypes.has(furniture.find((item) => item.id === selectedFurnitureId)?.type ?? '')} onClick={() => selectedFurnitureId && openStyleTarget({ kind: 'furniture', id: selectedFurnitureId })}>{t('색상')}</button><button type="button" onClick={undoLayout}>{t('되돌리기')}</button><button type="button" onClick={() => setConfirmingReset(true)}>{t('초기화')}</button><button type="button" onClick={() => { if (preview && previewValid) placePreview(); setInventoryOpen(false); toggleEditMode() }}>{t('완료')}</button></nav>{inventoryOpen && !mobile && <InventoryPanel />}</>}
+    {confirmingRoom && <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setConfirmingRoom(null)}><section className="reset-confirm"><p>{t('이 방을 삭제할까요? 안에 놓인 가구는 보관함으로 돌아옵니다.')}</p><div><button type="button" onClick={() => setConfirmingRoom(null)}>{t('취소')}</button><button type="button" onClick={() => { removeRoom(confirmingRoom); setConfirmingRoom(null) }}>{t('삭제')}</button></div></section></div>}
+    {confirmingReset && <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setConfirmingReset(false)}><section className="reset-confirm"><p>{t('모든 가구를 처음 위치로 되돌릴까요?')}</p><div><button type="button" onClick={() => setConfirmingReset(false)}>{t('취소')}</button><button type="button" onClick={() => { resetLayout(); setConfirmingReset(false) }}>{t('초기화')}</button></div></section></div>}
     <FollowInvite />
     <Dock onOpenInventory={() => { setInventoryOpen(true); toggleEditMode() }} onDeleteRoom={setConfirmingRoom} />
     <HandleSetup />

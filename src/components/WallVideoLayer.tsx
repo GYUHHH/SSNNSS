@@ -10,6 +10,7 @@ import { isVisiting } from '../services/social'
 import { openReactionPicker } from './ReactionPicker'
 import { embedSrc, trackIframe, watchPlaylistOrder, playFrame, framePlayerStates } from '../services/ytResume'
 import { clipIsPlaying, loadClipUrls, playClip } from '../services/mediaStore'
+import { t } from '../services/i18n'
 import { WALL_HTML_Z_INDEX_RANGE, WALL_VIDEO_ORDER } from '../services/renderOrder'
 
 const VIDEO_MASK_VERTEX = 'void main(){gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}'
@@ -197,5 +198,5 @@ export function ResumingIframe({ videoId, frameId, extra, frameStyle }: { videoI
   const frame = useRef<HTMLIFrameElement>(null)
   const [src] = useState(() => embedSrc(videoId, frameId, extra))
   useEffect(() => { if (frame.current) return trackIframe(frame.current, frameId) }, [frameId])
-  return <iframe ref={frame} title="유튜브 재생" src={src} style={frameStyle} referrerPolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+  return <iframe ref={frame} title={t('유튜브 재생')} src={src} style={frameStyle} referrerPolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { adoptRoomData, cancelSignup, claimHandleLocally, currentUserEmail, googleEnabled, handleTaken, isPlainRoot, isVisiting, myHandle, onAuthChange, ownedRoom, publishRoom, roomPath, sendOtpCode, setPassword as setPassword_, signInWithGoogle, signInWithPassword, verifyOtpCode } from '../services/social'
+import { t } from '../services/i18n'
 
 // First-time onboarding: email → emailed 6-digit code → pick a unique id. Claiming publishes the personal
 // room, binds it to the account, and moves to its address (domain)/(id).
@@ -127,35 +128,35 @@ export default function HandleSetup() {
     location.replace(roomPath(clean))
   }
   return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && close()}>
-    <section className="login-card" aria-label="가입">
+    <section className="login-card" aria-label={t('가입')}>
       {!session && !intent && <>
-        <strong>시작하기</strong>
+        <strong>{t('시작하기')}</strong>
         <div className="login-form">
-          <button type="button" onClick={() => setIntent('login')}>로그인</button>
-          <button type="button" className="ghost" onClick={() => setIntent('signup')}>가입하기</button>
+          <button type="button" onClick={() => setIntent('login')}>{t('로그인')}</button>
+          <button type="button" className="ghost" onClick={() => setIntent('signup')}>{t('가입하기')}</button>
         </div>
       </>}
-      {!session && intent && already && <strong>이미 가입한 사용자입니다</strong>}
+      {!session && intent && already && <strong>{t('이미 가입한 사용자입니다')}</strong>}
       {!session && intent === 'login' && !already && <>
-        <strong>로그인</strong>
+        <strong>{t('로그인')}</strong>
         <div className="login-form">
-          <input type="email" value={email} placeholder="이메일" onChange={(event) => { setEmail(event.target.value); setLoginFailed(false) }} />
-          <input type="password" value={password} className={loginFailed ? 'taken' : ''} placeholder="비밀번호" onChange={(event) => { setPassword(event.target.value); setLoginFailed(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void signIn() }} />
-          <button type="button" disabled={!email.includes('@') || password.length < 6 || !!busy} onClick={() => void signIn()} {...work('login', loginFailed ? '이메일 또는 비밀번호가 달라요' : '이메일로 로그인')} />
-          {google && <button type="button" className="ghost" disabled={!!busy} onClick={() => { setBusy('google'); void signInWithGoogle() }} {...work('google', 'Google로 로그인')} />}
+          <input type="email" value={email} placeholder={t('이메일')} onChange={(event) => { setEmail(event.target.value); setLoginFailed(false) }} />
+          <input type="password" value={password} className={loginFailed ? 'taken' : ''} placeholder={t('비밀번호')} onChange={(event) => { setPassword(event.target.value); setLoginFailed(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void signIn() }} />
+          <button type="button" disabled={!email.includes('@') || password.length < 6 || !!busy} onClick={() => void signIn()} {...work('login', loginFailed ? t('이메일 또는 비밀번호가 달라요') : t('이메일로 로그인'))} />
+          {google && <button type="button" className="ghost" disabled={!!busy} onClick={() => { setBusy('google'); void signInWithGoogle() }} {...work('google', t('Google로 로그인'))} />}
         </div>
       </>}
       {(!session || checkingCode) && intent === 'signup' && !already && !verified && <>
-        <strong>가입하기</strong>
+        <strong>{t('가입하기')}</strong>
         <div className="login-form">
-          <input type="email" value={email} placeholder="이메일" disabled={codeSent} onChange={(event) => setEmail(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void sendCode() }} />
+          <input type="email" value={email} placeholder={t('이메일')} disabled={codeSent} onChange={(event) => setEmail(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void sendCode() }} />
           {!codeSent && <>
-            <button type="button" disabled={!email.includes('@') || !!busy} onClick={() => void sendCode()} {...work('code-send', sendFailed ? '잠시 후 다시 시도' : '인증번호 받기')} />
-            {google && <button type="button" className="ghost" disabled={!!busy} onClick={() => { setBusy('google'); void signInWithGoogle() }} {...work('google', 'Google로 가입하기')} />}
+            <button type="button" disabled={!email.includes('@') || !!busy} onClick={() => void sendCode()} {...work('code-send', sendFailed ? t('잠시 후 다시 시도') : t('인증번호 받기'))} />
+            {google && <button type="button" className="ghost" disabled={!!busy} onClick={() => { setBusy('google'); void signInWithGoogle() }} {...work('google', t('Google로 가입하기'))} />}
           </>}
           {codeSent && <>
-            <input type="text" inputMode="numeric" value={code} className={codeBad ? 'taken' : ''} placeholder="인증번호" onChange={(event) => { setCode(event.target.value); setCodeBad(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void confirmCode() }} />
-            <button type="button" disabled={code.trim().length < 6 || !!busy} onClick={() => void confirmCode()} {...work('code-check', codeBad ? '번호가 달라요' : '확인')} />
+            <input type="text" inputMode="numeric" value={code} className={codeBad ? 'taken' : ''} placeholder={t('인증번호')} onChange={(event) => { setCode(event.target.value); setCodeBad(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void confirmCode() }} />
+            <button type="button" disabled={code.trim().length < 6 || !!busy} onClick={() => void confirmCode()} {...work('code-check', codeBad ? t('번호가 달라요') : t('확인'))} />
           </>}
         </div>
       </>}
@@ -163,17 +164,17 @@ export default function HandleSetup() {
           not be gated on !session or it disappears exactly when it is due — and with it savePassword, which is
           what clears `verified` and lets the id step below appear. That left an empty card. */}
       {verified && <>
-        <strong>비밀번호 설정</strong>
+        <strong>{t('비밀번호 설정')}</strong>
         <div className="login-form">
-          <input type="password" value={password} placeholder="비밀번호 (6자 이상)" onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void savePassword() }} />
-          <button type="button" disabled={password.length < 6 || !!busy} onClick={() => void savePassword()} {...work('password', '비밀번호 저장')} />
+          <input type="password" value={password} placeholder={t('비밀번호 (6자 이상)')} onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void savePassword() }} />
+          <button type="button" disabled={password.length < 6 || !!busy} onClick={() => void savePassword()} {...work('password', t('비밀번호 저장'))} />
         </div>
       </>}
       {session && !verified && !checkingCode && <>
-        <strong>아이디 설정</strong>
+        <strong>{t('아이디 설정')}</strong>
         <div className="login-form">
-          <input type="text" value={clean} className={taken ? 'taken' : ''} placeholder="영문 소문자, 숫자, _" onChange={(event) => { setValue(event.target.value); setTaken(false); setPublishFailed(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void claim() }} />
-          <button type="button" disabled={!valid || !!busy} onClick={() => void claim()} {...work('claim', taken ? '이미 사용 중' : publishFailed ? '저장 실패, 다시 시도' : '이 아이디로 시작')} />
+          <input type="text" value={clean} className={taken ? 'taken' : ''} placeholder={t('영문 소문자, 숫자, _')} onChange={(event) => { setValue(event.target.value); setTaken(false); setPublishFailed(false) }} onKeyDown={(event) => { if (event.key === 'Enter') void claim() }} />
+          <button type="button" disabled={!valid || !!busy} onClick={() => void claim()} {...work('claim', taken ? t('이미 사용 중') : publishFailed ? t('저장 실패, 다시 시도') : t('이 아이디로 시작'))} />
         </div>
       </>}
     </section>

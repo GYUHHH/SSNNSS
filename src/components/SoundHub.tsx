@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { loadAudioPrefs, useRoomStore } from '../store'
 import { setExternalHover } from './Interactive'
 import { loadClipUrls } from '../services/mediaStore'
+import { t } from '../services/i18n'
 
 function SpeakerIcon({ muted, size }: { muted: boolean; size: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -57,19 +58,19 @@ export default function SoundHub() {
   const anySound = frames.some((item) => !muted(item.id))
   const toggle = (id: string, muted: boolean) => setFrameMuted(id, !muted)
   return <div ref={hub} className="sound-hub">
-    {open && frames.length > 0 && <ul className="sound-hub-list" aria-label="영상 소리">
+    {open && frames.length > 0 && <ul className="sound-hub-list" aria-label={t('영상 소리')}>
       {frames.map((item, index) => {
         const isMuted = muted(item.id)
         return <li key={item.id}>
           <button type="button" className={isMuted ? 'muted' : ''} onClick={() => toggle(item.id, isMuted)}
             onMouseEnter={() => setExternalHover(item.id)} onMouseLeave={() => setExternalHover(null)}>
             <SpeakerIcon muted={isMuted} size={20} />
-            <span>{item.name}{frames.filter((other) => other.type === item.type).length > 1 ? ` ${frames.filter((other, at) => other.type === item.type && at <= index).length}` : ''}</span>
+            <span>{t(item.name)}{frames.filter((other) => other.type === item.type).length > 1 ? ` ${frames.filter((other, at) => other.type === item.type && at <= index).length}` : ''}</span>
           </button>
         </li>
       })}
     </ul>}
-    <button type="button" className="sound-hub-main" aria-label="소리 설정" onClick={() => { setOpen((value) => !value); setExternalHover(null) }}>
+    <button type="button" className="sound-hub-main" aria-label={t('소리 설정')} onClick={() => { setOpen((value) => !value); setExternalHover(null) }}>
       <SpeakerIcon muted={!anySound} size={22} />
     </button>
   </div>

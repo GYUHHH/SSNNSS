@@ -6,6 +6,7 @@ import { ClipPreview, DrawingEditor, PhotoPickButton, PlaylistOrderEditor, Video
 import { isVisiting, myVisitorId, requireHandle } from '../services/social'
 import CommentAvatar, { CommentName } from './CommentAvatar'
 import { embedSrc, watchPlaylistOrder } from '../services/ytResume'
+import { t } from '../services/i18n'
 
 // which artwork panel a furniture type opens (null → none)
 export const artworkKindOf = (type: string) => type === 'photo' || type === 'easel-photo' || type.startsWith('photo-frame') ? 'frame' : type === 'poster' || type.startsWith('wall-art') ? 'poster' : type.startsWith('video-frame') ? 'video' : type === 'guestbook' ? 'guestbook' : type === 'whiteboard' ? 'poster' : null
@@ -27,7 +28,7 @@ export default function ArtworkOverlay() {
     const hasMedia = !!link || hasClip
     const removeMedia = () => { stopFrame(selectedObject); setVideoLink(selectedObject, null); setVideoClip(selectedObject, null) }
     return <>
-      {!isVisiting() && videoStep !== 'choose' && <header><button className="diary-back" type="button" aria-label="이전" onClick={() => setVideoStep('choose')}>←</button></header>}
+      {!isVisiting() && videoStep !== 'choose' && <header><button className="diary-back" type="button" aria-label={t('이전')} onClick={() => setVideoStep('choose')}>←</button></header>}
       {videoStep === 'choose' && <>
         {link && <VideoPreview link={link} frameId={selectedObject} />}
         {!link && hasClip && <ClipPreview id={selectedObject} />}
@@ -51,12 +52,12 @@ export default function ArtworkOverlay() {
     ? item?.type === 'photo' ? [464, 336] : [400, 400]
     : item?.type === 'poster' ? [360, 555] : item?.type === 'whiteboard' ? [420, 300] : item?.type === 'easel-photo' ? [360, 460] : [360, Math.round(360 * (item?.footprint.depth ?? 3) / (item?.footprint.width ?? 2))]
   return <>
-    <header><strong>{item?.name ?? (frame ? '사진' : '포스터')}</strong></header>
+    <header><strong>{t(item?.name ?? (frame ? '사진' : '포스터'))}</strong></header>
     {drawing
       ? <DrawingEditor id={selectedObject} width={width} height={height} onClose={() => setDrawing(false)} />
       : <>
-        {art ? <img className="art-view" src={art} alt={frame ? '사진' : '그림'} /> : <div className={frame ? 'art-view sea' : 'art-view poster-art'} />}
-        <div className="art-meta"><p>{frame ? (art ? '나의 사진' : item?.type === 'photo' ? '여름의 바다' : '빈 액자') : art ? '나의 그림' : item?.type === 'poster' ? 'SONDÉ' : '빈 포스터'}</p>{!isVisiting() && <div className="art-actions">{frame ? <PhotoPickButton id={selectedObject} width={width} height={height} /> : <button type="button" onClick={() => setDrawing(true)}>그림 그리기</button>}</div>}</div>
+        {art ? <img className="art-view" src={art} alt={t(frame ? '사진' : '그림')} /> : <div className={frame ? 'art-view sea' : 'art-view poster-art'} />}
+        <div className="art-meta"><p>{t(frame ? (art ? '나의 사진' : item?.type === 'photo' ? '여름의 바다' : '빈 액자') : art ? '나의 그림' : item?.type === 'poster' ? 'SONDÉ' : '빈 포스터')}</p>{!isVisiting() && <div className="art-actions">{frame ? <PhotoPickButton id={selectedObject} width={width} height={height} /> : <button type="button" onClick={() => setDrawing(true)}>{t('그림 그리기')}</button>}</div>}</div>
       </>}
   </>
 }
@@ -68,7 +69,7 @@ function VideoPreview({ link, frameId }: { link: string; frameId: string }) {
     if (!playlistId || !iframe.current) return
     return watchPlaylistOrder(frameId, playlistId, iframe.current)
   }, [frameId, playlistId])
-  return <iframe ref={iframe} className="video-panel-preview" title="유튜브 영상" src={embedSrc(link, frameId, 'playsinline=1&controls=1')} referrerPolicy="strict-origin-when-cross-origin" allow="encrypted-media; picture-in-picture" allowFullScreen />
+  return <iframe ref={iframe} className="video-panel-preview" title={t('유튜브 영상')} src={embedSrc(link, frameId, 'playsinline=1&controls=1')} referrerPolicy="strict-origin-when-cross-origin" allow="encrypted-media; picture-in-picture" allowFullScreen />
 }
 
 function Guestbook({ id }: { id: string }) {
@@ -77,16 +78,16 @@ function Guestbook({ id }: { id: string }) {
   const comments = guestbook[id] ?? []
   const submit = () => { if (!text.trim() || !requireHandle()) return; addGuestComment(id, text.trim()); setText('') }
   return <>
-    <header><strong>방명록</strong></header>
+    <header><strong>{t('방명록')}</strong></header>
     <div className="guest-form comment-ui">
-      <textarea ref={autosize} rows={1} maxLength={200} value={text} onChange={(event) => { setText(event.target.value); autosize(event.currentTarget) }} placeholder="한마디 남겨주세요" onKeyDown={(event) => { if (event.nativeEvent.isComposing) return; if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() } }} />
-      <button type="button" onClick={submit}>게시</button>
+      <textarea ref={autosize} rows={1} maxLength={200} value={text} onChange={(event) => { setText(event.target.value); autosize(event.currentTarget) }} placeholder={t('한마디 남겨주세요')} onKeyDown={(event) => { if (event.nativeEvent.isComposing) return; if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() } }} />
+      <button type="button" onClick={submit}>{t('게시')}</button>
     </div>
     <div className="guest-list comment-ui">
-      {comments.length === 0 && <p className="entry-empty">댓글 없음</p>}
+      {comments.length === 0 && <p className="entry-empty">{t('댓글 없음')}</p>}
       {comments.map((comment) => <article key={comment.id} className="guest-note comment-item">
         <CommentAvatar name={comment.name} photo={comment.photo} />
-        <header><CommentName name={comment.name} /><time>{timeAgo(comment.createdAt)}</time>{(!isVisiting() || comment.visitor === myVisitorId()) && <button type="button" aria-label="삭제" onClick={() => removeGuestComment(id, comment.id)}>×</button>}</header>
+        <header><CommentName name={comment.name} /><time>{timeAgo(comment.createdAt)}</time>{(!isVisiting() || comment.visitor === myVisitorId()) && <button type="button" aria-label={t('삭제')} onClick={() => removeGuestComment(id, comment.id)}>×</button>}</header>
         <p>{comment.text}</p>
       </article>)}
     </div>

@@ -3,6 +3,7 @@ import { type FurnitureItem, initialFurniture, inventoryItems, type InventoryCat
 import { thumbnailFor, thumbnailForFloorStyle } from '../services/thumbnails'
 import { colorOf, customizableTypes, DEFAULT_WALL_COLOR, floorStyleOf, floorStyles, type FloorStyle } from '../services/styles'
 import { DEFAULT_APPEARANCE as CHARACTER_DEFAULTS } from './Character'
+import { t } from '../services/i18n'
 
 function ItemIcon({ item }: { item: { type: string; styleId?: string } }) {
   const [src, setSrc] = useState<string | null>(null)
@@ -37,7 +38,7 @@ function ColorField({ value, onPick }: { value: string; onPick: (hex: string) =>
   useEffect(() => setLocal(value), [value])
   // closing the panel mid-pick must not drop the colour
   useEffect(() => () => { window.clearTimeout(timer.current); if (pending.current) commit.current(pending.current) }, [])
-  return <input type="color" className="color-field" value={local} aria-label="색 고르기" onChange={(event) => {
+  return <input type="color" className="color-field" value={local} aria-label={t('색 고르기')} onChange={(event) => {
     const next = event.target.value
     setLocal(next)
     pending.current = next
@@ -52,10 +53,10 @@ function CharacterLookEditor() {
   const { characterLook, setCharacterLook } = useRoomStore()
   const current = { ...CHARACTER_DEFAULTS, ...characterLook }
   return <div className="room-colors">
-    {LOOK_ROWS.map(([part, label]) => <div key={part} className="room-color-row"><span>{label}</span>
+    {LOOK_ROWS.map(([part, label]) => <div key={part} className="room-color-row"><span>{t(label)}</span>
       <ColorField value={current[part]} onPick={(hex) => setCharacterLook({ [part]: hex })} />
     </div>)}
-    {characterLook && <div className="room-color-row"><span /><div><button type="button" className="look-reset" onClick={() => setCharacterLook(null)}>기본으로 되돌리기</button></div></div>}
+    {characterLook && <div className="room-color-row"><span /><div><button type="button" className="look-reset" onClick={() => setCharacterLook(null)}>{t('기본으로 되돌리기')}</button></div></div>}
   </div>
 }
 
@@ -63,7 +64,7 @@ function CharacterLookEditor() {
 function FloorMaterialSwatch({ style, active, onPick }: { style: FloorStyle; active: boolean; onPick: () => void }) {
   const [src, setSrc] = useState<string | null>(null)
   useEffect(() => { let live = true; thumbnailForFloorStyle(style).then((url) => { if (live && url) setSrc(url) }); return () => { live = false } }, [style.id])
-  return <button type="button" title={style.label} className={active ? 'active' : ''} style={src ? undefined : { background: style.color }} onClick={onPick}>{src && <img src={src} alt={style.label} />}</button>
+  return <button type="button" title={t(style.label)} className={active ? 'active' : ''} style={src ? undefined : { background: style.color }} onClick={onPick}>{src && <img src={src} alt={t(style.label)} />}</button>
 }
 
 // wall and floor recolors live in the inventory now — clicking the room surfaces no longer opens a picker
@@ -71,13 +72,13 @@ function RoomColorEditor() {
   const { wallStyle, floorStyle, setWallStyle, setFloorStyle } = useRoomStore()
   const floor = floorStyleOf(floorStyle)
   return <div className="room-colors">
-    {([['leftWall', '왼쪽 벽'], ['rightWall', '오른쪽 벽']] as const).map(([wallId, label]) => <div key={wallId} className="room-color-row"><span>{label}</span>
+    {([['leftWall', '왼쪽 벽'], ['rightWall', '오른쪽 벽']] as const).map(([wallId, label]) => <div key={wallId} className="room-color-row"><span>{t(label)}</span>
       <ColorField value={colorOf(wallStyle[wallId], DEFAULT_WALL_COLOR[wallId])} onPick={(hex) => setWallStyle(wallId, hex)} />
     </div>)}
-    <div className="room-color-row"><span>바닥 재질</span>
+    <div className="room-color-row"><span>{t('바닥 재질')}</span>
       <div className="style-swatches">{floorStyles.map((style) => <FloorMaterialSwatch key={style.id} style={style} active={floor.id === style.id} onPick={() => setFloorStyle(style.id)} />)}</div>
     </div>
-    <div className="room-color-row"><span>바닥 색상</span>
+    <div className="room-color-row"><span>{t('바닥 색상')}</span>
       <ColorField value={floor.color} onPick={(hex) => setFloorStyle(`${floor.id}${hex}`)} />
     </div>
   </div>
@@ -90,13 +91,13 @@ export default function InventoryPanel() {
   const showingCharacter = tab === CHARACTER_TAB
   // only what you still own and have not put down somewhere — placing one takes it off this list
   const stock = showingColors || showingCharacter ? [] : CATALOG.filter((entry) => availableCount(entry.type) > 0 && (tab === '전체' || (entry.type === 'speech-bubble' ? '소품' : categoryFor(entry.type)) === tab as InventoryCategory))
-  return <section className={preview ? 'inventory-panel previewing' : 'inventory-panel'} aria-label="보관함">
-    <header><strong>보관함</strong>{preview && <button type="button" onClick={cancelPreview}>미리보기 취소</button>}</header>
-    <nav>{tabs.map((entry) => <button key={entry} className={tab === entry ? 'active' : ''} type="button" onClick={() => setTab(entry)}>{entry}</button>)}</nav>
+  return <section className={preview ? 'inventory-panel previewing' : 'inventory-panel'} aria-label={t('보관함')}>
+    <header><strong>{t('보관함')}</strong>{preview && <button type="button" onClick={cancelPreview}>{t('미리보기 취소')}</button>}</header>
+    <nav>{tabs.map((entry) => <button key={entry} className={tab === entry ? 'active' : ''} type="button" onClick={() => setTab(entry)}>{t(entry)}</button>)}</nav>
     {showingCharacter ? <CharacterLookEditor /> : showingColors ? <RoomColorEditor /> : <div className="inventory-items">
-      {stock.length === 0 && <p className="inventory-empty">남은 가구가 없어요. 방에 놓인 가구를 정리하면 다시 꺼낼 수 있어요.</p>}
-      {stock.map((entry) => <button key={`${entry.type}:${entry.styleId ?? ''}`} type="button" onClick={() => startPreview(entry.type, entry.styleId)}><ItemIcon item={entry as FurnitureItem} /><span>{entry.name}<small>{entry.footprint.width ? `${entry.size[0]} × ${entry.size[1]}` : '벽'}</small></span></button>)}
+      {stock.length === 0 && <p className="inventory-empty">{t('남은 가구가 없어요. 방에 놓인 가구를 정리하면 다시 꺼낼 수 있어요.')}</p>}
+      {stock.map((entry) => <button key={`${entry.type}:${entry.styleId ?? ''}`} type="button" onClick={() => startPreview(entry.type, entry.styleId)}><ItemIcon item={entry as FurnitureItem} /><span>{t(entry.name)}<small>{entry.footprint.width ? `${entry.size[0]} × ${entry.size[1]}` : t('벽')}</small></span></button>)}
     </div>}
-    {preview && <footer><span className={previewValid ? 'valid' : 'invalid'}>{previewValid ? '배치 가능한 위치' : '이 위치에는 배치할 수 없어요'}</span><button type="button" disabled={!previewValid} onClick={placePreview}>배치</button></footer>}
+    {preview && <footer><span className={previewValid ? 'valid' : 'invalid'}>{previewValid ? t('배치 가능한 위치') : t('이 위치에는 배치할 수 없어요')}</span><button type="button" disabled={!previewValid} onClick={placePreview}>{t('배치')}</button></footer>}
   </section>
 }

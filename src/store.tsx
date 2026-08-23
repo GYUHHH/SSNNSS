@@ -8,6 +8,7 @@ import { deleteVideo, listVideoIds, loadClipUrls, loadVideoLinks, putVideo, save
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic, syncPendingTracks } from './services/music'
 import { DEFAULT_PROFILE_PHOTO, purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myProfilePhoto, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, removeStored, subscribeRealtime, uploadMedia, writeStored, type RemoteGuestComment } from './services/social'
 import { cancelSoundRequest, muteFrame, requestSound, snapshotActiveFrames } from './services/ytResume'
+import { t, tp } from './services/i18n'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id, photo: row.photo })
 
@@ -182,7 +183,7 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
 export const currentUser = { id: 'me', name: '나' }
 
 const initialBooks: Book[] = [
-  { id: 'daily-2026', title: '2026년 일기', coverColor: '#718475', description: '하루의 기록', visibility: 'private', createdAt: now, updatedAt: now, entries: [{ id: 'entry-1', bookId: 'daily-2026', title: '비가 오기 전의 오후', content: '창문을 열어두고 책을 읽었다.', images: [], date: '2026-08-12', visibility: 'private', createdAt: now, updatedAt: now, comments: [] }] },
+  { id: 'daily-2026', title: t('2026년 일기'), coverColor: '#718475', description: t('하루의 기록'), visibility: 'private', createdAt: now, updatedAt: now, entries: [{ id: 'entry-1', bookId: 'daily-2026', title: t('비가 오기 전의 오후'), content: t('창문을 열어두고 책을 읽었다.'), images: [], date: '2026-08-12', visibility: 'private', createdAt: now, updatedAt: now, comments: [] }] },
 ]
 
 const hydrateBooks = () => (loadBooks<Book[]>() ?? initialBooks).map((book) => ({ ...book, entries: book.entries.map((entry) => ({ ...entry, comments: entry.comments ?? [] })) }))
@@ -363,7 +364,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     if (next) writeStored(LOOK_KEY, JSON.stringify(next)); else removeStored(LOOK_KEY)
   }
   const [selectedObject, setSelectedObject] = useState<SelectedObject>(null); const [computerOn, setComputerOn] = useState(() => loadInteractions().computerOn); const [toggledOn, setToggledOn] = useState<Set<string>>(() => new Set(loadInteractions().toggles)); const [artworks, setArtworks] = useState<Record<string, string>>(() => (typeof window === 'undefined' ? {} : loadArtworks() ?? {})); const [guestbook, setGuestbook] = useState<Record<string, GuestComment[]>>({}); const [timeOfDay, setTimeOfDayState] = useState<TimeOfDay>(() => { try { const saved = readStored('my-room-time-v1'); return saved === 'evening' || saved === 'night' ? saved : 'day' } catch { return 'day' } }); const [cupHeld, setCupHeld] = useState(() => loadInteractions().cupHeld); const [books, setBooks] = useState<Book[]>(() => (typeof window === 'undefined' ? initialBooks : hydrateBooks())); const [openBookId, setOpenBookId] = useState<string | null>(null); const [bookshelfOpen, setBookshelfOpen] = useState(false)
-  const rooms0 = useRef(typeof window === 'undefined' ? { active: 'room-1', slots: [{ id: 'room-1', name: '나의 방' }] } : loadSlots()).current
+  const rooms0 = useRef(typeof window === 'undefined' ? { active: 'room-1', slots: [{ id: 'room-1', name: t('나의 방') }] } : loadSlots()).current
   const [rooms, setRooms] = useState<Array<{ id: string; name: string }>>(() => rooms0.slots.map(({ id, name }) => ({ id, name })))
   const [activeRoomId, setActiveRoomId] = useState(rooms0.active)
   const activeRoomIdRef = useRef(rooms0.active)
@@ -617,7 +618,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   // silently keeping whatever position the item was hovering at
   const toggleEditMode = () => { if (isVisiting()) return; endMove(); pendingMove.current = null; setMode((value) => value === 'normal' ? 'edit' : 'normal'); setPreview(null); setPreviewDragging(false); setDragOrigin(null); setMovingFurnitureId(null); setSelectedObject(null); setBookshelfOpen(false); setOpenBookId(null); setSelectedFurnitureId(null) }
   const openBook = (id: string) => { setSelectedObject('book'); setBookshelfOpen(false); setOpenBookId(id) }
-  const addBook = (title: string, visibility: Visibility) => { const id = `book-${Date.now()}`; const createdAt = new Date().toISOString(); setBooks((items) => [...items, { id, title, coverColor: ['#718475', '#b96b52', '#607b93', '#b18a4c'][items.length % 4], description: '새 기록장', visibility, createdAt, updatedAt: createdAt, entries: [] }]) }
+  const addBook = (title: string, visibility: Visibility) => { const id = `book-${Date.now()}`; const createdAt = new Date().toISOString(); setBooks((items) => [...items, { id, title, coverColor: ['#718475', '#b96b52', '#607b93', '#b18a4c'][items.length % 4], description: t('새 기록장'), visibility, createdAt, updatedAt: createdAt, entries: [] }]) }
   const deleteBook = (id: string) => { const gone = (books.find((book) => book.id === id)?.entries ?? []).map((entry) => entry.id); void purgeReactions(gone); dropReactions(gone); setBooks((items) => items.filter((book) => book.id !== id)); if (openBookId === id) { setOpenBookId(null); setBookshelfOpen(true) } }
   const updateBook = (id: string, patch: Partial<Pick<Book, 'title' | 'visibility' | 'shelf'>>) => setBooks((items) => items.map((book) => book.id === id ? { ...book, ...patch, updatedAt: new Date().toISOString() } : book))
   const addEntry: RoomStore['addEntry'] = (bookId, entry) => { const createdAt = new Date().toISOString(); setBooks((items) => items.map((book) => book.id === bookId ? { ...book, updatedAt: createdAt, entries: [...book.entries, { ...entry, id: `entry-${Date.now()}`, bookId, createdAt, updatedAt: createdAt, comments: [] }] } : book)) }
@@ -673,7 +674,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   // with a handle the guestbook is server-backed (visitors can write); without one it stays local as before.
   // comments are signed with the writer's own profile id — no free-text name
   const addGuestComment = (id: string, text: string) => {
-    const cleanName = myHandle() ?? '익명'
+    const cleanName = myHandle() ?? t('익명')
     setGuestbook((prev) => ({ ...prev, [id]: [{ id: `gc-${Date.now()}`, name: cleanName, text, createdAt: new Date().toISOString(), photo: myProfilePhoto() }, ...(prev[id] ?? [])] }))
     if (currentRoomHandle()) void addRemoteComment(id, cleanName, text).then((row) => { if (row) setGuestbook((prev) => ({ ...prev, [id]: [remoteToComment(row), ...(prev[id] ?? []).filter((comment) => !comment.id.startsWith('gc-'))] })) })
   }
@@ -899,7 +900,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const createRoom = () => {
     if (rooms.length >= MAX_ROOMS) return
     const empty = initialFurniture.map((item) => toPlacement({ ...item, removed: true }))
-    const slot = createSlot(`방 ${rooms.length + 1}`, empty)
+    const slot = createSlot(tp('방 {n}', { n: rooms.length + 1 }), empty)
     setRooms((list) => [...list, { id: slot.id, name: slot.name }])
     openRoom(slot.id)
   }

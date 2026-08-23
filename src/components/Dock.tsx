@@ -7,6 +7,7 @@ import { snapshotActiveFrames } from '../services/ytResume'
 import { shareRoom } from '../services/capture'
 import SoundHub from './SoundHub'
 import { requestExplorerZoom } from './CameraController'
+import { lang, setLang, t, tp } from '../services/i18n'
 
 const icon = (children: React.ReactNode) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
 const HouseIcon = () => icon(<><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></>)
@@ -43,7 +44,7 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
   }, [onClose])
   const enter = (handle: string) => { onClose(); void enterRoom(handle) }
   return createPortal(<div className="search-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-    <input autoFocus value={query} placeholder="아이디 검색" onChange={(event) => setQuery(event.target.value)}
+    <input autoFocus value={query} placeholder={t('아이디 검색')} onChange={(event) => setQuery(event.target.value)}
       onKeyDown={(event) => { if (event.key === 'Enter' && results.length) enter(results[0]) }} />
     {results.length > 0 && <ul className="search-results">{results.map((handle) => <li key={handle}><button type="button" onClick={() => enter(handle)}>{handle}</button></li>)}</ul>}
   </div>, document.body)
@@ -128,33 +129,34 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
   // the dock owns its pointer events completely — nothing may leak through to the room behind it
   const block = (event: { stopPropagation: () => void }) => event.stopPropagation()
   return <div className="dock" onPointerDown={block} onPointerMove={block} onPointerUp={block} onPointerOver={block} onClick={block} onWheel={block} onTouchStart={block} onTouchMove={block}>
-    {normal && <button type="button" className="dock-button" aria-label="이전" onClick={() => history.back()}><BackIcon /></button>}
-    {owner && <button type="button" className="dock-button" aria-label="검색" onClick={() => setSearchOpen(true)}><SearchIcon /></button>}
-    {visiting && normal && !!myHandle() && !!currentHandle && <button type="button" style={{ visibility: followed === null ? 'hidden' : 'visible' }} className={followed ? 'dock-button following' : 'dock-button'} aria-label={followed ? '팔로우 해제' : '팔로우'} onClick={() => { if (followed === null) return; setFollowed(!followed); void setFollowing(currentHandle, !followed).then((ok) => { if (!ok) setFollowed(followed) }) }}>{followed ? <PersonCheckIcon /> : <PersonPlusIcon />}</button>}
-    {normal && !!myHandle() && <button type="button" className={explore === 'home' ? 'dock-button' : 'dock-button following'} aria-label={explore === 'home' ? '팔로우' : '탐색'} onClick={toggleExplorer}>{explore === 'home' ? <PersonIcon /> : <GlobeIcon />}</button>}
+    {normal && <button type="button" className="dock-button" aria-label={t('이전')} onClick={() => history.back()}><BackIcon /></button>}
+    {owner && <button type="button" className="dock-button" aria-label={t('검색')} onClick={() => setSearchOpen(true)}><SearchIcon /></button>}
+    {visiting && normal && !!myHandle() && !!currentHandle && <button type="button" style={{ visibility: followed === null ? 'hidden' : 'visible' }} className={followed ? 'dock-button following' : 'dock-button'} aria-label={followed ? t('팔로우 해제') : t('팔로우')} onClick={() => { if (followed === null) return; setFollowed(!followed); void setFollowing(currentHandle, !followed).then((ok) => { if (!ok) setFollowed(followed) }) }}>{followed ? <PersonCheckIcon /> : <PersonPlusIcon />}</button>}
+    {normal && !!myHandle() && <button type="button" className={explore === 'home' ? 'dock-button' : 'dock-button following'} aria-label={explore === 'home' ? t('팔로우') : t('탐색')} onClick={toggleExplorer}>{explore === 'home' ? <PersonIcon /> : <GlobeIcon />}</button>}
     <span className="dock-slot"><SoundHub /></span>
     {owner && <div className="dock-item dock-fade" ref={moreItem}>
       {moreState !== 'closed' && <div className={moreState === 'closing' ? 'dock-stack closing' : 'dock-stack'}>
-        <button type="button" className="dock-button" aria-label="상점" onClick={() => { closeMore(); setShopOpen(true) }}><ShopIcon /></button>
+        <button type="button" className="dock-button" aria-label={t('상점')} onClick={() => { closeMore(); setShopOpen(true) }}><ShopIcon /></button>
         <div className="dock-item">
-          {roomsOpen && <ul className="dock-pop dock-pop-side" aria-label="내 방 목록">
+          {roomsOpen && <ul className="dock-pop dock-pop-side" aria-label={t('내 방 목록')}>
             {rooms.map((room) => <li key={room.id}>
               <button type="button" className={room.id === activeRoomId ? 'active' : ''} onClick={() => { if (room.id !== activeRoomId) openRoom(room.id); setRoomsOpen(false) }}>{room.name}</button>
-              {rooms.length > 1 && <button type="button" className="dock-pop-delete" aria-label={`${room.name} 삭제`} onClick={() => { setRoomsOpen(false); onDeleteRoom(room.id) }}>×</button>}
+              {rooms.length > 1 && <button type="button" className="dock-pop-delete" aria-label={tp('{name} 삭제', { name: room.name })} onClick={() => { setRoomsOpen(false); onDeleteRoom(room.id) }}>×</button>}
             </li>)}
-            {rooms.length < MAX_ROOMS && <li><button type="button" onClick={() => { createRoom(); setRoomsOpen(false) }}>+ 새 방 만들기</button></li>}
-            <li><button type="button" onClick={copyInvite}>{copied ? '복사됨' : '초대 링크 복사'}</button></li>
-            <li><button type="button" onClick={share}>{shareState === 'busy' ? '캡처 중' : shareState === 'saved' ? '저장됨 · 링크 복사됨' : '방 공유'}</button></li>
+            {rooms.length < MAX_ROOMS && <li><button type="button" onClick={() => { createRoom(); setRoomsOpen(false) }}>{t('+ 새 방 만들기')}</button></li>}
+            <li><button type="button" onClick={copyInvite}>{copied ? t('복사됨') : t('초대 링크 복사')}</button></li>
+            <li><button type="button" onClick={share}>{shareState === 'busy' ? t('캡처 중') : shareState === 'saved' ? t('저장됨 · 링크 복사됨') : t('방 공유')}</button></li>
+            <li><button type="button" onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}>{lang === 'ko' ? 'English' : '한국어'}</button></li>
           </ul>}
-          <button type="button" className="dock-button" aria-label="방설정" onClick={() => setRoomsOpen((value) => !value)}><HouseIcon /></button>
+          <button type="button" className="dock-button" aria-label={t('방설정')} onClick={() => setRoomsOpen((value) => !value)}><HouseIcon /></button>
         </div>
-        <button type="button" className="dock-button" aria-label="시간대 변경" onClick={cycleTime}>{timeOfDay === 'day' ? <SunIcon /> : timeOfDay === 'evening' ? <SunsetIcon /> : <MoonIcon />}</button>
-        <button type="button" className="dock-button" aria-label="보관함" onClick={() => { closeMore(); onOpenInventory() }}><BoxIcon /></button>
+        <button type="button" className="dock-button" aria-label={t('시간대 변경')} onClick={cycleTime}>{timeOfDay === 'day' ? <SunIcon /> : timeOfDay === 'evening' ? <SunsetIcon /> : <MoonIcon />}</button>
+        <button type="button" className="dock-button" aria-label={t('보관함')} onClick={() => { closeMore(); onOpenInventory() }}><BoxIcon /></button>
       </div>}
-      <button type="button" className="dock-button" aria-label="더보기" onClick={() => { if (moreState === 'open') closeMore(); else if (moreState === 'closed') setMoreState('open') }}><DotsIcon /></button>
+      <button type="button" className="dock-button" aria-label={t('더보기')} onClick={() => { if (moreState === 'open') closeMore(); else if (moreState === 'closed') setMoreState('open') }}><DotsIcon /></button>
     </div>}
-    {visiting && normal && <button type="button" className="dock-button" aria-label="다음" onClick={() => history.forward()}><ForwardIcon /></button>}
+    {visiting && normal && <button type="button" className="dock-button" aria-label={t('다음')} onClick={() => history.forward()}><ForwardIcon /></button>}
     {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} />}
-    {shopOpen && createPortal(<div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setShopOpen(false)}><section className="shop-panel"><h2>상점</h2></section></div>, document.body)}
+    {shopOpen && createPortal(<div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setShopOpen(false)}><section className="shop-panel"><h2>{t('상점')}</h2></section></div>, document.body)}
   </div>
 }

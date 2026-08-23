@@ -15,6 +15,7 @@ import { CANVAS_UI_FONT, JONES_BOOK_OTF, PRETENDARD_WOFF, loadCanvasFonts } from
 import { clipResumeAt, fitToVideo, getVideo, registerClipPlayer, rememberClipAt, reportClipAspect, useClipAspectRatio, useFrameVideoId, useVideoDisplayMeta } from '../services/mediaStore'
 import { Swing } from './motion'
 import { ROOM_HTML_Z_INDEX_RANGE } from '../services/renderOrder'
+import { lang, t } from '../services/i18n'
 
 export function InventoryFurniture() {
   const { furniture } = useRoomStore()
@@ -626,7 +627,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   const clipAspect = useClipAspectRatio(item.id, item.type.startsWith('video-frame') && !preview && !frameLink)
   if (item.type === 'speech-bubble') {
     const bubbleScale = 1.8
-    const bubbleText = preview ? '말풍선' : store?.artworks[item.id] ?? ''
+    const bubbleText = preview ? t('말풍선') : store?.artworks[item.id] ?? ''
     const lines = bubbleText.split('\n').flatMap((line) => {
       const chars = Array.from(line)
       return chars.length ? Array.from({ length: Math.ceil(chars.length / 16) }, (_, index) => chars.slice(index * 16, index * 16 + 16).join('')) : ['']
@@ -1209,11 +1210,11 @@ function drawCalendar(canvas: HTMLCanvasElement) {
   ctx.fillStyle = '#fffaf0'; ctx.fillRect(0, 0, 128, 148)
   ctx.fillStyle = '#b3563f'; ctx.fillRect(0, 0, 128, 34)
   ctx.fillStyle = '#fff8ed'; ctx.font = `bold 19px ${CANVAS_UI_FONT}`; ctx.textAlign = 'center'
-  ctx.fillText(`${now.getMonth() + 1}월`, 64, 24)
+  ctx.fillText(lang === 'en' ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][now.getMonth()] : `${now.getMonth() + 1}월`, 64, 24)
   ctx.fillStyle = '#3f3a33'; ctx.font = `bold 58px ${CANVAS_UI_FONT}`
   ctx.fillText(String(now.getDate()), 64, 102)
   ctx.fillStyle = '#8a7a6a'; ctx.font = `15px ${CANVAS_UI_FONT}`
-  ctx.fillText(['일', '월', '화', '수', '목', '금', '토'][now.getDay()] + '요일', 64, 132)
+  ctx.fillText(lang === 'en' ? ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.getDay()] : ['일', '월', '화', '수', '목', '금', '토'][now.getDay()] + '요일', 64, 132)
 }
 
 function CalendarArt() {

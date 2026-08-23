@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { isVisiting } from '../services/social'
 import { addTrackFile, loadTracks, musicState, onMusicUpdate, pauseMusic, resumeMusic, saveTracks, seekMusic, toggleMusicMute, type MusicTrack } from '../services/music'
+import { t } from '../services/i18n'
 
 // store values arrive as props: this panel lives inside a drei <Html> portal, which renders in its own React
 // root where the room context does not exist
@@ -66,24 +67,24 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
     </div>
     <div className="mini-progress">
       <small>{clock(state.time)}</small>
-      <input type="range" min={0} max={state.duration || 1} step={0.1} value={Math.min(state.time, state.duration || 1)} aria-label="재생 위치" onChange={(event) => seekMusic(Number(event.target.value))} />
+      <input type="range" min={0} max={state.duration || 1} step={0.1} value={Math.min(state.time, state.duration || 1)} aria-label={t('재생 위치')} onChange={(event) => seekMusic(Number(event.target.value))} />
       <small>-{clock(Math.max(0, state.duration - state.time))}</small>
     </div>
     <div className="mini-controls">
-      <button type="button" aria-label="이전 곡" onClick={() => step(-1)}>
+      <button type="button" aria-label={t('이전 곡')} onClick={() => step(-1)}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9.5 12z" /></svg>
       </button>
-      <button type="button" className="mini-play" aria-label={playing ? '일시정지' : '재생'} onClick={toggle}>
+      <button type="button" className="mini-play" aria-label={t(playing ? '일시정지' : '재생')} onClick={toggle}>
         {playing
           ? <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4h4v16H7zM13 4h4v16h-4z" /></svg>
           : <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 4l12 8-12 8z" /></svg>}
       </button>
-      <button type="button" aria-label="다음 곡" onClick={() => step(1)}>
+      <button type="button" aria-label={t('다음 곡')} onClick={() => step(1)}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2zM4 5v14l10.5-7z" /></svg>
       </button>
     </div>
     <div className="mini-volume">
-      <button type="button" aria-label={state.muted ? '음소거 해제' : '음소거'} onClick={toggleMusicMute}>
+      <button type="button" aria-label={t(state.muted ? '음소거 해제' : '음소거')} onClick={toggleMusicMute}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" stroke="none" />
           {state.muted
@@ -91,9 +92,9 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
             : <><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M19 5.5a10 10 0 0 1 0 13" /></>}
         </svg>
       </button>
-      <input type="range" min={0} max={1} step={0.05} value={musicVolume} aria-label="볼륨" onChange={(event) => setMusicVolume(Number(event.target.value))} />
+      <input type="range" min={0} max={1} step={0.05} value={musicVolume} aria-label={t('볼륨')} onChange={(event) => setMusicVolume(Number(event.target.value))} />
     </div>
-    <button type="button" className="mini-list-toggle" onClick={() => setListOpen((open) => !open)}>재생목록 {listOpen ? '▴' : '▾'}</button>
+    <button type="button" className="mini-list-toggle" onClick={() => setListOpen((open) => !open)}>{t('재생목록')} {listOpen ? '▴' : '▾'}</button>
     {listOpen && <>
       <ul className="mini-list">
         {tracks.map((track, index) => {
@@ -105,11 +106,11 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
           }
           return <li key={track.id} className={dragging ? 'dragging' : musicTrack === track.id ? 'playing' : ''} style={{ transform: (dragging ? drag.delta : shift) ? `translateY(${dragging ? drag.delta : shift}px)` : undefined }}>
             <button type="button" className="mini-track" onClick={() => setMusicTrack(track.id)}><b>{track.title}</b>{track.artist && <small>{track.artist}</small>}</button>
-            <button type="button" className="order-handle" aria-label="순서 이동" onPointerDown={startDrag(index)}>≡</button>
+            <button type="button" className="order-handle" aria-label={t('순서 이동')} onPointerDown={startDrag(index)}>≡</button>
           </li>
         })}
       </ul>
-      {!isVisiting() && <button type="button" className="mini-add" onClick={() => fileInput.current?.click()}>+ 파일</button>}
+      {!isVisiting() && <button type="button" className="mini-add" onClick={() => fileInput.current?.click()}>{t('+ 파일')}</button>}
       <input ref={fileInput} type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.oga,.flac,.opus,.weba" multiple hidden onChange={(event) => { if (event.target.files?.length) void addFiles(event.target.files); event.target.value = '' }} />
     </>}
   </div>

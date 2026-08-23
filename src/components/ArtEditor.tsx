@@ -5,6 +5,7 @@ import { getVideo } from '../services/mediaStore'
 import { hideVideo, loadOrders, onOrderChange, saveOrder } from '../services/playlistOrder'
 import { isBlockedVideo, onBlockedVideos, playlistControls, playlistVideoResume } from '../services/ytResume'
 import { PhotoCropEditor } from './PhotoCropEditor'
+import { t } from '../services/i18n'
 
 const PAPER = '#f6efe2'
 const COLORS = ['#3f3a33', '#b96b52', '#d9a441', '#8a9c82', '#607b93', '#a06a8c', '#e8b4a0', '#f3ead9']
@@ -46,7 +47,7 @@ export function DrawingEditor({ id, width, height, onClose }: { id: string; widt
     ctx.beginPath(); ctx.moveTo(from[0], from[1]); ctx.lineTo(to[0], to[1]); ctx.stroke()
   }
   return <section className="draw-dialog inline">
-      <header><strong>그림 그리기</strong></header>
+      <header><strong>{t('그림 그리기')}</strong></header>
       <canvas ref={canvasRef} width={width} height={height}
         onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); const p = point(event); last.current = p; stroke(p, p) }}
         onPointerMove={(event) => { if (!last.current) return; const p = point(event); stroke(last.current, p); last.current = p }}
@@ -54,15 +55,15 @@ export function DrawingEditor({ id, width, height, onClose }: { id: string; widt
         onPointerCancel={() => { last.current = null }} />
       <div className="draw-tools">
         {COLORS.map((entry) => <button key={entry} type="button" className={!eraser && color === entry ? 'swatch active' : 'swatch'} style={{ background: entry }} aria-label={entry} onClick={() => { setColor(entry); setEraser(false) }} />)}
-        <button type="button" className={eraser ? 'active' : ''} onClick={() => setEraser((on) => !on)}>지우개</button>
-        <button type="button" className={brush === 3 ? 'active' : ''} onClick={() => setBrush(3)}>가는 붓</button>
-        <button type="button" className={brush === 6 ? 'active' : ''} onClick={() => setBrush(6)}>굵은 붓</button>
-        <button type="button" onClick={() => { const ctx = canvasRef.current!.getContext('2d')!; ctx.fillStyle = PAPER; ctx.fillRect(0, 0, width, height) }}>전체 지우기</button>
+        <button type="button" className={eraser ? 'active' : ''} onClick={() => setEraser((on) => !on)}>{t('지우개')}</button>
+        <button type="button" className={brush === 3 ? 'active' : ''} onClick={() => setBrush(3)}>{t('가는 붓')}</button>
+        <button type="button" className={brush === 6 ? 'active' : ''} onClick={() => setBrush(6)}>{t('굵은 붓')}</button>
+        <button type="button" onClick={() => { const ctx = canvasRef.current!.getContext('2d')!; ctx.fillStyle = PAPER; ctx.fillRect(0, 0, width, height) }}>{t('전체 지우기')}</button>
       </div>
       <footer>
-        <button type="button" onClick={() => { setArtwork(id, null); onClose() }}>기본으로</button>
-        <button type="button" onClick={onClose}>취소</button>
-        <button type="button" className="primary" onClick={() => { setArtwork(id, canvasRef.current!.toDataURL('image/png')); onClose() }}>저장</button>
+        <button type="button" onClick={() => { setArtwork(id, null); onClose() }}>{t('기본으로')}</button>
+        <button type="button" onClick={onClose}>{t('취소')}</button>
+        <button type="button" className="primary" onClick={() => { setArtwork(id, canvasRef.current!.toDataURL('image/png')); onClose() }}>{t('저장')}</button>
       </footer>
   </section>
 }
@@ -74,8 +75,8 @@ export function PhotoPickButton({ id, width, height }: { id: string; width: numb
   const closeEditor = () => setEditing((source) => { if (source) URL.revokeObjectURL(source); return null })
   const pick = (file: File) => setEditing(URL.createObjectURL(file))
   return <>
-    <button type="button" onClick={() => inputRef.current?.click()}>사진 넣기</button>
-    {artworks[id] && <button type="button" onClick={() => setArtwork(id, null)}>사진 제거</button>}
+    <button type="button" onClick={() => inputRef.current?.click()}>{t('사진 넣기')}</button>
+    {artworks[id] && <button type="button" onClick={() => setArtwork(id, null)}>{t('사진 제거')}</button>}
     <input ref={inputRef} type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) pick(file); event.target.value = '' }} />
     {editing && <PhotoCropEditor source={editing} aspect={width / height} output={[width, height]} onClose={closeEditor} onApply={(image) => { setArtwork(id, image); closeEditor() }} />}
   </>
@@ -91,8 +92,8 @@ export function BannerTextInput({ id, artwork, saveArtwork }: { id: string; artw
   const [text, setText] = useState(artwork ?? store?.artworks[id] ?? 'WELCOME ♥')
   const apply = useApplyAndClose(() => (saveArtwork ?? store?.setArtwork)?.(id, text.trim() || null))
   return <div className="banner-input">
-    <input type="text" maxLength={40} value={text} onChange={(event) => setText(event.target.value)} placeholder="배너 문구" onKeyDown={(event) => { if (!event.nativeEvent.isComposing && event.key === 'Enter') apply() }} />
-    <button type="button" onClick={apply}>적용</button>
+    <input type="text" maxLength={40} value={text} onChange={(event) => setText(event.target.value)} placeholder={t('배너 문구')} onKeyDown={(event) => { if (!event.nativeEvent.isComposing && event.key === 'Enter') apply() }} />
+    <button type="button" onClick={apply}>{t('적용')}</button>
   </div>
 }
 
@@ -102,7 +103,7 @@ export function SpeechBubbleInput({ id, artwork, saveArtwork }: { id: string; ar
   const apply = useApplyAndClose(() => (saveArtwork ?? store?.setArtwork)?.(id, text.trim() || null))
   return <div className="room-bubble-input">
     <textarea rows={3} maxLength={80} value={text} onChange={(event) => setText(event.target.value)} />
-    <button type="button" onClick={apply}>적용</button>
+    <button type="button" onClick={apply}>{t('적용')}</button>
   </div>
 }
 
@@ -110,7 +111,7 @@ export function VideoPickButton({ id, onPicked }: { id: string; onPicked?: () =>
   const { setVideoClip } = useRoomStore()
   const inputRef = useRef<HTMLInputElement>(null)
   return <>
-    <button type="button" onClick={() => inputRef.current?.click()}>영상 넣기</button>
+    <button type="button" onClick={() => inputRef.current?.click()}>{t('영상 넣기')}</button>
     <input ref={inputRef} type="file" accept="video/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) { setVideoClip(id, file); onPicked?.() }; event.target.value = '' }} />
   </>
 }
@@ -122,10 +123,10 @@ export function VideoLinkInput({ id, onApplied }: { id: string; onApplied?: () =
   const apply = () => { if (!setVideoLink(id, text)) { setFailed(true); return } setFailed(false); setText(''); onApplied?.() }
   return <div className="video-link">
     <div className="banner-input">
-      <input type="text" value={text} onChange={(event) => { setText(event.target.value); setFailed(false) }} placeholder="유튜브 링크 붙여넣기" onKeyDown={(event) => { if (event.key === 'Enter') apply() }} />
-      <button type="button" onClick={apply}>넣기</button>
+      <input type="text" value={text} onChange={(event) => { setText(event.target.value); setFailed(false) }} placeholder={t('유튜브 링크 붙여넣기')} onKeyDown={(event) => { if (event.key === 'Enter') apply() }} />
+      <button type="button" onClick={apply}>{t('넣기')}</button>
     </div>
-    {failed && <small className="video-link-error">유튜브 주소를 인식하지 못했어요.</small>}
+    {failed && <small className="video-link-error">{t('유튜브 주소를 인식하지 못했어요.')}</small>}
   </div>
 }
 
@@ -162,9 +163,9 @@ function OrderRow({ videoId, title, blocked, dragging, shift, onHandleDown, onDe
   return <li className={`order-row${dragging ? ' dragging' : ''}${blocked ? ' blocked' : ''}`} style={{ transform: shift ? `translateY(${shift}px)` : undefined }}>
     <img src={`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`} alt="" draggable={false} />
     <span>{title || videoId}</span>
-    {blocked && <span className="order-warn" aria-label="재생 불가">!</span>}
-    <button type="button" className="order-delete" aria-label="목록에서 삭제" onClick={onDelete}>×</button>
-    <button type="button" className="order-handle" aria-label="순서 이동" onPointerDown={onHandleDown}>≡</button>
+    {blocked && <span className="order-warn" aria-label={t('재생 불가')}>!</span>}
+    <button type="button" className="order-delete" aria-label={t('목록에서 삭제')} onClick={onDelete}>×</button>
+    <button type="button" className="order-handle" aria-label={t('순서 이동')} onPointerDown={onHandleDown}>≡</button>
   </li>
 }
 
@@ -228,7 +229,7 @@ export function PlaylistOrderEditor({ id }: { id: string }) {
     handle.addEventListener('pointerup', onUp)
     handle.addEventListener('pointercancel', onUp)
   }
-  return <ul className="order-list" aria-label="재생 순서">
+  return <ul className="order-list" aria-label={t('재생 순서')}>
     {order.map((videoId, index) => {
       const dragging = drag?.index === index
       let shift = 0
@@ -239,6 +240,6 @@ export function PlaylistOrderEditor({ id }: { id: string }) {
       return <OrderRow key={videoId} videoId={videoId} title={titles[videoId] ?? titleCache[videoId] ?? ''} blocked={isBlockedVideo(videoId)} dragging={dragging} shift={dragging ? drag.delta : shift} onHandleDown={startDrag(index)} onDelete={() => remove(videoId)} />
     })}
     {/* said once rather than repeated on every marked row — the markers show WHICH, this says WHY */}
-    {order.some((videoId) => isBlockedVideo(videoId)) && <li className="order-note">이 영상은 외부 재생이 불가합니다.</li>}
+    {order.some((videoId) => isBlockedVideo(videoId)) && <li className="order-note">{t('이 영상은 외부 재생이 불가합니다.')}</li>}
   </ul>
 }

@@ -1,12 +1,13 @@
 import { currentRoomHandle, enterRoom } from '../services/social'
 import { snapshotActiveFrames } from '../services/ytResume'
+import { tp } from '../services/i18n'
 
 const isHandle = (name: string) => /^[a-z0-9_]{3,20}$/.test(name)
 const visit = (name: string) => { if (isHandle(name) && currentRoomHandle() !== name) void snapshotActiveFrames().then(() => enterRoom(name)) }
 
 export default function CommentAvatar({ name, photo }: { name: string; photo?: string }) {
   const face = <><span>{name.slice(0, 1).toUpperCase()}</span>{photo && <img src={photo} alt="" onError={(event) => event.currentTarget.remove()} />}</>
-  return isHandle(name) ? <button type="button" className="comment-avatar comment-profile-link" aria-label={`${name}의 방`} onClick={() => visit(name)}>{face}</button> : <span className="comment-avatar" aria-hidden="true">{face}</span>
+  return isHandle(name) ? <button type="button" className="comment-avatar comment-profile-link" aria-label={tp('{name}의 방', { name })} onClick={() => visit(name)}>{face}</button> : <span className="comment-avatar" aria-hidden="true">{face}</span>
 }
 
 export function CommentName({ name }: { name: string }) {

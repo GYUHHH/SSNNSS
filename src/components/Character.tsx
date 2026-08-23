@@ -7,6 +7,7 @@ import { characterPosition } from '../services/characterTracker'
 import { resolveInteraction, stateForInteraction } from '../services/interactionAnchors'
 import { cellsFor, findPath, floorSurface, gridToWorld, type GridPosition, worldToGrid } from '../services/roomGrid'
 import { ROOM_HTML_Z_INDEX_RANGE, ROOM_OBJECT_ORDER } from '../services/renderOrder'
+import { t } from '../services/i18n'
 
 const CELL = { width: 1, depth: 1 }
 
@@ -232,8 +233,8 @@ export default function Character({ appearance: customAppearance }: { appearance
       )}
       <group name="NecklaceSlot" position={[0, 1.08, .14]} />
       {cupHeld && <mesh position={[.4, .61, .1]}><cylinderGeometry args={[.09, .09, .18, 16]} /><meshStandardMaterial color="#f5e7cc" roughness={.85} /></mesh>}
-      {moveNotice && <Html position={[0, 2, 0]} center zIndexRange={ROOM_HTML_Z_INDEX_RANGE}><div className="speech-bubble">여기로 이동할 수 없어요</div></Html>}
-      {selectedObject === 'plant' && characterState === 'interacting' && <Html position={[0, 2, 0]} center zIndexRange={ROOM_HTML_Z_INDEX_RANGE}><div className="speech-bubble">새 잎이 났네.</div></Html>}
+      {moveNotice && <Html position={[0, 2, 0]} center zIndexRange={ROOM_HTML_Z_INDEX_RANGE}><div className="speech-bubble">{t('여기로 이동할 수 없어요')}</div></Html>}
+      {selectedObject === 'plant' && characterState === 'interacting' && <Html position={[0, 2, 0]} center zIndexRange={ROOM_HTML_Z_INDEX_RANGE}><div className="speech-bubble">{t('새 잎이 났네.')}</div></Html>}
       {debugAnchors && <mesh position={[0, .8, 0]}><boxGeometry args={[.62, 1.68, .48]} /><meshBasicMaterial color="#3b82f6" wireframe depthTest={false} /></mesh>}
     </group>
   </group>

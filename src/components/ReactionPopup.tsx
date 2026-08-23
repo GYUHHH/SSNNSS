@@ -2,6 +2,7 @@ import { useRoomStore } from '../store'
 import { myVisitorId } from '../services/social'
 import { timeAgo } from '../services/timeAgo'
 import CommentAvatar, { CommentName } from './CommentAvatar'
+import { t } from '../services/i18n'
 
 // The badge's popup: everything other people left on this object — like count and their comments.
 export default function ReactionPopup() {
@@ -15,7 +16,7 @@ export default function ReactionPopup() {
   const comments = ids.flatMap((id) => (guestbook[id] ?? []).filter((comment) => comment.visitor && comment.visitor !== mine))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setReactionTarget(null)}>
-    <section className="reaction-card comment-ui" aria-label="반응">
+    <section className="reaction-card comment-ui" aria-label={t('반응')}>
       <strong>{item?.name ?? ''}</strong>
       {likeCount > 0 && <p className="reaction-likes">♥ {likeCount}</p>}
       {comments.length > 0 && <div className="reaction-comments">
