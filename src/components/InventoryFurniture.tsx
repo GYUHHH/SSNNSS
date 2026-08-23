@@ -1,4 +1,4 @@
-import { Billboard, Html, RoundedBox, Text } from '@react-three/drei'
+import { Billboard, Html, RoundedBox, Text, useCursor } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useMemo } from 'react'
 import { CanvasTexture, CatmullRomCurve3, Color, EdgesGeometry, MathUtils, Object3D, Path, Shape, ShapeGeometry, SRGBColorSpace, type Texture, TextureLoader, Vector3, VideoTexture, type PointLight } from 'three'
@@ -608,27 +608,36 @@ function BlobSculpture({ preview }: { preview: boolean }) {
   </>
 }
 
-// 기록장(책) 아이템: 세운 두꺼운 포토북(2x1) — 세로 책등이 정면, 표지 두 장이 양옆에서 ㄷ자로 감싼다.
-// 두께(x)가 길고 표지 폭(z)은 한 칸보다 살짝 얕게. 책등에 제목이 세로로 흐른다.
+// 기록장(책) 아이템: 세워진 두꺼운 책(2x1) — 큰 표지가 앞뒤, 왼쪽에 둥근 책등,
+// 위·오른쪽으로 속지 단면이 보인다. 표지 정면에 제목. 호버 시 커서 + 살짝 떠오름 + 표지색 발광.
 function DiaryBookItem({ itemId, preview }: { itemId: string; preview: boolean }) {
-  const { books } = useRoomStore()
+  const { books, readOnly } = useRoomStore()
+  const [hovered, setHovered] = useState(false)
+  useCursor(hovered && !preview)
   const book = books.find((value) => `inventory-book-${value.id}` === itemId)
   const title = book?.title ?? ''
   const titleFont = /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(title) ? PRETENDARD_WOFF : JONES_BOOK_OTF
   const opacity = preview ? .5 : 1
   const cover = book?.coverColor ?? '#718475'
+  const glow = hovered && !preview ? { emissive: cover, emissiveIntensity: .22 } : {}
+  const coverMat = () => <meshStandardMaterial color={cover} roughness={.75} transparent={preview} opacity={opacity} {...glow} />
   // 방문자에게 비공개 책은 자리만 차지하고 보이지 않는다 (visibleBooks 필터를 그대로 탄다)
-  if (!book && !preview) return <mesh visible={false} position={[0, .26, 0]}><boxGeometry args={[.68, .52, .3]} /><meshBasicMaterial /></mesh>
-  return <>
-    <mesh visible={false} position={[0, .26, 0]}><boxGeometry args={[.68, .52, .3]} /><meshBasicMaterial /></mesh>
-    {/* 속지: 표지 사이 종이 블록 — 뒤쪽이 페이지 단면 */}
-    <mesh castShadow position={[0, .25, -.012]}><boxGeometry args={[.6, .46, .27]} /><meshStandardMaterial color="#f4efe4" roughness={.9} transparent={preview} opacity={opacity} /></mesh>
-    {/* 표지: 양옆 큰 판 + 정면 세로 책등 (위에서 보면 ㄷ자) */}
-    <mesh castShadow position={[-.32, .26, -.005]}><boxGeometry args={[.02, .5, .29]} /><meshStandardMaterial color={cover} roughness={.75} transparent={preview} opacity={opacity} /></mesh>
-    <mesh castShadow position={[.32, .26, -.005]}><boxGeometry args={[.02, .5, .29]} /><meshStandardMaterial color={cover} roughness={.75} transparent={preview} opacity={opacity} /></mesh>
-    <mesh castShadow position={[0, .26, .145]}><boxGeometry args={[.66, .5, .02]} /><meshStandardMaterial color={cover} roughness={.75} transparent={preview} opacity={opacity} /></mesh>
-    {!!title && !preview && <Text userData={{ excludeFromFit: true }} font={titleFont} position={[0, .26, .157]} rotation={[0, 0, -Math.PI / 2]} fontSize={.07} maxWidth={.46} color="#faf6ee" anchorX="center" anchorY="middle">{title.length > 6 ? `${title.slice(0, 6)}…` : title}</Text>}
-  </>
+  if (!book && !preview) return <mesh visible={false} position={[0, .27, 0]}><boxGeometry args={[.68, .54, .3]} /><meshBasicMaterial /></mesh>
+  return <group position={[0, hovered && !preview ? .03 : 0, 0]}
+    onPointerOver={(event) => { if (readOnly || preview) return; event.stopPropagation(); setHovered(true) }}
+    onPointerOut={() => setHovered(false)}>
+    <mesh visible={false} position={[0, .27, 0]}><boxGeometry args={[.68, .54, .3]} /><meshBasicMaterial /></mesh>
+    {/* 속지: 표지보다 살짝 낮고 안쪽 — 위에서 단면이 보인다 */}
+    <mesh castShadow position={[.02, .25, 0]}><boxGeometry args={[.6, .48, .25]} /><meshStandardMaterial color="#f6f2e8" roughness={.9} transparent={preview} opacity={opacity} /></mesh>
+    {/* 속지 단면 줄 3개 */}
+    {[-.055, 0, .055].map((z) => <mesh key={z} position={[.02, .492, z]}><boxGeometry args={[.56, .004, .012]} /><meshStandardMaterial color="#d9d2c2" roughness={.9} transparent={preview} opacity={opacity} /></mesh>)}
+    {/* 표지: 앞·뒤 큰 판 + 왼쪽 책등(둥근 모서리) */}
+    <mesh castShadow position={[0, .26, .132]}><boxGeometry args={[.66, .52, .022]} />{coverMat()}</mesh>
+    <mesh castShadow position={[0, .26, -.132]}><boxGeometry args={[.66, .52, .022]} />{coverMat()}</mesh>
+    <mesh castShadow position={[-.325, .26, 0]}><boxGeometry args={[.03, .52, .286]} />{coverMat()}</mesh>
+    <mesh castShadow position={[-.332, .26, 0]} scale={[.6, 1, 1]}><cylinderGeometry args={[.143, .143, .52, 12]} />{coverMat()}</mesh>
+    {!!title && !preview && <Text userData={{ excludeFromFit: true }} font={titleFont} position={[0, .3, .144]} fontSize={.08} maxWidth={.56} color="#faf6ee" anchorX="center" anchorY="middle">{title.length > 8 ? `${title.slice(0, 8)}…` : title}</Text>}
+  </group>
 }
 
 // Y2K 책상: 흰 쉘 + 파랑 인서트. 왼쪽 C자 다리, 오른쪽 서랍 페데스탈, 위 허치.
