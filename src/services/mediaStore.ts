@@ -195,22 +195,18 @@ function thumbnailAspect(id: string): Promise<number | null> {
 // videoAspect의 결과를 동기적으로 재사용하는 훅 — 3D 화면(InventoryFurniture)과 DOM 영상(WallVideoLayer)이
 // 같은 값을 보고 같은 크기로 맞아떨어진다. 아직 모르는 비율은 null(=액자 비율 그대로).
 const knownAspects: Record<string, number | null> = {}
-// undefined = 아직 조회 중(값 미정), null = 조회 끝났지만 알 수 없음(액자 비율 사용), number = 실제 비율.
-// iOS의 유튜브 모바일 플레이어는 로드 뒤 iframe 리사이즈에 영상을 재배치하지 않으므로, 소비자는
-// undefined 동안 iframe 마운트를 미뤄 "처음부터 최종 크기"로 띄워야 한다.
-export function useVideoAspectRatio(id: string | undefined): number | null | undefined {
-  const [aspect, setAspect] = useState<number | null | undefined>(id ? knownAspects[id] : null)
+export function useVideoAspectRatio(id: string | undefined): number | null {
+  const [aspect, setAspect] = useState<number | null>(id ? knownAspects[id] ?? null : null)
   useEffect(() => {
     if (!id) { setAspect(null); return }
     if (id in knownAspects) { setAspect(knownAspects[id]); return }
-    setAspect(undefined)
     let live = true
     void videoAspect(id).then((value) => { knownAspects[id] = value; if (live) setAspect(value) })
     return () => { live = false }
   }, [id])
   return id ? aspect : null
 }
-export const fitToVideo = (width: number, height: number, aspect: number | null | undefined): [number, number] => {
+export const fitToVideo = (width: number, height: number, aspect: number | null): [number, number] => {
   if (!aspect) return [width, height]
   const fitted = Math.min(width, height * aspect)
   return [fitted, fitted / aspect]

@@ -15,14 +15,6 @@ import { WALL_HTML_Z_INDEX_RANGE, WALL_VIDEO_ORDER } from '../services/renderOrd
 const VIDEO_MASK_VERTEX = 'void main(){gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}'
 const VIDEO_MASK_FRAGMENT = 'void main(){gl_FragColor=vec4(0.0);}'
 
-// ?vdbg=1 진단 모드: 실기기에서 iframe(div)의 실제 위치·수치를 눈으로 읽기 위한 옵트인 오버레이
-// 아이폰 크롬(CriOS)의 유튜브 플레이어는 영상을 div 높이의 ~9%만큼 아래로 밀어 그린다(위 띠 + 아래 잘림,
-// 같은 폰 사파리는 정상 — 실기기 vdbg 스크린샷 2종 실측 8.7~9.1%). 리사이즈 유도로는 안 고쳐져서,
-// 밀린 만큼 iframe을 위로 당기고 그만큼 높이를 더 줘 보이는 창에 영상만 정확히 담는다.
-const CRIOS_SHIFT_RATIO = /CriOS/.test(typeof navigator === 'undefined' ? '' : navigator.userAgent) ? .09 : 0
-
-const VIDEO_DEBUG = typeof location !== 'undefined' && new URLSearchParams(location.search).has('vdbg')
-
 // The playing iframes live here, OUTSIDE the furniture tree: entering edit mode swaps every piece into a
 // different wrapper, which would unmount an iframe rendered inside it and reload the video. This layer stays
 // mounted through mode changes and simply copies each frame's live world matrix per frame, so playback survives
@@ -146,20 +138,16 @@ function WallVideo({ frameId }: { frameId: string }) {
     holdTimer.current = setTimeout(() => { held.current = true; if (isVisiting()) openReactionPicker({ id: frameId, x: clientX, y: clientY }); else enterEditFurniture(frameId) }, 500)
   }
   if (!active) return null
-  // 비율 조회가 끝나기 전에 띄우면 나중에 리사이즈해야 하는데, iOS 유튜브 모바일 플레이어는
-  // 리사이즈에 영상을 재배치하지 않아 위에 배경 띠가 남는다 — 확정될 때까지 3D 포스터가 대신 보인다
-  if (videoRatio === undefined) return null
   return <FollowFit fitName={`fit:${item.id}`}>
     <group rotation={[0, 0, -item.rotation[1]]}>
       {/* 640 CSS px stretched to the frame: YouTube lays its controls out for a small player, so they read 2x bigger */}
       {/* drei sizes the punch-through occluder as a 1x1 plane under an orthographic camera, which clips the
           video to a 1-unit window — hand it a plane matching the screen so the hole covers the full frame */}
       <Html transform occlude="blending" renderOrder={WALL_VIDEO_ORDER} geometry={<planeGeometry args={[screenWidth, screenHeight]} />} material={<shaderMaterial side={2} depthWrite={false} vertexShader={VIDEO_MASK_VERTEX} fragmentShader={VIDEO_MASK_FRAGMENT} />} distanceFactor={400} position={[0, 0, .042]} scale={screenWidth / 640} zIndexRange={WALL_HTML_Z_INDEX_RANGE} style={{ pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
-        <div className="wall-video" data-frame-id={frameId} style={{ width: 640, height: divHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto', outline: VIDEO_DEBUG ? '6px solid red' : undefined }}>
-          {VIDEO_DEBUG && <div style={{ position: 'absolute', top: 0, left: 0, zIndex: 99, background: '#ff0', color: '#000', fontSize: 26, padding: 4, pointerEvents: 'none' }}>{`dh${divHeight} c${crop} r${videoRatio == null ? String(videoRatio) : videoRatio.toFixed(2)} vv${globalThis.visualViewport?.scale.toFixed(2) ?? '-'} ${navigator.userAgent.match(/(CriOS|Version)\/[\d.]+/)?.[0] ?? ''}`}</div>}
+        <div className="wall-video" data-frame-id={frameId} style={{ width: 640, height: divHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
           {/* controls=0 keeps YouTube's control bar from popping over the wall screen (it auto-shows on tab
               return); the expanded panel player keeps its controls */}
-          <ResumingIframe key={`${frameId}:${divHeight}`} videoId={videoId} frameId={frameId} extra="autoplay=1&playsinline=1&mute=1&controls=0" frameStyle={{ ...(crop ? { width: 640, top: -crop, height: divHeight + crop * 2 } : { width: 640, top: -Math.round(divHeight * CRIOS_SHIFT_RATIO), height: divHeight + Math.round(divHeight * CRIOS_SHIFT_RATIO) }), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} />
+          <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra="autoplay=1&playsinline=1&mute=1&controls=0" frameStyle={{ ...(crop ? { width: 640, top: -crop, height: divHeight + crop * 2 } : { width: 640, height: divHeight }), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} />
           {/* the two shields carry the open-the-panel click and together cover everything but YouTube's own
               skip-ad corner, which is left live so the visitor can press it themselves */}
           {mode !== 'edit' && ['top', 'rest'].map((part) => <div key={part} className={`wall-video-shield ${part}`}
