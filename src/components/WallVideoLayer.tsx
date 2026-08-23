@@ -123,7 +123,7 @@ function WallVideo({ frameId }: { frameId: string }) {
   const fitSynced = useRef(false)
   const corners = useRef([new Vector3(), new Vector3(), new Vector3()])
   const previousTransform = useRef('')
-  useFrame(({ camera, size }) => {
+  useFrame(({ camera, gl }) => {
     if (!screen.current || !element.current) { fitSynced.current = false; return }
     if (!fitSynced.current) { element.current.style.visibility = 'hidden'; return }
     screen.current.updateWorldMatrix(true, false)
@@ -131,7 +131,10 @@ function WallVideo({ frameId }: { frameId: string }) {
     topLeft.set(-screenWidth / 2, screenHeight / 2, 0).applyMatrix4(screen.current.matrixWorld).project(camera)
     topRight.set(screenWidth / 2, screenHeight / 2, 0).applyMatrix4(screen.current.matrixWorld).project(camera)
     bottomLeft.set(-screenWidth / 2, -screenHeight / 2, 0).applyMatrix4(screen.current.matrixWorld).project(camera)
-    const point = (value: Vector3) => [(value.x + 1) * size.width / 2, (1 - value.y) * size.height / 2] as const
+    // Use the canvas's live size from the first frame. R3F's cached size can briefly describe the pre-layout
+    // viewport on initial entry; a later room change caused a resize and only then made the video follow correctly.
+    const rect = gl.domElement.getBoundingClientRect()
+    const point = (value: Vector3) => [(value.x + 1) * rect.width / 2, (1 - value.y) * rect.height / 2] as const
     const [tl, tr, bl] = [point(topLeft), point(topRight), point(bottomLeft)]
     const transform = `matrix(${(tr[0] - tl[0]) / 640},${(tr[1] - tl[1]) / 640},${(bl[0] - tl[0]) / divHeight},${(bl[1] - tl[1]) / divHeight},${tl[0]},${tl[1]})`
     if (transform !== previousTransform.current) { previousTransform.current = transform; element.current.style.transform = transform }
