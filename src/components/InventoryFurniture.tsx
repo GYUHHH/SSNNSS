@@ -833,16 +833,17 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     const [w, h] = VIDEO_FRAME_SIZES[item.type] ?? VIDEO_FRAME_SIZES['video-frame-3']
     const rotationY = item.rotation?.[1] ?? 0
     const turned = Math.abs(Math.round(rotationY / (Math.PI / 2))) % 2 === 1
+    const frameLoading = !!frameLookup && frameDisplay === undefined
     // 화면·백킹은 걸린 영상의 비율로 줄어든다 — 16:9든 세로 쇼츠든 레터박스 없이 꽉 찬다
     const [screenWidth, screenHeight] = fitToVideo(turned ? h : w, turned ? w : h, frameDisplay?.aspect ?? clipAspect)
     return <>
       {/* 크기 기준용 투명 풀사이즈 박스: FittedMesh는 이 바운즈로 맞춘다 — 화면이 영상 비율로 줄어도
           맞춤 스케일이 흔들리지 않고, DOM 화면만 남았을 때 바운즈 0으로 터지는 사고(실제 발생)도 막는다 */}
       <mesh visible={false} position={[0, 0, .01]}><boxGeometry args={[w, h, .02]} /><meshBasicMaterial /></mesh>
-      <group rotation={[0, 0, -rotationY]}>
+      {!frameLoading && <group rotation={[0, 0, -rotationY]}>
         <mesh position={[0, 0, .01]}><boxGeometry args={[screenWidth, screenHeight, .02]} />{mat('#20262b')}</mesh>
         {preview ? <mesh position={[0, 0, .042]}><planeGeometry args={[screenWidth, screenHeight]} />{mat('#20262b')}</mesh> : <VideoScreen id={item.id} width={screenWidth} height={screenHeight} posterId={frameLookup} thumbnailCrop={frameDisplay?.thumbnailCrop} />}
-      </group>
+      </group>}
     </>
   }
   if (item.type === 'cd-player') return <>
@@ -1305,7 +1306,7 @@ function VideoScreen({ id, width, height, posterId, thumbnailCrop }: { id: strin
         setTexture(video)
       }
     }
-    if (posterId) new TextureLoader().setCrossOrigin('anonymous').loadAsync(`https://img.youtube.com/vi/${posterId}/hqdefault.jpg`).then((poster) => {
+    if (posterId) new TextureLoader().setCrossOrigin('anonymous').loadAsync(`https://img.youtube.com/vi/${posterId}/mqdefault.jpg`).then((poster) => {
       if (!live) return
       poster.colorSpace = SRGBColorSpace
       if (thumbnailCrop) {

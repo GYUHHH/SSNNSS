@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import { isReadingBundle, isVisiting, readStored, uploadMedia, writeStored } from './social'
 import { onPlaylistNowPlaying, playlistNowPlaying, playlistVideoResume } from './ytResume'
+import { detectVideoContent, fittedRect, fullCrop, type VideoCrop } from './videoCrop'
+import { loadOrders, onOrderChange } from './playlistOrder'
+
+export { detectVideoContent }
+export type { VideoCrop }
 
 // Video clips are far too big for localStorage (a few MB blows the whole quota and would take the room layout
 // down with it), so they live in IndexedDB as blobs keyed by the frame's furniture id.
@@ -140,54 +145,15 @@ export const decodeTarget = (stored: string): YouTubeTarget => {
   return { type: 'playlist', playlistId, videoId: videoId || undefined, index: index ? Number(index) : undefined }
 }
 
-export type VideoCrop = { left: number; top: number; right: number; bottom: number }
 export type VideoDisplayMeta = { aspect: number; thumbnailCrop: VideoCrop; playerCrop: VideoCrop }
-const fullCrop: VideoCrop = { left: 0, top: 0, right: 1, bottom: 1 }
 const displayCache: Record<string, Promise<VideoDisplayMeta | null>> = {}
-const knownDisplays: Record<string, VideoDisplayMeta | null> = {}
-
-const fittedRect = (outerAspect: number, innerAspect: number): VideoCrop => {
-  if (innerAspect > outerAspect) {
-    const height = outerAspect / innerAspect
-    return { left: 0, right: 1, top: (1 - height) / 2, bottom: (1 + height) / 2 }
-  }
-  const width = innerAspect / outerAspect
-  return { left: (1 - width) / 2, right: (1 + width) / 2, top: 0, bottom: 1 }
-}
-
-// YouTube's hq thumbnail is always 4:3. Detect only symmetric neutral edge bands, so a genuinely dark scene is
-// not mistaken for letterbox. The returned rectangle is also reused as the preview texture's UV crop.
-export function detectVideoContent(data: Uint8ClampedArray, width: number, height: number): VideoCrop {
-  const pixel = (x: number, y: number) => { const at = (y * width + x) * 4; return [data[at], data[at + 1], data[at + 2]] as const }
-  const neutral = ([r, g, b]: readonly number[]) => Math.max(r, g, b) - Math.min(r, g, b) < 18 && (Math.max(r, g, b) < 42 || Math.min(r, g, b) > 215)
-  const similar = (a: readonly number[], b: readonly number[]) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) < 58
-  const scan = (side: 'top' | 'right' | 'bottom' | 'left') => {
-    const vertical = side === 'top' || side === 'bottom'
-    const limit = Math.floor((vertical ? height : width) * .3)
-    const reference = vertical
-      ? pixel(Math.floor(width / 2), side === 'top' ? 0 : height - 1)
-      : pixel(side === 'left' ? 0 : width - 1, Math.floor(height / 2))
-    if (!neutral(reference)) return 0
-    let amount = 0
-    for (; amount < limit; amount++) {
-      let alike = 0, samples = 0
-      const length = vertical ? width : height
-      for (let along = 0; along < length; along += 4) {
-        const value = vertical
-          ? pixel(along, side === 'top' ? amount : height - 1 - amount)
-          : pixel(side === 'left' ? amount : width - 1 - amount, along)
-        if (similar(value, reference)) alike++
-        samples++
-      }
-      if (alike / samples < .56) break
-    }
-    return amount
-  }
-  let top = scan('top'), right = scan('right'), bottom = scan('bottom'), left = scan('left')
-  // Letterbox is symmetric. Reject a one-sided solid edge instead of shaving legitimate picture content.
-  if (Math.abs(top - bottom) > height * .035 || Math.min(top, bottom) < 2) top = bottom = 0
-  if (Math.abs(left - right) > width * .035 || Math.min(left, right) < 2) left = right = 0
-  return { left: left / width, top: top / height, right: 1 - right / width, bottom: 1 - bottom / height }
+const displayStorageKey = 'my-room-video-display-v1'
+const knownDisplays: Record<string, VideoDisplayMeta | null> = (() => {
+  try { return JSON.parse(localStorage.getItem(displayStorageKey) ?? '{}') } catch { return {} }
+})()
+const rememberDisplay = (id: string, meta: VideoDisplayMeta | null) => {
+  knownDisplays[id] = meta
+  try { localStorage.setItem(displayStorageKey, JSON.stringify(knownDisplays)) } catch { /* cache unavailable */ }
 }
 
 const loadImage = (src: string) => new Promise<HTMLImageElement | null>((resolve) => {
@@ -201,15 +167,15 @@ const loadImage = (src: string) => new Promise<HTMLImageElement | null>((resolve
 export function videoDisplayMeta(id: string): Promise<VideoDisplayMeta | null> {
   return displayCache[id] ??= Promise.all([
     fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}&format=json`).then((response) => response.ok ? response.json() : null).catch(() => null),
-    loadImage(`https://i.ytimg.com/vi/${id}/hqdefault.jpg`),
+    loadImage(`https://i.ytimg.com/vi/${id}/mqdefault.jpg`),
     loadImage(`https://i.ytimg.com/vi/${id}/oardefault.jpg`),
   ]).then(([oembed, thumbnail, portrait]) => {
-    const embedAspect = portrait && portrait.naturalHeight > portrait.naturalWidth
+    const fallbackAspect = portrait && portrait.naturalHeight > portrait.naturalWidth
       ? 9 / 16
       : oembed?.width > 0 && oembed?.height > 0 ? oembed.width / oembed.height : null
-    if (!thumbnail) return embedAspect ? { aspect: embedAspect, thumbnailCrop: fullCrop, playerCrop: fullCrop } : null
-    const expected = fittedRect(thumbnail.naturalWidth / thumbnail.naturalHeight, embedAspect ?? thumbnail.naturalWidth / thumbnail.naturalHeight)
-    let detected = expected
+    if (!thumbnail) return fallbackAspect ? { aspect: fallbackAspect, thumbnailCrop: fullCrop, playerCrop: fullCrop } : null
+    const outerAspect = thumbnail.naturalWidth / thumbnail.naturalHeight
+    let detected = fullCrop
     try {
       const canvas = document.createElement('canvas')
       canvas.width = thumbnail.naturalWidth; canvas.height = thumbnail.naturalHeight
@@ -217,27 +183,20 @@ export function videoDisplayMeta(id: string): Promise<VideoDisplayMeta | null> {
       if (context) {
         context.drawImage(thumbnail, 0, 0)
         detected = detectVideoContent(context.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height)
-        // If the detector found no bars, oEmbed still tells us which part of YouTube's 4:3 thumbnail contains
-        // the encoded picture. This is the common 16:9 case and removes its baked thumbnail bars.
-        if (detected.left === 0 && detected.top === 0 && detected.right === 1 && detected.bottom === 1) detected = expected
       }
-    } catch { detected = expected }
+    } catch { /* keep the full player */ }
+    const full = detected.left === 0 && detected.top === 0 && detected.right === 1 && detected.bottom === 1
+    if (full && portrait && portrait.naturalHeight > portrait.naturalWidth) detected = fittedRect(outerAspect, 9 / 16)
     const width = Math.max(.01, detected.right - detected.left)
     const height = Math.max(.01, detected.bottom - detected.top)
-    const expectedWidth = Math.max(.01, expected.right - expected.left)
-    const expectedHeight = Math.max(.01, expected.bottom - expected.top)
-    const playerCrop = {
-      left: Math.max(0, (detected.left - expected.left) / expectedWidth),
-      top: Math.max(0, (detected.top - expected.top) / expectedHeight),
-      right: Math.min(1, (detected.right - expected.left) / expectedWidth),
-      bottom: Math.min(1, (detected.bottom - expected.top) / expectedHeight),
-    }
-    return { aspect: (thumbnail.naturalWidth * width) / (thumbnail.naturalHeight * height), thumbnailCrop: detected, playerCrop }
+    const meta = { aspect: outerAspect * width / height, thumbnailCrop: detected, playerCrop: detected }
+    rememberDisplay(id, meta)
+    return meta
   })
 }
 
 export const videoAspect = (id: string) => videoDisplayMeta(id).then((meta) => meta?.aspect ?? null)
-export function useVideoDisplayMeta(id: string | undefined): VideoDisplayMeta | null {
+export function useVideoDisplayMeta(id: string | undefined): VideoDisplayMeta | null | undefined {
   const [result, setResult] = useState<{ id: string; meta: VideoDisplayMeta | null } | null>(
     id && id in knownDisplays ? { id, meta: knownDisplays[id] } : null,
   )
@@ -245,10 +204,10 @@ export function useVideoDisplayMeta(id: string | undefined): VideoDisplayMeta | 
     if (!id) return
     if (id in knownDisplays) { setResult({ id, meta: knownDisplays[id] }); return }
     let live = true
-    void videoDisplayMeta(id).then((value) => { knownDisplays[id] = value; if (live) setResult({ id, meta: value }) })
+    void videoDisplayMeta(id).then((value) => { rememberDisplay(id, value); if (live) setResult({ id, meta: value }) })
     return () => { live = false }
   }, [id])
-  return id && result?.id === id ? result.meta : null
+  return id && result?.id === id ? result.meta : undefined
 }
 
 const clipAspects: Record<string, number> = {}
@@ -278,7 +237,15 @@ export const fitToVideo = (width: number, height: number, aspect: number | null)
 // 따라가고(트랙 전환 시 재렌더), 일반 링크는 그 자체다.
 export function useFrameVideoId(frameId: string, link: string | undefined): string | undefined {
   const [, bump] = useState(0)
-  useEffect(() => (link?.startsWith('pl:') ? onPlaylistNowPlaying(() => bump((n) => n + 1)) : undefined), [frameId, link])
+  useEffect(() => {
+    if (!link?.startsWith('pl:')) return
+    const playlistId = link.slice(3).split('@')[0]
+    const preload = () => loadOrders()[playlistId]?.forEach((id) => { void videoDisplayMeta(id) })
+    preload()
+    const stopPlaying = onPlaylistNowPlaying(() => bump((n) => n + 1))
+    const stopOrder = onOrderChange((changed) => { if (changed === playlistId) preload() })
+    return () => { stopPlaying(); stopOrder() }
+  }, [frameId, link])
   if (!link) return undefined
   if (!link.startsWith('pl:')) return link
   return playlistNowPlaying[frameId] ?? playlistVideoResume[frameId] ?? link.split('@')[1]

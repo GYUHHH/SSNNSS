@@ -51,7 +51,7 @@ export async function captureRoom(): Promise<HTMLCanvasElement | null> {
     if (!videoId) continue
     const rect = element.getBoundingClientRect()
     if (rect.width < 4 || rect.height < 4) continue
-    const img = await loadImage(`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`)
+    const img = await loadImage(`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`)
     if (!img) continue
     const crop = (await videoDisplayMeta(videoId))?.thumbnailCrop ?? { left: 0, top: 0, right: 1, bottom: 1 }
     const dx = (rect.left - canvasRect.left) * scaleX

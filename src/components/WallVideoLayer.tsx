@@ -105,6 +105,13 @@ function WallVideo({ frameId }: { frameId: string }) {
   const turned = !!item && Math.abs(Math.round(item.rotation[1] / (Math.PI / 2))) % 2 === 1
   const aspectLookup = useFrameVideoId(frameId, videoId)
   const display = useVideoDisplayMeta(active ? aspectLookup : undefined)
+  const [displayReady, setDisplayReady] = useState(false)
+  useEffect(() => {
+    setDisplayReady(false)
+    if (aspectLookup && display === undefined) return
+    const frame = requestAnimationFrame(() => setDisplayReady(true))
+    return () => cancelAnimationFrame(frame)
+  }, [aspectLookup, display])
   const [screenWidth, screenHeight] = fitToVideo(turned ? dims[1] : dims[0], turned ? dims[0] : dims[1], display?.aspect ?? null)
   const divHeight = Math.round(640 * (screenHeight / screenWidth))
   const crop = display?.playerCrop ?? { left: 0, top: 0, right: 1, bottom: 1 }
@@ -139,7 +146,7 @@ function WallVideo({ frameId }: { frameId: string }) {
     // the hold-to-edit gesture in their own room.
     holdTimer.current = setTimeout(() => { held.current = true; if (isVisiting()) openReactionPicker({ id: frameId, x: clientX, y: clientY }); else enterEditFurniture(frameId) }, 500)
   }
-  if (!active) return null
+  if (!active || (aspectLookup && display === undefined) || !displayReady) return null
   return <FollowFit fitName={`fit:${item.id}`}>
     <group rotation={[0, 0, -item.rotation[1]]}>
       <group ref={screen} position={[0, 0, .042]}>
