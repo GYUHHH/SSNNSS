@@ -591,7 +591,7 @@ function InflatableSofa({ preview }: { preview: boolean }) {
 // 섞은 스타일화 근사. metalness는 .5 상한(환경맵 없어 그 이상은 검게 죽는다).
 function BlobSculpture({ preview }: { preview: boolean }) {
   const opacity = preview ? .5 : 1
-  const iri = (color: string) => <meshStandardMaterial color={color} metalness={.5} roughness={.07} transparent={preview} opacity={opacity} />
+  const iri = (color: string) => <meshPhysicalMaterial color={color} metalness={.5} roughness={.05} clearcoat={1} clearcoatRoughness={.08} transparent={preview} opacity={opacity} />
   const lobes: Array<[number, number, number, number, string, number?]> = [
     [-.28, .26, .05, .3, '#7d6fd0'], [.18, .24, .18, .28, '#c069b0'], [.3, .2, -.22, .24, '#5f8fd6'],
     [-.05, .22, -.28, .26, '#8f7bd8'], [-.34, .3, -.2, .2, '#b06fc4'],
@@ -603,7 +603,7 @@ function BlobSculpture({ preview }: { preview: boolean }) {
     [.4, .34, .2, .08], [.12, .38, .32, .07], [-.15, .68, -.2, .06], [.34, .16, .12, .06],
   ]
   return <>
-    {lobes.map(([x, y, z, r, color, stretch], index) => <mesh key={index} castShadow position={[x, y, z]} scale={[1, stretch ?? 1, 1]}><sphereGeometry args={[r, 20, 14]} />{iri(color)}</mesh>)}
+    {lobes.map(([x, y, z, r, color, stretch], index) => <mesh key={index} castShadow position={[x * .88, y === .26 || y === .24 || y === .2 || y === .22 || y === .3 ? y : y * .95, z * .88]} scale={[1, stretch ?? 1, 1]}><sphereGeometry args={[r, 20, 14]} />{iri(color)}</mesh>)}
     {balls.map(([x, y, z, r], index) => <mesh key={index} castShadow position={[x, y, z]}><sphereGeometry args={[r, 14, 10]} />{chromeMat(preview)}</mesh>)}
   </>
 }
