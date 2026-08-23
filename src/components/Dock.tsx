@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { MAX_ROOMS, useRoomStore } from '../store'
-import { enterRoom, isVisiting, myHandle } from '../services/social'
+import { enterRoom, isVisiting, myHandle, searchRooms } from '../services/social'
 import { explorerMode, isFollowingRoom, modeRoom, myInviteLink, onFollowsChange, rememberModeRoom, setExplorerMode, setFollowing } from '../services/follows'
 import { snapshotActiveFrames } from '../services/ytResume'
 import { shareRoom } from '../services/capture'
@@ -17,12 +18,45 @@ const PersonPlusIcon = () => icon(<><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0
 const PersonCheckIcon = () => icon(<><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><polyline points="17 11 19 13 23 9" /></>)
 const GlobeIcon = () => icon(<><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></>)
 const BoxIcon = () => icon(<><rect x="3" y="5" width="18" height="14" rx="1" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="10.5" y1="8.5" x2="13.5" y2="8.5" /><line x1="10.5" y1="15.5" x2="13.5" y2="15.5" /></>)
+const BackIcon = () => icon(<><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></>)
+const ForwardIcon = () => icon(<><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></>)
+const SearchIcon = () => icon(<><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.3" y2="16.3" /></>)
+const DotsIcon = () => icon(<><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" /></>)
+const ShopIcon = () => icon(<><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" /></>)
 
-// The one control strip: five round buttons, bottom centre. Everything the owner used to reach through the
-// scattered corner chrome (room chips, time buttons, inventory) lives here now; visitors just get the volume.
+// Full-page handle search: the room disappears behind a solid sheet, one input, live prefix matches from the
+// public directory; picking one walks straight into that room.
+function SearchOverlay({ onClose }: { onClose: () => void }) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<string[]>([])
+  useEffect(() => {
+    const q = query.trim()
+    if (!q) { setResults([]); return }
+    let dead = false
+    const timer = setTimeout(() => { void searchRooms(q).then((rows) => { if (!dead) setResults(rows) }) }, 300)
+    return () => { dead = true; clearTimeout(timer) }
+  }, [query])
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  const enter = (handle: string) => { onClose(); void enterRoom(handle) }
+  return createPortal(<div className="search-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+    <input autoFocus value={query} placeholder="아이디 검색" onChange={(event) => setQuery(event.target.value)}
+      onKeyDown={(event) => { if (event.key === 'Enter' && results.length) enter(results[0]) }} />
+    {results.length > 0 && <ul className="search-results">{results.map((handle) => <li key={handle}><button type="button" onClick={() => enter(handle)}>{handle}</button></li>)}</ul>}
+  </div>, document.body)
+}
+
+// The one control strip, bottom centre. Own room: back · search · explorer · sound · more (room settings, time,
+// inventory and shop unfold upward from the dots). Visiting: back · follow · explorer · sound · forward.
 export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventory: () => void; onDeleteRoom: (id: string) => void }) {
   const { rooms, activeRoomId, openRoom, createRoom, mode, timeOfDay, setTimeOfDay } = useRoomStore()
   const [roomsOpen, setRoomsOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [shopOpen, setShopOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [shareState, setShareState] = useState<'idle' | 'busy' | 'saved'>('idle')
   const share = () => {
@@ -74,35 +108,46 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
     const stop = onFollowsChange(refresh)
     return () => { live = false; stop() }
   }, [visiting, currentHandle])
-  const roomsItem = useRef<HTMLDivElement>(null)
+  const moreItem = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (!roomsOpen) return
-    const onOutside = (event: PointerEvent) => { if (!roomsItem.current?.contains(event.target as Node)) setRoomsOpen(false) }
+    if (!moreOpen) return
+    const onOutside = (event: PointerEvent) => { if (!moreItem.current?.contains(event.target as Node)) { setMoreOpen(false); setRoomsOpen(false) } }
     window.addEventListener('pointerdown', onOutside)
     return () => window.removeEventListener('pointerdown', onOutside)
-  }, [roomsOpen])
-  const owner = !visiting && mode === 'normal'
+  }, [moreOpen])
+  const normal = mode === 'normal'
+  const owner = !visiting && normal
   const cycleTime = () => setTimeOfDay(timeOfDay === 'day' ? 'evening' : timeOfDay === 'evening' ? 'night' : 'day')
   // the dock owns its pointer events completely — nothing may leak through to the room behind it
   const block = (event: { stopPropagation: () => void }) => event.stopPropagation()
   return <div className="dock" onPointerDown={block} onPointerMove={block} onPointerUp={block} onPointerOver={block} onClick={block} onWheel={block} onTouchStart={block} onTouchMove={block}>
-    {visiting && mode === 'normal' && !!myHandle() && <button type="button" className="dock-button" aria-label="내 방으로" onClick={() => { void enterRoom(myHandle() as string) }}><HouseIcon /></button>}
-    {owner && <div className="dock-item dock-fade" ref={roomsItem}>
-      {roomsOpen && <ul className="dock-pop" aria-label="내 방 목록">
-        {rooms.map((room) => <li key={room.id}>
-          <button type="button" className={room.id === activeRoomId ? 'active' : ''} onClick={() => { if (room.id !== activeRoomId) openRoom(room.id); setRoomsOpen(false) }}>{room.name}</button>
-          {rooms.length > 1 && <button type="button" className="dock-pop-delete" aria-label={`${room.name} 삭제`} onClick={() => { setRoomsOpen(false); onDeleteRoom(room.id) }}>×</button>}
-        </li>)}
-        {rooms.length < MAX_ROOMS && <li><button type="button" onClick={() => { createRoom(); setRoomsOpen(false) }}>+ 새 방 만들기</button></li>}
-        <li><button type="button" onClick={copyInvite}>{copied ? '복사됨' : '초대 링크 복사'}</button></li>
-        <li><button type="button" onClick={share}>{shareState === 'busy' ? '캡처 중' : shareState === 'saved' ? '저장됨 · 링크 복사됨' : '방 공유'}</button></li>
-      </ul>}
-      <button type="button" className="dock-button" aria-label="내 방 목록" onClick={() => setRoomsOpen((value) => !value)}><HouseIcon /></button>
-    </div>}
-    {owner && <button type="button" className="dock-button" aria-label="시간대 변경" onClick={cycleTime}>{timeOfDay === 'day' ? <SunIcon /> : timeOfDay === 'evening' ? <SunsetIcon /> : <MoonIcon />}</button>}
-    {visiting && mode === 'normal' && !!myHandle() && !!currentHandle && <button type="button" style={{ visibility: followed === null ? 'hidden' : 'visible' }} className={followed ? 'dock-button following' : 'dock-button'} aria-label={followed ? '팔로우 해제' : '팔로우'} onClick={() => { if (followed === null) return; setFollowed(!followed); void setFollowing(currentHandle, !followed).then((ok) => { if (!ok) setFollowed(followed) }) }}>{followed ? <PersonCheckIcon /> : <PersonPlusIcon />}</button>}
-    {mode === 'normal' && !!myHandle() && <button type="button" className={explore === 'home' ? 'dock-button' : 'dock-button following'} aria-label={explore === 'home' ? '팔로우' : '탐색'} onClick={toggleExplorer}>{explore === 'home' ? <PersonIcon /> : <GlobeIcon />}</button>}
+    {normal && <button type="button" className="dock-button" aria-label="이전" onClick={() => history.back()}><BackIcon /></button>}
+    {owner && <button type="button" className="dock-button" aria-label="검색" onClick={() => setSearchOpen(true)}><SearchIcon /></button>}
+    {visiting && normal && !!myHandle() && !!currentHandle && <button type="button" style={{ visibility: followed === null ? 'hidden' : 'visible' }} className={followed ? 'dock-button following' : 'dock-button'} aria-label={followed ? '팔로우 해제' : '팔로우'} onClick={() => { if (followed === null) return; setFollowed(!followed); void setFollowing(currentHandle, !followed).then((ok) => { if (!ok) setFollowed(followed) }) }}>{followed ? <PersonCheckIcon /> : <PersonPlusIcon />}</button>}
+    {normal && !!myHandle() && <button type="button" className={explore === 'home' ? 'dock-button' : 'dock-button following'} aria-label={explore === 'home' ? '팔로우' : '탐색'} onClick={toggleExplorer}>{explore === 'home' ? <PersonIcon /> : <GlobeIcon />}</button>}
     <span className="dock-slot"><SoundHub /></span>
-    {owner && <button type="button" className="dock-button dock-fade" aria-label="보관함" onClick={onOpenInventory}><BoxIcon /></button>}
+    {owner && <div className="dock-item dock-fade" ref={moreItem}>
+      {moreOpen && <div className="dock-stack">
+        <div className="dock-item">
+          {roomsOpen && <ul className="dock-pop dock-pop-side" aria-label="내 방 목록">
+            {rooms.map((room) => <li key={room.id}>
+              <button type="button" className={room.id === activeRoomId ? 'active' : ''} onClick={() => { if (room.id !== activeRoomId) openRoom(room.id); setRoomsOpen(false) }}>{room.name}</button>
+              {rooms.length > 1 && <button type="button" className="dock-pop-delete" aria-label={`${room.name} 삭제`} onClick={() => { setRoomsOpen(false); onDeleteRoom(room.id) }}>×</button>}
+            </li>)}
+            {rooms.length < MAX_ROOMS && <li><button type="button" onClick={() => { createRoom(); setRoomsOpen(false) }}>+ 새 방 만들기</button></li>}
+            <li><button type="button" onClick={copyInvite}>{copied ? '복사됨' : '초대 링크 복사'}</button></li>
+            <li><button type="button" onClick={share}>{shareState === 'busy' ? '캡처 중' : shareState === 'saved' ? '저장됨 · 링크 복사됨' : '방 공유'}</button></li>
+          </ul>}
+          <button type="button" className="dock-button" aria-label="방설정" onClick={() => setRoomsOpen((value) => !value)}><HouseIcon /></button>
+        </div>
+        <button type="button" className="dock-button" aria-label="시간대 변경" onClick={cycleTime}>{timeOfDay === 'day' ? <SunIcon /> : timeOfDay === 'evening' ? <SunsetIcon /> : <MoonIcon />}</button>
+        <button type="button" className="dock-button" aria-label="보관함" onClick={() => { setMoreOpen(false); onOpenInventory() }}><BoxIcon /></button>
+        <button type="button" className="dock-button" aria-label="상점" onClick={() => { setMoreOpen(false); setShopOpen(true) }}><ShopIcon /></button>
+      </div>}
+      <button type="button" className="dock-button" aria-label="더보기" onClick={() => { setMoreOpen((value) => { if (value) setRoomsOpen(false); return !value }) }}><DotsIcon /></button>
+    </div>}
+    {visiting && normal && <button type="button" className="dock-button" aria-label="다음" onClick={() => history.forward()}><ForwardIcon /></button>}
+    {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} />}
+    {shopOpen && createPortal(<div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setShopOpen(false)}><section className="shop-panel"><h2>상점</h2></section></div>, document.body)}
   </div>
 }

@@ -52,11 +52,12 @@ export default function SoundHub() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
-  if (!frames.length || mode === 'edit') return null
+  // the button itself stays even with nothing playing — only edit mode hides it
+  if (mode === 'edit') return null
   const anySound = frames.some((item) => !muted(item.id))
   const toggle = (id: string, muted: boolean) => setFrameMuted(id, !muted)
   return <div ref={hub} className="sound-hub">
-    {open && <ul className="sound-hub-list" aria-label="영상 소리">
+    {open && frames.length > 0 && <ul className="sound-hub-list" aria-label="영상 소리">
       {frames.map((item, index) => {
         const isMuted = muted(item.id)
         return <li key={item.id}>

@@ -530,6 +530,17 @@ export async function fetchRoomDirectory(limit = 1000): Promise<string[]> {
   } catch { return [] }
 }
 
+// Handle prefix search over the same public directory, for the dock's search overlay.
+export async function searchRooms(prefix: string, limit = 20): Promise<string[]> {
+  const clean = prefix.toLowerCase().replace(/[^a-z0-9_-]/g, '')
+  if (!clean) return []
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?select=handle&handle=ilike.${clean}*&order=updated_at.desc&limit=${limit}`, { headers })
+    const rows = await response.json()
+    return response.ok && Array.isArray(rows) ? rows.map((row) => row?.handle).filter((handle): handle is string => typeof handle === 'string' && !!handle) : []
+  } catch { return [] }
+}
+
 // Changes the visited room without reloading the page. RoomProvider's existing rehydrate hook rereads the new
 // bundle, so the Canvas and camera stay mounted while furniture, media and interactions switch underneath it.
 // Each room entered becomes its own history entry, so back and forward walk the rooms visited — that is what the
