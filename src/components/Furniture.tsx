@@ -1,8 +1,10 @@
-import { type ReactNode, useLayoutEffect, useRef, useState } from 'react'
-import { Box3, type Group, type Mesh, type Object3D, Vector3 } from 'three'
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
+import { useCursor } from '@react-three/drei'
+import { Box3, BufferGeometry, Float32BufferAttribute, type Group, type Mesh, type Object3D, type OrthographicCamera, Plane, Vector3 } from 'three'
 import Interactive from './Interactive'
-import { type FurnitureId, type FurnitureItem, resolutionFor, useRoomStore } from '../store'
-import { fitMeshToFootprint, resolveSurface, SURFACED_TYPES, wallSurfaces, withResolution } from '../services/roomGrid'
+import { type FurnitureId, type FurnitureItem, isResizableWallItem, resolutionFor, useRoomStore } from '../store'
+import { fitMeshToFootprint, resolveSurface, SURFACED_TYPES, wallSurfaces, withResolution, type PlacementSurface, type ResizeCorner } from '../services/roomGrid'
 import { ROOM_OBJECT_ORDER, WALL_BACKDROP_ORDER } from '../services/renderOrder'
 
 // Every room in the explorer names its furniture identically — each one has a `desk` — so a scene-wide lookup for
@@ -62,7 +64,7 @@ export function FittedMesh({ item, children }: { item: FurnitureItem; children: 
 }
 
 function EditableFurniture({ id, children }: { id: FurnitureId; children: ReactNode }) {
-  const { readOnly, furniture, selectedFurnitureId, movingFurnitureId, selectFurniture, beginMove } = useRoomStore()
+  const { readOnly, furniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, selectFurniture, beginMove } = useRoomStore()
   const item = furniture.find((value) => value.id === id)!
   const selected = selectedFurnitureId === id
   const surface = resolveSurface(furniture, item.surfaceId)
@@ -71,6 +73,57 @@ function EditableFurniture({ id, children }: { id: FurnitureId; children: ReactN
     onPointerDown={(event) => { if (readOnly) return; event.stopPropagation(); selectFurniture(id); beginMove(id) }}
     onClick={(event) => { if (!readOnly) event.stopPropagation() }}>
     {children}
+    {selected && movingFurnitureId !== id && surface && isResizableWallItem(item) && <ResizeBounds item={item} surface={withResolution(surface, resolutionFor(item))} valid={selectedPlacementValid} />}
     {selected && movingFurnitureId !== id && item.category !== 'wallItem' && <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}><ringGeometry args={[Math.max(width, height) * .22, Math.max(width, height) * .3, 28]} /><meshBasicMaterial color="#fff2a5" transparent opacity={0.9} /></mesh>}
+  </group>
+}
+
+const CORNERS: Array<{ corner: ResizeCorner; x: number; y: number; cursor: string }> = [
+  { corner: 'northWest', x: -1, y: 1, cursor: 'nwse-resize' }, { corner: 'northEast', x: 1, y: 1, cursor: 'nesw-resize' },
+  { corner: 'southWest', x: -1, y: -1, cursor: 'nesw-resize' }, { corner: 'southEast', x: 1, y: -1, cursor: 'nwse-resize' },
+]
+
+function ResizeBounds({ item, surface, valid }: { item: FurnitureItem; surface: PlacementSurface; valid: boolean }) {
+  const [width, height] = fitMeshToFootprint(surface, item.footprint)
+  const geometry = useMemo(() => new BufferGeometry().setAttribute('position', new Float32BufferAttribute([
+    -width / 2, -height / 2, 0, width / 2, -height / 2, 0, width / 2, -height / 2, 0, width / 2, height / 2, 0,
+    width / 2, height / 2, 0, -width / 2, height / 2, 0, -width / 2, height / 2, 0, -width / 2, -height / 2, 0,
+  ], 3)), [width, height])
+  useEffect(() => () => geometry.dispose(), [geometry])
+  return <group rotation={wallSurfaces[item.wallId ?? 'leftWall'].rotation}>
+    <group rotation={[0, 0, item.rotation[1]]} position={[0, 0, .09]} renderOrder={10000}>
+      <lineSegments geometry={geometry}><lineBasicMaterial color={valid ? '#222222' : '#d93025'} depthTest={false} transparent opacity={.9} /></lineSegments>
+      {CORNERS.map(({ corner, x, y, cursor }) => <ResizeHandle key={corner} id={item.id} corner={corner} cursor={cursor} surface={surface} position={[x * width / 2, y * height / 2, .01]} />)}
+    </group>
+  </group>
+}
+
+function ResizeHandle({ id, corner, cursor, surface, position }: { id: FurnitureId; corner: ResizeCorner; cursor: string; surface: PlacementSurface; position: [number, number, number] }) {
+  const { beginResize, resizeFurniture, endResize } = useRoomStore()
+  const { camera, size } = useThree(); const group = useRef<Group>(null); const dragging = useRef(false); const [hovered, setHovered] = useState(false)
+  useCursor(hovered || dragging.current, cursor)
+  const plane = useMemo(() => new Plane().setFromNormalAndCoplanarPoint(new Vector3(...surface.normal), new Vector3(...surface.position)), [surface])
+  const point = useMemo(() => new Vector3(), [])
+  useFrame(() => {
+    if (!group.current) return
+    const ortho = camera as OrthographicCamera; const worldPerPixel = (ortho.top - ortho.bottom) / Math.max(1, ortho.zoom * size.height)
+    group.current.scale.setScalar(worldPerPixel)
+  })
+  const finish = (event: ThreeEvent<PointerEvent>) => {
+    if (!dragging.current) return
+    event.stopPropagation(); dragging.current = false; endResize(id)
+    const target = event.target as unknown as { releasePointerCapture?: (pointerId: number) => void }
+    target.releasePointerCapture?.(event.pointerId)
+  }
+  return <group ref={group} position={position}>
+    <mesh scale={5} renderOrder={10001}><circleGeometry args={[1, 20]} /><meshBasicMaterial color="#ffffff" depthTest={false} toneMapped={false} /></mesh>
+    <mesh renderOrder={10002}><ringGeometry args={[4, 5, 20]} /><meshBasicMaterial color="#222222" depthTest={false} toneMapped={false} /></mesh>
+    <mesh scale={22} renderOrder={10003}
+      onPointerOver={(event) => { event.stopPropagation(); setHovered(true) }} onPointerOut={() => setHovered(false)}
+      onPointerDown={(event) => { event.stopPropagation(); dragging.current = true; beginResize(id); (event.target as unknown as { setPointerCapture: (pointerId: number) => void }).setPointerCapture(event.pointerId) }}
+      onPointerMove={(event) => { if (!dragging.current) return; event.stopPropagation(); const hit = event.ray.intersectPlane(plane, point); if (hit) resizeFurniture(id, corner, [hit.x, hit.y, hit.z]) }}
+      onPointerUp={finish} onPointerCancel={finish}>
+      <circleGeometry args={[1, 20]} /><meshBasicMaterial transparent opacity={0} depthTest={false} depthWrite={false} />
+    </mesh>
   </group>
 }

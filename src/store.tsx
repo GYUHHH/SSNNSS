@@ -1,6 +1,6 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { createSlot, deleteSlot, loadArtworks, loadProfile, saveProfile, type Profile, loadBooks, loadSlots, placedInOtherSlots, saveArtworks, saveBooks, saveSlotItems, saveSlotStyle, setActiveSlot, slotItems, slotStyle, type FurniturePlacement, type RoomStyle } from './services/roomLayoutStorage'
-import { canPlaceItem, cellsFor, clampGrid, floorSurface, GRID_COUNT, gridToWorld, isOwnedSurfaceId, nearestWallId, normalizedCells, ownerIdOf, resolveSurface, withResolution, type Footprint, type GridPosition, type PlacementItem, type PlacementResolution, type PlacementSurface, type SurfaceId, type SurfaceKind, type WallId, worldToGrid } from './services/roomGrid'
+import { canPlaceItem, cellsFor, clampGrid, floorSurface, GRID_COUNT, gridToWorld, isOwnedSurfaceId, nearestWallId, normalizedCells, ownerIdOf, resizeFromCorner, resolveSurface, withResolution, type Footprint, type GridPosition, type PlacementItem, type PlacementResolution, type PlacementSurface, type ResizeCorner, type SurfaceId, type SurfaceKind, type WallId, worldToGrid, worldToGridBoundary } from './services/roomGrid'
 import { characterPosition } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
 import { loadOrders } from './services/playlistOrder'
@@ -36,6 +36,7 @@ export type Visibility = 'public' | 'private'
 export type RoomMode = 'normal' | 'edit'
 export type FurnitureCategory = 'floorFurniture' | 'surfaceItem' | 'wallItem' | 'decoration'
 export type FurnitureItem = FurniturePlacement & PlacementItem & { id: FurnitureId; name: string; position: [number, number, number]; gridZ: number; wallId?: WallId; footprint: Footprint; category: FurnitureCategory; movable: boolean; interactable: boolean; size: [number, number]; allowedSurfaces: SurfaceKind[] }
+export const isResizableWallItem = (item: Pick<FurnitureItem, 'type' | 'category'>) => item.category === 'wallItem' && (item.type === 'photo' || item.type === 'poster' || item.type === 'animated-poster' || item.type.startsWith('photo-frame') || item.type.startsWith('video-frame') || item.type.startsWith('wall-art'))
 export type InventoryCategory = '전체' | '가구' | '조명' | '식물' | '벽장식' | '소품'
 export type EntryComment = { id: string; name: string; text: string; createdAt: string }
 export type Entry = { id: string; bookId: string; title: string; content: string; images: string[]; date: string; visibility: Visibility; createdAt: string; updatedAt: string; comments: EntryComment[] }
@@ -148,7 +149,7 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
   { type: 'guestbook', name: '방명록', category: 'wallItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'notification-box', name: '알림함', category: 'wallItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'profile-board', name: '내 프로필', category: 'wallItem', movable: true, interactable: true, footprint: { width: 2, depth: 3 }, size: [2, 3], scale: 1, allowedSurfaces: ['wall'] },
-  { type: 'video-frame-3', name: '영상 액자 4×3', category: 'wallItem', movable: true, interactable: true, footprint: { width: 4, depth: 3 }, size: [4, 3], scale: 1, allowedSurfaces: ['wall'] },
+  { type: 'video-frame-3', name: '영상 액자', category: 'wallItem', movable: true, interactable: true, footprint: { width: 4, depth: 3 }, size: [4, 3], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'video-frame-5', name: '영상 액자 6×5', category: 'wallItem', movable: true, interactable: true, footprint: { width: 6, depth: 5 }, size: [6, 5], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'video-frame-4', name: '영상 액자 5×4', category: 'wallItem', movable: true, interactable: true, footprint: { width: 5, depth: 4 }, size: [5, 4], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'glass-shelf', name: '투명 선반', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
@@ -171,7 +172,7 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
   { type: 'mug', name: '머그컵', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
   { type: 'book-prop', name: '책', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
   { type: 'speaker', name: '스피커', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
-  { type: 'photo-frame', name: '사진 액자 1×1', category: 'wallItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['wall'] },
+  { type: 'photo-frame', name: '사진 액자', category: 'wallItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'photo-frame-2', name: '사진 액자 2×2', category: 'wallItem', movable: true, interactable: true, footprint: { width: 2, depth: 2 }, size: [2, 2], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'photo-frame-3', name: '사진 액자 3×3', category: 'wallItem', movable: true, interactable: true, footprint: { width: 3, depth: 3 }, size: [3, 3], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'photo-frame-4', name: '사진 액자 4×4', category: 'wallItem', movable: true, interactable: true, footprint: { width: 4, depth: 4 }, size: [4, 4], scale: 1, allowedSurfaces: ['wall'] },
@@ -365,7 +366,7 @@ type RoomStore = {
   mode: RoomMode; furniture: FurnitureItem[]; selectedFurnitureId: FurnitureId | null; selectedPlacementValid: boolean; movingFurnitureId: FurnitureId | null; preview: FurnitureItem | null; previewValid: boolean; previewDragging: boolean
   wallStyle: RoomStyle; floorStyle: string | undefined; styleTarget: StyleTarget | null; debugAnchors: boolean; moveNotice: boolean; floorTarget: [number, number, number] | null; musicTrack: string | null; setMusicTrack: (id: string | null) => void; musicVolume: number; setMusicVolume: (value: number) => void
   selectObject: (object: Exclude<SelectedObject, null>) => void; clearSelection: () => void; finishCharacterAction: (state: Exclude<CharacterState, 'walking'>, transform?: CharacterTransform) => void; moveCharacterTo: (position: [number, number, number]) => void; settleFloorMove: (reached: boolean, transform?: CharacterTransform) => void; openBook: (id: string) => void; closeBook: () => void; addBook: (title: string, visibility: Visibility) => string; deleteBook: (id: string) => void; updateBook: (id: string, patch: Partial<Pick<Book, 'title' | 'visibility' | 'shelf'>>) => void; addEntry: (bookId: string, entry: EntryDraft) => void; deleteEntry: (bookId: string, entryId: string) => void; updateEntry: (bookId: string, entryId: string, patch: Partial<Pick<Entry, 'content' | 'images' | 'visibility'>>) => void; toggleDebugAnchors: () => void
-  toggleEditMode: () => void; enterEditFurniture: (id: FurnitureId) => void; selectFurniture: (id: FurnitureId) => void; beginMove: (id: FurnitureId) => void; moveFurniture: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; placeFurnitureAt: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; endMove: () => void; rotateFurniture: () => void; removeFurniture: (id?: FurnitureId) => void; undoLayout: () => void; resetLayout: () => void; startPreview: (type: string, styleId?: string, restoreId?: string) => void; beginPreviewDrag: () => void; movePreview: (position: [number, number, number], surfaceId?: SurfaceId) => void; endPreviewDrag: () => void; placePreview: () => void; cancelPreview: () => void
+  toggleEditMode: () => void; enterEditFurniture: (id: FurnitureId) => void; selectFurniture: (id: FurnitureId) => void; beginMove: (id: FurnitureId) => void; moveFurniture: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; placeFurnitureAt: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; endMove: () => void; beginResize: (id: FurnitureId) => void; resizeFurniture: (id: FurnitureId, corner: ResizeCorner, position: [number, number, number]) => void; endResize: (id: FurnitureId) => void; rotateFurniture: () => void; removeFurniture: (id?: FurnitureId) => void; undoLayout: () => void; resetLayout: () => void; startPreview: (type: string, styleId?: string, restoreId?: string) => void; beginPreviewDrag: () => void; movePreview: (position: [number, number, number], surfaceId?: SurfaceId) => void; endPreviewDrag: () => void; placePreview: () => void; cancelPreview: () => void
   openStyleTarget: (target: StyleTarget) => void; setWallStyle: (wallId: WallId, presetId: string) => void; setFloorStyle: (presetId: string) => void; setFurnitureStyle: (id: FurnitureId, presetId: string) => void
 }
 export type TimeOfDay = 'day' | 'evening' | 'night'
@@ -516,6 +517,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const selectFurniture = (id: FurnitureId) => setSelectedFurnitureId(id)
   const enterEditFurniture = (id: FurnitureId) => { if (isVisiting()) return; const target = furniture.find((item) => item.id === id); setSelectedObject(null); setCupHeld(false); setBookshelfOpen(false); setOpenBookId(null); setPreview(null); setPreviewDragging(false); setSelectedFurnitureId(id); setDragOrigin(target?.movable ? furniture : null); setMovingFurnitureId(target?.movable ? id : null); setMode('edit') }
   const beginMove = (id: FurnitureId) => { pendingMove.current = null; setSelectedFurnitureId(id); setDragOrigin(furniture); setMovingFurnitureId(id) }
+  const beginResize = (id: FurnitureId) => { const item = furniture.find((value) => value.id === id); if (!item || !isResizableWallItem(item)) return; pendingMove.current = null; setSelectedFurnitureId(id); setDragOrigin(furniture); setMovingFurnitureId(null) }
   const movedFurniture = (moving: FurnitureItem, position: [number, number, number], targetSurfaceId?: SurfaceId) => {
     let surfaceId: SurfaceId
     if (targetSurfaceId && isOwnedSurfaceId(targetSurfaceId)) {
@@ -536,8 +538,17 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     pendingMove.current = next
     setFurniture((items) => items.map((value) => value.id === id ? { ...next, updatedAt: new Date().toISOString() } : value))
   }
-  const endMove = () => {
-    const moving = pendingMove.current ?? furniture.find((item) => item.id === movingFurnitureId)
+  const resizeFurniture = (id: FurnitureId, corner: ResizeCorner, position: [number, number, number]) => {
+    const origin = dragOrigin?.find((value) => value.id === id) ?? furniture.find((value) => value.id === id)
+    if (!origin || !isResizableWallItem(origin)) return
+    const surface = resolveSurface(furniture, origin.surfaceId); if (!surface) return
+    const resolved = withResolution(surface, resolutionFor(origin)); const resized = resizeFromCorner(resolved, origin, corner, worldToGridBoundary(resolved, position))
+    const next = placeOnSurface(furniture, { ...origin, footprint: resized.footprint, size: [resized.footprint.width, resized.footprint.depth] }, origin.surfaceId, resized)
+    pendingMove.current = next
+    setFurniture((items) => items.map((value) => value.id === id ? { ...next, updatedAt: new Date().toISOString() } : value))
+  }
+  const settleTransform = (id: FurnitureId | null) => {
+    const moving = pendingMove.current ?? furniture.find((item) => item.id === id)
     pendingMove.current = null
     // a removed item has nothing to settle — never write its stale pre-delete copy back
     if (!dragOrigin || !moving || moving.removed || furniture.find((item) => item.id === moving.id)?.removed) { setDragOrigin(null); setMovingFurnitureId(null); return }
@@ -547,6 +558,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     else { if (!same(latest, dragOrigin)) setHistory((items) => [...items.slice(-19), dragOrigin]); setFurniture(latest); persist(latest) }
     setDragOrigin(null); setMovingFurnitureId(null)
   }
+  const endMove = () => settleTransform(movingFurnitureId)
+  const endResize = (id: FurnitureId) => settleTransform(id)
   // Rotation is always applied. If it overlaps or crosses a boundary the toolbar warns the user until they move it.
   const rotateFurniture = () => {
     // 배치 전 미리보기도 같은 버튼으로 돌린다 — 회전된 발자국이 못 들어가는 위치면 valid만 꺼진다
@@ -980,7 +993,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       if (url) setArtworks((prev) => prev[id] === dataURL ? { ...prev, [id]: url } : prev)
     })
   }
-  return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, profile, profileOpen, openProfile: () => setProfileOpen(true), closeProfile: () => setProfileOpen(false), setProfilePhoto, videoFrames, videoClips: loadClipUrls(), setVideoClip, videoLinks, setVideoLink, playingFrames, stopFrame: (id: string) => setPlayingFrames((prev) => prev.filter((value) => value !== id)), mutedFrames, setFrameMuted, highlightFrame, setHighlightFrame, openVideoPanel: (id: string) => { if (isVisiting()) return; setFrameMuted(id, false); closePanels(); setSelectedObject(id) }, rooms, activeRoomId, openRoom, createRoom, removeRoom, availableCount, guestbook, addGuestComment, removeGuestComment, remoteVisits, othersLikes, likeTotals, myLikes, pendingReactions, markReactionsSeen, openObject, reactionIdsFor, reactionTarget, setReactionTarget, commentTarget, setCommentTarget, timeOfDay, setTimeOfDay, books: visibleBooks, openBookId, bookshelfOpen, readOnly: false, characterHome: characterSnapshot.position, characterPose: characterSnapshot, characterWritable: !isVisiting(), characterLook, setCharacterLook, currentHandle, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, setMusicVolume, musicVolume, selectObject, clearSelection, finishCharacterAction, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject(null) }, addBook, deleteBook, updateBook, addEntry, deleteEntry, updateEntry, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
+  return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, profile, profileOpen, openProfile: () => setProfileOpen(true), closeProfile: () => setProfileOpen(false), setProfilePhoto, videoFrames, videoClips: loadClipUrls(), setVideoClip, videoLinks, setVideoLink, playingFrames, stopFrame: (id: string) => setPlayingFrames((prev) => prev.filter((value) => value !== id)), mutedFrames, setFrameMuted, highlightFrame, setHighlightFrame, openVideoPanel: (id: string) => { if (isVisiting()) return; setFrameMuted(id, false); closePanels(); setSelectedObject(id) }, rooms, activeRoomId, openRoom, createRoom, removeRoom, availableCount, guestbook, addGuestComment, removeGuestComment, remoteVisits, othersLikes, likeTotals, myLikes, pendingReactions, markReactionsSeen, openObject, reactionIdsFor, reactionTarget, setReactionTarget, commentTarget, setCommentTarget, timeOfDay, setTimeOfDay, books: visibleBooks, openBookId, bookshelfOpen, readOnly: false, characterHome: characterSnapshot.position, characterPose: characterSnapshot, characterWritable: !isVisiting(), characterLook, setCharacterLook, currentHandle, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, setMusicVolume, musicVolume, selectObject, clearSelection, finishCharacterAction, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject(null) }, addBook, deleteBook, updateBook, addEntry, deleteEntry, updateEntry, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, beginResize, resizeFurniture, endResize, rotateFurniture, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, setWallStyle, setFloorStyle, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
 }
 // A neighbour room in the zoom-out explorer, drawn from that room's own published bundle with the SAME furniture
 // components as the live room — so it is the real room, not a stand-in. Read-only by construction: there is no
@@ -1041,7 +1054,7 @@ export function NeighbourRoomProvider({ bundle, handle, children }: { bundle: Re
       musicTrack: null, setMusicTrack: noop, musicVolume: 0, setMusicVolume: noop,
       selectObject: noop, clearSelection: noop, finishCharacterAction: noop, moveCharacterTo: noop, settleFloorMove: noop,
       openBook: noop, closeBook: noop, addBook: () => '', deleteBook: noop, updateBook: noop, addEntry: noop, deleteEntry: noop, updateEntry: noop,
-      toggleEditMode: noop, enterEditFurniture: noop, selectFurniture: noop, beginMove: noop, moveFurniture: noop, placeFurnitureAt: noop, endMove: noop, rotateFurniture: noop, removeFurniture: noop, undoLayout: noop, resetLayout: noop,
+      toggleEditMode: noop, enterEditFurniture: noop, selectFurniture: noop, beginMove: noop, moveFurniture: noop, placeFurnitureAt: noop, endMove: noop, beginResize: noop, resizeFurniture: noop, endResize: noop, rotateFurniture: noop, removeFurniture: noop, undoLayout: noop, resetLayout: noop,
       startPreview: noop, beginPreviewDrag: noop, movePreview: noop, endPreviewDrag: noop, placePreview: noop, cancelPreview: noop,
       openStyleTarget: noop, setWallStyle: noop, setFloorStyle: noop, setFurnitureStyle: noop, toggleDebugAnchors: noop,
     }

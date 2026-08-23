@@ -10,6 +10,7 @@ export type SurfaceKind = 'floor' | 'wall' | 'tabletop' | 'shelf' | 'seat'
 export type SurfaceOrientation = 'horizontal' | 'vertical'
 export type Footprint = { width: number; depth: number }
 export type GridPosition = { gridX: number; gridY: number }
+export type ResizeCorner = 'northWest' | 'northEast' | 'southWest' | 'southEast'
 export type PlacementSurface = {
   id: SurfaceId; ownerId?: string; type: SurfaceKind; orientation: SurfaceOrientation; width: number; height: number; gridRows: number; gridColumns: number
   position: [number, number, number]; rotation: [number, number, number]; normal: [number, number, number]
@@ -128,6 +129,37 @@ export const gridToWorld = (surface: PlacementSurface, grid: GridPosition, footp
 export const worldToGrid = (surface: PlacementSurface, point: [number, number, number], footprint: Footprint, rotationY = 0): GridPosition => {
   const size = rotatedFootprint(footprint, rotationY); const cell = getCellSize(surface); const delta = new Vector3(...point).sub(new Vector3(...surface.position)); const axes = getSurfaceAxes(surface)
   return { gridX: Math.round((delta.dot(axes.horizontal) + surface.width / 2) / cell.width - size.width / 2), gridY: Math.round((delta.dot(axes.vertical) + surface.height / 2) / cell.height - size.depth / 2) }
+}
+// Resize handles snap to grid LINES, not cell centres. Keeping this separate from worldToGrid avoids the
+// half-cell drift that appears when an even-sized frame is resized from one corner.
+export const worldToGridBoundary = (surface: PlacementSurface, point: [number, number, number]): GridPosition => {
+  const cell = getCellSize(surface); const delta = new Vector3(...point).sub(new Vector3(...surface.position)); const axes = getSurfaceAxes(surface)
+  return { gridX: Math.round((delta.dot(axes.horizontal) + surface.width / 2) / cell.width), gridY: Math.round((delta.dot(axes.vertical) + surface.height / 2) / cell.height) }
+}
+
+const CORNER_SIGN: Record<ResizeCorner, readonly [number, number]> = {
+  northWest: [-1, 1], northEast: [1, 1], southWest: [-1, -1], southEast: [1, -1],
+}
+
+// Returns an item's new cell rectangle while the opposite visual corner stays fixed. The handle name is local
+// to the frame, so its sign is rotated into the surface grid before the occupied rectangle is changed.
+export const resizeFromCorner = (surface: PlacementSurface, item: PlacementItem, corner: ResizeCorner, boundary: GridPosition) => {
+  const occupied = rotatedFootprint(item.footprint, item.rotation[1]); const [localX, localY] = CORNER_SIGN[corner]
+  const quarter = ((Math.round(item.rotation[1] / (Math.PI / 2)) % 4) + 4) % 4; const angle = quarter * Math.PI / 2
+  const signX = Math.round(localX * Math.cos(angle) - localY * Math.sin(angle)); const signY = Math.round(localX * Math.sin(angle) + localY * Math.cos(angle))
+  const minX = item.gridX; const maxX = minX + occupied.width; const minY = item.gridY; const maxY = minY + occupied.depth
+  const fixedX = signX > 0 ? minX : maxX; const fixedY = signY > 0 ? minY : maxY
+  const movingX = signX > 0 ? Math.max(fixedX + 1, Math.min(boundary.gridX, surface.gridColumns)) : Math.min(fixedX - 1, Math.max(boundary.gridX, 0))
+  const movingY = signY > 0 ? Math.max(fixedY + 1, Math.min(boundary.gridY, surface.gridRows)) : Math.min(fixedY - 1, Math.max(boundary.gridY, 0))
+  const gridX = Math.min(fixedX, movingX); const gridY = Math.min(fixedY, movingY)
+  const width = Math.abs(movingX - fixedX); const depth = Math.abs(movingY - fixedY)
+  const footprint = quarter % 2 ? { width: depth, depth: width } : { width, depth }
+  return { gridX, gridY, footprint }
+}
+
+if (import.meta.env.DEV) {
+  const resized = resizeFromCorner(wallSurfaces.leftWall, { surfaceId: 'leftWall', gridX: 2, gridY: 2, footprint: { width: 2, depth: 2 }, rotation: [0, 0, 0] }, 'northEast', { gridX: 6, gridY: 5 })
+  console.assert(resized.gridX === 2 && resized.gridY === 2 && resized.footprint.width === 4 && resized.footprint.depth === 3, 'wall resize must keep the opposite grid corner fixed')
 }
 export const clampGrid = (surface: PlacementSurface, grid: GridPosition, footprint: Footprint, rotationY = 0): GridPosition => {
   const size = rotatedFootprint(footprint, rotationY)
