@@ -297,7 +297,7 @@ function NeighbourRoom() {
 // The live room is intentionally inert in the explorer so its furniture cannot react. This invisible floor sits
 // under its contents and provides one clean action there: clicking the centre room enters it again. Deliberately
 // no wall hitboxes — the stacked isometric walls overlap neighbouring rooms on screen and would steal their click.
-function ExplorerRoomHitbox({ off, open }: { off: (zoom: number, width: number, height: number) => boolean; open: () => void }) {
+function ExplorerRoomHitbox({ off, open, blocked, closePanel }: { off: (zoom: number, width: number, height: number) => boolean; open: () => void; blocked: boolean; closePanel: () => void }) {
   const group = useRef<Group>(null)
   const active = useRef(false)
   const press = useRef<{ x: number; y: number; pointerId: number } | null>(null)
@@ -308,7 +308,7 @@ function ExplorerRoomHitbox({ off, open }: { off: (zoom: number, width: number, 
   })
   return <group ref={group} visible={false}>
     <mesh position={[0, .03, 0]}
-      onPointerDown={(event) => { if (active.current) press.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId } }}
+      onPointerDown={(event) => { if (blocked) { openedAt.current = performance.now(); event.stopPropagation(); closePanel(); return } if (active.current) press.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId } }}
       onPointerMove={(event) => { if (press.current?.pointerId === event.pointerId && Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 18) press.current = null }}
       onPointerUp={(event) => { const down = press.current; press.current = null; if (!active.current || !down || down.pointerId !== event.pointerId) return; openedAt.current = performance.now(); event.stopPropagation(); open() }}
       onClick={(event) => { if (!active.current || performance.now() - openedAt.current < 500 || event.delta > 18) return; event.stopPropagation(); open() }}
@@ -319,7 +319,7 @@ function ExplorerRoomHitbox({ off, open }: { off: (zoom: number, width: number, 
   </group>
 }
 
-function RoomContainer({ slot, distance, centred, fresh, open, swapping }: { slot: RoomSlot; distance: number; centred: boolean; fresh?: Record<string, string>; open: () => void; swapping: boolean }) {
+function RoomContainer({ slot, distance, centred, fresh, open, swapping, blocked, closePanel }: { slot: RoomSlot; distance: number; centred: boolean; fresh?: Record<string, string>; open: () => void; swapping: boolean; blocked: boolean; closePanel: () => void }) {
   const { mode } = useRoomStore()
   const { gl, camera, scene } = useThree()
   const group = useRef<Group>(null)
@@ -477,7 +477,7 @@ function RoomContainer({ slot, distance, centred, fresh, open, swapping }: { slo
     }
   })
   return <group ref={group} position={slot.position} visible={false}
-    onPointerDown={(event) => { if (opacity.current >= .65) press.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId } }}
+    onPointerDown={(event) => { if (blocked) { openedAt.current = performance.now(); event.stopPropagation(); closePanel(); return } if (opacity.current >= .65) press.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId } }}
     onPointerMove={(event) => { if (press.current?.pointerId === event.pointerId && Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 18) press.current = null }}
     onPointerUp={(event) => { const down = press.current; press.current = null; if (!down || down.pointerId !== event.pointerId || opacity.current < .65) return; openedAt.current = performance.now(); event.stopPropagation(); open() }}
     onClick={(event) => { if (performance.now() - openedAt.current < 500 || opacity.current < .65 || event.delta > 18) return; event.stopPropagation(); open() }}
@@ -499,7 +499,8 @@ function RoomContainer({ slot, distance, centred, fresh, open, swapping }: { slo
 }
 
 function RoomWorld() {
-  const { mode, timeOfDay } = useRoomStore()
+  const { mode, timeOfDay, bookshelfOpen, openBookId, clearSelection } = useRoomStore()
+  const bookPanelOpen = bookshelfOpen || !!openBookId
   // The cluster is centred on the signed-in user's OWN room — it is their neighbourhood, so their room is the hub
   // the others ring around, whichever room they happen to be looking at. Signed out there is no own room, so the
   // room in the address (or the lobby) takes the middle instead.
@@ -716,7 +717,7 @@ function RoomWorld() {
     if (handle !== centred.current) { centred.current = handle; setCentredHandle(handle) }
     // the edge, not the state: entering is what crossing the line does, so it fires once per zoom-in — and only
     // when no entry is already underway (the latch covers the camera's own entry zoom crossing this same line)
-    if (zoomedIn && !wasZoomedIn.current && picked.current && !entryLatched.current) void open(picked.current)
+    if (!bookPanelOpen && zoomedIn && !wasZoomedIn.current && picked.current && !entryLatched.current) void open(picked.current)
     wasZoomedIn.current = zoomedIn
     if (!zoomedIn) entryLatched.current = false
     // spent once the room is in, so coming back down through the band does not re-light a stale choice
@@ -725,10 +726,10 @@ function RoomWorld() {
   // the picked room, or the one already being viewed when nothing is picked — what the camera should be aiming at
   const aim = useMemo(() => (slots.find((slot) => slot.handle === centredHandle) ?? active)?.position ?? null, [slots, active, centredHandle])
   return <>
-    {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY) && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} swapping={swapping} />)}
+    {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY) && ringDistance(slot, active) <= VISIBLE_RINGS).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} swapping={swapping} blocked={bookPanelOpen} closePanel={clearSelection} />)}
     <group ref={activeGroup} position={active.position}>
       <Inert off={exploring}><RoomRoot /></Inert>
-      <ExplorerRoomHitbox off={exploring} open={() => beginEntry(active)} />
+      <ExplorerRoomHitbox off={exploring} open={() => beginEntry(active)} blocked={bookPanelOpen} closePanel={clearSelection} />
     </group>
     <CameraController focusRoom={focusRoom} aim={aim} />
   </>
