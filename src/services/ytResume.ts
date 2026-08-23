@@ -103,8 +103,8 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
   // somewhere else entirely. So the resume position is enforced over the API instead: an unstarted/cued
   // player gets a playVideo kick (muted embeds obey it with no gesture), and the first actual play is
   // seeked back to the saved spot if it came up somewhere else.
-  const resumeAt = Math.max(0, Math.floor(storedResumeAt(frameId) ?? 0))
-  const resumeVideo = storedPlaylistVideo(frameId)
+  let resumeAt = Math.max(0, Math.floor(storedResumeAt(frameId) ?? 0))
+  let resumeVideo = storedPlaylistVideo(frameId)
   let restored = resumeAt === 0 && !resumeVideo
   let kicks = 0
   let kickTimer: ReturnType<typeof setTimeout> | undefined
@@ -128,6 +128,10 @@ export function trackIframe(iframe: HTMLIFrameElement, frameId: string): () => v
         const playlist = data?.info?.playlist
         const index = Array.isArray(playlist) ? playlist.indexOf(resumeVideo) : -1
         if (index >= 0) { command(frameId, 'playVideoAt', [index]); armKick() }
+        // Delete → add may have happened before this fix was deployed. Once the new player's complete list says
+        // the remembered video is absent, it is a replacement, not a resume target; self-heal without requiring
+        // the owner to delete and add the link again.
+        else if (Array.isArray(playlist) && playlist.length) { clearFrameResume(frameId); resumeAt = 0; resumeVideo = undefined; restored = true }
       } else if (!restored && sameVideo && typeof currentTime === 'number') {
         if (Math.abs(currentTime - resumeAt) <= 2) restored = true
         else { if (resumeAt > 0) command(frameId, 'seekTo', [resumeAt, true]); command(frameId, 'playVideo'); armKick() }
