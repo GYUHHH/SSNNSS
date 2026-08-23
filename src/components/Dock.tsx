@@ -54,7 +54,14 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
 export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventory: () => void; onDeleteRoom: (id: string) => void }) {
   const { rooms, activeRoomId, openRoom, createRoom, mode, timeOfDay, setTimeOfDay } = useRoomStore()
   const [roomsOpen, setRoomsOpen] = useState(false)
-  const [moreOpen, setMoreOpen] = useState(false)
+  // closed -> open -> closing(잠깐 역애니메이션) -> closed
+  const [moreState, setMoreState] = useState<'closed' | 'open' | 'closing'>('closed')
+  const closeMore = () => { setRoomsOpen(false); setMoreState((state) => state === 'open' ? 'closing' : state) }
+  useEffect(() => {
+    if (moreState !== 'closing') return
+    const timer = setTimeout(() => setMoreState('closed'), 260)
+    return () => clearTimeout(timer)
+  }, [moreState])
   const [searchOpen, setSearchOpen] = useState(false)
   const [shopOpen, setShopOpen] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -110,11 +117,11 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
   }, [visiting, currentHandle])
   const moreItem = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (!moreOpen) return
-    const onOutside = (event: PointerEvent) => { if (!moreItem.current?.contains(event.target as Node)) { setMoreOpen(false); setRoomsOpen(false) } }
+    if (moreState !== 'open') return
+    const onOutside = (event: PointerEvent) => { if (!moreItem.current?.contains(event.target as Node)) closeMore() }
     window.addEventListener('pointerdown', onOutside)
     return () => window.removeEventListener('pointerdown', onOutside)
-  }, [moreOpen])
+  }, [moreState])
   const normal = mode === 'normal'
   const owner = !visiting && normal
   const cycleTime = () => setTimeOfDay(timeOfDay === 'day' ? 'evening' : timeOfDay === 'evening' ? 'night' : 'day')
@@ -127,8 +134,8 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
     {normal && !!myHandle() && <button type="button" className={explore === 'home' ? 'dock-button' : 'dock-button following'} aria-label={explore === 'home' ? '팔로우' : '탐색'} onClick={toggleExplorer}>{explore === 'home' ? <PersonIcon /> : <GlobeIcon />}</button>}
     <span className="dock-slot"><SoundHub /></span>
     {owner && <div className="dock-item dock-fade" ref={moreItem}>
-      {moreOpen && <div className="dock-stack">
-        <button type="button" className="dock-button" aria-label="상점" onClick={() => { setMoreOpen(false); setShopOpen(true) }}><ShopIcon /></button>
+      {moreState !== 'closed' && <div className={moreState === 'closing' ? 'dock-stack closing' : 'dock-stack'}>
+        <button type="button" className="dock-button" aria-label="상점" onClick={() => { closeMore(); setShopOpen(true) }}><ShopIcon /></button>
         <div className="dock-item">
           {roomsOpen && <ul className="dock-pop dock-pop-side" aria-label="내 방 목록">
             {rooms.map((room) => <li key={room.id}>
@@ -142,9 +149,9 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
           <button type="button" className="dock-button" aria-label="방설정" onClick={() => setRoomsOpen((value) => !value)}><HouseIcon /></button>
         </div>
         <button type="button" className="dock-button" aria-label="시간대 변경" onClick={cycleTime}>{timeOfDay === 'day' ? <SunIcon /> : timeOfDay === 'evening' ? <SunsetIcon /> : <MoonIcon />}</button>
-        <button type="button" className="dock-button" aria-label="보관함" onClick={() => { setMoreOpen(false); onOpenInventory() }}><BoxIcon /></button>
+        <button type="button" className="dock-button" aria-label="보관함" onClick={() => { closeMore(); onOpenInventory() }}><BoxIcon /></button>
       </div>}
-      <button type="button" className="dock-button" aria-label="더보기" onClick={() => { setMoreOpen((value) => { if (value) setRoomsOpen(false); return !value }) }}><DotsIcon /></button>
+      <button type="button" className="dock-button" aria-label="더보기" onClick={() => { if (moreState === 'open') closeMore(); else if (moreState === 'closed') setMoreState('open') }}><DotsIcon /></button>
     </div>}
     {visiting && normal && <button type="button" className="dock-button" aria-label="다음" onClick={() => history.forward()}><ForwardIcon /></button>}
     {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} />}

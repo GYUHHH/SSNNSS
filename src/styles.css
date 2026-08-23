@@ -680,3 +680,9 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 .search-results button:hover { background: #f2f2f2; }
 .shop-panel { width: min(420px, 86vw); min-height: 200px; background: #ffffff; border-radius: 12px; padding: 18px; }
 .shop-panel h2 { margin: 0; color: #3a3a38; font-size: 16px; }
+.dock-stack.closing > * { animation: dock-sink .18s ease forwards; }
+.dock-stack.closing > :nth-child(1) { animation-delay: 0s; }
+.dock-stack.closing > :nth-child(2) { animation-delay: .05s; }
+.dock-stack.closing > :nth-child(3) { animation-delay: .1s; }
+.dock-stack.closing > :nth-child(4) { animation-delay: .15s; }
+@keyframes dock-sink { to { opacity: 0; transform: translateY(14px); } }
