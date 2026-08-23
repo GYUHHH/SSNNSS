@@ -84,6 +84,8 @@ const computerItem = surfaceItem('computer', '컴퓨터', 'computer', 'desk:top'
 const sofaItem = floorItem('sofa', '소파', 'sofa', 6, 6, { width: 3, depth: 1 })
 // the default bookshelf stands against the left wall (under the wall decor), turned to face into the room
 const bookshelfItem = placeOnSurface([], { ...floorItem('bookshelf', '책장', 'bookshelf', 0, 4, { width: 2, depth: 1 }), rotation: [0, Math.PI / 2, 0] }, 'floor', { gridX: 0, gridY: 4 }, [0, Math.PI / 2, 0])
+// 기본 일기장의 몸: 책장 1단 첫 칸에 기본 배치되는 정식 기본 가구 (id가 책 데이터 daily-2026과 짝)
+const defaultBookItem = surfaceItem('inventory-book-daily-2026', '기록장', 'diary-book', 'bookshelf:shelf1', 0, 0, { width: 2, depth: 1 }, ['shelf', 'tabletop'], [bookshelfItem])
 // decor footprints AND their floor grid coords are in SUBCELL units (2 subcells = 1 base cell) — see resolutionFor
 const plantItem = floorItem('plant', '화분', 'plant', 0, 8, { width: 1, depth: 1 })
 const lampItem = floorItem('lamp', '스탠드 조명', 'lamp', 0, 6, { width: 1, depth: 1 })
@@ -99,7 +101,7 @@ const cdPlayerItem = wallItem('inventory-cd-default', 'CD 플레이어', 'cd-pla
 // the default room places only desk+chair (center), profile/guestbook/cd on the wall, and the bookshelf
 // beneath them — every other piece starts in storage, ready to be placed from the 가구함
 export const initialFurniture: FurnitureItem[] = [
-  deskItem, chairItem, bookshelfItem, profileBoardItem, guestbookWallItem, cdPlayerItem,
+  deskItem, chairItem, bookshelfItem, defaultBookItem, profileBoardItem, guestbookWallItem, cdPlayerItem,
   ...[bedItem, computerItem, sofaItem, plantItem, lampItem, cabinetItem, rugItem, binItem, cupItem, clockItem].map((item) => ({ ...item, removed: true })),
 ]
 
