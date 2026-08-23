@@ -1,4 +1,4 @@
-import { loadVideoLinks } from './mediaStore'
+import { loadVideoLinks, videoDisplayMeta } from './mediaStore'
 import { playlistVideoResume } from './ytResume'
 import { myInviteLink } from './follows'
 import { myHandle } from './social'
@@ -53,14 +53,16 @@ export async function captureRoom(): Promise<HTMLCanvasElement | null> {
     if (rect.width < 4 || rect.height < 4) continue
     const img = await loadImage(`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`)
     if (!img) continue
+    const crop = (await videoDisplayMeta(videoId))?.thumbnailCrop ?? { left: 0, top: 0, right: 1, bottom: 1 }
     const dx = (rect.left - canvasRect.left) * scaleX
     const dy = (rect.top - canvasRect.top) * scaleY
     const dw = rect.width * scaleX
     const dh = rect.height * scaleY
-    const cover = Math.max(dw / img.width, dh / img.height)
-    const sw = dw / cover
-    const sh = dh / cover
-    context.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, dx, dy, dw, dh)
+    const sx = img.width * crop.left, sy = img.height * crop.top
+    const sourceWidth = img.width * (crop.right - crop.left), sourceHeight = img.height * (crop.bottom - crop.top)
+    const cover = Math.max(dw / sourceWidth, dh / sourceHeight)
+    const sw = dw / cover, sh = dh / cover
+    context.drawImage(img, sx + (sourceWidth - sw) / 2, sy + (sourceHeight - sh) / 2, sw, sh, dx, dy, dw, dh)
   }
   return copy
 }

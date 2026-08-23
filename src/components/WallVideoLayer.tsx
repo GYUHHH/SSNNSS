@@ -2,13 +2,13 @@ import { Html } from '@react-three/drei'
 import { findFit } from './Furniture'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
-import { Matrix4, type Group } from 'three'
+import { Matrix4, Vector3, type Group } from 'three'
 import { loadAudioPrefs, useRoomStore } from '../store'
-import { fitToVideo, useFrameVideoId, useVideoAspectRatio, videoAspect } from '../services/mediaStore'
+import { fitToVideo, useFrameVideoId, useVideoDisplayMeta } from '../services/mediaStore'
 import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
 import { isVisiting } from '../services/social'
 import { openReactionPicker } from './ReactionPicker'
-import { embedSrc, trackIframe, playlistVideoResume, watchPlaylistOrder, playFrame, framePlayerStates } from '../services/ytResume'
+import { embedSrc, trackIframe, watchPlaylistOrder, playFrame, framePlayerStates } from '../services/ytResume'
 import { clipIsPlaying, loadClipUrls, playClip } from '../services/mediaStore'
 import { WALL_HTML_Z_INDEX_RANGE, WALL_VIDEO_ORDER } from '../services/renderOrder'
 
@@ -101,30 +101,32 @@ function WallVideo({ frameId }: { frameId: string }) {
   const videoId = videoLinks[frameId]
   // The wall player is the only iframe for this frame and stays mounted while its side panel is open.
   const active = !!item && !item.removed && !!videoId
-  // Crop only as much as the video's own letterbox allows: YouTube's edge overlays hide inside the black bars
-  // of wide videos, but 4:3/portrait videos fill the iframe, so cutting a fixed band would eat real content.
-  // The aspect comes from videoAspect() below (thumbnail probing — oEmbed reports 16:9 for everything);
-  // unknown aspect means no crop, losing pixels never.
-  const [crop, setCrop] = useState(0)
   const dims = VIDEO_FRAME_SIZES[(item?.type ?? '')] ?? VIDEO_FRAME_SIZES['video-frame-3']
   const turned = !!item && Math.abs(Math.round(item.rotation[1] / (Math.PI / 2))) % 2 === 1
-  // 화면을 영상의 실제 비율로 줄인다 — 액자 비율에 영상을 맞추면 레터박스가 남는다
   const aspectLookup = useFrameVideoId(frameId, videoId)
-  const videoRatio = useVideoAspectRatio(active ? aspectLookup : undefined)
-  const [screenWidth, screenHeight] = fitToVideo(turned ? dims[1] : dims[0], turned ? dims[0] : dims[1], videoRatio)
+  const display = useVideoDisplayMeta(active ? aspectLookup : undefined)
+  const [screenWidth, screenHeight] = fitToVideo(turned ? dims[1] : dims[0], turned ? dims[0] : dims[1], display?.aspect ?? null)
   const divHeight = Math.round(640 * (screenHeight / screenWidth))
-  useEffect(() => {
-    if (!active || !videoId) return
-    let live = true
-    const lookupId = videoId.startsWith('pl:') ? (playlistVideoResume[frameId] ?? videoId.split('@')[1]) : videoId
-    if (!lookupId) return
-    videoAspect(lookupId).then((aspect) => {
-      if (!live || !aspect) return
-      const contentHeight = 640 / aspect
-      setCrop(Math.round(Math.max(0, Math.min(60, (divHeight - contentHeight) / 2))))
-    })
-    return () => { live = false }
-  }, [active, videoId, frameId, divHeight])
+  const crop = display?.playerCrop ?? { left: 0, top: 0, right: 1, bottom: 1 }
+  const cropWidth = Math.max(.01, crop.right - crop.left)
+  const cropHeight = Math.max(.01, crop.bottom - crop.top)
+  const screen = useRef<Group>(null)
+  const element = useRef<HTMLDivElement>(null)
+  const corners = useRef([new Vector3(), new Vector3(), new Vector3()])
+  const previousTransform = useRef('')
+  useFrame(({ camera, size }) => {
+    if (!screen.current || !element.current) return
+    screen.current.updateWorldMatrix(true, false)
+    const [topLeft, topRight, bottomLeft] = corners.current
+    topLeft.set(-screenWidth / 2, screenHeight / 2, 0).applyMatrix4(screen.current.matrixWorld).project(camera)
+    topRight.set(screenWidth / 2, screenHeight / 2, 0).applyMatrix4(screen.current.matrixWorld).project(camera)
+    bottomLeft.set(-screenWidth / 2, -screenHeight / 2, 0).applyMatrix4(screen.current.matrixWorld).project(camera)
+    const point = (value: Vector3) => [(value.x + 1) * size.width / 2, (1 - value.y) * size.height / 2] as const
+    const [tl, tr, bl] = [point(topLeft), point(topRight), point(bottomLeft)]
+    const transform = `matrix(${(tr[0] - tl[0]) / 640},${(tr[1] - tl[1]) / 640},${(bl[0] - tl[0]) / divHeight},${(bl[1] - tl[1]) / divHeight},${tl[0]},${tl[1]})`
+    if (transform !== previousTransform.current) { previousTransform.current = transform; element.current.style.transform = transform }
+    element.current.style.visibility = topLeft.z < -1 || topLeft.z > 1 ? 'hidden' : 'visible'
+  })
   // the shields cover the screen, so without this a hold would only register on the frame's edge
   const holdTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const held = useRef(false)
@@ -140,22 +142,25 @@ function WallVideo({ frameId }: { frameId: string }) {
   if (!active) return null
   return <FollowFit fitName={`fit:${item.id}`}>
     <group rotation={[0, 0, -item.rotation[1]]}>
-      {/* 640 CSS px stretched to the frame: YouTube lays its controls out for a small player, so they read 2x bigger */}
-      {/* drei sizes the punch-through occluder as a 1x1 plane under an orthographic camera, which clips the
-          video to a 1-unit window — hand it a plane matching the screen so the hole covers the full frame */}
-      <Html transform occlude="blending" renderOrder={WALL_VIDEO_ORDER} geometry={<planeGeometry args={[screenWidth, screenHeight]} />} material={<shaderMaterial side={2} depthWrite={false} vertexShader={VIDEO_MASK_VERTEX} fragmentShader={VIDEO_MASK_FRAGMENT} />} distanceFactor={400} position={[0, 0, .042]} scale={screenWidth / 640} zIndexRange={WALL_HTML_Z_INDEX_RANGE} style={{ pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
-        <div className="wall-video" data-frame-id={frameId} style={{ width: 640, height: divHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
+      <group ref={screen} position={[0, 0, .042]}>
+        {/* The transparent WebGL plane punches the screen through the wall. Later room objects draw over it, so
+            wall media stays behind furniture, photos, speech bubbles and every future 3D object. */}
+        <mesh renderOrder={WALL_VIDEO_ORDER}><planeGeometry args={[screenWidth, screenHeight]} /><shaderMaterial side={2} depthWrite={false} vertexShader={VIDEO_MASK_VERTEX} fragmentShader={VIDEO_MASK_FRAGMENT} /></mesh>
+        {/* No CSS matrix3d: iPhone Chrome and Safari share WebKit's iframe compositor and both drift there. The
+            child receives one affine matrix calculated from these exact three projected screen corners. */}
+        <Html calculatePosition={() => [0, 0]} wrapperClass="wall-video-portal" zIndexRange={WALL_HTML_Z_INDEX_RANGE} style={{ pointerEvents: 'none' }}>
+        <div ref={element} className="wall-video" data-frame-id={frameId} style={{ width: 640, height: divHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
           {/* controls=0 keeps YouTube's control bar from popping over the wall screen (it auto-shows on tab
               return); the expanded panel player keeps its controls */}
-          <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra="autoplay=1&playsinline=1&mute=1&controls=0" frameStyle={{ ...(crop ? { width: 640, top: -crop, height: divHeight + crop * 2 } : { width: 640, height: divHeight }), pointerEvents: mode === 'edit' ? 'none' : 'auto' }} />
+          <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra="autoplay=1&playsinline=1&mute=1&controls=0" frameStyle={{ width: 640 / cropWidth, height: divHeight / cropHeight, left: -640 * crop.left / cropWidth, top: -divHeight * crop.top / cropHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto' }} />
           {/* the two shields carry the open-the-panel click and together cover everything but YouTube's own
               skip-ad corner, which is left live so the visitor can press it themselves */}
           {mode !== 'edit' && ['top', 'rest'].map((part) => <div key={part} className={`wall-video-shield ${part}`}
             onPointerDown={(event) => { event.stopPropagation(); startHold(event) }}
             onPointerUp={cancelHold} onPointerLeave={cancelHold} onPointerCancel={cancelHold}
             onClick={() => { if (held.current) { held.current = false; return } if (openObject(frameId)) return; openVideoPanel(frameId) }} />)}
-        </div>
-      </Html>
+        </div></Html>
+      </group>
     </group>
   </FollowFit>
 }

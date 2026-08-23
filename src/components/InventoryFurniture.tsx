@@ -12,8 +12,7 @@ import { loadAudioPrefs, type FurnitureItem, useOptionalRoomStore, useRoomStore 
 import { wallSurfaces } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
 import { CANVAS_UI_FONT, JONES_BOOK_OTF, PRETENDARD_WOFF, loadCanvasFonts } from '../services/fonts'
-import { clipResumeAt, fitToVideo, getVideo, registerClipPlayer, rememberClipAt, useFrameVideoId, useVideoAspectRatio } from '../services/mediaStore'
-import { playlistVideoResume } from '../services/ytResume'
+import { clipResumeAt, fitToVideo, getVideo, registerClipPlayer, rememberClipAt, reportClipAspect, useClipAspectRatio, useFrameVideoId, useVideoDisplayMeta } from '../services/mediaStore'
 import { Swing } from './motion'
 import { ROOM_HTML_Z_INDEX_RANGE } from '../services/renderOrder'
 
@@ -623,7 +622,8 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   // 영상 액자 전용: 걸린 영상의 실제 비율 (훅이라 분기 밖에서 항상 호출)
   const frameLink = item.type.startsWith('video-frame') && !preview ? store?.videoLinks[item.id] : undefined
   const frameLookup = useFrameVideoId(item.id, frameLink)
-  const frameAspect = useVideoAspectRatio(frameLookup)
+  const frameDisplay = useVideoDisplayMeta(frameLookup)
+  const clipAspect = useClipAspectRatio(item.id, item.type.startsWith('video-frame') && !preview && !frameLink)
   if (item.type === 'speech-bubble') {
     const bubbleScale = 1.8
     const bubbleText = preview ? '말풍선' : store?.artworks[item.id] ?? ''
@@ -834,14 +834,14 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     const rotationY = item.rotation?.[1] ?? 0
     const turned = Math.abs(Math.round(rotationY / (Math.PI / 2))) % 2 === 1
     // 화면·백킹은 걸린 영상의 비율로 줄어든다 — 16:9든 세로 쇼츠든 레터박스 없이 꽉 찬다
-    const [screenWidth, screenHeight] = fitToVideo(turned ? h : w, turned ? w : h, frameAspect)
+    const [screenWidth, screenHeight] = fitToVideo(turned ? h : w, turned ? w : h, frameDisplay?.aspect ?? clipAspect)
     return <>
       {/* 크기 기준용 투명 풀사이즈 박스: FittedMesh는 이 바운즈로 맞춘다 — 화면이 영상 비율로 줄어도
           맞춤 스케일이 흔들리지 않고, DOM 화면만 남았을 때 바운즈 0으로 터지는 사고(실제 발생)도 막는다 */}
       <mesh visible={false} position={[0, 0, .01]}><boxGeometry args={[w, h, .02]} /><meshBasicMaterial /></mesh>
       <group rotation={[0, 0, -rotationY]}>
         <mesh position={[0, 0, .01]}><boxGeometry args={[screenWidth, screenHeight, .02]} />{mat('#20262b')}</mesh>
-        {preview ? <mesh position={[0, 0, .042]}><planeGeometry args={[screenWidth, screenHeight]} />{mat('#20262b')}</mesh> : <VideoScreen id={item.id} width={screenWidth} height={screenHeight} />}
+        {preview ? <mesh position={[0, 0, .042]}><planeGeometry args={[screenWidth, screenHeight]} />{mat('#20262b')}</mesh> : <VideoScreen id={item.id} width={screenWidth} height={screenHeight} posterId={frameLookup} thumbnailCrop={frameDisplay?.thumbnailCrop} />}
       </group>
     </>
   }
@@ -1240,7 +1240,7 @@ function MusicControls({ id, y }: { id: string; y: number }) {
 }
 
 // the clip lives in IndexedDB; it is decoded into a hidden <video> and streamed onto the frame as a texture
-function VideoScreen({ id, width, height }: { id: string; width: number; height: number }) {
+function VideoScreen({ id, width, height, posterId, thumbnailCrop }: { id: string; width: number; height: number; posterId?: string; thumbnailCrop?: { left: number; top: number; right: number; bottom: number } }) {
   const store = useOptionalRoomStore()
   const version = store?.videoFrames[id] ?? 0
   const link = store?.videoLinks[id]
@@ -1255,11 +1255,6 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
     current.canvas.getContext('2d')?.drawImage(current.element, 0, 0, current.canvas.width, current.canvas.height)
     current.texture.needsUpdate = true
   })
-  // A playlist's thumbnail follows whatever it was last left on, which is what the frame will resume to. The
-  // stored `@start` video is only the entry point and stops being true after the first track change, so it is a
-  // fallback rather than the answer. Resolved outside the effect and listed in its deps so the picture updates
-  // when the playlist moves on instead of staying on whatever it showed at mount.
-  const posterId = link && (link.startsWith('pl:') ? playlistVideoResume[id] || link.split('@')[1] : link)
   useEffect(() => {
     let live = true
     let url: string | null = null
@@ -1274,6 +1269,14 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
       element.muted = true
       element.playsInline = true
       element.crossOrigin = 'anonymous'
+      element.addEventListener('loadedmetadata', () => {
+        if (!element?.videoWidth || !element.videoHeight) return
+        reportClipAspect(id, element.videoWidth / element.videoHeight)
+        if (store?.readOnly && preview.current?.element === element) {
+          preview.current.canvas.width = 240
+          preview.current.canvas.height = Math.max(1, Math.round(240 * element.videoHeight / element.videoWidth))
+        }
+      }, { once: true })
       if (!store?.readOnly) unregister = registerClipPlayer(id, element)
       if (!store?.readOnly) {
         const restore = () => {
@@ -1305,6 +1308,10 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
     if (posterId) new TextureLoader().setCrossOrigin('anonymous').loadAsync(`https://img.youtube.com/vi/${posterId}/hqdefault.jpg`).then((poster) => {
       if (!live) return
       poster.colorSpace = SRGBColorSpace
+      if (thumbnailCrop) {
+        poster.offset.set(thumbnailCrop.left, 1 - thumbnailCrop.bottom)
+        poster.repeat.set(thumbnailCrop.right - thumbnailCrop.left, thumbnailCrop.bottom - thumbnailCrop.top)
+      }
       setTexture(poster)
     }).catch(() => { /* thumbnail unavailable */ })
     // Explorer previews stream only that room's already-uploaded clip, always muted. A small canvas receives
@@ -1327,7 +1334,7 @@ function VideoScreen({ id, width, height }: { id: string; width: number; height:
       if (preview.current?.element === element) { preview.current.texture.dispose(); preview.current = null }
       if (url) URL.revokeObjectURL(url)
     }
-  }, [id, version, link, clip, posterId])
+  }, [id, version, link, clip, posterId, thumbnailCrop?.left, thumbnailCrop?.top, thumbnailCrop?.right, thumbnailCrop?.bottom])
   return <>{!store?.playingFrames.includes(id) && <mesh position={[0, 0, .042]}>
     <planeGeometry args={[width, height]} />
     {texture
