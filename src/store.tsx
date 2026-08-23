@@ -9,6 +9,7 @@ import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic
 import { DEFAULT_PROFILE_PHOTO, purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myProfilePhoto, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, removeStored, subscribeRealtime, uploadMedia, writeStored, type RemoteGuestComment } from './services/social'
 import { cancelSoundRequest, clearFrameResume, muteFrame, requestSound, snapshotActiveFrames } from './services/ytResume'
 import { t, tp } from './services/i18n'
+import { floorStyleOf } from './services/styles'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id, photo: row.photo })
 
@@ -625,7 +626,11 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const deleteEntry = (bookId: string, entryId: string) => { void purgeReactions([entryId]); dropReactions([entryId]); return setBooks((items) => items.map((book) => book.id === bookId ? { ...book, updatedAt: new Date().toISOString(), entries: book.entries.filter((entry) => entry.id !== entryId) } : book)) }
   const openStyleTarget = (target: StyleTarget) => setStyleTarget(target)
   const setWallStyle = (wallId: WallId, presetId: string) => setWallStyleState((current) => { const next = { ...current, [wallId]: presetId }; saveSlotStyle(activeRoomId, { ...next, floor: floorStyle }); return next })
-  const setFloorStyle = (presetId: string) => { setFloorStyleState(presetId); saveSlotStyle(activeRoomId, { ...wallStyle, floor: presetId }) }
+  const setFloorStyle = (presetId: string) => setFloorStyleState((current) => {
+    const next = presetId.includes('#') ? presetId : `${presetId}${floorStyleOf(current).color}`
+    saveSlotStyle(activeRoomId, { ...wallStyle, floor: next })
+    return next
+  })
   const setFurnitureStyle = (id: FurnitureId, presetId: string) => { const next = furniture.map((value) => value.id === id ? { ...value, styleId: presetId, updatedAt: new Date().toISOString() } : value); commit(next) }
   const toggleDebugAnchors = () => setDebugAnchors((value) => !value)
   // one-time pull of the converted Instagram export (public/instagram/import.json) into the bookshelf
