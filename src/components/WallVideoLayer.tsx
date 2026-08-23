@@ -134,7 +134,7 @@ function WallVideo({ frameId }: { frameId: string }) {
     const transform = `matrix(${(tr[0] - tl[0]) / 640},${(tr[1] - tl[1]) / 640},${(bl[0] - tl[0]) / divHeight},${(bl[1] - tl[1]) / divHeight},${tl[0]},${tl[1]})`
     if (transform !== previousTransform.current) { previousTransform.current = transform; element.current.style.transform = transform }
     element.current.style.visibility = !displayReady || topLeft.z < -1 || topLeft.z > 1 ? 'hidden' : 'visible'
-  })
+  }, .5) // after camera/furniture updates, before RenderGovernor: playback stays independent and the frame never trails acceleration
   // the shields cover the screen, so without this a hold would only register on the frame's edge
   const holdTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const held = useRef(false)
