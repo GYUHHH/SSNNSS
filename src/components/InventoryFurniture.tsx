@@ -622,20 +622,20 @@ function DiaryBookItem({ itemId, preview }: { itemId: string; preview: boolean }
   const glow = hovered && !preview ? { emissive: cover, emissiveIntensity: .22 } : {}
   const coverMat = () => <meshStandardMaterial color={cover} roughness={.75} transparent={preview} opacity={opacity} {...glow} />
   // 방문자에게 비공개 책은 자리만 차지하고 보이지 않는다 (visibleBooks 필터를 그대로 탄다)
-  if (!book && !preview) return <mesh visible={false} position={[0, .27, 0]}><boxGeometry args={[.68, .54, .3]} /><meshBasicMaterial /></mesh>
+  if (!book && !preview) return <mesh visible={false} position={[0, .27, 0]}><boxGeometry args={[.58, .54, .3]} /><meshBasicMaterial /></mesh>
   return <group position={[0, hovered && !preview ? .03 : 0, 0]}
     onPointerOver={(event) => { if (readOnly || preview) return; event.stopPropagation(); setHovered(true) }}
     onPointerOut={() => setHovered(false)}>
-    <mesh visible={false} position={[0, .27, 0]}><boxGeometry args={[.68, .54, .3]} /><meshBasicMaterial /></mesh>
+    <mesh visible={false} position={[0, .27, 0]}><boxGeometry args={[.58, .54, .3]} /><meshBasicMaterial /></mesh>
     {/* 속지: 표지보다 살짝 낮고 안쪽 — 위에서 단면이 보인다 */}
-    <mesh castShadow position={[.02, .25, 0]}><boxGeometry args={[.6, .48, .25]} /><meshStandardMaterial color="#f6f2e8" roughness={.9} transparent={preview} opacity={opacity} /></mesh>
+    <mesh castShadow position={[.02, .25, 0]}><boxGeometry args={[.5, .48, .25]} /><meshStandardMaterial color="#f6f2e8" roughness={.9} transparent={preview} opacity={opacity} /></mesh>
     {/* 속지 단면 줄 3개 */}
-    {[-.055, 0, .055].map((z) => <mesh key={z} position={[.02, .492, z]}><boxGeometry args={[.56, .004, .012]} /><meshStandardMaterial color="#d9d2c2" roughness={.9} transparent={preview} opacity={opacity} /></mesh>)}
+    {[-.055, 0, .055].map((z) => <mesh key={z} position={[.02, .492, z]}><boxGeometry args={[.46, .004, .012]} /><meshStandardMaterial color="#d9d2c2" roughness={.9} transparent={preview} opacity={opacity} /></mesh>)}
     {/* 표지: 앞·뒤 큰 판 + 왼쪽 책등(둥근 모서리) */}
-    <mesh castShadow position={[0, .26, .132]}><boxGeometry args={[.66, .52, .022]} />{coverMat()}</mesh>
-    <mesh castShadow position={[0, .26, -.132]}><boxGeometry args={[.66, .52, .022]} />{coverMat()}</mesh>
-    <mesh castShadow position={[-.325, .26, 0]}><boxGeometry args={[.03, .52, .286]} />{coverMat()}</mesh>
-    {!!title && !preview && <Text userData={{ excludeFromFit: true }} font={titleFont} position={[-.342, .26, 0]} rotation={[0, -Math.PI / 2, -Math.PI / 2]} fontSize={.06} maxWidth={.46} color="#faf6ee" anchorX="center" anchorY="middle">{title.length > 7 ? `${title.slice(0, 7)}…` : title}</Text>}
+    <mesh castShadow position={[0, .26, .132]}><boxGeometry args={[.56, .52, .022]} />{coverMat()}</mesh>
+    <mesh castShadow position={[0, .26, -.132]}><boxGeometry args={[.56, .52, .022]} />{coverMat()}</mesh>
+    <mesh castShadow position={[-.275, .26, 0]}><boxGeometry args={[.03, .52, .286]} />{coverMat()}</mesh>
+    {!!title && !preview && <Text userData={{ excludeFromFit: true }} font={titleFont} position={[-.292, .26, 0]} rotation={[0, -Math.PI / 2, -Math.PI / 2]} fontSize={.06} maxWidth={.46} color="#faf6ee" anchorX="center" anchorY="middle">{title.length > 7 ? `${title.slice(0, 7)}…` : title}</Text>}
   </group>
 }
 
