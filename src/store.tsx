@@ -7,7 +7,7 @@ import { loadOrders } from './services/playlistOrder'
 import { deleteVideo, listVideoIds, loadClipUrls, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, setClipMuted, syncPendingClips, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic, syncPendingTracks } from './services/music'
 import { DEFAULT_PROFILE_PHOTO, purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myProfilePhoto, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, removeStored, subscribeRealtime, uploadMedia, writeStored, type RemoteGuestComment } from './services/social'
-import { cancelSoundRequest, muteFrame, requestSound, snapshotActiveFrames } from './services/ytResume'
+import { cancelSoundRequest, clearFrameResume, muteFrame, requestSound, snapshotActiveFrames } from './services/ytResume'
 import { t, tp } from './services/i18n'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id, photo: row.photo })
@@ -659,7 +659,9 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     if (isVisiting()) return false
     const target = url ? youTubeTarget(url) : null
     if (url && !target) return false
-    setVideoLinks((prev) => { const next = { ...prev }; if (target) next[id] = encodeTarget(target); else delete next[id]; saveVideoLinks(next); return next })
+    const encoded = target ? encodeTarget(target) : undefined
+    if (videoLinks[id] !== encoded) clearFrameResume(id)
+    setVideoLinks((prev) => { const next = { ...prev }; if (encoded) next[id] = encoded; else delete next[id]; saveVideoLinks(next); return next })
     setPlayingFrames((prev) => target ? (prev.includes(id) ? prev : [...prev, id]) : prev.filter((value) => value !== id))
     if (target) applyFrameMuted(id, true)
     return true

@@ -288,6 +288,18 @@ export function requestSound(frameId: string, onBlocked: () => void, onSound?: (
 export const playlistNowPlaying: Record<string, string> = {}
 const nowPlayingListeners = new Set<() => void>()
 export const onPlaylistNowPlaying = (listener: () => void) => { nowPlayingListeners.add(listener); return () => { nowPlayingListeners.delete(listener) } }
+// A frame id survives Delete → add, but the media behind it does not. Keeping the old video's id and clock makes
+// the replacement player chase a video it cannot contain, so its bounded autoplay kick keeps firing. Clear only
+// this frame (including legacy room-scoped keys); every other frame and the normal room-resume path stay intact.
+export const clearFrameResume = (frameId: string) => {
+  for (const key of Object.keys(videoResume)) if (key === frameId || key.endsWith(`:${frameId}`)) delete videoResume[key]
+  for (const key of Object.keys(playlistVideoResume)) if (key === frameId || key.endsWith(`:${frameId}`)) delete playlistVideoResume[key]
+  delete playlistNowPlaying[frameId]
+  delete framePlayerStates[frameId]
+  delete frameClocks[frameId]
+  delete skipRun[frameId]
+  flushResume()
+}
 const setNowPlaying = (frameId: string, videoId: string | undefined) => {
   if (!videoId || playlistNowPlaying[frameId] === videoId) return
   playlistNowPlaying[frameId] = videoId
