@@ -608,8 +608,8 @@ function BlobSculpture({ preview }: { preview: boolean }) {
   </>
 }
 
-// 기록장(책) 아이템: 선반에 세워 꽂힌 얇은 책 — 책등이 앞을 보고, 등에 제목이 세로로 흐른다.
-// 두께는 얇게(x), 높이·깊이는 실제 책 비율. 투명 바운즈 키퍼가 셀 크기를 잡는다.
+// 기록장(책) 아이템: 세워진 가로로 긴 책(2x1) — 표지가 정면을 보고, 표지에 제목.
+// 얇은 두께(z), 낮고 넓은 판형. 투명 바운즈 키퍼가 셀 크기를 잡는다.
 function DiaryBookItem({ itemId, preview }: { itemId: string; preview: boolean }) {
   const { books } = useRoomStore()
   const book = books.find((value) => `inventory-book-${value.id}` === itemId)
@@ -618,16 +618,16 @@ function DiaryBookItem({ itemId, preview }: { itemId: string; preview: boolean }
   const opacity = preview ? .5 : 1
   const cover = book?.coverColor ?? '#718475'
   // 방문자에게 비공개 책은 자리만 차지하고 보이지 않는다 (visibleBooks 필터를 그대로 탄다)
-  if (!book && !preview) return <mesh visible={false} position={[0, .25, 0]}><boxGeometry args={[.34, .5, .34]} /><meshBasicMaterial /></mesh>
+  if (!book && !preview) return <mesh visible={false} position={[0, .22, 0]}><boxGeometry args={[.68, .44, .3]} /><meshBasicMaterial /></mesh>
   return <>
-    <mesh visible={false} position={[0, .25, 0]}><boxGeometry args={[.34, .5, .34]} /><meshBasicMaterial /></mesh>
-    {/* 속지: 표지 사이, 뒤로 살짝 물러난 종이 블록 */}
-    <mesh castShadow position={[0, .22, -.012]}><boxGeometry args={[.07, .42, .28]} /><meshStandardMaterial color="#f4efe4" roughness={.9} transparent={preview} opacity={opacity} /></mesh>
-    {/* 표지: 양옆 판 + 앞쪽 책등 */}
-    <mesh castShadow position={[-.045, .22, 0]}><boxGeometry args={[.014, .44, .3]} /><meshStandardMaterial color={cover} roughness={.75} transparent={preview} opacity={opacity} /></mesh>
-    <mesh castShadow position={[.045, .22, 0]}><boxGeometry args={[.014, .44, .3]} /><meshStandardMaterial color={cover} roughness={.75} transparent={preview} opacity={opacity} /></mesh>
-    <mesh castShadow position={[0, .22, .148]}><boxGeometry args={[.104, .44, .014]} /><meshStandardMaterial color={cover} roughness={.75} transparent={preview} opacity={opacity} /></mesh>
-    {!!title && !preview && <Text userData={{ excludeFromFit: true }} font={titleFont} position={[0, .22, .157]} rotation={[0, 0, Math.PI / 2]} fontSize={.05} maxWidth={.4} color="#faf6ee" anchorX="center" anchorY="middle">{title.length > 8 ? `${title.slice(0, 8)}…` : title}</Text>}
+    <mesh visible={false} position={[0, .22, 0]}><boxGeometry args={[.68, .44, .3]} /><meshBasicMaterial /></mesh>
+    {/* 속지: 표지 사이 종이 블록, 오른쪽·위아래가 살짝 안쪽 */}
+    <mesh castShadow position={[.012, .2, 0]}><boxGeometry args={[.6, .36, .07]} /><meshStandardMaterial color="#f4efe4" roughness={.9} transparent={preview} opacity={opacity} /></mesh>
+    {/* 표지: 앞·뒤 판 + 왼쪽 책등 */}
+    <mesh castShadow position={[0, .21, .045]}><boxGeometry args={[.64, .4, .016]} /><meshStandardMaterial color={cover} roughness={.75} transparent={preview} opacity={opacity} /></mesh>
+    <mesh position={[0, .21, -.045]}><boxGeometry args={[.64, .4, .016]} /><meshStandardMaterial color={cover} roughness={.75} transparent={preview} opacity={opacity} /></mesh>
+    <mesh castShadow position={[-.315, .21, 0]}><boxGeometry args={[.02, .4, .104]} /><meshStandardMaterial color={cover} roughness={.75} transparent={preview} opacity={opacity} /></mesh>
+    {!!title && !preview && <Text userData={{ excludeFromFit: true }} font={titleFont} position={[0, .21, .056]} fontSize={.07} maxWidth={.58} color="#faf6ee" anchorX="center" anchorY="middle">{title.length > 10 ? `${title.slice(0, 10)}…` : title}</Text>}
   </>
 }
 
