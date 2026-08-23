@@ -84,13 +84,12 @@ function RoomColorEditor() {
 
 export default function InventoryPanel() {
   const [tab, setTab] = useState<typeof tabs[number]>('전체')
-  const { startPreview, preview, previewValid, placePreview, cancelPreview, availableCount } = useRoomStore()
+  const { startPreview, preview, previewValid, placePreview, availableCount } = useRoomStore()
   const showingColors = tab === COLOR_TAB
   const showingCharacter = tab === CHARACTER_TAB
   // only what you still own and have not put down somewhere — placing one takes it off this list
   const stock = showingColors || showingCharacter ? [] : CATALOG.filter((entry) => availableCount(entry.type) > 0 && (tab === '전체' || (entry.type === 'speech-bubble' ? '소품' : categoryFor(entry.type)) === tab as InventoryCategory))
   return <section className={preview ? 'inventory-panel previewing' : 'inventory-panel'} aria-label={t('보관함')}>
-    <header><strong>{t('보관함')}</strong>{preview && <button type="button" onClick={cancelPreview}>{t('미리보기 취소')}</button>}</header>
     <nav>{tabs.map((entry) => <button key={entry} className={tab === entry ? 'active' : ''} type="button" onClick={() => setTab(entry)}>{t(entry)}</button>)}</nav>
     {showingCharacter ? <CharacterLookEditor /> : showingColors ? <RoomColorEditor /> : <div className="inventory-items">
       {stock.length === 0 && <p className="inventory-empty">{t('남은 가구가 없어요. 방에 놓인 가구를 정리하면 다시 꺼낼 수 있어요.')}</p>}

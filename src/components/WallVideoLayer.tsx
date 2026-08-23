@@ -120,10 +120,12 @@ function WallVideo({ frameId }: { frameId: string }) {
   const cropHeight = Math.max(.01, crop.bottom - crop.top)
   const screen = useRef<Group>(null)
   const element = useRef<HTMLDivElement>(null)
+  const fitSynced = useRef(false)
   const corners = useRef([new Vector3(), new Vector3(), new Vector3()])
   const previousTransform = useRef('')
   useFrame(({ camera, size }) => {
-    if (!screen.current || !element.current) return
+    if (!screen.current || !element.current) { fitSynced.current = false; return }
+    if (!fitSynced.current) { element.current.style.visibility = 'hidden'; return }
     screen.current.updateWorldMatrix(true, false)
     const [topLeft, topRight, bottomLeft] = corners.current
     topLeft.set(-screenWidth / 2, screenHeight / 2, 0).applyMatrix4(screen.current.matrixWorld).project(camera)
@@ -150,7 +152,7 @@ function WallVideo({ frameId }: { frameId: string }) {
   // Track changes may briefly wait for new aspect metadata, but the iframe must stay mounted: recreating it
   // starts muted again and drops the sound choice that was already active for this frame.
   if (!active) return null
-  return <FollowFit fitName={`fit:${item.id}`}>
+  return <FollowFit fitName={`fit:${item.id}`} synced={fitSynced}>
     <group rotation={[0, 0, -item.rotation[1]]}>
       <group ref={screen} position={[0, 0, .042]}>
         {/* The transparent WebGL plane punches the screen through the wall. Later room objects draw over it, so
@@ -175,20 +177,21 @@ function WallVideo({ frameId }: { frameId: string }) {
   </FollowFit>
 }
 
-function FollowFit({ fitName, children }: { fitName: string; children: React.ReactNode }) {
+function FollowFit({ fitName, synced, children }: { fitName: string; synced: React.MutableRefObject<boolean>; children: React.ReactNode }) {
   const holder = useRef<Group>(null)
   const parentInverse = useRef(new Matrix4())
   useFrame(({ scene }) => {
     const target = holder.current
-    if (!target) return
+    if (!target) { synced.current = false; return }
     const fit = findFit(target, scene, fitName.replace('fit:', ''))
-    if (!fit) return
+    if (!fit) { synced.current = false; return }
     fit.updateWorldMatrix(true, false)
     target.parent?.updateWorldMatrix(true, false)
     target.matrix.copy(fit.matrixWorld)
     if (target.parent) target.matrix.premultiply(parentInverse.current.copy(target.parent.matrixWorld).invert())
     target.matrixAutoUpdate = false
     target.matrixWorldNeedsUpdate = true
+    synced.current = true
   })
   return <group ref={holder}>{children}</group>
 }
