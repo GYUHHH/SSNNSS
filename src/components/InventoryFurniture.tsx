@@ -608,7 +608,7 @@ function BlobSculpture({ preview }: { preview: boolean }) {
   </>
 }
 
-// 기록장(책) 아이템: 세워진 두꺼운 책(2x1) — 큰 표지가 앞뒤, 왼쪽에 둥근 책등,
+// 기록장(책) 아이템: 세워진 두꺼운 책(2x1) — 큰 표지가 앞뒤, 왼쪽에 각진 책등,
 // 위·오른쪽으로 속지 단면이 보인다. 표지 정면에 제목. 호버 시 커서 + 살짝 떠오름 + 표지색 발광.
 function DiaryBookItem({ itemId, preview }: { itemId: string; preview: boolean }) {
   const { books, readOnly } = useRoomStore()
@@ -635,7 +635,6 @@ function DiaryBookItem({ itemId, preview }: { itemId: string; preview: boolean }
     <mesh castShadow position={[0, .26, .132]}><boxGeometry args={[.66, .52, .022]} />{coverMat()}</mesh>
     <mesh castShadow position={[0, .26, -.132]}><boxGeometry args={[.66, .52, .022]} />{coverMat()}</mesh>
     <mesh castShadow position={[-.325, .26, 0]}><boxGeometry args={[.03, .52, .286]} />{coverMat()}</mesh>
-    <mesh castShadow position={[-.332, .26, 0]} scale={[.6, 1, 1]}><cylinderGeometry args={[.143, .143, .52, 12]} />{coverMat()}</mesh>
     {!!title && !preview && <Text userData={{ excludeFromFit: true }} font={titleFont} position={[0, .3, .144]} fontSize={.08} maxWidth={.56} color="#faf6ee" anchorX="center" anchorY="middle">{title.length > 8 ? `${title.slice(0, 8)}…` : title}</Text>}
   </group>
 }
