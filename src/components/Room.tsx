@@ -240,6 +240,7 @@ const isEnterable = (handle: string) => handle !== LOBBY && !handle.startsWith(V
 // what a zoom-in may land in: real rooms always, and the lobby too for whoever has no room of their own —
 // signed out, the default room is home, and home has to be somewhere you can go back to
 const canEnter = (handle: string) => isEnterable(handle) || (handle === LOBBY && !isSignedIn())
+const sameHandles = (left: string[], right: string[]) => left.length === right.length && left.every((handle, index) => handle === right[index])
 
 if (import.meta.env.DEV) {
   const check = roomSlots(['0', '1', '2', '3', '4', '5', '6'])
@@ -324,7 +325,7 @@ function ExplorerRoomHitbox({ off, open, blocked, closePanel }: { off: (zoom: nu
   </group>
 }
 
-function RoomContainer({ slot, distance, centred, fresh, open, swapping, blocked, closePanel }: { slot: RoomSlot; distance: number; centred: boolean; fresh?: Record<string, string>; open: () => void; swapping: boolean; blocked: boolean; closePanel: () => void }) {
+function RoomContainer({ slot, distance, centred, shown, fresh, open, swapping, blocked, closePanel }: { slot: RoomSlot; distance: number; centred: boolean; shown: boolean; fresh?: Record<string, string>; open: () => void; swapping: boolean; blocked: boolean; closePanel: () => void }) {
   const { mode } = useRoomStore()
   const { gl, camera, scene } = useThree()
   const group = useRef<Group>(null)
@@ -361,6 +362,19 @@ function RoomContainer({ slot, distance, centred, fresh, open, swapping, blocked
   // set on the way in as well as cleared on the way out: StrictMode mounts, unmounts and remounts, and a
   // clear-only flag stays false through the remount, which silently blocked every bundle from ever landing
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+  // Mounted means the room is inside the one-room preload margin. Fetch here, while it is still off screen,
+  // rather than waiting for opacity to rise on its first visible frame. The shared promise cache makes a later
+  // refresh reuse this request, and leaving the margin is enough to unmount the whole room again.
+  useEffect(() => {
+    if (!isEnterable(slot.handle)) return
+    void fetchRoomBundle(slot.handle).then((found) => {
+      if (!found || !mounted.current) return
+      const raw = JSON.stringify(found)
+      if (raw === lastRaw.current) return
+      lastRaw.current = raw
+      setBundle(found)
+    })
+  }, [slot.handle])
   const fadedOut = () => opacity.current < .65
   // Shaders are compiled the first time a mesh is actually DRAWN, and until the zoom-out reveals it a neighbour
   // is never drawn — so the reveal itself paid for several rooms' worth of program compilation at once, and the
@@ -416,7 +430,7 @@ function RoomContainer({ slot, distance, centred, fresh, open, swapping, blocked
     // in the ring still clears out on the way in.
     // swapping = the ring is being exchanged in plain sight (the explorer is open), so the whole neighbourhood
     // dims out first and the incoming one fades up in its place instead of the cells cutting to new rooms
-    const wanted = swapping || mode !== 'normal' ? 0 : centred ? 1 : MathUtils.clamp(1 - (camera.zoom - floor) / span, 0, 1)
+    const wanted = !shown || swapping || mode !== 'normal' ? 0 : centred ? 1 : MathUtils.clamp(1 - (camera.zoom - floor) / span, 0, 1)
     // The frame a room is first drawn tends to hitch — texture uploads land right then — and the long delta of
     // that one frame used to advance the damp nearly to 1, so the room POPPED instead of fading. Capping the step
     // means a hitch only moves the fade one small notch, and the glide plays out over the frames that follow.
@@ -514,9 +528,13 @@ function RoomWorld() {
   // and with it the only way back to where the visitor started.
   const hubHandle = useRef(myHandle() ?? (isSignedIn() ? currentRoomHandle() : null) ?? LOBBY).current
   const [handles, setHandles] = useState(() => withVacancies([hubHandle]))
+  // Only these read-only room previews exist in the Three scene. `shown` is the tighter visible set; `mounted`
+  // includes a one-room margin so data and shaders are ready before a room crosses the edge of the screen.
+  const [shownRooms, setShownRooms] = useState<string[]>([])
+  const [mountedRooms, setMountedRooms] = useState<string[]>([])
   // bundles pushed by the realtime stream, keyed by handle — each RoomContainer picks up its own
   const [freshBundles, setFreshBundles] = useState<Record<string, Record<string, string>>>({})
-  useEffect(() => subscribeRoomBundles(handles.filter(isEnterable), (handle, data) => setFreshBundles((prev) => ({ ...prev, [handle]: data }))), [handles])
+  useEffect(() => subscribeRoomBundles(mountedRooms.filter(isEnterable), (handle, data) => setFreshBundles((prev) => ({ ...prev, [handle]: data }))), [mountedRooms])
   // What is being VIEWED — not the hub while visiting someone else. Derived from the STORE's own commit rather
   // than kept as separate state here: the store lives on the DOM root and this world on the canvas root, and two
   // roots may paint their commits apart — with separate state, one frame could show the new room's data still
@@ -575,9 +593,6 @@ function RoomWorld() {
       // the room actually being viewed needs a cell of its own even if the list misses it
       const viewed = currentRoomHandle()
       if (viewed && viewed !== centre && !rest.includes(viewed)) rest.unshift(viewed)
-      // warm every bundle now, while the user is still looking at one room — by the time they zoom out, the
-      // layouts are already here and each neighbour appears as itself rather than as the default room first
-      rest.filter(isEnterable).forEach((handle) => void fetchRoomBundle(handle))
       const next = withVacancies([centre, ...rest])
       // Inside a room the ring is off screen, so the exchange is free — which is the usual case, since a new
       // ring is what entering a room asks for. Out in the explorer the swap would be seen, so it crossfades.
@@ -602,6 +617,42 @@ function RoomWorld() {
     })
   }, [handles, activeHandle])
   const active = slots.find((slot) => slot.handle === activeHandle) ?? slots[0]
+  const visibilityProbe = useRef(new Vector3()).current
+  const nextVisibilitySweep = useRef(0)
+  const shownUntil = useRef(new Map<string, number>())
+  const mountedUntil = useRef(new Map<string, number>())
+  useFrame(({ camera, size }) => {
+    const now = performance.now()
+    if (now < nextVisibilitySweep.current) return
+    nextVisibilitySweep.current = now + 100
+    const nextShown: string[] = []
+    const nextMounted: string[] = []
+    for (const slot of slots) {
+      if (slot.handle === active.handle || (!isEnterable(slot.handle) && slot.handle !== LOBBY)) continue
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      // Project the room's actual cube instead of guessing from zoom. The same calculation works while the camera
+      // pans, rotates or changes aspect ratio, and it is cheap at this 10 Hz visibility cadence.
+      for (const x of [-ROOM_SIZE / 2, ROOM_SIZE / 2]) for (const y of [0, ROOM_SIZE]) for (const z of [-ROOM_SIZE / 2, ROOM_SIZE / 2]) {
+        visibilityProbe.set(slot.position[0] + x, slot.position[1] + y, slot.position[2] + z).project(camera)
+        const screenX = (visibilityProbe.x + 1) * size.width / 2
+        const screenY = (1 - visibilityProbe.y) * size.height / 2
+        minX = Math.min(minX, screenX); maxX = Math.max(maxX, screenX)
+        minY = Math.min(minY, screenY); maxY = Math.max(maxY, screenY)
+      }
+      const roomSpan = Math.max(maxX - minX, maxY - minY)
+      const visible = maxX >= -24 && minX <= size.width + 24 && maxY >= -24 && minY <= size.height + 24
+      const preload = maxX >= -roomSpan && minX <= size.width + roomSpan && maxY >= -roomSpan && minY <= size.height + roomSpan
+      if (visible) shownUntil.current.set(slot.handle, now + 400)
+      if (preload || visible) mountedUntil.current.set(slot.handle, now + 900)
+      if (visible || (shownUntil.current.get(slot.handle) ?? 0) > now) nextShown.push(slot.handle)
+      if (preload || (mountedUntil.current.get(slot.handle) ?? 0) > now) nextMounted.push(slot.handle)
+      if ((mountedUntil.current.get(slot.handle) ?? 0) <= now) { mountedUntil.current.delete(slot.handle); shownUntil.current.delete(slot.handle) }
+    }
+    setShownRooms((current) => sameHandles(current, nextShown) ? current : nextShown)
+    setMountedRooms((current) => sameHandles(current, nextMounted) ? current : nextMounted)
+  })
+  const shownRoomSet = useMemo(() => new Set(shownRooms), [shownRooms])
+  const mountedRoomSet = useMemo(() => new Set(mountedRooms), [mountedRooms])
   const activeGroup = useRef<Group>(null)
   const activeGlow = useRef(0)
   const activeHoverLayer = useRef<number | null>(null)
@@ -691,7 +742,7 @@ function RoomWorld() {
         let best = Infinity
         let winner: RoomSlot | null = null
         for (const slot of slots) {
-          if (slot !== active && !canEnter(slot.handle)) continue
+          if (slot !== active && (!shownRoomSet.has(slot.handle) || !canEnter(slot.handle))) continue
           probe.set(slot.position[0], slot.position[1] + 3.5, slot.position[2]).project(camera)
           const offset = Math.hypot((probe.x - atX) * halfW, (probe.y - atY) * halfH)
           if (offset < best) { best = offset; winner = slot }
@@ -731,7 +782,7 @@ function RoomWorld() {
   // the picked room, or the one already being viewed when nothing is picked — what the camera should be aiming at
   const aim = useMemo(() => (slots.find((slot) => slot.handle === centredHandle) ?? active)?.position ?? null, [slots, active, centredHandle])
   return <>
-    {slots.filter((slot) => slot.handle !== active.handle && (isEnterable(slot.handle) || slot.handle === LOBBY)).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} swapping={swapping} blocked={bookPanelOpen} closePanel={clearSelection} />)}
+    {slots.filter((slot) => mountedRoomSet.has(slot.handle)).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} shown={shownRoomSet.has(slot.handle)} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} swapping={swapping} blocked={bookPanelOpen} closePanel={clearSelection} />)}
     <group ref={activeGroup} position={active.position}>
       <Inert off={exploring}><RoomRoot /></Inert>
       <ExplorerRoomHitbox off={exploring} open={() => beginEntry(active)} blocked={bookPanelOpen} closePanel={clearSelection} />
