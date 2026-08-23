@@ -1,7 +1,7 @@
 import { Html } from '@react-three/drei'
 import { findFit } from './Furniture'
 import { useFrame } from '@react-three/fiber'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Matrix4, Vector3, type Group } from 'three'
 import { loadAudioPrefs, useRoomStore } from '../store'
 import { fitToVideo, useFrameVideoId, useVideoDisplayMeta } from '../services/mediaStore'
@@ -106,7 +106,7 @@ function WallVideo({ frameId }: { frameId: string }) {
   const aspectLookup = useFrameVideoId(frameId, videoId)
   const display = useVideoDisplayMeta(active ? aspectLookup : undefined)
   const [displayReady, setDisplayReady] = useState(false)
-  useEffect(() => {
+  useLayoutEffect(() => {
     setDisplayReady(false)
     if (aspectLookup && display === undefined) return
     const frame = requestAnimationFrame(() => setDisplayReady(true))
@@ -132,7 +132,7 @@ function WallVideo({ frameId }: { frameId: string }) {
     const [tl, tr, bl] = [point(topLeft), point(topRight), point(bottomLeft)]
     const transform = `matrix(${(tr[0] - tl[0]) / 640},${(tr[1] - tl[1]) / 640},${(bl[0] - tl[0]) / divHeight},${(bl[1] - tl[1]) / divHeight},${tl[0]},${tl[1]})`
     if (transform !== previousTransform.current) { previousTransform.current = transform; element.current.style.transform = transform }
-    element.current.style.visibility = topLeft.z < -1 || topLeft.z > 1 ? 'hidden' : 'visible'
+    element.current.style.visibility = !displayReady || topLeft.z < -1 || topLeft.z > 1 ? 'hidden' : 'visible'
   })
   // the shields cover the screen, so without this a hold would only register on the frame's edge
   const holdTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -146,7 +146,9 @@ function WallVideo({ frameId }: { frameId: string }) {
     // the hold-to-edit gesture in their own room.
     holdTimer.current = setTimeout(() => { held.current = true; if (isVisiting()) openReactionPicker({ id: frameId, x: clientX, y: clientY }); else enterEditFurniture(frameId) }, 500)
   }
-  if (!active || (aspectLookup && display === undefined) || !displayReady) return null
+  // Track changes may briefly wait for new aspect metadata, but the iframe must stay mounted: recreating it
+  // starts muted again and drops the sound choice that was already active for this frame.
+  if (!active) return null
   return <FollowFit fitName={`fit:${item.id}`}>
     <group rotation={[0, 0, -item.rotation[1]]}>
       <group ref={screen} position={[0, 0, .042]}>
