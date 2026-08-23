@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import ArtworkOverlay, { artworkKindOf } from './components/ArtworkOverlay'
-import BookShelfPanel from './components/BookShelfPanel'
 import DiaryDialog from './components/DiaryDialog'
 import InventoryPanel from './components/InventoryPanel'
 import MusicPanel from './components/MusicPanel'
@@ -22,7 +21,7 @@ import { thumbnailFor } from './services/thumbnails'
 import { lang, t } from './services/i18n'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 507
+const BUILD = 508
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume } = useRoomStore()
@@ -168,7 +167,7 @@ function Interface() {
       <span className="sheet-handle" aria-hidden="true" />
       {musicOpen && <div className="mobile-music-sheet"><MusicPanel musicTrack={musicTrack} setMusicTrack={setMusicTrack} musicVolume={musicVolume} setMusicVolume={setMusicVolume} /></div>}
       {inventorySheet && <InventoryPanel />}
-      <BookShelfPanel /><DiaryDialog /><ArtworkOverlay />
+      <DiaryDialog /><ArtworkOverlay />
     </aside>
   </main>
 }

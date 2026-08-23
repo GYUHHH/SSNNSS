@@ -608,6 +608,22 @@ function BlobSculpture({ preview }: { preview: boolean }) {
   </>
 }
 
+// 기록장(책) 아이템: 기존 책장 스파인 모양 그대로 — 연결된 책의 색·제목을 입는다.
+// 투명 바운즈 키퍼가 셀 크기를 잡아줘서 책 본체는 셀보다 작게, 바닥에 딱 붙어 선다.
+function DiaryBookItem({ itemId, preview }: { itemId: string; preview: boolean }) {
+  const { books } = useRoomStore()
+  const book = books.find((value) => `inventory-book-${value.id}` === itemId)
+  const title = book?.title ?? ''
+  const titleFont = /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(title) ? PRETENDARD_WOFF : JONES_BOOK_OTF
+  // 방문자에게 비공개 책은 자리만 차지하고 보이지 않는다 (visibleBooks 필터를 그대로 탄다)
+  if (!book && !preview) return <mesh visible={false} position={[0, .22, 0]}><boxGeometry args={[.34, .44, .34]} /><meshBasicMaterial /></mesh>
+  return <>
+    <mesh visible={false} position={[0, .22, 0]}><boxGeometry args={[.34, .44, .34]} /><meshBasicMaterial /></mesh>
+    <mesh castShadow position={[0, .21, 0]}><boxGeometry args={[.22, .42, .16]} /><meshStandardMaterial color={book?.coverColor ?? '#718475'} roughness={.8} transparent={preview} opacity={preview ? .5 : 1} /></mesh>
+    {!!title && !preview && <Text userData={{ excludeFromFit: true }} font={titleFont} position={[0, .21, .085]} rotation={[0, 0, Math.PI / 2]} fontSize={.045} maxWidth={.36} color="#f2ede3" anchorX="center" anchorY="middle">{title.length > 8 ? `${title.slice(0, 8)}…` : title}</Text>}
+  </>
+}
+
 // Y2K 책상: 흰 쉘 + 파랑 인서트. 왼쪽 C자 다리, 오른쪽 서랍 페데스탈, 위 허치.
 function Y2kDesk({ preview }: { preview: boolean }) {
   const opacity = preview ? .5 : 1
@@ -726,6 +742,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'glass-mushroom-lamp') return <GlassMushroomLamp preview={preview} lit={lit} />
   if (item.type === 'pop-shelf') return <PopShelf preview={preview} />
   if (item.type === 'bubble-chair') return <BubbleChair preview={preview} />
+  if (item.type === 'diary-book') return <DiaryBookItem itemId={item.id} preview={preview} />
   if (item.type === 'inflatable-sofa') return <InflatableSofa preview={preview} />
   if (item.type === 'blob-sculpture') return <BlobSculpture preview={preview} />
   if (item.type === 'y2k-desk') return <Y2kDesk preview={preview} />

@@ -42,7 +42,8 @@ const OWNED_SURFACES: Record<string, OwnedSurfaceConfig[]> = {
   chair: [{ suffix: 'seat', kind: 'seat', heightOffset: 0.54 }],
   'side-table': [{ suffix: 'top', kind: 'tabletop', heightOffset: 0.54 }],
   'music-player': [{ suffix: 'top', kind: 'tabletop', heightOffset: 0.54 }],
-  bookshelf: [{ suffix: 'top', kind: 'tabletop', heightOffset: 2.94 }],
+  // 책장: 2단 고정 — 각 단 판자 윗면(0.18/0.80 + 판 반두께 .06)과 꼭대기(capY 1.64 + .06)
+  bookshelf: [{ suffix: 'top', kind: 'tabletop', heightOffset: 1.7 }, { suffix: 'shelf1', kind: 'shelf', heightOffset: .24 }, { suffix: 'shelf2', kind: 'shelf', heightOffset: .86 }],
   fireplace: [{ suffix: 'top', kind: 'tabletop', heightOffset: 1.03 }],
   'coffee-table': [{ suffix: 'top', kind: 'tabletop', heightOffset: 0.35 }],
   'glass-shelf': [{ suffix: 'top', kind: 'tabletop', heightOffset: 0.66 }],
@@ -63,12 +64,6 @@ export type SurfaceHost = { id: string; type: string; position: [number, number,
 // grid) turn together with the owner. subCellSize stays exactly GRID_SIZE/2: (footprint*GRID_SIZE)/(footprint*2)
 // The bookshelf grows with its tiers: 2 by default, one more whenever a book sits on the current top tier.
 // Its cap (and anything placed on top) follows the tier count.
-export const bookshelfTiers = (shelves: number[]) => Math.min(10, Math.max(2, Math.max(-1, ...shelves) + 2))
-export const bookshelfCapY = (tiers: number) => 0.18 + (tiers - 1) * 0.62 + 0.84
-// ponytail: module-level mutable set by the store each render — the bookshelf is a singleton, so one shared
-// offset beats threading book state through every surface call site; revisit if shelves become per-instance
-let bookshelfTopOffset = 2.94
-export const setBookshelfTopOffset = (value: number) => { bookshelfTopOffset = value }
 
 export const surfacesForOwner = (item: SurfaceHost): PlacementSurface[] => {
   if (item.type === 'wall-shelf' && item.wallId) {
@@ -87,7 +82,7 @@ export const surfacesForOwner = (item: SurfaceHost): PlacementSurface[] => {
   return configs.map((config) => ({
     id: `${item.id}:${config.suffix}`, ownerId: item.id, type: config.kind, orientation: 'horizontal',
     width: footprint.width * GRID_SIZE, height: footprint.depth * GRID_SIZE, gridColumns: footprint.width * 2, gridRows: footprint.depth * 2,
-    position: [item.position[0], item.position[1] + (item.type === 'bookshelf' ? bookshelfTopOffset : config.heightOffset), item.position[2]],
+    position: [item.position[0], item.position[1] + config.heightOffset, item.position[2]],
     rotation: [Math.PI / 2, 0, -item.rotation[1]], normal: [0, 1, 0],
     allowedItemTypes: config.allowedItemTypes,
   }))
