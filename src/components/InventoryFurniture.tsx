@@ -559,6 +559,55 @@ function BubbleChair({ preview }: { preview: boolean }) {
   </>
 }
 
+// 풍선 소파: 투명 핑크 비닐 블로우 암체어 — 통통한 등판 튜브, 블롭 팔걸이, 크롬 튜브 핸들.
+// 실물의 공기막 광택은 환경맵 없이는 근사치라 밝은 핑크 + 낮은 러프니스로 스타일화했다.
+function InflatableSofa({ preview }: { preview: boolean }) {
+  // 투명 비닐이 서로 겹쳐 보여야 해서 depthWrite를 끈다 — 켜면 앞 튜브가 뒤 튜브를 구멍처럼 지운다
+  const vinyl = (bright = false) => <meshStandardMaterial color={bright ? '#ff6cb8' : '#f4419e'} roughness={.15} metalness={.05} transparent opacity={preview ? .35 : .55} depthWrite={false} />
+  const tube = (props: { position: [number, number, number]; rotation?: [number, number, number]; length: number }) =>
+    <mesh castShadow position={props.position} rotation={props.rotation}><cylinderGeometry args={[.02, .02, props.length, 10]} />{chromeMat(preview)}</mesh>
+  return <>
+    {/* 바닥 베이스 필로우 */}
+    <mesh castShadow position={[0, .1, .02]} scale={[1, .2, .95]}><sphereGeometry args={[.5, 18, 12]} />{vinyl()}</mesh>
+    {/* 좌석 쿠션 */}
+    <mesh castShadow position={[0, .28, .05]} scale={[.82, .34, .78]}><sphereGeometry args={[.5, 18, 12]} />{vinyl(true)}</mesh>
+    {/* 등판 + 세로 튜브 4개 */}
+    <group position={[0, .58, -.3]} rotation={[-.14, 0, 0]}>
+      <mesh castShadow scale={[1.02, .92, .4]}><sphereGeometry args={[.5, 18, 12]} />{vinyl()}</mesh>
+      {[-.18, -.06, .06, .18].map((x) => <mesh key={x} position={[x, .04, .16]} scale={[.28, 1, .5]}><sphereGeometry args={[.2, 12, 10]} />{vinyl(true)}</mesh>)}
+    </group>
+    {/* 팔걸이 블롭 */}
+    {[-1, 1].map((side) => <mesh key={side} castShadow position={[side * .4, .38, .04]} scale={[.5, .8, 1.05]}><sphereGeometry args={[.3, 16, 12]} />{vinyl(side === 1)}</mesh>)}
+    {/* 크롬 핸들: 옆면 아래 가로 튜브 + 앞면 세로 튜브, 엘보 구로 연결 */}
+    {[-1, 1].map((side) => <group key={side}>
+      {tube({ position: [side * .44, .31, .33], length: .5 })}
+      {tube({ position: [side * .44, .06, -.02], rotation: [Math.PI / 2, 0, 0], length: .7 })}
+      <mesh position={[side * .44, .06, .33]}><sphereGeometry args={[.021, 8, 8]} />{chromeMat(preview)}</mesh>
+    </group>)}
+  </>
+}
+
+// 크롬 조형물: 유광 블롭 덩어리 — 오일슬릭 무지개막은 환경맵 없인 못 내서 보라·파랑·핑크 로브를
+// 섞은 스타일화 근사. metalness는 .5 상한(환경맵 없어 그 이상은 검게 죽는다).
+function BlobSculpture({ preview }: { preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  const iri = (color: string) => <meshStandardMaterial color={color} metalness={.5} roughness={.07} transparent={preview} opacity={opacity} />
+  const lobes: Array<[number, number, number, number, string, number?]> = [
+    [-.28, .26, .05, .3, '#7d6fd0'], [.18, .24, .18, .28, '#c069b0'], [.3, .2, -.22, .24, '#5f8fd6'],
+    [-.05, .22, -.28, .26, '#8f7bd8'], [-.34, .3, -.2, .2, '#b06fc4'],
+    [-.12, .5, -.05, .24, '#a98fe0'], [.22, .48, .02, .2, '#d67ab8'], [.02, .52, .22, .18, '#6f9fe0'],
+    [-.08, .8, -.02, .17, '#8f9fe8', 1.55],
+  ]
+  const balls: Array<[number, number, number, number]> = [
+    [.02, .95, .12, .09], [-.3, .62, .1, .08], [.3, .62, -.15, .07], [-.42, .3, .18, .07],
+    [.4, .34, .2, .08], [.12, .38, .32, .07], [-.15, .68, -.2, .06], [.34, .16, .12, .06],
+  ]
+  return <>
+    {lobes.map(([x, y, z, r, color, stretch], index) => <mesh key={index} castShadow position={[x, y, z]} scale={[1, stretch ?? 1, 1]}><sphereGeometry args={[r, 20, 14]} />{iri(color)}</mesh>)}
+    {balls.map(([x, y, z, r], index) => <mesh key={index} castShadow position={[x, y, z]}><sphereGeometry args={[r, 14, 10]} />{chromeMat(preview)}</mesh>)}
+  </>
+}
+
 // Y2K 책상: 흰 쉘 + 파랑 인서트. 왼쪽 C자 다리, 오른쪽 서랍 페데스탈, 위 허치.
 function Y2kDesk({ preview }: { preview: boolean }) {
   const opacity = preview ? .5 : 1
@@ -677,6 +726,8 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'glass-mushroom-lamp') return <GlassMushroomLamp preview={preview} lit={lit} />
   if (item.type === 'pop-shelf') return <PopShelf preview={preview} />
   if (item.type === 'bubble-chair') return <BubbleChair preview={preview} />
+  if (item.type === 'inflatable-sofa') return <InflatableSofa preview={preview} />
+  if (item.type === 'blob-sculpture') return <BlobSculpture preview={preview} />
   if (item.type === 'y2k-desk') return <Y2kDesk preview={preview} />
   if (item.type === 'pod-daybed') return <PodDaybed preview={preview} />
   if (item.type === 'hotel-bed') return <HotelBed preview={preview} />

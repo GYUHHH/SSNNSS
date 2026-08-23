@@ -49,6 +49,11 @@ export function interactionAnchorsFor(item: FurnitureItem, typeOverride?: Intera
     approach: { position: [0, 0, .75], rotation: 0 },
     action: { position: [0, .4, .08], rotation: 0 },
   }
+  if (item.type === 'inflatable-sofa') return {
+    type: 'sit',
+    approach: { position: [0, 0, .75], rotation: 0 },
+    action: { position: [0, .3, .06], rotation: 0 },
+  }
   if (item.type === 'pod-daybed') return {
     type: 'lie',
     approach: { position: [0, 0, 1.3], rotation: 0 },

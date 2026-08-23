@@ -285,6 +285,8 @@ const EN: Record<string, string> = {
   "하트 거울": "Heart Mirror",
   "한마디 남겨주세요": "Leave a note",
   "행거": "Clothes Rack",
+  "풍선 소파": "Inflatable Sofa",
+  "크롬 조형물": "Chrome Sculpture",
   "허브 화분": "Herb Pot",
   "허브 화분2": "Herb Pot 2",
   "호텔 침대": "Hotel Bed",
