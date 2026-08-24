@@ -837,7 +837,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'diary-book') return <DiaryBookItem itemId={item.id} preview={preview} />
   if (item.type === 'inflatable-sofa') return <InflatableSofa preview={preview} />
   if (item.type === 'blob-sculpture') return <BlobSculpture preview={preview} />
-  if (item.type === 'aero-bubble-chair') return <GlbFurniture preview={preview} />
+  if (item.type === 'aero-bubble-chair' || item.type === 'pink-slide') return <GlbFurniture type={item.type} preview={preview} />
   if (item.type === 'kids-slide') return <KidsSlide preview={preview} />
   if (item.type === 'y2k-desk') return <Y2kDesk preview={preview} />
   if (item.type === 'pod-daybed') return <PodDaybed preview={preview} />
