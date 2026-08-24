@@ -184,6 +184,10 @@ async function failJob(request: Request, env: Env) {
   const jobId = jobIdFrom(body)
   const error = typeof body?.error === 'string' ? body.error.slice(0, 500) : 'PIPELINE_FAILED'
   if (!jobId) return json({ error: 'INVALID_REQUEST' }, 400)
+  if (error === 'GITHUB_WORKFLOW_FAILED') {
+    const current = (await jobRows(env, `id=eq.${jobId}&select=status,error&limit=1`))[0]
+    if (current?.status === 'failed' && current.error) return json({ ok: true })
+  }
   const response = await patchJob(env, jobId, { status: 'failed', stage: 'failed', error })
   return response.ok ? json({ ok: true }) : json({ error: 'JOB_UPDATE_FAILED' }, 502)
 }

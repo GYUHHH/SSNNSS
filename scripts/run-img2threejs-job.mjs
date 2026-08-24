@@ -58,10 +58,16 @@ Mandatory procedure:
 Do the work in the files and tools. Do not merely describe the pipeline.`
 
   await post('/api/custom-objects/jobs/progress', { jobId, stage: 'sculpting' })
-  execFileSync('claude', [
-    '--print', '--bare', '--model', 'opus', '--effort', 'high', '--max-budget-usd', '10',
-    '--dangerously-skip-permissions', '--add-dir', skillRoot, prompt,
-  ], { cwd: resolve('.'), stdio: 'inherit', timeout: 50 * 60 * 1000, env: { ...process.env, HOME: process.env.HOME } })
+  try {
+    execFileSync('claude', [
+      '--print', '--bare', '--model', 'opus', '--effort', 'high', '--max-budget-usd', '10',
+      '--dangerously-skip-permissions', '--add-dir', skillRoot, prompt,
+    ], { cwd: resolve('.'), stdio: ['ignore', 'pipe', 'pipe'], timeout: 50 * 60 * 1000, env: { ...process.env, HOME: process.env.HOME } })
+  } catch (error) {
+    const detail = [error?.stderr, error?.stdout].map((value) => value?.toString().trim()).find(Boolean)
+    if (detail) console.error(detail)
+    throw new Error((detail || error?.message || 'CLAUDE_PIPELINE_FAILED').slice(-500))
+  }
 
   await post('/api/custom-objects/jobs/progress', { jobId, stage: 'final-review' })
   execFileSync('python3', [resolve(skillRoot, 'forge/stage2_spec/validate_sculpt_spec.py'), spec], { stdio: 'inherit' })
