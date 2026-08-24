@@ -14,9 +14,9 @@ import type { CustomObjectCategory, CustomObjectSpec } from './customObjectSpec'
 
 // AI 커스텀 생성 잡: 컨셉 이미지 → API 조립 → 렌더 검수 1회.
 // 진행 UI·빨간점 알림이 이 하나를 본다. unseen은 완료/실패를 아직 사용자가 확인 안 했다는 뜻.
-export type CustomJob = { stage: 'concept' | 'draft' | 'verify' | 'done' | 'error'; round: number; unseen: boolean; name?: string; error?: string }
-import { customObjectTemplate, generateConceptImage, generateCustomObject, loadCustomObjects, reviewCustomObject, saveCustomObjects } from './services/customObjects'
-import { reviewShot } from './services/thumbnails'
+export type CustomJob = { stage: 'concept' | 'draft' | 'detail' | 'verify' | 'revise' | 'done' | 'error'; round: number; unseen: boolean; name?: string; error?: string }
+import { customObjectTemplate, detailCustomObject, generateConceptImage, generateCustomObject, loadCustomObjects, reviewCustomObject, saveCustomObjects } from './services/customObjects'
+import { REVIEW_ANGLES, reviewShot } from './services/thumbnails'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id, photo: row.photo })
 
@@ -454,14 +454,24 @@ export function RoomProvider({ children }: { children: ReactNode }) {
           setCustomJob({ stage: 'concept', round: 0, unseen: false })
           reference = await generateConceptImage({ category: input.category, prompt: input.prompt })
         }
+        // 2) 조립 2패스: 블록아웃(실루엣·비례) → 디테일 (같은 크레딧 1회)
         setCustomJob({ stage: 'draft', round: 0, unseen: false })
         let spec = await generateCustomObject({ category: input.category, prompt: input.prompt, image: reference })
-        // 비용 폭주 방지: 렌더 검수는 정확히 한 번만 한다.
-        setCustomJob({ stage: 'verify', round: 1, unseen: false })
-        const screenshot = await reviewShot(customObjectTemplate(spec) as FurnitureItem)
-        if (screenshot) {
-          const review = await reviewCustomObject({ category: input.category, prompt: input.prompt, image: reference, spec, screenshot })
-          if (review.verdict === 'revise' && review.object) spec = review.object
+        setCustomJob({ stage: 'detail', round: 0, unseen: false })
+        spec = await detailCustomObject({ category: input.category, prompt: input.prompt, image: reference, spec })
+        // 3) 3각도 렌더 검수 — 합격이면 끝, 수정본이 오면 딱 한 번 더 검수 (상한 2라운드, 폭주 방지)
+        for (let round = 1; round <= 2; round += 1) {
+          setCustomJob({ stage: 'verify', round, unseen: false })
+          const shots: string[] = []
+          for (const angle of REVIEW_ANGLES) {
+            const shot = await reviewShot(customObjectTemplate(spec) as FurnitureItem, angle)
+            if (shot) shots.push(shot)
+          }
+          if (!shots.length) break
+          const review = await reviewCustomObject({ category: input.category, prompt: input.prompt, image: reference, spec, screenshots: shots })
+          if (review.verdict === 'pass' || !review.object) break
+          spec = review.object
+          setCustomJob({ stage: 'revise', round, unseen: false })
         }
         addCustomObject(spec)
         setCustomJob({ stage: 'done', round: 0, unseen: true, name: spec.name })

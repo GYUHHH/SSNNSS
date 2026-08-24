@@ -19,7 +19,7 @@ const ensureRoot = () => {
   root.configure({ frameloop: 'never', gl: { alpha: true, antialias: true, preserveDrawingBuffer: true }, size: { width: 96, height: 96, top: 0, left: 0 }, dpr: 1, camera: { fov: 30, near: 0.01, far: 100 } })
 }
 
-function Shot({ item, done }: { item: FurnitureItem; done: (url: string) => void }) {
+function Shot({ item, direction = [0.9, 0.8, 1.4], done }: { item: FurnitureItem; direction?: [number, number, number]; done: (url: string) => void }) {
   const group = useRef<Group>(null)
   const state = useThree()
   // the detached root has no running frameloop, so render + capture synchronously once the scene graph is committed
@@ -30,11 +30,11 @@ function Shot({ item, done }: { item: FurnitureItem; done: (url: string) => void
     const center = bounds.getCenter(new Vector3())
     const radius = Math.max(bounds.getSize(new Vector3()).length() / 2, 0.1)
     const distance = (radius / Math.tan((camera.fov * Math.PI) / 360)) * 1.1
-    camera.position.copy(center.clone().add(new Vector3(0.9, 0.8, 1.4).normalize().multiplyScalar(distance)))
+    camera.position.copy(center.clone().add(new Vector3(...direction).normalize().multiplyScalar(distance)))
     camera.lookAt(center)
     state.gl.render(state.scene, camera)
     done(state.gl.domElement.toDataURL('image/png'))
-  }, [item])
+  }, [item, direction])
   return <>
     <ambientLight intensity={1.1} />
     <directionalLight position={[2, 4, 3]} intensity={1.4} />
@@ -102,10 +102,11 @@ const ensureReviewRoot = () => {
   reviewRoot = createRoot(canvas)
   reviewRoot.configure({ frameloop: 'never', gl: { alpha: true, antialias: true, preserveDrawingBuffer: true }, size: { width: 320, height: 320, top: 0, left: 0 }, dpr: 1, camera: { fov: 30, near: 0.01, far: 100 } })
 }
-export function reviewShot(item: FurnitureItem): Promise<string> {
+export const REVIEW_ANGLES: Array<[number, number, number]> = [[0.9, 0.8, 1.4], [1.6, 0.35, 0.15], [0.25, 1.9, 0.6]]
+export function reviewShot(item: FurnitureItem, direction: [number, number, number] = REVIEW_ANGLES[0]): Promise<string> {
   const job = chain.then(() => Promise.race([new Promise<string>((resolve) => {
     ensureReviewRoot()
-    reviewRoot!.render(<Shot item={item} done={resolve} />)
+    reviewRoot!.render(<Shot item={item} direction={direction} done={resolve} />)
   }), new Promise<string>((resolve) => setTimeout(() => resolve(''), 5000))]))
   chain = job.catch(() => undefined)
   return job

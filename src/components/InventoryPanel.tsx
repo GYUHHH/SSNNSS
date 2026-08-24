@@ -127,10 +127,10 @@ function BooksTab() {
 
 // 생성 잡 진행 표시: 단계 라벨 + 진행률 바. 완료/실패도 여기서 알린다.
 export const customJobProgress = (job: { stage: string; round: number }): number =>
-  job.stage === 'concept' ? 12 : job.stage === 'draft' ? 55 : job.stage === 'verify' ? 85 : 100
+  job.stage === 'concept' ? 10 : job.stage === 'draft' ? 32 : job.stage === 'detail' ? 52 : job.stage === 'verify' ? (job.round > 1 ? 88 : 68) : job.stage === 'revise' ? 80 : 100
 
 export const customJobLabel = (job: { stage: string; round: number; name?: string; error?: string }): string =>
-  job.stage === 'concept' ? t('컨셉 이미지 생성 중') : job.stage === 'draft' ? t('오브젝트 조립 중') : job.stage === 'verify' ? t('렌더 검수 중') : job.stage === 'done' ? `${job.name ?? ''} ${t('완성')}` : t('생성 실패')
+  job.stage === 'concept' ? t('컨셉 이미지 생성 중') : job.stage === 'draft' ? t('뼈대 조립 중') : job.stage === 'detail' ? t('디테일 조립 중') : job.stage === 'revise' ? t('검수 반영해 수정 중') : job.stage === 'verify' ? t('렌더 검수 중') : job.stage === 'done' ? `${job.name ?? ''} ${t('완성')}` : t('생성 실패')
 
 function CustomJobStatus({ job }: { job: { stage: string; round: number; name?: string; error?: string } }) {
   const running = job.stage !== 'done' && job.stage !== 'error'

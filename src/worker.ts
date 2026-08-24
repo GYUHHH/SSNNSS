@@ -11,14 +11,18 @@ type Env = {
   LS_BUY_URL?: string
   LS_CREDITS_PER_ORDER?: string
 }
-type GenerateBody = { category?: unknown; prompt?: unknown; image?: unknown }
-type ReviewBody = GenerateBody & { spec?: unknown; screenshot?: unknown }
+type GenerateBody = { category?: unknown; prompt?: unknown; image?: unknown; spec?: unknown }
+type ReviewBody = GenerateBody & { screenshot?: unknown; screenshots?: unknown }
 
 const SUPABASE_URL = 'https://pxjavljsalibpnxdrxel.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJweGphdmxqc2FsaWJwbnhkcnhlbCIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzg2ODYwMTU4LCJleHAiOjIxMDI0MzYxNTh9.quIFdlk11b7F-YIeHO3TsEhS2RzgxDtntqdh2vHyUfE'
-const INSTRUCTIONS = `Create one cute low-poly miniature room object as a small set of Three.js-friendly primitives. Match the requested category exactly. Use only the allowed primitives and hex colors. Coordinates are local: Y is up; floor objects must rest on Y=0; wall decorations face +Z and stay shallow. Center the object on X/Z for floor objects or X/Y for wall objects. Use the fewest parts that clearly preserve the requested silhouette. Footprint is an integer 10x10 room-grid size. Do not include text, code, explanations, lights, cameras, shadows, or unsupported geometry.
+const INSTRUCTIONS = `Create one cute low-poly miniature room object as a set of Three.js-friendly primitives. Match the requested category exactly. Use only the allowed primitives and hex colors. Coordinates are local: Y is up; floor objects must rest on Y=0; wall decorations face +Z and stay shallow. Center the object on X/Z for floor objects or X/Y for wall objects. Footprint is an integer 10x10 room-grid size. Do not include text, code, explanations, lights, cameras, shadows, or unsupported geometry.
 
-Reconstruction discipline: identify the object and its 2-4 defining features, then build only those. Start with the silhouette, then identifying parts, then a few accents. Choose primitives by real topology. Use roughness .6-.9 for fabric, wood and paper, .1-.3 for glass, metal and gloss, and metalness at most .5. Offset touching faces by at least .01. Nothing may sink below Y=0 or float without support.`
+Reconstruction discipline (distilled img2threejs): First list the object's 2-4 identity-defining features mentally and make sure each one exists as geometry. Choose every part's primitive from its real topology: slabs/panels/frames = box, shafts/legs/rims/rolls = cylinder, organic blobs/cushions = sphere (scale into ellipsoids), rings/handles = torus, tapers/spouts = cone, soft pill shapes = capsule. Proportion parts against each other like the real object - measure relative sizes off the reference before writing numbers. Connected sloped parts must share exact endpoints so nothing floats or gaps. Repeat identical parts with consistent spacing (legs, rungs, slats). Materials: flat pastel-friendly hex colors; roughness .6-.9 for fabric/wood/paper/plastic, .1-.3 for glass/metal/gloss; metalness at most .5 (there is no environment map - higher goes black). Never leave two faces coplanar - offset touching or stacked parts by at least .01 so surfaces cannot flicker. Nothing may sink below Y=0 or float without support.`
+
+const BLOCKOUT_INSTRUCTIONS = `This is PASS 1 of 2: the blockout. Build ONLY the macro silhouette and the identity-defining components as simple volumes - 4 to 12 parts. No small accents, no rivets, no trim. Get proportions, stance and grounding right; details come in the next pass.`
+
+const DETAIL_INSTRUCTIONS = `This is PASS 2 of 2: the detail pass. You are given the blockout spec. Keep its overall silhouette, proportions and part placement, then refine it: split crude volumes into properly shaped parts where topology demands, add the small identity accents visible in the reference (knobs, trim, feet, seams, hardware), and tune colors/roughness per material. Output the FULL final spec (not a diff). Stay within the parts limit and never break grounding or introduce coplanar faces.`
 const REVIEW_INSTRUCTIONS = `Compare the render against the reference and request. Check identity, silhouette, proportions, defining features, colors, grounding, z-fighting and stray parts. Pass a clearly recognizable cute low-poly object. Otherwise return one complete corrected spec.`
 const reviewSchema = {
   type: 'object', additionalProperties: false, required: ['verdict'],
@@ -93,7 +97,7 @@ const outputText = (body: unknown) => {
   return response.output?.flatMap((item) => item.content ?? []).find((item) => item.type === 'output_text')?.text
 }
 
-async function generate(request: Request, env: Env) {
+async function generate(request: Request, env: Env, detail = false) {
   if (!env.ANTHROPIC_API_KEY && !env.OPENAI_API_KEY) return json({ error: 'API_KEY_NOT_SET' }, 503)
   if (!await signedIn(request)) return json({ error: 'LOGIN_REQUIRED' }, 401)
   const body = await request.json().catch(() => null) as GenerateBody | null
@@ -102,9 +106,13 @@ async function generate(request: Request, env: Env) {
   const image = typeof body?.image === 'string' ? body.image : undefined
   if (!CUSTOM_OBJECT_CATEGORIES.includes(category) || (!prompt && !image) || prompt.length > 1200) return json({ error: 'INVALID_REQUEST' }, 400)
   if (image && (!image.startsWith('data:image/') || image.length > 7_000_000)) return json({ error: 'INVALID_IMAGE' }, 400)
-  if (!await spendCredit(request, env)) return json({ error: 'NO_CREDITS' }, 402)
+  // 디테일 패스는 같은 생성 회차의 후반부라 크레딧을 다시 쓰지 않는다
+  const blockout = body?.spec !== undefined && isCustomObjectSpec(body.spec) ? body.spec : null
+  if (detail && !blockout) return json({ error: 'INVALID_REQUEST' }, 400)
+  if (!detail && !await spendCredit(request, env)) return json({ error: 'NO_CREDITS' }, 402)
 
-  const userText = `Category: ${category}\nRequest: ${prompt || 'Reconstruct the object shown in the reference image.'}`
+  const system = `${INSTRUCTIONS}\n\n${detail ? DETAIL_INSTRUCTIONS : BLOCKOUT_INSTRUCTIONS}`
+  const userText = `Category: ${category}\nRequest: ${prompt || 'Reconstruct the object shown in the reference image.'}${blockout ? `\nBlockout spec:\n${JSON.stringify(blockout)}` : ''}`
   let parsed: Record<string, unknown>
   if (env.ANTHROPIC_API_KEY) {
     const content: Array<Record<string, unknown>> = [{ type: 'text', text: userText }]
@@ -116,7 +124,7 @@ async function generate(request: Request, env: Env) {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: env.ANTHROPIC_MODEL || 'claude-sonnet-5', max_tokens: 4000, system: INSTRUCTIONS,
+        model: env.ANTHROPIC_MODEL || 'claude-sonnet-5', max_tokens: 5000, system,
         messages: [{ role: 'user', content }],
         tools: [{ name: 'custom_object', description: 'Emit the finished room object spec.', input_schema: customObjectSchema }],
         tool_choice: { type: 'tool', name: 'custom_object' },
@@ -132,7 +140,7 @@ async function generate(request: Request, env: Env) {
     if (image) content.push({ type: 'input_image', image_url: image, detail: 'high' })
     const upstream = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST', headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: env.OPENAI_MODEL || 'gpt-5-mini', instructions: INSTRUCTIONS, input: [{ role: 'user', content }], text: { format: { type: 'json_schema', name: 'custom_object', strict: true, schema: customObjectSchema } } }),
+      body: JSON.stringify({ model: env.OPENAI_MODEL || 'gpt-5-mini', instructions: system, input: [{ role: 'user', content }], text: { format: { type: 'json_schema', name: 'custom_object', strict: true, schema: customObjectSchema } } }),
     })
     const result = await upstream.json().catch(() => null)
     if (!upstream.ok) return json({ error: 'GENERATION_FAILED' }, 502)
@@ -140,7 +148,7 @@ async function generate(request: Request, env: Env) {
     if (!text) return json({ error: 'EMPTY_GENERATION' }, 502)
     try { parsed = JSON.parse(text) as Record<string, unknown> } catch { return json({ error: 'INVALID_GENERATION' }, 502) }
   }
-  const object = { ...parsed, id: crypto.randomUUID(), category }
+  const object = { ...parsed, id: blockout ? blockout.id : crypto.randomUUID(), category }
   return isCustomObjectSpec(object) ? json({ object }) : json({ error: 'INVALID_GENERATION' }, 502)
 }
 
@@ -166,13 +174,15 @@ async function review(request: Request, env: Env) {
   const category = body?.category as CustomObjectCategory
   const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : ''
   const reference = typeof body?.image === 'string' ? body.image : undefined
-  const screenshot = typeof body?.screenshot === 'string' ? body.screenshot : undefined
-  if (!CUSTOM_OBJECT_CATEGORIES.includes(category) || !screenshot || !isCustomObjectSpec(body?.spec)) return json({ error: 'INVALID_REQUEST' }, 400)
+  const single = typeof body?.screenshot === 'string' ? [body.screenshot] : []
+  const screenshots = (Array.isArray(body?.screenshots) ? body.screenshots.filter((value): value is string => typeof value === 'string') : single).slice(0, 3)
+  if (!CUSTOM_OBJECT_CATEGORIES.includes(category) || !screenshots.length || !isCustomObjectSpec(body?.spec)) return json({ error: 'INVALID_REQUEST' }, 400)
+  for (const shot of screenshots) if (!shot.startsWith('data:image/') || shot.length > 7_000_000) return json({ error: 'INVALID_IMAGE' }, 400)
   if (!env.ANTHROPIC_API_KEY) return json({ verdict: 'pass' })
   const toImage = (dataUrl: string) => { const [head, data] = dataUrl.split(',', 2); return { type: 'image', source: { type: 'base64', media_type: head.slice(5).split(';')[0], data } } }
-  const content: Array<Record<string, unknown>> = [{ type: 'text', text: `Request: ${prompt || '(reference only)'}\nCategory: ${category}\nCurrent spec:\n${JSON.stringify(body.spec)}\nFirst image is the reference; last image is the render.` }]
+  const content: Array<Record<string, unknown>> = [{ type: 'text', text: `Request: ${prompt || '(reference only)'}\nCategory: ${category}\nCurrent spec:\n${JSON.stringify(body.spec)}\n${reference ? 'First image is the reference; the' : 'The'} remaining ${screenshots.length} images are renders of the current spec from different angles (front-iso, side, top). A shape that only reads from one angle fails.` }]
   if (reference) content.push(toImage(reference))
-  content.push(toImage(screenshot))
+  for (const shot of screenshots) content.push(toImage(shot))
   const upstream = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST', headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -199,6 +209,7 @@ export default {
     if (path.startsWith('/api/custom-objects')) {
       if (request.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405)
       if (path === '/api/custom-objects') return generate(request, env)
+      if (path === '/api/custom-objects/detail') return generate(request, env, true)
       if (path === '/api/custom-objects/credits') return credits(request, env)
       if (path === '/api/custom-objects/concept') return concept(request, env)
       if (path === '/api/custom-objects/review') return review(request, env)
