@@ -148,7 +148,7 @@ export const decodeTarget = (stored: string): YouTubeTarget => {
 export type VideoDisplayMeta = { aspect: number; thumbnailCrop: VideoCrop; playerCrop: VideoCrop }
 const displayCache: Record<string, Promise<VideoDisplayMeta | null>> = {}
 // v1 cached oEmbed's generic 4:3 player shape for some square videos. Re-read the thumbnail crop once.
-const displayStorageKey = 'my-room-video-display-v5'
+const displayStorageKey = 'my-room-video-display-v6'
 const knownDisplays: Record<string, VideoDisplayMeta | null> = (() => {
   try { return JSON.parse(localStorage.getItem(displayStorageKey) ?? '{}') } catch { return {} }
 })()
@@ -157,21 +157,14 @@ const rememberDisplay = (id: string, meta: VideoDisplayMeta | null) => {
   try { localStorage.setItem(displayStorageKey, JSON.stringify(knownDisplays)) } catch { /* cache unavailable */ }
 }
 
-// Reading a cross-origin Image straight into canvas was inconsistent on mobile WebKit, which silently skipped
-// the crop scan and fell back to the generic 16:9 thumbnail ratio. A fetched Blob is same-origin for the canvas.
-const loadImage = async (src: string): Promise<HTMLImageElement | null> => {
-  try {
-    const response = await fetch(src)
-    if (!response.ok) return null
-    const url = URL.createObjectURL(await response.blob())
-    return await new Promise((resolve) => {
-      const image = new Image()
-      image.onload = () => { URL.revokeObjectURL(url); resolve(image) }
-      image.onerror = () => { URL.revokeObjectURL(url); resolve(null) }
-      image.src = url
-    })
-  } catch { return null }
-}
+// The Worker serves the public thumbnail from the app's own origin, so a plain Image is readable by canvas on
+// both WebKit and Blink. Avoid an extra fetch/blob path: it was the remaining failure point on mobile.
+const loadImage = (src: string) => new Promise<HTMLImageElement | null>((resolve) => {
+  const image = new Image()
+  image.onload = () => resolve(image)
+  image.onerror = () => resolve(null)
+  image.src = src
+})
 
 export function videoDisplayMeta(id: string): Promise<VideoDisplayMeta | null> {
   return displayCache[id] ??= loadImage(`/api/youtube-thumbnail?id=${encodeURIComponent(id)}`).then((thumbnail) => {
