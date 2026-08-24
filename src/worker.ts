@@ -96,8 +96,9 @@ async function createJob(request: Request, env: Env) {
     body: JSON.stringify({ ref: 'main', inputs: { job_id: jobId } }),
   })
   if (!dispatched.ok) {
-    await patchJob(env, jobId, { status: 'failed', stage: 'failed', error: 'JOB_DISPATCH_FAILED' })
-    return json({ error: 'JOB_DISPATCH_FAILED' }, 502)
+    const error = `JOB_DISPATCH_FAILED_${dispatched.status}`
+    await patchJob(env, jobId, { status: 'failed', stage: 'failed', error })
+    return json({ error }, 502)
   }
   return json({ jobId, status: 'queued', stage: 'queued' }, 202)
 }
