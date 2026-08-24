@@ -7,10 +7,12 @@ import { publicBase } from '../services/publicBase'
 const GLB_URLS: Record<string, string> = {
   'aero-bubble-chair': `${publicBase}models/aero-bubble-chair.glb`,
   'pink-slide': `${publicBase}models/pink-slide.glb`,
+  'color-drawers': `${publicBase}models/color-drawers.glb`,
 }
+export const GLB_TYPES = new Set(Object.keys(GLB_URLS))
 for (const url of Object.values(GLB_URLS)) useGLTF.preload(url)
 // 각진 로우폴리 톤으로 통일할 타입 — 사진풍 스무스 셰이딩이 방 감성과 어긋나는 생성 모델용
-const FLAT_TYPES = new Set(['pink-slide'])
+const FLAT_TYPES = new Set(['pink-slide', 'color-drawers'])
 
 function GlbScene({ url, preview, flat }: { url: string; preview: boolean; flat: boolean }) {
   const { scene } = useGLTF(url)

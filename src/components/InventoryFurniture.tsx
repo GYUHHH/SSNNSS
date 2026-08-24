@@ -18,7 +18,7 @@ import { Swing } from './motion'
 import { ROOM_HTML_Z_INDEX_RANGE } from '../services/renderOrder'
 import { lang, t } from '../services/i18n'
 import GeneratedObject from './GeneratedObject'
-import GlbFurniture from './GlbFurniture'
+import GlbFurniture, { GLB_TYPES } from './GlbFurniture'
 
 export function InventoryFurniture() {
   const { furniture } = useRoomStore()
@@ -837,7 +837,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'diary-book') return <DiaryBookItem itemId={item.id} preview={preview} />
   if (item.type === 'inflatable-sofa') return <InflatableSofa preview={preview} />
   if (item.type === 'blob-sculpture') return <BlobSculpture preview={preview} />
-  if (item.type === 'aero-bubble-chair' || item.type === 'pink-slide') return <GlbFurniture type={item.type} preview={preview} />
+  if (GLB_TYPES.has(item.type)) return <GlbFurniture type={item.type} preview={preview} />
   if (item.type === 'kids-slide') return <KidsSlide preview={preview} />
   if (item.type === 'y2k-desk') return <Y2kDesk preview={preview} />
   if (item.type === 'pod-daybed') return <PodDaybed preview={preview} />

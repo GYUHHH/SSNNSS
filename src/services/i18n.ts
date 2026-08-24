@@ -18,6 +18,7 @@ const EN: Record<string, string> = {
   "뼈대 조립 중": "Building the blockout",
   "미끄럼틀": "Kids Slide",
   "핑크 미끄럼틀": "Pink Slide",
+  "컬러 서랍장": "Color Drawers",
   "무료 1회 남음": "1 free generation left",
   "생성권이 없어요": "Out of credits",
   "충전": "Buy more",
