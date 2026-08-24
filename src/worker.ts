@@ -67,6 +67,21 @@ function validateSpecGeometry(spec: { category: string; parts: Array<{ id: strin
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } })
 const authorization = (request: Request) => request.headers.get('Authorization')
 
+// YouTube permits the thumbnail to be displayed cross-origin but not reliably read back through a mobile canvas.
+// Serve the exact public image from our own origin so one crop calculation works on every browser.
+async function youtubeThumbnail(request: Request) {
+  const id = new URL(request.url).searchParams.get('id')
+  if (!id || !/^[\w-]{11}$/.test(id)) return json({ error: 'INVALID_VIDEO' }, 400)
+  const upstream = await fetch(`https://i.ytimg.com/vi/${id}/hqdefault.jpg`)
+  if (!upstream.ok) return json({ error: 'THUMBNAIL_UNAVAILABLE' }, 502)
+  return new Response(upstream.body, {
+    headers: {
+      'Content-Type': upstream.headers.get('Content-Type') ?? 'image/jpeg',
+      'Cache-Control': 'public, max-age=86400, s-maxage=604800',
+    },
+  })
+}
+
 const signedIn = async (request: Request) => {
   const token = authorization(request)
   if (!token?.startsWith('Bearer ') || token === `Bearer ${SUPABASE_ANON_KEY}`) return false
@@ -259,6 +274,7 @@ export default {
   async fetch(request: Request, env: Env) {
     const path = new URL(request.url).pathname
     if (path === '/api/ls-webhook') return request.method === 'POST' ? lsWebhook(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
+    if (path === '/api/youtube-thumbnail') return request.method === 'GET' ? youtubeThumbnail(request) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
     if (path.startsWith('/api/custom-objects')) {
       if (request.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405)
       if (path === '/api/custom-objects') return generate(request, env)

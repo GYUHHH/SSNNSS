@@ -148,7 +148,7 @@ export const decodeTarget = (stored: string): YouTubeTarget => {
 export type VideoDisplayMeta = { aspect: number; thumbnailCrop: VideoCrop; playerCrop: VideoCrop }
 const displayCache: Record<string, Promise<VideoDisplayMeta | null>> = {}
 // v1 cached oEmbed's generic 4:3 player shape for some square videos. Re-read the thumbnail crop once.
-const displayStorageKey = 'my-room-video-display-v4'
+const displayStorageKey = 'my-room-video-display-v5'
 const knownDisplays: Record<string, VideoDisplayMeta | null> = (() => {
   try { return JSON.parse(localStorage.getItem(displayStorageKey) ?? '{}') } catch { return {} }
 })()
@@ -174,7 +174,7 @@ const loadImage = async (src: string): Promise<HTMLImageElement | null> => {
 }
 
 export function videoDisplayMeta(id: string): Promise<VideoDisplayMeta | null> {
-  return displayCache[id] ??= loadImage(`https://i.ytimg.com/vi/${id}/hqdefault.jpg`).then((thumbnail) => {
+  return displayCache[id] ??= loadImage(`/api/youtube-thumbnail?id=${encodeURIComponent(id)}`).then((thumbnail) => {
     if (!thumbnail) return null
     const outerAspect = thumbnail.naturalWidth / thumbnail.naturalHeight
     let detected = fullCrop
