@@ -136,6 +136,7 @@ function CustomJobStatus({ job }: { job: { stage: string; round: number; name?: 
   const running = job.stage !== 'done' && job.stage !== 'error'
   return <div className={`custom-job-status${job.stage === 'error' ? ' failed' : ''}`}>
     <span>{customJobLabel(job)}</span>
+    {job.stage === 'error' && job.error && <small>{job.error}</small>}
     {running && <span className="custom-job-bar"><i style={{ width: `${customJobProgress(job)}%` }} /></span>}
   </div>
 }
