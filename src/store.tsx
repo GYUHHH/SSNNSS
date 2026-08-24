@@ -37,6 +37,7 @@ export type RoomMode = 'normal' | 'edit'
 export type FurnitureCategory = 'floorFurniture' | 'surfaceItem' | 'wallItem' | 'decoration'
 export type FurnitureItem = FurniturePlacement & PlacementItem & { id: FurnitureId; name: string; position: [number, number, number]; gridZ: number; wallId?: WallId; footprint: Footprint; category: FurnitureCategory; movable: boolean; interactable: boolean; size: [number, number]; allowedSurfaces: SurfaceKind[] }
 export const isResizableWallItem = (item: Pick<FurnitureItem, 'type' | 'category'>) => item.category === 'wallItem' && (item.type === 'photo' || item.type === 'poster' || item.type === 'animated-poster' || item.type.startsWith('photo-frame') || item.type.startsWith('video-frame') || item.type.startsWith('wall-art'))
+export const frameFamily = (type: string) => type.startsWith('video-frame') ? 'video-frame-3' : type.startsWith('photo-frame') ? 'photo-frame' : type.startsWith('wall-art') ? 'wall-art' : type
 export type InventoryCategory = '전체' | '가구' | '조명' | '식물' | '벽장식' | '소품'
 export type EntryComment = { id: string; name: string; text: string; createdAt: string }
 export type Entry = { id: string; bookId: string; title: string; content: string; images: string[]; date: string; visibility: Visibility; createdAt: string; updatedAt: string; comments: EntryComment[] }
@@ -150,8 +151,8 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
   { type: 'notification-box', name: '알림함', category: 'wallItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'profile-board', name: '내 프로필', category: 'wallItem', movable: true, interactable: true, footprint: { width: 2, depth: 3 }, size: [2, 3], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'video-frame-3', name: '영상 액자', category: 'wallItem', movable: true, interactable: true, footprint: { width: 4, depth: 3 }, size: [4, 3], scale: 1, allowedSurfaces: ['wall'] },
-  { type: 'video-frame-5', name: '영상 액자 6×5', category: 'wallItem', movable: true, interactable: true, footprint: { width: 6, depth: 5 }, size: [6, 5], scale: 1, allowedSurfaces: ['wall'] },
-  { type: 'video-frame-4', name: '영상 액자 5×4', category: 'wallItem', movable: true, interactable: true, footprint: { width: 5, depth: 4 }, size: [5, 4], scale: 1, allowedSurfaces: ['wall'] },
+  { type: 'video-frame-5', name: '영상 액자', category: 'wallItem', movable: true, interactable: true, footprint: { width: 6, depth: 5 }, size: [6, 5], scale: 1, allowedSurfaces: ['wall'] },
+  { type: 'video-frame-4', name: '영상 액자', category: 'wallItem', movable: true, interactable: true, footprint: { width: 5, depth: 4 }, size: [5, 4], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'glass-shelf', name: '투명 선반', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'cd-player', name: 'CD 플레이어', category: 'wallItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'banner', name: '움직이는 배너', category: 'wallItem', movable: true, interactable: true, footprint: { width: 3, depth: 1 }, size: [3, 1], scale: 1, allowedSurfaces: ['wall'] },
@@ -163,9 +164,9 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
   { type: 'fish-tank', name: '어항', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop'] },
   { type: 'candle', name: '캔들', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop'] },
   { type: 'wall-art', name: '벽 포스터', category: 'wallItem', movable: true, interactable: true, footprint: { width: 2, depth: 3 }, size: [2, 3], scale: 1, allowedSurfaces: ['wall'] },
-  { type: 'wall-art-3', name: '벽 포스터 3×4', category: 'wallItem', movable: true, interactable: true, footprint: { width: 3, depth: 4 }, size: [3, 4], scale: 1, allowedSurfaces: ['wall'] },
-  { type: 'wall-art-4', name: '벽 포스터 4×5', category: 'wallItem', movable: true, interactable: true, footprint: { width: 4, depth: 5 }, size: [4, 5], scale: 1, allowedSurfaces: ['wall'] },
-  { type: 'wall-art-5', name: '벽 포스터 5×6', category: 'wallItem', movable: true, interactable: true, footprint: { width: 5, depth: 6 }, size: [5, 6], scale: 1, allowedSurfaces: ['wall'] },
+  { type: 'wall-art-3', name: '벽 포스터', category: 'wallItem', movable: true, interactable: true, footprint: { width: 3, depth: 4 }, size: [3, 4], scale: 1, allowedSurfaces: ['wall'] },
+  { type: 'wall-art-4', name: '벽 포스터', category: 'wallItem', movable: true, interactable: true, footprint: { width: 4, depth: 5 }, size: [4, 5], scale: 1, allowedSurfaces: ['wall'] },
+  { type: 'wall-art-5', name: '벽 포스터', category: 'wallItem', movable: true, interactable: true, footprint: { width: 5, depth: 6 }, size: [5, 6], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'wall-shelf', name: '벽 선반', category: 'wallItem', movable: true, interactable: true, footprint: { width: 3, depth: 1 }, size: [3, 1], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'vase', name: '화병', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 2 }, size: [2, 2], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
   { type: 'plush', name: '인형', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop'] },
@@ -173,10 +174,10 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
   { type: 'book-prop', name: '책', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
   { type: 'speaker', name: '스피커', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
   { type: 'photo-frame', name: '사진 액자', category: 'wallItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['wall'] },
-  { type: 'photo-frame-2', name: '사진 액자 2×2', category: 'wallItem', movable: true, interactable: true, footprint: { width: 2, depth: 2 }, size: [2, 2], scale: 1, allowedSurfaces: ['wall'] },
-  { type: 'photo-frame-3', name: '사진 액자 3×3', category: 'wallItem', movable: true, interactable: true, footprint: { width: 3, depth: 3 }, size: [3, 3], scale: 1, allowedSurfaces: ['wall'] },
-  { type: 'photo-frame-4', name: '사진 액자 4×4', category: 'wallItem', movable: true, interactable: true, footprint: { width: 4, depth: 4 }, size: [4, 4], scale: 1, allowedSurfaces: ['wall'] },
-  { type: 'photo-frame-5', name: '사진 액자 5×5', category: 'wallItem', movable: true, interactable: true, footprint: { width: 5, depth: 5 }, size: [5, 5], scale: 1, allowedSurfaces: ['wall'] },
+  { type: 'photo-frame-2', name: '사진 액자', category: 'wallItem', movable: true, interactable: true, footprint: { width: 2, depth: 2 }, size: [2, 2], scale: 1, allowedSurfaces: ['wall'] },
+  { type: 'photo-frame-3', name: '사진 액자', category: 'wallItem', movable: true, interactable: true, footprint: { width: 3, depth: 3 }, size: [3, 3], scale: 1, allowedSurfaces: ['wall'] },
+  { type: 'photo-frame-4', name: '사진 액자', category: 'wallItem', movable: true, interactable: true, footprint: { width: 4, depth: 4 }, size: [4, 4], scale: 1, allowedSurfaces: ['wall'] },
+  { type: 'photo-frame-5', name: '사진 액자', category: 'wallItem', movable: true, interactable: true, footprint: { width: 5, depth: 5 }, size: [5, 5], scale: 1, allowedSurfaces: ['wall'] },
 ]
 
 export const currentUser = { id: 'me', name: '나' }
@@ -378,9 +379,11 @@ export type GuestComment = { id: string; name: string; text: string; createdAt: 
 const toPlacement = ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, allowedSurfaces, styleId, removed, updatedAt }: FurnitureItem): FurniturePlacement => ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, resolution: resolutionFor({ allowedSurfaces }), styleId, removed, updatedAt })
 // every catalogue piece exists exactly once for now; a future account would supply real per-user counts
 const OWNED_PER_TYPE = 1
-// video frames and lights come in pairs; everything else stays single
-const OWNED_OVERRIDES: Record<string, number> = { 'video-frame-3': 2, 'video-frame-4': 2, 'video-frame-5': 2, lamp: 2, 'floor-lamp': 2, 'string-lights': 2, 'led-lamp': 2 }
-const ownedCountOf = (type: string) => OWNED_OVERRIDES[type] ?? OWNED_PER_TYPE
+// each resizable frame FAMILY comes as a pair; old fixed-size types count toward the same pair
+const OWNED_OVERRIDES: Record<string, number> = { 'video-frame-3': 2, 'photo-frame': 2, 'wall-art': 2, lamp: 2, 'floor-lamp': 2, 'string-lights': 2, 'led-lamp': 2 }
+const ownedCountOf = (type: string) => OWNED_OVERRIDES[frameFamily(type)] ?? OWNED_PER_TYPE
+const countFamily = (counts: Record<string, number>, family: string) => Object.entries(counts).filter(([type]) => frameFamily(type) === family).reduce((sum, [, count]) => sum + count, 0)
+if (import.meta.env.DEV) console.assert(countFamily({ 'video-frame-3': 1, 'video-frame-5': 1 }, 'video-frame-3') === 2, 'fixed-size frames must share one ownership count')
 export const MAX_ROOMS = 2
 
 const RoomContext = createContext<RoomStore | null>(null)
@@ -609,12 +612,12 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }
   // a stored (removed) default item — bed, sofa, clock... — acts as its own template so it can be taken back out
   // of the 가구함; decor types keep using their catalog templates
-  const storedTemplateFor = (type: string) => furniture.find((item) => item.removed && item.movable && item.type === type)
+  const storedTemplateFor = (type: string) => furniture.find((item) => item.removed && item.movable && frameFamily(item.type) === frameFamily(type))
   const startPreview = (type: string, styleId?: string, restoreId?: string) => {
     // restoreId가 있으면 "그 인스턴스"를 꺼내는 것 — 개수 계산(카탈로그용)을 건너뛴다
     if (!restoreId && availableCount(type) <= 0) return
     const stored = restoreId ? furniture.find((value) => value.id === restoreId && value.removed) : undefined
-    const found = stored ?? inventoryItems.find((entry) => entry.type === type) ?? storedTemplateFor(type); if (!found) return
+    const found = stored ?? storedTemplateFor(type) ?? inventoryItems.find((entry) => entry.type === type); if (!found) return
     // a catalog variant (e.g. the white line) is the same furniture pre-tinted with a styleId
     const template = styleId ? { ...found, styleId } : found
     const surfaceIds: SurfaceId[] = template.allowedSurfaces.includes('wall') ? ['leftWall', 'rightWall'] : ['floor']
@@ -945,7 +948,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }
   const markReactionsSeen = (id: FurnitureId) => { markReactionSeen(id, countReactions(reactionIdsFor(id))); setSeenTick((value) => value + 1) }
   // you own one of each, wherever it stands — a piece placed in another room is not available in this one
-  const availableCount = (type: string) => Math.max(0, ownedCountOf(type) - furniture.filter((item) => item.type === type && !item.removed).length - (placedElsewhere[type] ?? 0))
+  const availableCount = (type: string) => { const family = frameFamily(type); return Math.max(0, ownedCountOf(family) - furniture.filter((item) => frameFamily(item.type) === family && !item.removed).length - countFamily(placedElsewhere, family)) }
   const applyRoom = (id: string) => {
     setActiveSlot(id)
     setActiveRoomId(id)
