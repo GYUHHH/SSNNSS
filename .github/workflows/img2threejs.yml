@@ -23,7 +23,7 @@ jobs:
       JOB_ID: ${{ inputs.job_id }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       IMG2THREEJS_RUNNER_SECRET: ${{ secrets.IMG2THREEJS_RUNNER_SECRET }}
-      IMG2THREEJS_ROOT: ${{ runner.temp }}/img2threejs
+      IMG2THREEJS_ROOT: /tmp/img2threejs
     steps:
       - uses: actions/checkout@v4
 
