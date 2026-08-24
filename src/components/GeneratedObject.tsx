@@ -1,6 +1,6 @@
 import { RoundedBox } from '@react-three/drei'
 import { useMemo } from 'react'
-import { CylinderGeometry, ExtrudeGeometry, Shape, SphereGeometry } from 'three'
+import { CylinderGeometry, ExtrudeGeometry, LatheGeometry, Shape, SphereGeometry, Vector2 } from 'three'
 import type { CustomObjectPart, CustomObjectSpec } from '../customObjectSpec'
 
 // 유닛 쐐기(직각 삼각기둥): 바닥 평평, -X쪽이 수직 등, +X로 내려가는 경사면. 모든 파츠가 공유한다.
@@ -45,6 +45,21 @@ const hemisphereGeometry = (() => {
 })()
 
 function Part({ part, preview }: { part: CustomObjectPart; preview: boolean }) {
+  // 단면 프리미티브: 모델이 그린 2D 외곽선을 그대로 형상으로 — 자유 실루엣(extrude)과 회전체(lathe)
+  const profiled = useMemo(() => {
+    if (part.primitive === 'extrudeProfile' && part.profile) {
+      const shape = new Shape()
+      part.profile.forEach(([x, y], index) => index ? shape.lineTo(x, y) : shape.moveTo(x, y))
+      shape.closePath()
+      const geometry = new ExtrudeGeometry(shape, { depth: 1, bevelEnabled: false, curveSegments: 8 })
+      geometry.translate(0, 0, -.5)
+      return geometry
+    }
+    if (part.primitive === 'latheProfile' && part.profile) {
+      return new LatheGeometry(part.profile.map(([x, y]) => new Vector2(Math.max(.001, x), y)), 20)
+    }
+    return null
+  }, [part.primitive, part.profile])
   const material = <meshStandardMaterial color={part.color} roughness={part.roughness} metalness={part.metalness} transparent={preview} opacity={preview ? .55 : 1} />
   const props = { position: part.position, rotation: part.rotation, scale: part.size } as const
   if (part.primitive === 'roundedBox') return <RoundedBox {...props} args={[1, 1, 1]} radius={.12} smoothness={2}>{material}</RoundedBox>
@@ -61,6 +76,7 @@ function Part({ part, preview }: { part: CustomObjectPart; preview: boolean }) {
     {part.primitive === 'hemisphere' && <primitive object={hemisphereGeometry} attach="geometry" />}
     {part.primitive === 'frustum' && <cylinderGeometry args={[.3, .5, 1, 16]} />}
     {part.primitive === 'elbow' && <torusGeometry args={[.35, .15, 10, 16, Math.PI / 2]} />}
+    {profiled && <primitive object={profiled} attach="geometry" />}
     {material}
   </mesh>
 }

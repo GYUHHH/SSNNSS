@@ -1,5 +1,5 @@
 export const CUSTOM_OBJECT_CATEGORIES = ['furniture', 'wallDecoration', 'floor', 'sculpture'] as const
-export const CUSTOM_PRIMITIVES = ['box', 'roundedBox', 'cylinder', 'sphere', 'capsule', 'torus', 'cone', 'wedge', 'frustum', 'hemisphere', 'halfCylinder', 'ramp', 'elbow'] as const
+export const CUSTOM_PRIMITIVES = ['box', 'roundedBox', 'cylinder', 'sphere', 'capsule', 'torus', 'cone', 'wedge', 'frustum', 'hemisphere', 'halfCylinder', 'ramp', 'elbow', 'extrudeProfile', 'latheProfile'] as const
 
 export type CustomObjectCategory = typeof CUSTOM_OBJECT_CATEGORIES[number]
 export type CustomPrimitive = typeof CUSTOM_PRIMITIVES[number]
@@ -12,6 +12,8 @@ export type CustomObjectPart = {
   color: string
   roughness: number
   metalness: number
+  // extrudeProfile/latheProfile 전용: 유닛 사각(-0.5..0.5) 안의 2D 단면 점들
+  profile?: Array<[number, number]>
 }
 export type CustomObjectSpec = {
   id: string
@@ -32,7 +34,14 @@ export const isCustomObjectSpec = (value: unknown): value is CustomObjectSpec =>
   if (typeof spec.id !== 'string' || !spec.id || typeof spec.name !== 'string' || !spec.name.trim() || spec.name.length > 40) return false
   if (!CUSTOM_OBJECT_CATEGORIES.includes(spec.category as CustomObjectCategory) || !spec.footprint || !cell(spec.footprint.width) || !cell(spec.footprint.depth)) return false
   if (!Array.isArray(spec.parts) || spec.parts.length < 1 || spec.parts.length > 32) return false
-  return new Set(spec.parts.map((part) => part?.id)).size === spec.parts.length && spec.parts.every((part) => !!part && typeof part.id === 'string' && CUSTOM_PRIMITIVES.includes(part.primitive) && tuple3(part.position) && tuple3(part.rotation) && positiveTuple3(part.size) && /^#[0-9a-f]{6}$/i.test(part.color) && unit(part.roughness) && unit(part.metalness))
+  const profileOk = (part: Partial<CustomObjectPart>) => {
+    if (part.primitive !== 'extrudeProfile' && part.primitive !== 'latheProfile') return true
+    const points = part.profile
+    if (!Array.isArray(points) || points.length < 3 || points.length > 16) return false
+    if (!points.every((point) => Array.isArray(point) && point.length === 2 && point.every((value) => typeof value === 'number' && Number.isFinite(value) && value >= -0.5 && value <= 0.5))) return false
+    return part.primitive !== 'latheProfile' || points.every((point) => point[0] >= 0)
+  }
+  return new Set(spec.parts.map((part) => part?.id)).size === spec.parts.length && spec.parts.every((part) => !!part && typeof part.id === 'string' && CUSTOM_PRIMITIVES.includes(part.primitive) && tuple3(part.position) && tuple3(part.rotation) && positiveTuple3(part.size) && /^#[0-9a-f]{6}$/i.test(part.color) && unit(part.roughness) && unit(part.metalness) && profileOk(part))
 }
 
 export const customObjectType = (id: string) => `custom:${id}`
@@ -61,6 +70,7 @@ export const customObjectSchema = {
           color: { type: 'string', pattern: '^#[0-9a-fA-F]{6}$' },
           roughness: { type: 'number', minimum: 0, maximum: 1 },
           metalness: { type: 'number', minimum: 0, maximum: 1 },
+          profile: { type: 'array', minItems: 3, maxItems: 16, items: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number', minimum: -0.5, maximum: 0.5 } } },
         },
       },
     },
