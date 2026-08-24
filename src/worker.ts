@@ -11,7 +11,7 @@ type Env = {
   LS_BUY_URL?: string
   LS_CREDITS_PER_ORDER?: string
 }
-type GenerateBody = { category?: unknown; prompt?: unknown; image?: unknown; spec?: unknown; feedback?: unknown }
+type GenerateBody = { category?: unknown; prompt?: unknown; image?: unknown; spec?: unknown; feedback?: unknown; size?: unknown }
 type ReviewBody = GenerateBody & { screenshot?: unknown; screenshots?: unknown }
 
 const SUPABASE_URL = 'https://pxjavljsalibpnxdrxel.supabase.co'
@@ -148,7 +148,13 @@ async function generate(request: Request, env: Env, detail = false) {
 
   const system = `${INSTRUCTIONS}\n\n${detail ? DETAIL_INSTRUCTIONS : BLOCKOUT_INSTRUCTIONS}`
   const feedback = typeof body?.feedback === 'string' ? body.feedback.slice(0, 2000) : ''
-  const userText = `Category: ${category}\nRequest: ${prompt || 'Reconstruct the object shown in the reference image.'}${blockout ? `\nBlockout spec:\n${JSON.stringify(blockout)}` : ''}${feedback ? `\nA previous detail attempt FAILED review for these exact reasons - build a fresh detail pass that cannot repeat any of them:\n${feedback}` : ''}`
+  const cell = (value: unknown) => Number.isInteger(value) && Number(value) >= 1 && Number(value) <= 12 ? Number(value) : null
+  const rawSize = body?.size as { width?: unknown; depth?: unknown; height?: unknown } | undefined
+  const size = rawSize && cell(rawSize.width) && cell(rawSize.depth)
+    ? { width: cell(rawSize.width)!, depth: cell(rawSize.depth)!, height: rawSize.height === undefined ? null : cell(rawSize.height) }
+    : null
+  const sizeText = size ? `\nTarget bounding box: ${size.width} x ${size.depth}${size.height ? ` x ${size.height} (width x depth x height)` : ' (width x depth)'} in grid units (1 unit = 1 cell). The object must FILL this box - overall width about ${size.width} units, depth about ${size.depth} units${size.height ? `, height about ${size.height} units` : ''}. Set footprint to exactly ${size.width} x ${size.depth}.` : ''
+  const userText = `Category: ${category}\nRequest: ${prompt || 'Reconstruct the object shown in the reference image.'}${sizeText}${blockout ? `\nBlockout spec:\n${JSON.stringify(blockout)}` : ''}${feedback ? `\nA previous detail attempt FAILED review for these exact reasons - build a fresh detail pass that cannot repeat any of them:\n${feedback}` : ''}`
   let parsed: Record<string, unknown>
   if (env.ANTHROPIC_API_KEY) {
     const content: Array<Record<string, unknown>> = [{ type: 'text', text: userText }]
@@ -184,7 +190,7 @@ async function generate(request: Request, env: Env, detail = false) {
     if (!text) return json({ error: 'EMPTY_GENERATION' }, 502)
     try { parsed = JSON.parse(text) as Record<string, unknown> } catch { return json({ error: 'INVALID_GENERATION' }, 502) }
   }
-  const object = { ...parsed, id: blockout ? blockout.id : crypto.randomUUID(), category }
+  const object = { ...parsed, id: blockout ? blockout.id : crypto.randomUUID(), category, ...(size ? { footprint: { width: Math.min(10, size.width), depth: Math.min(10, size.depth) } } : {}) }
   return isCustomObjectSpec(object) ? json({ object }) : json({ error: 'INVALID_GENERATION' }, 502)
 }
 

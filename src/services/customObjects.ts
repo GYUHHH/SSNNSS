@@ -22,7 +22,8 @@ export const customObjectTemplate = (spec: CustomObjectSpec) => {
   }
 }
 
-export async function generateCustomObject(input: { category: CustomObjectCategory; prompt: string; image?: string }): Promise<CustomObjectSpec> {
+export type CustomSize = { width: number; depth: number; height?: number }
+export async function generateCustomObject(input: { category: CustomObjectCategory; prompt: string; image?: string; size?: CustomSize }): Promise<CustomObjectSpec> {
   const response = await fetch('/api/custom-objects', {
     method: 'POST',
     headers: { ...await authHeaders(), 'Content-Type': 'application/json' },
@@ -34,7 +35,7 @@ export async function generateCustomObject(input: { category: CustomObjectCatego
   return body.object
 }
 
-export async function detailCustomObject(input: { category: CustomObjectCategory; prompt: string; image?: string; spec: CustomObjectSpec; feedback?: string }): Promise<CustomObjectSpec> {
+export async function detailCustomObject(input: { category: CustomObjectCategory; prompt: string; image?: string; spec: CustomObjectSpec; feedback?: string; size?: CustomSize }): Promise<CustomObjectSpec> {
   const response = await fetch('/api/custom-objects/detail', {
     method: 'POST',
     headers: { ...await authHeaders(), 'Content-Type': 'application/json' },

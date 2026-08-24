@@ -383,7 +383,7 @@ type RoomStore = {
   mode: RoomMode; furniture: FurnitureItem[]; selectedFurnitureId: FurnitureId | null; selectedPlacementValid: boolean; movingFurnitureId: FurnitureId | null; preview: FurnitureItem | null; previewValid: boolean; previewDragging: boolean
   wallStyle: RoomStyle; floorStyle: string | undefined; styleTarget: StyleTarget | null; debugAnchors: boolean; moveNotice: boolean; floorTarget: [number, number, number] | null; musicTrack: string | null; setMusicTrack: (id: string | null) => void; musicVolume: number; setMusicVolume: (value: number) => void
   customObjects: CustomObjectSpec[]; addCustomObject: (spec: CustomObjectSpec) => void; removeCustomObject: (id: string) => void
-  customJob: CustomJob | null; runCustomGeneration: (input: { category: CustomObjectCategory; prompt: string; image?: string }) => void; markCustomSeen: () => void
+  customJob: CustomJob | null; runCustomGeneration: (input: { category: CustomObjectCategory; prompt: string; image?: string; size?: { width: number; depth: number; height?: number } }) => void; markCustomSeen: () => void
   selectObject: (object: Exclude<SelectedObject, null>) => void; clearSelection: () => void; finishCharacterAction: (state: Exclude<CharacterState, 'walking'>, transform?: CharacterTransform) => void; moveCharacterTo: (position: [number, number, number]) => void; settleFloorMove: (reached: boolean, transform?: CharacterTransform) => void; openBook: (id: string) => void; closeBook: () => void; addBook: (title: string, visibility: Visibility) => string; deleteBook: (id: string) => void; updateBook: (id: string, patch: Partial<Pick<Book, 'title' | 'visibility' | 'shelf'>>) => void; addEntry: (bookId: string, entry: EntryDraft) => void; deleteEntry: (bookId: string, entryId: string) => void; updateEntry: (bookId: string, entryId: string, patch: Partial<Pick<Entry, 'content' | 'images' | 'visibility'>>) => void; toggleDebugAnchors: () => void
   toggleEditMode: () => void; enterEditFurniture: (id: FurnitureId) => void; selectFurniture: (id: FurnitureId) => void; beginMove: (id: FurnitureId) => void; moveFurniture: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; placeFurnitureAt: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; endMove: () => void; beginResize: (id: FurnitureId) => void; resizeFurniture: (id: FurnitureId, corner: ResizeCorner, position: [number, number, number]) => void; endResize: (id: FurnitureId) => void; rotateFurniture: () => void; removeFurniture: (id?: FurnitureId) => void; undoLayout: () => void; resetLayout: () => void; startPreview: (type: string, styleId?: string, restoreId?: string) => void; beginPreviewDrag: () => void; movePreview: (position: [number, number, number], surfaceId?: SurfaceId) => void; endPreviewDrag: () => void; placePreview: () => void; cancelPreview: () => void
   openStyleTarget: (target: StyleTarget) => void; setWallStyle: (wallId: WallId, presetId: string) => void; setFloorStyle: (presetId: string) => void; setFurnitureStyle: (id: FurnitureId, presetId: string) => void
@@ -444,7 +444,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }
   const [customJob, setCustomJob] = useState<CustomJob | null>(null)
   const markCustomSeen = () => setCustomJob((job) => job && job.unseen ? { ...job, unseen: false } : job)
-  const runCustomGeneration = (input: { category: CustomObjectCategory; prompt: string; image?: string }) => {
+  const runCustomGeneration = (input: { category: CustomObjectCategory; prompt: string; image?: string; size?: { width: number; depth: number; height?: number } }) => {
     if (customJob && customJob.stage !== 'done' && customJob.stage !== 'error') return // 동시에 한 건만
     void (async () => {
       try {
@@ -456,9 +456,9 @@ export function RoomProvider({ children }: { children: ReactNode }) {
         }
         // 2) 조립 2패스: 블록아웃(실루엣·비례) → 디테일 (같은 크레딧 1회)
         setCustomJob({ stage: 'draft', round: 0, unseen: false })
-        const blockout = await generateCustomObject({ category: input.category, prompt: input.prompt, image: reference })
+        const blockout = await generateCustomObject({ category: input.category, prompt: input.prompt, image: reference, size: input.size })
         setCustomJob({ stage: 'detail', round: 0, unseen: false })
-        let spec = await detailCustomObject({ category: input.category, prompt: input.prompt, image: reference, spec: blockout })
+        let spec = await detailCustomObject({ category: input.category, prompt: input.prompt, image: reference, spec: blockout, size: input.size })
         // 3) 검수는 판정만. 불합격이면 결함 피드백으로 디테일 패스를 "새로" 생성하고(수선 금지),
         //    시도들 중 검수 점수가 가장 좋은 것을 채택한다 — 검증 안 된 스펙은 절대 채택하지 않는다.
         let best: { spec: typeof spec; score: number } | null = null
@@ -476,7 +476,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
           if (review.verdict === 'pass') { best = { spec, score: 0 }; break }
           if (round === 2) break
           setCustomJob({ stage: 'revise', round, unseen: false })
-          spec = await detailCustomObject({ category: input.category, prompt: input.prompt, image: reference, spec: blockout, feedback: [...review.violations, ...review.defects].join('\n') })
+          spec = await detailCustomObject({ category: input.category, prompt: input.prompt, image: reference, spec: blockout, feedback: [...review.violations, ...review.defects].join('\n'), size: input.size })
         }
         if (best) spec = best.spec
         addCustomObject(spec)
