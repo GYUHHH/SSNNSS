@@ -603,11 +603,13 @@ function RoomWorld() {
       : discoverPage.current ? Promise.resolve(discoverPage.current) : fetchRoomDirectory().then((all) => (discoverPage.current = shuffled(all)))
     void source.then((found) => {
       if (!live) return
-      const rest = found.filter((handle) => handle !== centre)
+      // The room being viewed is the only owned room in this cluster. Keeping the owner's hub here made it
+      // appear again behind a visited room when zooming out, so it could overlap the current room on phones.
+      const rest = found.filter((handle) => handle !== centre && handle !== hubHandle)
       // the room actually being viewed needs a cell of its own even if the list misses it
       const viewed = currentRoomHandle()
       if (viewed && viewed !== centre && !rest.includes(viewed)) rest.unshift(viewed)
-      const next = withVacancies([centre, ...(ringMode === 'home' && centre !== hubHandle ? [hubHandle] : []), ...rest])
+      const next = withVacancies([centre, ...rest])
       // Inside a room the ring is off screen, so the exchange is free — which is the usual case, since a new
       // ring is what entering a room asks for. Out in the explorer the swap would be seen, so it crossfades.
       if (wasZoomedIn.current) { setHandles(next); return }
