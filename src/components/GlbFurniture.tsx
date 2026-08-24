@@ -17,11 +17,16 @@ function GlbScene({ url, preview, flat }: { url: string; preview: boolean; flat:
   const cloned = useMemo(() => {
     const copy = scene.clone(true)
     copy.traverse((node) => {
-      const mesh = node as { isMesh?: boolean; castShadow?: boolean; receiveShadow?: boolean; material?: { transparent?: boolean; opacity?: number } }
+      const mesh = node as { isMesh?: boolean; castShadow?: boolean; material?: { transparent?: boolean; opacity?: number; flatShading?: boolean; clone?: () => NonNullable<typeof mesh.material> } }
       if (mesh.isMesh) {
         mesh.castShadow = true
-        if (flat && mesh.material) (mesh.material as { flatShading?: boolean; needsUpdate?: boolean }).flatShading = true
-        if (preview && mesh.material) { mesh.material = (mesh.material as { clone?: () => typeof mesh.material }).clone?.() ?? mesh.material; mesh.material!.transparent = true; mesh.material!.opacity = .55 }
+        // 재질은 인스턴스마다 반드시 클론: useGLTF 캐시의 공유 재질을 그대로 쓰면 탐색기 페이드/프리뷰가
+        // 만진 opacity가 다른 화면의 같은 아이템에 그대로 새어 나간다 (방문자에게 반투명으로 보이던 버그)
+        if (mesh.material?.clone) {
+          mesh.material = mesh.material.clone()
+          if (flat) mesh.material.flatShading = true
+          if (preview) { mesh.material.transparent = true; mesh.material.opacity = .55 }
+        }
       }
     })
     return copy
