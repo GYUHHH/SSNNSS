@@ -154,7 +154,9 @@ function CustomTab() {
   const [source, setSource] = useState<'text' | 'photo' | null>(null)
   const [category, setCategory] = useState<CustomObjectCategory>('furniture')
   const [prompt, setPrompt] = useState('')
-  const [sizeText, setSizeText] = useState('')
+  const [sizeW, setSizeW] = useState('')
+  const [sizeD, setSizeD] = useState('')
+  const [sizeH, setSizeH] = useState('')
   const [image, setImage] = useState<string | null>(null)
   const [editingImage, setEditingImage] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -167,22 +169,25 @@ function CustomTab() {
     reader.readAsDataURL(value)
   }
   const running = !!customJob && customJob.stage !== 'done' && customJob.stage !== 'error'
-  // "4x1" 또는 "4x1x5" (가로x세로x높이, 칸 단위) — 비워두면 모델이 알아서 정한다
-  const parseSize = (value: string): { width: number; depth: number; height?: number } | null | undefined => {
-    const trimmed = value.trim().toLowerCase().replace(/\s/g, '')
-    if (!trimmed) return undefined
-    const match = /^([1-9]|1[0-2])x([1-9]|1[0-2])(?:x([1-9]|1[0-2]))?$/.exec(trimmed)
-    if (!match) return null
-    return { width: Number(match[1]), depth: Number(match[2]), ...(match[3] ? { height: Number(match[3]) } : {}) }
+  // 가로x세로는 함께, 높이는 선택. 전부 비우면 모델이 알아서 정한다
+  const parseSize = (): { width: number; depth: number; height?: number } | null | undefined => {
+    const num = (value: string) => { const parsed = Number(value.trim()); return Number.isInteger(parsed) && parsed >= 1 && parsed <= 12 ? parsed : null }
+    if (!sizeW.trim() && !sizeD.trim() && !sizeH.trim()) return undefined
+    const width = num(sizeW)
+    const depth = num(sizeD)
+    if (!width || !depth) return null
+    const height = sizeH.trim() ? num(sizeH) : undefined
+    if (sizeH.trim() && !height) return null
+    return { width, depth, ...(height ? { height } : {}) }
   }
   const submit = (event: FormEvent) => {
     event.preventDefault()
     if ((source === 'text' && !prompt.trim()) || (source === 'photo' && !image) || running) return
-    const size = parseSize(sizeText)
-    if (size === null) { setError(t('크기는 4x1 또는 4x1x5 형식으로')); return }
+    const size = parseSize()
+    if (size === null) { setError(t('크기는 1~12 사이 숫자로 (가로·세로는 함께)')); return }
     setError('')
     runCustomGeneration({ category, prompt: prompt.trim(), image: image ?? undefined, size })
-    setSource(null); setPrompt(''); setImage(null); setSizeText('')
+    setSource(null); setPrompt(''); setImage(null); setSizeW(''); setSizeD(''); setSizeH('')
   }
   const objects = customObjects.filter((object) => availableCount(customObjectType(object.id)) > 0)
   return <div className="custom-tab">
@@ -193,7 +198,7 @@ function CustomTab() {
     {source && <form className="custom-form" onSubmit={submit}>
       <div className="custom-form-head"><strong>{t(source === 'text' ? '텍스트 넣기' : '사진 넣기')}</strong><button type="button" onClick={() => { setSource(null); setImage(null); setEditingImage(null); setError('') }}>×</button></div>
       <label>{t('오브젝트 종류')}<select value={category} onChange={(event) => setCategory(event.target.value as CustomObjectCategory)}>{CUSTOM_OBJECT_CATEGORIES.map((value) => <option key={value} value={value}>{t(CUSTOM_CATEGORY_LABELS[value])}</option>)}</select></label>
-      <label>{t('크기 (선택)')}<input value={sizeText} onChange={(event) => setSizeText(event.target.value)} placeholder={t('예: 4x1x5 (가로x세로x높이)')} /></label>
+      <label>{t('크기 (선택)')}<div className="custom-size"><input type="number" min={1} max={12} value={sizeW} onChange={(event) => setSizeW(event.target.value)} placeholder={t('가로')} aria-label={t('가로')} /><span>×</span><input type="number" min={1} max={12} value={sizeD} onChange={(event) => setSizeD(event.target.value)} placeholder={t('세로')} aria-label={t('세로')} /><span>×</span><input type="number" min={1} max={12} value={sizeH} onChange={(event) => setSizeH(event.target.value)} placeholder={t('높이(선택)')} aria-label={t('높이(선택)')} /></div></label>
       {source === 'photo' && (image ? <div className="custom-photo"><img src={image} alt="" /><button type="button" aria-label={t('사진 삭제')} onClick={() => { setImage(null); file.current?.click() }}>×</button></div> : <button className="custom-photo-pick" type="button" onClick={choosePhoto}>{t('사진 넣기')}</button>)}
       <textarea maxLength={1200} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={t(source === 'photo' ? '원하는 디자인 (선택)' : '원하는 디자인')} />
       {error && <p className="custom-error">{error}</p>}

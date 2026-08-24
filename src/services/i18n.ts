@@ -6,6 +6,10 @@ export const setLang = (next: 'ko' | 'en') => { localStorage.setItem('lang', nex
 
 // 한국어 문장이 곧 키. 사전에 없으면 한국어 그대로 — 빠뜨려도 깨지지 않는다.
 const EN: Record<string, string> = {
+  "크기는 1~12 사이 숫자로 (가로·세로는 함께)": "Size needs whole numbers 1-12 (width and depth together)",
+  "높이(선택)": "Height (opt.)",
+  "세로": "Depth",
+  "가로": "Width",
   "크기는 4x1 또는 4x1x5 형식으로": "Size must look like 4x1 or 4x1x5",
   "예: 4x1x5 (가로x세로x높이)": "e.g. 4x1x5 (width x depth x height)",
   "크기 (선택)": "Size (optional)",

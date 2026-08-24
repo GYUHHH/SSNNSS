@@ -739,3 +739,7 @@ button.custom-job-widget::after { content: ''; width: 8px; height: 8px; border-r
 .inventory-panel nav::-webkit-scrollbar { display: none; }
 .custom-credits { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border: 1px solid #e0e0dd; border-radius: 6px; background: #fafaf8; font-size: 12px; color: #3a3a38; }
 .custom-credits a { color: #3a6ea5; text-decoration: none; font-weight: 600; }
+
+.custom-size { display: flex; align-items: center; gap: 6px; }
+.custom-size input { width: 0; flex: 1; min-width: 0; padding: 7px 9px; border: 1px solid #d6d6d2; border-radius: 5px; font-size: 13px; }
+.custom-size span { color: #9a9a94; font-size: 12px; }
