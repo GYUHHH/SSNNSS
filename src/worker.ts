@@ -11,7 +11,7 @@ type Env = {
   LS_BUY_URL?: string
   LS_CREDITS_PER_ORDER?: string
 }
-type GenerateBody = { category?: unknown; prompt?: unknown; image?: unknown; spec?: unknown }
+type GenerateBody = { category?: unknown; prompt?: unknown; image?: unknown; spec?: unknown; feedback?: unknown }
 type ReviewBody = GenerateBody & { screenshot?: unknown; screenshots?: unknown }
 
 const SUPABASE_URL = 'https://pxjavljsalibpnxdrxel.supabase.co'
@@ -23,14 +23,13 @@ Reconstruction discipline (distilled img2threejs): First list the object's 2-4 i
 const BLOCKOUT_INSTRUCTIONS = `This is PASS 1 of 2: the blockout. Build ONLY the macro silhouette and the identity-defining components as simple volumes - 4 to 12 parts. No small accents, no rivets, no trim. Get proportions, stance and grounding right; details come in the next pass.`
 
 const DETAIL_INSTRUCTIONS = `This is PASS 2 of 2: the detail pass. You are given the blockout spec. Keep its overall silhouette, proportions and part placement, then refine it: split crude volumes into properly shaped parts where topology demands, add the small identity accents visible in the reference (knobs, trim, feet, seams, hardware), and tune colors/roughness per material. Output the FULL final spec (not a diff). Stay within the parts limit and never break grounding or introduce coplanar faces.`
-const REVIEW_INSTRUCTIONS = `Review like an inspector, not an admirer. 1) List the reference's identity-defining features in featureChecks and judge each one against the renders. 2) List every local defect in defects: a detached or leaning-away part, a part that should dock into another but does not, a missing feature (bars, rails, handles), wrong relative proportion. 3) If ANY feature is broken/missing, ANY defect exists, or ANY deterministic geometry violation is listed in the message, the verdict MUST be revise with a full corrected spec. When revising, fix exactly what you called out and keep every other part's coordinates unchanged. Cute low-poly simplification is fine; broken structure is not.`
+const REVIEW_INSTRUCTIONS = `You are a judge, not a repairer. 1) List the reference's identity-defining features in featureChecks and judge each against the renders. 2) List every local defect in defects: a detached or leaning-away part, a part that should dock into another but does not, a missing feature (bars, rails, handles), wrong relative proportion. 3) Verdict pass only when every feature reads correctly and defects is empty and no deterministic violation is listed in the message; otherwise fail. Cute low-poly simplification is fine; broken structure is not.`
 const reviewSchema = {
   type: 'object', additionalProperties: false, required: ['verdict', 'featureChecks', 'defects'],
   properties: {
-    verdict: { type: 'string', enum: ['pass', 'revise'] },
+    verdict: { type: 'string', enum: ['pass', 'fail'] },
     featureChecks: { type: 'array', maxItems: 8, items: { type: 'string' }, description: 'One line per identity-defining feature of the reference: "<feature>: ok" or "<feature>: <what is wrong>"' },
     defects: { type: 'array', maxItems: 12, items: { type: 'string' }, description: 'Every local defect seen in the renders (floating, detached, missing, misplaced, wrong proportion). Empty only if flawless.' },
-    revision: customObjectSchema,
   },
 } as const
 
@@ -148,7 +147,8 @@ async function generate(request: Request, env: Env, detail = false) {
   if (!detail && !await spendCredit(request, env)) return json({ error: 'NO_CREDITS' }, 402)
 
   const system = `${INSTRUCTIONS}\n\n${detail ? DETAIL_INSTRUCTIONS : BLOCKOUT_INSTRUCTIONS}`
-  const userText = `Category: ${category}\nRequest: ${prompt || 'Reconstruct the object shown in the reference image.'}${blockout ? `\nBlockout spec:\n${JSON.stringify(blockout)}` : ''}`
+  const feedback = typeof body?.feedback === 'string' ? body.feedback.slice(0, 2000) : ''
+  const userText = `Category: ${category}\nRequest: ${prompt || 'Reconstruct the object shown in the reference image.'}${blockout ? `\nBlockout spec:\n${JSON.stringify(blockout)}` : ''}${feedback ? `\nA previous detail attempt FAILED review for these exact reasons - build a fresh detail pass that cannot repeat any of them:\n${feedback}` : ''}`
   let parsed: Record<string, unknown>
   if (env.ANTHROPIC_API_KEY) {
     const content: Array<Record<string, unknown>> = [{ type: 'text', text: userText }]
@@ -232,14 +232,11 @@ async function review(request: Request, env: Env) {
   const result = await upstream.json().catch(() => null) as { content?: Array<{ type?: string; input?: unknown }> } | null
   if (!upstream.ok) return json({ error: 'REVIEW_FAILED' }, 502)
   const input = result?.content?.find((item) => item.type === 'tool_use')?.input as { verdict?: string; revision?: Record<string, unknown> } | undefined
-  console.log('custom-review', input?.verdict, 'violations', violations.length, 'defects', (input as { defects?: string[] })?.defects?.length ?? 0)
-  if (input?.verdict === 'revise' && input.revision) {
-    const revised = { ...input.revision, id: body.spec.id, category }
-    if (isCustomObjectSpec(revised)) return json({ verdict: 'revise', object: revised })
-  }
-  // 검수가 pass라고 해도 결정적 위반이 남아 있으면 통과시키지 않는다 (수정본 없이 pass만 온 경우)
-  if (violations.length) return json({ verdict: 'revise' })
-  return json({ verdict: 'pass' })
+  const checks = input as { verdict?: string; featureChecks?: string[]; defects?: string[] } | undefined
+  const defects = Array.isArray(checks?.defects) ? checks.defects.filter((value): value is string => typeof value === 'string') : []
+  console.log('custom-review', checks?.verdict, 'violations', violations.length, 'defects', defects.length)
+  const pass = checks?.verdict === 'pass' && violations.length === 0
+  return json({ verdict: pass ? 'pass' : 'fail', defects, violations })
 }
 
 export default {

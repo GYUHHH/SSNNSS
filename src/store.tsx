@@ -456,10 +456,12 @@ export function RoomProvider({ children }: { children: ReactNode }) {
         }
         // 2) 조립 2패스: 블록아웃(실루엣·비례) → 디테일 (같은 크레딧 1회)
         setCustomJob({ stage: 'draft', round: 0, unseen: false })
-        let spec = await generateCustomObject({ category: input.category, prompt: input.prompt, image: reference })
+        const blockout = await generateCustomObject({ category: input.category, prompt: input.prompt, image: reference })
         setCustomJob({ stage: 'detail', round: 0, unseen: false })
-        spec = await detailCustomObject({ category: input.category, prompt: input.prompt, image: reference, spec })
-        // 3) 3각도 렌더 검수 — 합격이면 끝, 수정본이 오면 딱 한 번 더 검수 (상한 2라운드, 폭주 방지)
+        let spec = await detailCustomObject({ category: input.category, prompt: input.prompt, image: reference, spec: blockout })
+        // 3) 검수는 판정만. 불합격이면 결함 피드백으로 디테일 패스를 "새로" 생성하고(수선 금지),
+        //    시도들 중 검수 점수가 가장 좋은 것을 채택한다 — 검증 안 된 스펙은 절대 채택하지 않는다.
+        let best: { spec: typeof spec; score: number } | null = null
         for (let round = 1; round <= 2; round += 1) {
           setCustomJob({ stage: 'verify', round, unseen: false })
           const shots: string[] = []
@@ -469,10 +471,14 @@ export function RoomProvider({ children }: { children: ReactNode }) {
           }
           if (!shots.length) break
           const review = await reviewCustomObject({ category: input.category, prompt: input.prompt, image: reference, spec, screenshots: shots })
-          if (review.verdict === 'pass' || !review.object) break
-          spec = review.object
+          const score = review.violations.length * 2 + review.defects.length
+          if (!best || score < best.score) best = { spec, score }
+          if (review.verdict === 'pass') { best = { spec, score: 0 }; break }
+          if (round === 2) break
           setCustomJob({ stage: 'revise', round, unseen: false })
+          spec = await detailCustomObject({ category: input.category, prompt: input.prompt, image: reference, spec: blockout, feedback: [...review.violations, ...review.defects].join('\n') })
         }
+        if (best) spec = best.spec
         addCustomObject(spec)
         setCustomJob({ stage: 'done', round: 0, unseen: true, name: spec.name })
       } catch (reason) {

@@ -34,7 +34,7 @@ export async function generateCustomObject(input: { category: CustomObjectCatego
   return body.object
 }
 
-export async function detailCustomObject(input: { category: CustomObjectCategory; prompt: string; image?: string; spec: CustomObjectSpec }): Promise<CustomObjectSpec> {
+export async function detailCustomObject(input: { category: CustomObjectCategory; prompt: string; image?: string; spec: CustomObjectSpec; feedback?: string }): Promise<CustomObjectSpec> {
   const response = await fetch('/api/custom-objects/detail', {
     method: 'POST',
     headers: { ...await authHeaders(), 'Content-Type': 'application/json' },
@@ -57,16 +57,16 @@ export async function generateConceptImage(input: { category: CustomObjectCatego
   return body.image
 }
 
-export async function reviewCustomObject(input: { category: CustomObjectCategory; prompt: string; image?: string; spec: CustomObjectSpec; screenshots: string[] }): Promise<{ verdict: 'pass' | 'revise'; object?: CustomObjectSpec }> {
+export async function reviewCustomObject(input: { category: CustomObjectCategory; prompt: string; image?: string; spec: CustomObjectSpec; screenshots: string[] }): Promise<{ verdict: 'pass' | 'fail'; defects: string[]; violations: string[] }> {
   const response = await fetch('/api/custom-objects/review', {
     method: 'POST',
     headers: { ...await authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   })
-  const body = await response.json().catch(() => null) as { verdict?: string; object?: unknown; error?: string } | null
+  const body = await response.json().catch(() => null) as { verdict?: string; defects?: unknown; violations?: unknown; error?: string } | null
   if (!response.ok) throw new Error(body?.error || `HTTP ${response.status}`)
-  if (body?.verdict === 'revise' && isCustomObjectSpec(body.object)) return { verdict: 'revise', object: body.object }
-  return { verdict: 'pass' }
+  const list = (value: unknown) => Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : []
+  return { verdict: body?.verdict === 'pass' ? 'pass' : 'fail', defects: list(body?.defects), violations: list(body?.violations) }
 }
 
 export async function fetchCredits(): Promise<{ enabled: boolean; balance: number; freeLeft: boolean; buyUrl: string | null }> {
