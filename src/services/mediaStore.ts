@@ -167,7 +167,8 @@ const loadImage = (src: string) => new Promise<HTMLImageElement | null>((resolve
 })
 
 export function videoDisplayMeta(id: string): Promise<VideoDisplayMeta | null> {
-  return displayCache[id] ??= loadImage(`/api/youtube-thumbnail?id=${encodeURIComponent(id)}`).then((thumbnail) => {
+  // `variant=mq` is a cache-key change too: older deployments cached hqdefault at the same endpoint for a day.
+  return displayCache[id] ??= loadImage(`/api/youtube-thumbnail?id=${encodeURIComponent(id)}&variant=mq`).then((thumbnail) => {
     if (!thumbnail) return null
     const outerAspect = thumbnail.naturalWidth / thumbnail.naturalHeight
     let detected = fullCrop
