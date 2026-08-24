@@ -22,24 +22,16 @@ export const customObjectTemplate = (spec: CustomObjectSpec) => {
   }
 }
 
-export type CustomObjectJobState = {
-  id?: string
-  status: 'none' | 'queued' | 'running' | 'completed' | 'failed'
-  stage?: 'queued' | 'intake' | 'sculpting' | 'final-review' | 'completed' | 'failed'
-  result?: unknown
-  error?: string
-}
-
-export async function createCustomObjectJob(input: { category: CustomObjectCategory; prompt: string; image: string }): Promise<string> {
-  const response = await fetch('/api/custom-objects/jobs', {
+export async function generateCustomObject(input: { category: CustomObjectCategory; prompt: string; image?: string }): Promise<CustomObjectSpec> {
+  const response = await fetch('/api/custom-objects', {
     method: 'POST',
     headers: { ...await authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   })
-  const body = await response.json().catch(() => null) as { jobId?: string; error?: string } | null
+  const body = await response.json().catch(() => null) as { object?: unknown; error?: string } | null
   if (!response.ok) throw new Error(body?.error || `HTTP ${response.status}`)
-  if (typeof body?.jobId !== 'string') throw new Error('INVALID_CUSTOM_OBJECT_JOB')
-  return body.jobId
+  if (!isCustomObjectSpec(body?.object)) throw new Error('INVALID_CUSTOM_OBJECT')
+  return body.object
 }
 
 export async function generateConceptImage(input: { category: CustomObjectCategory; prompt: string }): Promise<string> {
@@ -53,34 +45,16 @@ export async function generateConceptImage(input: { category: CustomObjectCatego
   return body.image
 }
 
-const readJob = async (path: string, body: Record<string, unknown> = {}): Promise<CustomObjectJobState> => {
-  const response = await fetch(path, {
+export async function reviewCustomObject(input: { category: CustomObjectCategory; prompt: string; image?: string; spec: CustomObjectSpec; screenshot: string }): Promise<{ verdict: 'pass' | 'revise'; object?: CustomObjectSpec }> {
+  const response = await fetch('/api/custom-objects/review', {
     method: 'POST',
     headers: { ...await authHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify(input),
   })
-  const value = await response.json().catch(() => null) as CustomObjectJobState & { error?: string } | null
-  if (!response.ok || !value) throw new Error(value?.error || `HTTP ${response.status}`)
-  return value
-}
-
-export const latestCustomObjectJob = () => readJob('/api/custom-objects/jobs/latest')
-export const customObjectJobStatus = (jobId: string) => readJob('/api/custom-objects/jobs/status', { jobId })
-export const consumeCustomObjectJob = async (jobId: string) => { await readJob('/api/custom-objects/jobs/consume', { jobId }) }
-
-export async function waitForCustomObjectJob(jobId: string, onStage: (stage: CustomObjectJobState['stage']) => void): Promise<CustomObjectSpec> {
-  const started = Date.now()
-  while (Date.now() - started < 60 * 60 * 1000) {
-    const state = await customObjectJobStatus(jobId)
-    onStage(state.stage)
-    if (state.status === 'completed') {
-      if (!isCustomObjectSpec(state.result)) throw new Error('INVALID_CUSTOM_OBJECT')
-      return state.result
-    }
-    if (state.status === 'failed') throw new Error(state.error || 'PIPELINE_FAILED')
-    await new Promise((resolve) => setTimeout(resolve, 4000))
-  }
-  throw new Error('PIPELINE_TIMEOUT')
+  const body = await response.json().catch(() => null) as { verdict?: string; object?: unknown; error?: string } | null
+  if (!response.ok) throw new Error(body?.error || `HTTP ${response.status}`)
+  if (body?.verdict === 'revise' && isCustomObjectSpec(body.object)) return { verdict: 'revise', object: body.object }
+  return { verdict: 'pass' }
 }
 
 export async function fetchCredits(): Promise<{ enabled: boolean; balance: number; freeLeft: boolean; buyUrl: string | null }> {
