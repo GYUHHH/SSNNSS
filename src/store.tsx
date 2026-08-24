@@ -6,7 +6,7 @@ import { publicBase } from './services/publicBase'
 import { loadOrders } from './services/playlistOrder'
 import { deleteVideo, listVideoIds, loadClipUrls, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, setClipMuted, syncPendingClips, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic, syncPendingTracks } from './services/music'
-import { DEFAULT_PROFILE_PHOTO, purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isVisiting, myHandle, myProfilePhoto, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, removeStored, subscribeRealtime, uploadMedia, writeStored, type RemoteGuestComment } from './services/social'
+import { DEFAULT_PROFILE_PHOTO, purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isReadingBundle, isVisiting, myHandle, myProfilePhoto, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, removeStored, subscribeRealtime, uploadMedia, writeStored, type RemoteGuestComment } from './services/social'
 import { cancelSoundRequest, clearFrameResume, muteFrame, requestSound, snapshotActiveFrames } from './services/ytResume'
 import { t, tp } from './services/i18n'
 import { floorStyleOf } from './services/styles'
@@ -335,9 +335,14 @@ const freeOnSurface = (context: FurnitureItem[], candidate: FurnitureItem): bool
 const withBookItems = (items: FurnitureItem[]): FurnitureItem[] => {
   const books = loadBooks<Book[]>() ?? initialBooks
   const template = inventoryItems.find((entry) => entry.type === 'diary-book')!
-  const missing = books.filter((book) => !items.some((item) => item.id === `inventory-book-${book.id}`))
-  if (!missing.length) return items
-  const out = [...items]
+  // 방문자에게 비공개 책은 아이템째 걷어낸다 — 남겨두면 보이지 않는 유령 슬롯이 된다.
+  // 책이 아예 없는 고아 아이템(책 삭제 후 잔재)도 누구에게든 걷어낸다.
+  const visitorView = isVisiting() || isReadingBundle()
+  const showable = (book: Book) => !visitorView || book.visibility === 'public'
+  const cleaned = items.filter((item) => !item.id.startsWith('inventory-book-') || books.some((book) => `inventory-book-${book.id}` === item.id && showable(book)))
+  const missing = books.filter((book) => showable(book) && !cleaned.some((item) => item.id === `inventory-book-${book.id}`))
+  if (!missing.length) return cleaned
+  const out = [...cleaned]
   for (const book of missing) {
     const base = { ...template, id: `inventory-book-${book.id}`, position: [0, 0, 0] as [number, number, number], rotation: [0, 0, 0] as [number, number, number], surfaceId: 'floor' as SurfaceId, gridX: 0, gridY: 0, gridZ: 0, removed: true, updatedAt: book.createdAt } as FurnitureItem
     let placed: FurnitureItem | null = null
