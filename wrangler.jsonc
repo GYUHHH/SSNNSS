@@ -15,7 +15,8 @@
   },
   "vars": {
     "OPENAI_MODEL": "gpt-5-mini",
-    "ANTHROPIC_MODEL": "claude-opus-5"
+    "ANTHROPIC_MODEL": "claude-opus-5",
+    "LS_CREDITS_PER_ORDER": "1"
   },
   "observability": {
     "enabled": true
