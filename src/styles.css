@@ -405,6 +405,23 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 .inventory-items small, .inventory-empty { color: var(--ui-muted); }
 .inventory-panel footer { padding-top: 10px; border-top: 1px solid var(--ui-line); }
 .inventory-panel footer .valid { color: var(--ui-blue); }
+.custom-tab { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 10px; overflow-y: auto; }
+.custom-source { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.custom-source button, .custom-photo-pick, .custom-generate { min-height: 36px; border: 0; border-radius: 4px; background: var(--ui-soft); color: var(--ui-text); cursor: pointer; }
+.custom-form { display: grid; gap: 10px; }
+.custom-form-head { display: flex; align-items: center; justify-content: space-between; }
+.custom-form-head strong { font-size: 14px; }
+.custom-form-head button, .custom-photo button { border: 0; background: transparent; cursor: pointer; }
+.custom-form label { display: grid; gap: 5px; color: var(--ui-muted); font-size: 12px; }
+.custom-form select, .custom-form textarea { width: 100%; padding: 8px; border: 0; border-radius: 4px; background: var(--ui-soft); color: var(--ui-text); font: inherit; }
+.custom-form textarea { min-height: 94px; resize: vertical; }
+.custom-photo { position: relative; overflow: hidden; border-radius: 4px; background: var(--ui-soft); }
+.custom-photo img { display: block; width: 100%; max-height: 170px; object-fit: contain; }
+.custom-photo button { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border-radius: 50%; background: rgb(255 255 255 / 88%); }
+.custom-generate { background: var(--ui-blue); color: #fff; }
+.custom-generate:disabled { opacity: .45; cursor: default; }
+.custom-error { margin: 0; color: var(--ui-red); font-size: 12px; word-break: break-word; }
+.custom-items { flex: initial; }
 
 .track-list.floating { border: 1px solid var(--ui-line); border-radius: 5px; background: var(--ui-bg); box-shadow: none; }
 .track-list button.active { border-color: var(--ui-text); color: #fff; background: var(--ui-text); }
