@@ -148,7 +148,7 @@ export const decodeTarget = (stored: string): YouTubeTarget => {
 export type VideoDisplayMeta = { aspect: number; thumbnailCrop: VideoCrop; playerCrop: VideoCrop }
 const displayCache: Record<string, Promise<VideoDisplayMeta | null>> = {}
 // v1 cached oEmbed's generic 4:3 player shape for some square videos. Re-read the thumbnail crop once.
-const displayStorageKey = 'my-room-video-display-v8'
+const displayStorageKey = 'my-room-video-display-v9'
 const knownDisplays: Record<string, VideoDisplayMeta | null> = (() => {
   try { return JSON.parse(localStorage.getItem(displayStorageKey) ?? '{}') } catch { return {} }
 })()
@@ -161,6 +161,7 @@ const rememberDisplay = (id: string, meta: VideoDisplayMeta | null) => {
 // both WebKit and Blink. Avoid an extra fetch/blob path: it was the remaining failure point on mobile.
 const loadImage = (src: string) => new Promise<HTMLImageElement | null>((resolve) => {
   const image = new Image()
+  image.crossOrigin = 'anonymous'
   image.onload = () => resolve(image)
   image.onerror = () => resolve(null)
   image.src = src
@@ -168,7 +169,7 @@ const loadImage = (src: string) => new Promise<HTMLImageElement | null>((resolve
 
 export function videoDisplayMeta(id: string): Promise<VideoDisplayMeta | null> {
   // `variant=mq` is a cache-key change too: older deployments cached hqdefault at the same endpoint for a day.
-  return displayCache[id] ??= loadImage(`/api/youtube-thumbnail?id=${encodeURIComponent(id)}&variant=mq`).then((thumbnail) => {
+  return displayCache[id] ??= loadImage(`/api/youtube-thumbnail?id=${encodeURIComponent(id)}&variant=mq-v2`).then((thumbnail) => {
     if (!thumbnail) return null
     const outerAspect = thumbnail.naturalWidth / thumbnail.naturalHeight
     let detected = fullCrop

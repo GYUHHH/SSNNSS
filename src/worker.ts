@@ -78,6 +78,7 @@ async function youtubeThumbnail(request: Request) {
     headers: {
       'Content-Type': upstream.headers.get('Content-Type') ?? 'image/jpeg',
       'Cache-Control': 'public, max-age=86400, s-maxage=604800',
+      'Access-Control-Allow-Origin': '*',
     },
   })
 }
