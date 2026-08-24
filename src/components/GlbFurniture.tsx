@@ -5,7 +5,6 @@ import { publicBase } from '../services/publicBase'
 // GLB 가구 실험: 파일 하나를 카탈로그 아이템으로. 씬은 배치 인스턴스마다 클론하고 그림자를 켠다.
 // preload로 배치 시점엔 캐시에서 동기 마운트되게 해 FittedMesh 측정 타이밍을 지킨다.
 const GLB_URLS: Record<string, string> = {
-  'aero-bubble-chair': `${publicBase}models/aero-bubble-chair.glb`,
   'pink-slide': `${publicBase}models/pink-slide.glb`,
   'color-drawers': `${publicBase}models/color-drawers.glb`,
   'cloud-sofa': `${publicBase}models/cloud-sofa.glb`,
