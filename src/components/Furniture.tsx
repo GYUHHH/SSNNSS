@@ -5,7 +5,7 @@ import { Box3, BufferGeometry, Float32BufferAttribute, type Group, type Mesh, ty
 import Interactive from './Interactive'
 import { type FurnitureId, type FurnitureItem, isResizableWallItem, resolutionFor, useRoomStore } from '../store'
 import { fitMeshToFootprint, resolveSurface, SURFACED_TYPES, wallSurfaces, withResolution, type PlacementSurface, type ResizeCorner } from '../services/roomGrid'
-import { isWallMedia, ROOM_OBJECT_ORDER, wallItemOrder } from '../services/renderOrder'
+import { isWallMedia, isWallPhoto, ROOM_OBJECT_ORDER, wallItemOrder } from '../services/renderOrder'
 
 // Every room in the explorer names its furniture identically — each one has a `desk` — so a scene-wide lookup for
 // `fit:<id>` can land on a NEIGHBOUR's copy and drag whatever follows it outside the room. Search only inside the
@@ -60,7 +60,7 @@ export function FittedMesh({ item, children }: { item: FurnitureItem; children: 
     group.current.scale.set(...fitted)
     // Media lives on the wall's back plane. Other wall furniture is deliberately lifted forward so it can be
     // installed over a photo, poster, or video without z-fighting or being hidden by that background layer.
-    group.current.position.z = item.category === 'wallItem' ? (isWallMedia(item.type) ? .006 : .05) - bounds.min.z : 0
+    group.current.position.z = item.category === 'wallItem' ? (isWallPhoto(item.type) ? .002 : isWallMedia(item.type) ? .006 : .05) - bounds.min.z : 0
   }, [item.surfaceId, item.footprint.width, item.footprint.depth, item.rotation[1], item.type])
   return <group ref={group} name={`fit:${item.id}`}>{children}</group>
 }
