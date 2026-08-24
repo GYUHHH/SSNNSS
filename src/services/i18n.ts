@@ -31,7 +31,7 @@ const EN: Record<string, string> = {
   "{title} 제목": "{title} title",
   "‘{title}’ 삭제할까요?": "Delete ‘{title}’?",
   "가구": "Furniture",
-  "커스텀": "Custom",
+  "AI 커스텀": "AI custom",
   "텍스트 넣기": "Text",
   "사진 삭제": "Remove photo",
   "오브젝트 종류": "Object type",
