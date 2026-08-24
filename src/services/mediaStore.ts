@@ -148,7 +148,7 @@ export const decodeTarget = (stored: string): YouTubeTarget => {
 export type VideoDisplayMeta = { aspect: number; thumbnailCrop: VideoCrop; playerCrop: VideoCrop }
 const displayCache: Record<string, Promise<VideoDisplayMeta | null>> = {}
 // v1 cached oEmbed's generic 4:3 player shape for some square videos. Re-read the thumbnail crop once.
-const displayStorageKey = 'my-room-video-display-v2'
+const displayStorageKey = 'my-room-video-display-v3'
 const knownDisplays: Record<string, VideoDisplayMeta | null> = (() => {
   try { return JSON.parse(localStorage.getItem(displayStorageKey) ?? '{}') } catch { return {} }
 })()
@@ -166,15 +166,8 @@ const loadImage = (src: string) => new Promise<HTMLImageElement | null>((resolve
 })
 
 export function videoDisplayMeta(id: string): Promise<VideoDisplayMeta | null> {
-  return displayCache[id] ??= Promise.all([
-    fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}&format=json`).then((response) => response.ok ? response.json() : null).catch(() => null),
-    loadImage(`https://i.ytimg.com/vi/${id}/mqdefault.jpg`),
-    loadImage(`https://i.ytimg.com/vi/${id}/oardefault.jpg`),
-  ]).then(([oembed, thumbnail, portrait]) => {
-    const fallbackAspect = portrait && portrait.naturalHeight > portrait.naturalWidth
-      ? 9 / 16
-      : oembed?.width > 0 && oembed?.height > 0 ? oembed.width / oembed.height : null
-    if (!thumbnail) return fallbackAspect ? { aspect: fallbackAspect, thumbnailCrop: fullCrop, playerCrop: fullCrop } : null
+  return displayCache[id] ??= loadImage(`https://i.ytimg.com/vi/${id}/hqdefault.jpg`).then((thumbnail) => {
+    if (!thumbnail) return null
     const outerAspect = thumbnail.naturalWidth / thumbnail.naturalHeight
     let detected = fullCrop
     try {
@@ -186,11 +179,12 @@ export function videoDisplayMeta(id: string): Promise<VideoDisplayMeta | null> {
         detected = detectVideoContent(context.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height)
       }
     } catch { /* keep the full player */ }
-    const full = detected.left === 0 && detected.top === 0 && detected.right === 1 && detected.bottom === 1
-    if (full && portrait && portrait.naturalHeight > portrait.naturalWidth) detected = fittedRect(outerAspect, 9 / 16)
     const width = Math.max(.01, detected.right - detected.left)
     const height = Math.max(.01, detected.bottom - detected.top)
-    const meta = { aspect: outerAspect * width / height, thumbnailCrop: detected, playerCrop: detected }
+    const aspect = outerAspect * width / height
+    // hqdefault is 4:3 and only belongs to the thumbnail. The iframe player is always 16:9, so its crop must
+    // be derived from the resolved content aspect rather than reusing the thumbnail's pixel coordinates.
+    const meta = { aspect, thumbnailCrop: detected, playerCrop: fittedRect(16 / 9, aspect) }
     rememberDisplay(id, meta)
     return meta
   })
@@ -248,6 +242,8 @@ export const fitFrameScreen = (frameWidth: number, frameHeight: number, targetWi
 if (import.meta.env.DEV) {
   const [width, height] = fitFrameScreen(2, 1, 4, 1, 16 / 9)
   console.assert(Math.abs((width * 2) / height - 16 / 9) < .001, 'resized video frame must preserve its source ratio')
+  const crop = fittedRect(16 / 9, 1)
+  console.assert(Math.abs(1 * (crop.bottom - crop.top) / (crop.right - crop.left) - 16 / 9) < .001, 'square crop must keep the iframe at 16:9')
 }
 
 // 액자에 걸린 링크에서 "비율을 재야 할 실제 영상 id"를 리액티브하게 — 플레이리스트는 지금 재생 중인 곡을

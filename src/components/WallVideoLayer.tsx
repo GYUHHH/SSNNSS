@@ -118,7 +118,10 @@ function WallVideo({ frameId }: { frameId: string }) {
   const surface = item && resolveSurface(furniture, item.surfaceId)
   const [targetWidth, targetHeight] = surface ? fitMeshToFootprint(withResolution(surface, resolutionFor(item)), item.footprint) : dims
   const [screenWidth, screenHeight] = fitFrameScreen(dims[0], dims[1], targetWidth, targetHeight, display?.aspect ?? null, turned)
-  const divHeight = Math.round(640 * (screenHeight / screenWidth))
+  const fallbackAspect = turned ? targetHeight / targetWidth : targetWidth / targetHeight
+  // The matrix projects the div onto the fitted 3D screen. Its own ratio must be the actual content ratio;
+  // using screenWidth/screenHeight here stretched a 16:9 YouTube player whenever a frame was resized.
+  const divHeight = Math.round(640 / (display?.aspect ?? fallbackAspect))
   const crop = display?.playerCrop ?? { left: 0, top: 0, right: 1, bottom: 1 }
   const cropWidth = Math.max(.01, crop.right - crop.left)
   const cropHeight = Math.max(.01, crop.bottom - crop.top)
