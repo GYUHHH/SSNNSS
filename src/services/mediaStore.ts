@@ -147,7 +147,8 @@ export const decodeTarget = (stored: string): YouTubeTarget => {
 
 export type VideoDisplayMeta = { aspect: number; thumbnailCrop: VideoCrop; playerCrop: VideoCrop }
 const displayCache: Record<string, Promise<VideoDisplayMeta | null>> = {}
-const displayStorageKey = 'my-room-video-display-v1'
+// v1 cached oEmbed's generic 4:3 player shape for some square videos. Re-read the thumbnail crop once.
+const displayStorageKey = 'my-room-video-display-v2'
 const knownDisplays: Record<string, VideoDisplayMeta | null> = (() => {
   try { return JSON.parse(localStorage.getItem(displayStorageKey) ?? '{}') } catch { return {} }
 })()
