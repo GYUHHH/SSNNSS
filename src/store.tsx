@@ -10,6 +10,7 @@ import { DEFAULT_PROFILE_PHOTO, purgeReactions, getSeenReactions, markReactionSe
 import { cancelSoundRequest, clearFrameResume, muteFrame, requestSound, snapshotActiveFrames } from './services/ytResume'
 import { t, tp } from './services/i18n'
 import { floorStyleOf } from './services/styles'
+import { isWallMedia } from './services/renderOrder'
 import type { CustomObjectCategory, CustomObjectSpec } from './customObjectSpec'
 
 // AI 커스텀 생성 잡: 컨셉 이미지 → API 조립 → 렌더 검수 1회.
@@ -62,6 +63,9 @@ const placementGrid = (item: Pick<FurnitureItem, 'gridX' | 'gridY'>): GridPositi
 // footprint 0) skips it entirely, same as before this generalized to more than floor/wall
 const isGridPlaced = (item: Pick<FurnitureItem, 'movable' | 'footprint'>) => item.movable && item.footprint.width > 0
 const isFloorCovering = (item: Pick<FurnitureItem, 'type' | 'surfaceId'>) => item.surfaceId === 'floor' && ['rug', 'carpet', 'mat', 'floor-mat'].includes(item.type)
+// Wall media is a background layer, not physical wall space: a shelf, clock, or other wall furniture may sit
+// over a photo/poster/video. Items in the same layer still keep their regular collision protection.
+const sharesWallBackground = (a: FurnitureItem, b: FurnitureItem) => a.category === 'wallItem' && b.category === 'wallItem' && isWallMedia(a.type) !== isWallMedia(b.type)
 // the character's pathfinding runs on the BASE 10x10 grid, but subgrid2 floor items store subcell coords — collapse
 // them (subcell/2) so a floor-standing plant still blocks the base cell(s) it covers
 export const baseFloorCells = (item: Pick<FurnitureItem, 'gridX' | 'gridY' | 'footprint' | 'rotation' | 'allowedSurfaces'>) => {
@@ -327,7 +331,7 @@ const hydrateFurniture = (saved: FurniturePlacement[] | null) => {
 const freeOnSurface = (context: FurnitureItem[], candidate: FurnitureItem): boolean => {
   const surface = resolveSurface(context, candidate.surfaceId); if (!surface) return false
   const resolution = resolutionFor(candidate)
-  const occupied = new Set(context.filter((other) => other.id !== candidate.id && !other.removed && other.surfaceId === candidate.surfaceId)
+  const occupied = new Set(context.filter((other) => other.id !== candidate.id && !other.removed && other.surfaceId === candidate.surfaceId && !sharesWallBackground(candidate, other))
     .flatMap((other) => normalizedCells(cellsFor(placementGrid(other), other.footprint, other.rotation[1]), resolutionFor(other)))
     .map((cell) => `${cell.x}:${cell.y}`))
   return canPlaceItem(withResolution(surface, resolution), candidate, occupied, resolution)
@@ -677,7 +681,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     const footprint = candidate.footprint
     // cells are normalized to subgrid2 units so a base-resolution item (a desk) and a subgrid2 one (a cup) sharing
     // the same surfaceId (the floor) still collide-check correctly against each other
-    const occupied = new Set((isFloorCovering(candidate) ? [] : context.filter((other) => other.id !== candidate.id && !other.removed && other.surfaceId === candidate.surfaceId && !isFloorCovering(other))).flatMap((other) => {
+    const occupied = new Set((isFloorCovering(candidate) ? [] : context.filter((other) => other.id !== candidate.id && !other.removed && other.surfaceId === candidate.surfaceId && !isFloorCovering(other) && !sharesWallBackground(candidate, other))).flatMap((other) => {
       const otherResolution = resolutionFor(other)
       return normalizedCells(cellsFor(placementGrid(other), other.footprint, other.rotation[1]), otherResolution)
     }).map((cell) => `${cell.x}:${cell.y}`))

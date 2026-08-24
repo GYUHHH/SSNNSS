@@ -58,8 +58,10 @@ export function FittedMesh({ item, children }: { item: FurnitureItem; children: 
         ? [width / size.x, 1, 1]
         : [width / size.x, height / size.y, 1])
     group.current.scale.set(...fitted)
-    group.current.position.z = item.category === 'wallItem' ? .012 - bounds.min.z : 0
-  }, [item.surfaceId, item.footprint.width, item.footprint.depth, item.rotation[1]])
+    // Media lives on the wall's back plane. Other wall furniture is deliberately lifted forward so it can be
+    // installed over a photo, poster, or video without z-fighting or being hidden by that background layer.
+    group.current.position.z = item.category === 'wallItem' ? (isWallMedia(item.type) ? .006 : .05) - bounds.min.z : 0
+  }, [item.surfaceId, item.footprint.width, item.footprint.depth, item.rotation[1], item.type])
   return <group ref={group} name={`fit:${item.id}`}>{children}</group>
 }
 
