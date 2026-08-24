@@ -70,7 +70,13 @@ Do the work in the files and tools. Do not merely describe the pipeline.`
   }
 
   await post('/api/custom-objects/jobs/progress', { jobId, stage: 'final-review' })
-  execFileSync('python3', [resolve(skillRoot, 'forge/stage2_spec/validate_sculpt_spec.py'), spec], { stdio: 'inherit' })
+  try {
+    execFileSync('python3', [resolve(skillRoot, 'forge/stage2_spec/validate_sculpt_spec.py'), spec], { encoding: 'utf8' })
+  } catch (error) {
+    const detail = [error?.stderr, error?.stdout].map((value) => value?.toString().trim()).find(Boolean)
+    if (detail) console.error(detail)
+    throw new Error((detail || error?.message || 'SCULPT_SPEC_INVALID').slice(-500))
+  }
   execFileSync('python3', [resolve(skillRoot, 'forge/next.py'), '--state', state, spec], { stdio: 'inherit' })
   const stateStatus = JSON.parse(execFileSync('python3', [resolve(skillRoot, 'forge/state.py'), 'status', '--state', state, '--json'], { encoding: 'utf8' }))
   if (stateStatus.status !== 'complete') throw new Error(`IMG2THREEJS_INCOMPLETE:${stateStatus.currentStep || 'unknown'}`)
