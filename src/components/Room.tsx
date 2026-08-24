@@ -577,9 +577,8 @@ function RoomWorld() {
   // flashed up and then bounced to the centre one.
   const entryLatched = useRef(false)
   const requestedEntry = useRef(false)
-  // Home draws whoever's room is in the middle surrounded by the rooms THAT owner follows, so entering a
-  // neighbour walks the graph one step further out. Discover ignores the graph: one shuffled page of public
-  // rooms, held for the session so switching back to it returns to the same page rather than reshuffling.
+  // Home always uses MY follow list. Entering a neighbour may temporarily put it in the middle, but it never
+  // replaces the source graph. Discover remains one shuffled page of public rooms held for the session.
   const [ringMode, setRingMode] = useState<ExplorerMode>(explorerMode())
   const [followsTick, setFollowsTick] = useState(0)
   const [swapping, setSwapping] = useState(false)
@@ -592,7 +591,7 @@ function RoomWorld() {
     picked.current = null
     requestedEntry.current = false
     entryLatched.current = true
-    if (isEnterable(activeHandle)) rememberModeRoom(explorerMode(), activeHandle)
+    if (isEnterable(activeHandle) && explorerMode() === 'discover') rememberModeRoom('discover', activeHandle)
   }, [activeHandle])
   useEffect(() => onExplorerMode(setRingMode), [])
   useEffect(() => onFollowsChange(() => setFollowsTick((value) => value + 1)), [])
@@ -600,7 +599,7 @@ function RoomWorld() {
     let live = true
     const centre = ringMode === 'home' ? activeHandle : hubHandle
     const source = ringMode === 'home'
-      ? fetchFollowing(centre).then(sortByActivity)
+      ? fetchFollowing(hubHandle).then(sortByActivity)
       : discoverPage.current ? Promise.resolve(discoverPage.current) : fetchRoomDirectory().then((all) => (discoverPage.current = shuffled(all)))
     void source.then((found) => {
       if (!live) return
@@ -608,7 +607,7 @@ function RoomWorld() {
       // the room actually being viewed needs a cell of its own even if the list misses it
       const viewed = currentRoomHandle()
       if (viewed && viewed !== centre && !rest.includes(viewed)) rest.unshift(viewed)
-      const next = withVacancies([centre, ...rest])
+      const next = withVacancies([centre, ...(ringMode === 'home' && centre !== hubHandle ? [hubHandle] : []), ...rest])
       // Inside a room the ring is off screen, so the exchange is free — which is the usual case, since a new
       // ring is what entering a room asks for. Out in the explorer the swap would be seen, so it crossfades.
       if (wasZoomedIn.current) { setHandles(next); return }

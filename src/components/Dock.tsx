@@ -82,8 +82,8 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
   // home = only rooms I follow around mine, discover = the public directory; the explorer listens to this
   const [explore, setExplore] = useState(explorerMode())
   const { currentHandle } = useRoomStore()
-  // Each explorer is its own place. Leaving one drops a pin where you stood; entering the other returns to its
-  // pin, or adopts the current room the first time it is opened.
+  // Discover keeps its browsing pin. The person view always returns to my room instead of walking another
+  // person's follow graph.
   const switching = useRef(false)
   const toggleExplorer = () => {
     if (switching.current) return
@@ -92,7 +92,7 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
     if (here) rememberModeRoom(explore, here)
     setExplore(next)
     setExplorerMode(next)
-    const target = modeRoom(next)
+    const target = next === 'home' ? myHandle() : modeRoom(next)
     if (!target || target === here) {
       if (here) rememberModeRoom(next, here)
       requestExplorerZoom(true)

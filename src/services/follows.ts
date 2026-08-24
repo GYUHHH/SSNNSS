@@ -50,12 +50,11 @@ export const explorerMode = () => mode
 export const setExplorerMode = (next: ExplorerMode) => { if (mode !== next) { mode = next; modeListeners.forEach((listener) => listener(next)) } }
 export const onExplorerMode = (listener: (next: ExplorerMode) => void) => { modeListeners.add(listener); return () => { modeListeners.delete(listener) } }
 
-// The two explorers are separate places, each holding its own position: walking the follow graph to someone's
-// room and then opening discover must not drag that room along, and coming back has to land where the walk
-// left off rather than wherever discover wandered to.
-const modeRooms: Record<ExplorerMode, string | null> = { home: null, discover: null }
-export const rememberModeRoom = (mode: ExplorerMode, handle: string) => { modeRooms[mode] = handle }
-export const modeRoom = (mode: ExplorerMode) => modeRooms[mode]
+// Discover remembers where it was browsed. Home never keeps a visited-room pin: opening the person view always
+// returns to the signed-in user's room and shows that user's own follows.
+let discoverRoom: string | null = null
+export const rememberModeRoom = (mode: ExplorerMode, handle: string) => { if (mode === 'discover') discoverRoom = handle }
+export const modeRoom = (mode: ExplorerMode) => mode === 'discover' ? discoverRoom : null
 
 // ---- invite links (mutual follow) ----
 
