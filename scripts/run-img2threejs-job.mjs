@@ -61,8 +61,8 @@ Do the work in the files and tools. Do not merely describe the pipeline.`
   try {
     execFileSync('claude', [
       '--print', '--bare', '--model', 'opus', '--effort', 'high', '--max-budget-usd', '10',
-      '--dangerously-skip-permissions', '--add-dir', skillRoot, prompt,
-    ], { cwd: resolve('.'), stdio: ['ignore', 'pipe', 'pipe'], timeout: 50 * 60 * 1000, env: { ...process.env, HOME: process.env.HOME } })
+      '--dangerously-skip-permissions', '--add-dir', skillRoot,
+    ], { cwd: resolve('.'), input: prompt, stdio: ['pipe', 'pipe', 'pipe'], timeout: 50 * 60 * 1000, env: { ...process.env, HOME: process.env.HOME } })
   } catch (error) {
     const detail = [error?.stderr, error?.stdout].map((value) => value?.toString().trim()).find(Boolean)
     if (detail) console.error(detail)
