@@ -5,7 +5,7 @@ import { Box3, BufferGeometry, Float32BufferAttribute, type Group, type Mesh, ty
 import Interactive from './Interactive'
 import { type FurnitureId, type FurnitureItem, isResizableWallItem, resolutionFor, useRoomStore } from '../store'
 import { fitMeshToFootprint, resolveSurface, SURFACED_TYPES, wallSurfaces, withResolution, type PlacementSurface, type ResizeCorner } from '../services/roomGrid'
-import { ROOM_OBJECT_ORDER, wallItemOrder } from '../services/renderOrder'
+import { isWallMedia, ROOM_OBJECT_ORDER, wallItemOrder } from '../services/renderOrder'
 
 // Every room in the explorer names its furniture identically — each one has a `desk` — so a scene-wide lookup for
 // `fit:<id>` can land on a NEIGHBOUR's copy and drag whatever follows it outside the room. Search only inside the
@@ -38,7 +38,7 @@ export function FittedMesh({ item, children }: { item: FurnitureItem; children: 
     group.current.traverse((child) => {
       const mesh = child as Mesh
       if (!mesh.isMesh) return
-      if (item.category === 'wallItem') for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) material.depthWrite = false
+      if (item.category === 'wallItem' && isWallMedia(item.type)) for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) material.depthWrite = false
       if (mesh.userData.excludeFromFit) return
       mesh.geometry.computeBoundingBox(); if (mesh.geometry.boundingBox) bounds.union(mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld).applyMatrix4(inverse))
     })

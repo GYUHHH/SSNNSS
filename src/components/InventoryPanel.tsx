@@ -143,7 +143,8 @@ function CustomJobStatus({ job }: { job: { stage: string; round: number; name?: 
 const CUSTOM_CATEGORY_LABELS: Record<CustomObjectCategory, string> = { furniture: '가구', wallDecoration: '벽장식', floor: '바닥', sculpture: '조형물' }
 
 function CustomTab() {
-  const { customObjects, startPreview, availableCount, customJob, runCustomGeneration, markCustomSeen } = useRoomStore()
+  const { customObjects, startPreview, availableCount, customJob, runCustomGeneration, markCustomSeen, removeCustomObject } = useRoomStore()
+  const [removing, setRemoving] = useState<string | null>(null)
   // 탭을 열어본 순간 완료/실패 빨간점은 해소된 것으로 본다
   useEffect(() => { markCustomSeen() }, [customJob?.stage])
   const [source, setSource] = useState<'text' | 'photo' | null>(null)
@@ -183,7 +184,11 @@ function CustomTab() {
     </form>}
     {!source && <div className="inventory-items custom-items">{objects.map((object) => {
       const entry = customObjectTemplate(object) as FurnitureItem
-      return <button key={object.id} type="button" onClick={() => startPreview(entry.type)}><ItemIcon item={entry} /><span>{object.name}<small>{entry.size[0]} × {entry.size[1]}</small></span></button>
+      return <div key={object.id} className="custom-item-wrap">
+        <button type="button" onClick={() => startPreview(entry.type)}><ItemIcon item={entry} /><span>{object.name}<small>{entry.size[0]} × {entry.size[1]}</small></span></button>
+        <button type="button" className="custom-item-delete" aria-label={tp('{title} 삭제', { title: object.name })} onClick={() => setRemoving(object.id)}>×</button>
+        {removing === object.id && <div className="delete-confirm"><span>{tp('‘{title}’ 삭제할까요?', { title: object.name })}</span><button type="button" onClick={() => setRemoving(null)}>{t('취소')}</button><button type="button" onClick={() => { removeCustomObject(object.id); setRemoving(null) }}>{t('삭제')}</button></div>}
+      </div>
     })}</div>}
     {editingImage && <PhotoCropEditor source={editingImage} onApply={(value) => { setImage(value); setEditingImage(null) }} onClose={() => setEditingImage(null)} />}
   </div>
