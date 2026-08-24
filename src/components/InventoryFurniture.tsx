@@ -678,6 +678,36 @@ function DiaryBookItem({ itemId, preview }: { itemId: string; preview: boolean }
   </group>
 }
 
+// 오피스 체어: 세이지 패브릭 쿠션(시트·등받이) + 웜그레이 플라스틱 기둥·5발 캐스터 베이스.
+// 등받이는 실물처럼 브래킷 하나로 떠 있고, 바퀴는 팔 끝 쌍바퀴를 단순화한 한 통짜리다.
+function TaskChair({ preview }: { preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  const fabric = () => <meshStandardMaterial color="#b7c2ac" roughness={.95} transparent={preview} opacity={opacity} />
+  const plastic = () => <meshStandardMaterial color="#d8d5cd" roughness={.5} transparent={preview} opacity={opacity} />
+  const piston = () => <meshStandardMaterial color="#c4c9cc" metalness={.5} roughness={.25} transparent={preview} opacity={opacity} />
+  return <>
+    {/* 5발 스타 베이스: 허브 + 72° 간격 팔, 팔 끝에 스템·바퀴 */}
+    <mesh castShadow position={[0, .12, 0]}><cylinderGeometry args={[.12, .14, .12, 10]} />{plastic()}</mesh>
+    {Array.from({ length: 5 }, (_, index) => {
+      const angle = index * (Math.PI * 2 / 5) + Math.PI / 5
+      return <group key={index} rotation={[0, angle, 0]}>
+        <mesh castShadow position={[.23, .1, 0]}><boxGeometry args={[.42, .07, .1]} />{plastic()}</mesh>
+        <mesh position={[.43, .13, 0]}><cylinderGeometry args={[.028, .028, .09, 8]} />{plastic()}</mesh>
+        <mesh castShadow position={[.43, .075, 0]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[.075, .075, .1, 12]} />{plastic()}</mesh>
+      </group>
+    })}
+    {/* 가스리프트: 플라스틱 기둥 + 크롬 피스톤 */}
+    <mesh castShadow position={[0, .3, 0]}><cylinderGeometry args={[.042, .05, .34, 10]} />{plastic()}</mesh>
+    <mesh position={[0, .5, 0]}><cylinderGeometry args={[.026, .026, .14, 8]} />{piston()}</mesh>
+    {/* 시트: 두툼한 스퀴클 방석 + 아래 받침판 */}
+    <mesh position={[0, .53, 0]}><cylinderGeometry args={[.16, .16, .05, 12]} />{plastic()}</mesh>
+    <mesh castShadow position={[0, .66, .02]} scale={[1.05, .3, .95]}><sphereGeometry args={[.5, 20, 14]} />{fabric()}</mesh>
+    {/* 등받이: 브래킷 하나로 떠 있는 둥근 사각 쿠션 */}
+    <mesh castShadow position={[0, .82, -.4]} rotation={[-.1, 0, 0]}><boxGeometry args={[.07, .34, .05]} />{plastic()}</mesh>
+    <mesh castShadow position={[0, 1.06, -.44]} rotation={[-.08, 0, 0]} scale={[1.18, .85, .32]}><sphereGeometry args={[.38, 20, 14]} />{fabric()}</mesh>
+  </>
+}
+
 // Y2K 책상: 흰 쉘 + 파랑 인서트. 왼쪽 C자 다리, 오른쪽 서랍 페데스탈, 위 허치.
 function Y2kDesk({ preview }: { preview: boolean }) {
   const opacity = preview ? .5 : 1
@@ -802,6 +832,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'diary-book') return <DiaryBookItem itemId={item.id} preview={preview} />
   if (item.type === 'inflatable-sofa') return <InflatableSofa preview={preview} />
   if (item.type === 'blob-sculpture') return <BlobSculpture preview={preview} />
+  if (item.type === 'task-chair') return <TaskChair preview={preview} />
   if (item.type === 'y2k-desk') return <Y2kDesk preview={preview} />
   if (item.type === 'pod-daybed') return <PodDaybed preview={preview} />
   if (item.type === 'hotel-bed') return <HotelBed preview={preview} />
