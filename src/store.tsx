@@ -137,7 +137,7 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
   { type: 'incense-burner', name: '금동대향로', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
   { type: 'vanity-desk', name: '핑크 화장대', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'mushroom-lamp', name: '버섯 램프', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
-  { type: 'lavender-sofa', name: '라벤더 소파', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
+  { type: 'lavender-sofa', name: '라벤더 소파', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 4, depth: 2 }, size: [4, 2], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'pennant', name: '페넌트 깃발', category: 'wallItem', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'boucle-stool', name: '부클레 스툴', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'cube-shelf', name: '큐브 선반', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
