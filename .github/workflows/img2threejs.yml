@@ -15,7 +15,7 @@ concurrency:
 jobs:
   build-object:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 15
     permissions:
       contents: read
     env:
@@ -51,7 +51,7 @@ jobs:
         run: node scripts/run-img2threejs-job.mjs
 
       - name: Mark interrupted job as failed
-        if: failure()
+        if: failure() || cancelled()
         run: |
           curl --fail --silent --show-error \
             -H "Authorization: Bearer $IMG2THREEJS_RUNNER_SECRET" \

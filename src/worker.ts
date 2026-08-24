@@ -40,6 +40,7 @@ const serviceHeaders = (env: Env) => ({ apikey: env.SUPABASE_SERVICE_KEY!, Autho
 const runnerAuthorized = (request: Request, env: Env) => !!env.IMG2THREEJS_RUNNER_SECRET && request.headers.get('Authorization') === `Bearer ${env.IMG2THREEJS_RUNNER_SECRET}`
 const jobConfigured = (env: Env) => !!(env.SUPABASE_SERVICE_KEY && env.GITHUB_ACTIONS_TOKEN && env.IMG2THREEJS_RUNNER_SECRET)
 const jobIdFrom = (body: JobBody | null) => typeof body?.jobId === 'string' && /^[0-9a-f-]{36}$/i.test(body.jobId) ? body.jobId : null
+const JOB_STALE_MS = 20 * 60 * 1000
 
 const decodeImage = (value: string) => {
   const match = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(value)
@@ -59,6 +60,14 @@ const patchJob = async (env: Env, jobId: string, body: Record<string, unknown>) 
   method: 'PATCH', headers: { ...serviceHeaders(env), Prefer: 'return=minimal' }, body: JSON.stringify({ ...body, updated_at: new Date().toISOString() }),
 })
 
+const expireStaleJob = async (env: Env, row: Record<string, unknown>) => {
+  if (!['queued', 'running'].includes(String(row.status))) return row
+  const updatedAt = Date.parse(String(row.updated_at ?? ''))
+  if (!Number.isFinite(updatedAt) || Date.now() - updatedAt <= JOB_STALE_MS) return row
+  await patchJob(env, String(row.id), { status: 'failed', stage: 'failed', error: 'PIPELINE_TIMEOUT' })
+  return { ...row, status: 'failed', stage: 'failed', error: 'PIPELINE_TIMEOUT' }
+}
+
 const spendGenerationCredit = async (request: Request, env: Env) => {
   if (!billingEnabled(env)) return true
   const handle = await signedInHandle(request)
@@ -76,6 +85,11 @@ async function createJob(request: Request, env: Env) {
   const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : ''
   const image = typeof body?.image === 'string' ? decodeImage(body.image) : null
   if (!CUSTOM_OBJECT_CATEGORIES.includes(category) || !image || prompt.length > 1200 || image.bytes.byteLength > 7_000_000) return json({ error: 'INVALID_REQUEST' }, 400)
+  const active = (await jobRows(env, `owner_id=eq.${ownerId}&status=in.(queued,running)&select=id,status,stage,updated_at&order=created_at.desc&limit=1`))[0]
+  if (active) {
+    const current = await expireStaleJob(env, active)
+    if (current.status !== 'failed') return json({ jobId: current.id, status: current.status, stage: current.stage }, 202)
+  }
   if (!await spendGenerationCredit(request, env)) return json({ error: 'NO_CREDITS' }, 402)
 
   const jobId = crypto.randomUUID()
@@ -110,17 +124,17 @@ async function jobStatus(request: Request, env: Env) {
   const body = await request.json().catch(() => null) as JobBody | null
   const jobId = jobIdFrom(body)
   if (!jobId) return json({ error: 'INVALID_REQUEST' }, 400)
-  const row = (await jobRows(env, `id=eq.${jobId}&owner_id=eq.${ownerId}&select=status,stage,result,error&limit=1`))[0]
+  const row = (await jobRows(env, `id=eq.${jobId}&owner_id=eq.${ownerId}&select=id,status,stage,result,error,updated_at&limit=1`))[0]
   if (!row) return json({ error: 'JOB_NOT_FOUND' }, 404)
-  return json(row)
+  return json(await expireStaleJob(env, row))
 }
 
 async function latestJob(request: Request, env: Env) {
   if (!env.SUPABASE_SERVICE_KEY) return json({ error: 'IMG2THREEJS_NOT_CONFIGURED' }, 503)
   const ownerId = await signedInUserId(request)
   if (!ownerId) return json({ error: 'LOGIN_REQUIRED' }, 401)
-  const row = (await jobRows(env, `owner_id=eq.${ownerId}&status=in.(queued,running,completed,failed)&select=id,status,stage,result,error&order=created_at.desc&limit=1`))[0]
-  return json(row ?? { status: 'none' })
+  const row = (await jobRows(env, `owner_id=eq.${ownerId}&status=in.(queued,running,completed,failed)&select=id,status,stage,result,error,updated_at&order=created_at.desc&limit=1`))[0]
+  return json(row ? await expireStaleJob(env, row) : { status: 'none' })
 }
 
 async function consumeJob(request: Request, env: Env) {

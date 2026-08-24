@@ -53,6 +53,7 @@ Mandatory procedure:
 5. Run: node ${resolve('scripts/render-custom-object.mjs')} ${result} ${resolve(work, 'renders')}
 6. Perform exactly one final visual review using the front, quarterLeft, and quarterRight PNGs together. Do not run a correction loop or rerender. If an identity-defining feature fails, stop without exporting a successful result.
 7. Only finish when the validator and that single final review pass. Keep assessment, spec, factory, renders, and the one final review record in ${work} for auditability. The user's one-review limit overrides the skill's repeated per-pass review and correction instructions.
+8. Work in this one session only. Do not spawn subagents, browse the web, start correction loops, or repeat a completed command. Prefer finishing a valid result over expanding the audit trail.
 
 Do the work in the files and tools. Do not merely describe the pipeline.`
 
@@ -60,9 +61,10 @@ Do the work in the files and tools. Do not merely describe the pipeline.`
   let claudeOutput = ''
   try {
     claudeOutput = execFileSync('claude', [
-      '--print', '--bare', '--model', 'opus', '--effort', 'high', '--max-budget-usd', '10',
+      '--print', '--bare', '--model', 'sonnet', '--effort', 'medium', '--max-budget-usd', '2.5',
+      '--no-session-persistence', '--tools', 'Read,Write,Edit,Bash',
       '--dangerously-skip-permissions', '--add-dir', skillRoot,
-    ], { cwd: resolve('.'), input: prompt, encoding: 'utf8', timeout: 50 * 60 * 1000, env: { ...process.env, HOME: process.env.HOME } })
+    ], { cwd: resolve('.'), input: prompt, encoding: 'utf8', timeout: 12 * 60 * 1000, env: { ...process.env, HOME: process.env.HOME } })
   } catch (error) {
     const detail = [error?.stderr, error?.stdout].map((value) => value?.toString().trim()).find(Boolean)
     if (detail) console.error(detail)
