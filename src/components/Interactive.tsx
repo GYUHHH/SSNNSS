@@ -44,10 +44,12 @@ type Props = {
   position: [number, number, number]
   rotation?: [number, number, number]
   scale?: number
+  editing?: boolean
+  editOverlay?: ReactNode
   children: ReactNode
 }
 
-export default function Interactive({ id, position, rotation = [0, 0, 0], scale: baseScale = 1, pad: padded = true, children }: Props) {
+export default function Interactive({ id, position, rotation = [0, 0, 0], scale: baseScale = 1, pad: padded = true, editing = false, editOverlay, children }: Props) {
   const group = useRef<Group>(null)
   const content = useRef<Group>(null)
   const pad = useRef<Mesh>(null)
@@ -57,10 +59,10 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
   const press = useRef<{ x: number; y: number; pointerId: number; target: { hasPointerCapture: (pointerId: number) => boolean; releasePointerCapture: (pointerId: number) => void } } | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressed = useRef(false)
-  const { readOnly, selectObject, enterEditFurniture, furniture, openObject } = useRoomStore()
+  const { readOnly, selectObject, enterEditFurniture, furniture, openObject, selectFurniture, beginMove } = useRoomStore()
   const item = furniture.find((value) => value.id === id)
   const hoverGroup = item && isOwnedSurfaceId(item.surfaceId) ? ownerIdOf(item.surfaceId) : id
-  useCursor(hovered)
+  useCursor(hovered && !editing)
   const cancelPress = () => { if (timer.current) clearTimeout(timer.current); timer.current = null; press.current = null }
   // Measure a few times while suspended content settles, then stop. Recomputing every object's Box3 forever made
   // them all hitch together every .4 seconds during character movement.
@@ -78,14 +80,20 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
     pad.current.position.copy(padCentre)
   }
   useLayoutEffect(() => {
-    // Normal-mode objects mount again after editing. Clear the pointer state R3F kept for the old object
-    // before the first frame, otherwise it stays enlarged until the pointer leaves and re-enters.
+    // A mode change keeps this tree mounted, but must still clear a stale hover lift before editing begins.
     hoverShared.group = null; hoverShared.by = null
+    setHovered(false)
     return () => { cancelPress(); if (hoverShared.by === id) { hoverShared.group = null; hoverShared.by = null } }
-  }, [])
+  }, [editing])
 
   useFrame((_, delta) => {
     if (!group.current) return
+    if (editing) {
+      group.current.position.set(...position)
+      group.current.rotation.set(...rotation)
+      group.current.scale.setScalar(baseScale)
+      return
+    }
     refitIn.current -= delta
     if (refitsLeft.current > 0 && refitIn.current <= 0) { refitIn.current = .4; refitsLeft.current -= 1; fitPad() }
     const groupHovered = hoverShared.group === hoverGroup
@@ -95,7 +103,22 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
     group.current.scale.setScalar(group.current.scale.x + (scale - group.current.scale.x) * Math.min(1, delta * 12))
   })
 
-  return <group ref={group} position={position} rotation={rotation} scale={baseScale} userData={{ interactive: id }} onPointerOver={(event) => { if (readOnly || padOverruled(event)) return; event.stopPropagation(); hoverShared.group = hoverGroup; hoverShared.by = id; setHovered(true) }} onPointerOut={() => { if (hoverShared.by === id) { hoverShared.group = null; hoverShared.by = null } setHovered(false) }} onPointerDown={(event) => { if (readOnly || padOverruled(event)) return; event.stopPropagation(); longPressed.current = false; const target = event.target as unknown as { setPointerCapture: (pointerId: number) => void; hasPointerCapture: (pointerId: number) => boolean; releasePointerCapture: (pointerId: number) => void }; target.setPointerCapture(event.pointerId); press.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId, target }; timer.current = setTimeout(() => { const held = press.current; if (!held) return; if (held.target.hasPointerCapture(held.pointerId)) held.target.releasePointerCapture(held.pointerId); longPressed.current = true; timer.current = null; if (isVisiting()) openReactionPicker({ id, x: held.x, y: held.y }); else enterEditFurniture(id) }, 500) }} onPointerMove={(event) => { if (!press.current) return; if (Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 9 && timer.current) cancelPress() }} onPointerUp={(event) => { const target = event.target as unknown as { hasPointerCapture: (pointerId: number) => boolean; releasePointerCapture: (pointerId: number) => void }; cancelPress(); if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId) }} onPointerCancel={cancelPress} onClick={(event) => { if (readOnly || padOverruled(event)) return; event.stopPropagation(); if (longPressed.current) { longPressed.current = false; return }; if (openObject(id)) return; selectObject(id) }}>
+  return <group ref={group} position={position} rotation={rotation} scale={baseScale} userData={{ interactive: id }}
+    onPointerOver={editing ? undefined : (event) => { if (readOnly || padOverruled(event)) return; event.stopPropagation(); hoverShared.group = hoverGroup; hoverShared.by = id; setHovered(true) }}
+    onPointerOut={editing ? undefined : () => { if (hoverShared.by === id) { hoverShared.group = null; hoverShared.by = null } setHovered(false) }}
+    onPointerDown={(event) => {
+      if (readOnly || padOverruled(event)) return
+      event.stopPropagation()
+      if (editing) { selectFurniture(id); beginMove(id); return }
+      longPressed.current = false
+      const target = event.target as unknown as { setPointerCapture: (pointerId: number) => void; hasPointerCapture: (pointerId: number) => boolean; releasePointerCapture: (pointerId: number) => void }
+      target.setPointerCapture(event.pointerId); press.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId, target }
+      timer.current = setTimeout(() => { const held = press.current; if (!held) return; if (held.target.hasPointerCapture(held.pointerId)) held.target.releasePointerCapture(held.pointerId); longPressed.current = true; timer.current = null; if (isVisiting()) openReactionPicker({ id, x: held.x, y: held.y }); else enterEditFurniture(id) }, 500)
+    }}
+    onPointerMove={editing ? undefined : (event) => { if (!press.current) return; if (Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 9 && timer.current) cancelPress() }}
+    onPointerUp={editing ? undefined : (event) => { const target = event.target as unknown as { hasPointerCapture: (pointerId: number) => boolean; releasePointerCapture: (pointerId: number) => void }; cancelPress(); if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId) }}
+    onPointerCancel={editing ? undefined : cancelPress}
+    onClick={(event) => { if (readOnly || padOverruled(event)) return; event.stopPropagation(); if (editing) return; if (longPressed.current) { longPressed.current = false; return }; if (openObject(id)) return; selectObject(id) }}>
     <group ref={content}>{children}</group>
     {/* the forgiving hit area. Never drawn, but three's raycaster tests layers rather than `visible`, so it is
         still a target — which is the whole point. Sized from the contents by fitPad above. */}
@@ -103,5 +126,6 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
       <boxGeometry />
       <meshBasicMaterial />
     </mesh>}
+    {editing && editOverlay}
   </group>
 }

@@ -17,14 +17,20 @@ export const findFit = (from: Object3D, scene: Object3D, id: string) => {
 }
 
 export default function Furniture({ id, children }: { id: FurnitureId; children: ReactNode }) {
-  const { furniture, mode } = useRoomStore()
+  const { furniture, mode, selectedFurnitureId, selectedPlacementValid, movingFurnitureId } = useRoomStore()
   const item = furniture.find((value) => value.id === id)
   if (!item || item.removed) return null
   const fitted = <FittedMesh item={item}>{children}</FittedMesh>
   const order = item.category === 'wallItem' ? wallItemOrder(item.type) : ROOM_OBJECT_ORDER
   const content = <group renderOrder={order}>{item.category === 'wallItem' ? <group rotation={wallSurfaces[item.wallId ?? 'leftWall'].rotation}><group rotation={[0, 0, item.rotation[1]]}>{fitted}</group></group> : fitted}</group>
-  if (mode === 'normal') return <Interactive id={id} position={item.position} rotation={item.category === 'wallItem' ? [0, 0, 0] : item.rotation} scale={item.scale} pad={id !== 'bookshelf' && item.type !== 'speech-bubble'}>{content}</Interactive>
-  return <EditableFurniture id={id}>{content}</EditableFurniture>
+  const selected = selectedFurnitureId === id
+  const surface = resolveSurface(furniture, item.surfaceId)
+  const [width, height] = surface ? fitMeshToFootprint(withResolution(surface, resolutionFor(item)), item.footprint) : [0, 0]
+  const editOverlay = selected && movingFurnitureId !== id && surface ? <>
+    {isResizableWallItem(item) && <ResizeBounds item={item} surface={withResolution(surface, resolutionFor(item))} valid={selectedPlacementValid} />}
+    {item.category !== 'wallItem' && <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}><ringGeometry args={[Math.max(width, height) * .22, Math.max(width, height) * .3, 28]} /><meshBasicMaterial color="#fff2a5" transparent opacity={0.9} /></mesh>}
+  </> : null
+  return <Interactive id={id} position={item.position} rotation={item.category === 'wallItem' ? [0, 0, 0] : item.rotation} scale={item.scale} pad={id !== 'bookshelf' && item.type !== 'speech-bubble'} editing={mode === 'edit'} editOverlay={editOverlay}>{content}</Interactive>
 }
 
 export function FittedMesh({ item, children }: { item: FurnitureItem; children: ReactNode }) {
@@ -63,21 +69,6 @@ export function FittedMesh({ item, children }: { item: FurnitureItem; children: 
     group.current.position.z = item.category === 'wallItem' ? (isWallPhoto(item.type) ? .002 : isWallMedia(item.type) ? .006 : .05) - bounds.min.z : 0
   }, [item.surfaceId, item.footprint.width, item.footprint.depth, item.rotation[1], item.type])
   return <group ref={group} name={`fit:${item.id}`}>{children}</group>
-}
-
-function EditableFurniture({ id, children }: { id: FurnitureId; children: ReactNode }) {
-  const { readOnly, furniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, selectFurniture, beginMove } = useRoomStore()
-  const item = furniture.find((value) => value.id === id)!
-  const selected = selectedFurnitureId === id
-  const surface = resolveSurface(furniture, item.surfaceId)
-  const [width, height] = surface ? fitMeshToFootprint(withResolution(surface, resolutionFor(item)), item.footprint) : [0, 0]
-  return <group position={item.position} rotation={item.category === 'wallItem' ? [0, 0, 0] : item.rotation} scale={item.scale}
-    onPointerDown={(event) => { if (readOnly) return; event.stopPropagation(); selectFurniture(id); beginMove(id) }}
-    onClick={(event) => { if (!readOnly) event.stopPropagation() }}>
-    {children}
-    {selected && movingFurnitureId !== id && surface && isResizableWallItem(item) && <ResizeBounds item={item} surface={withResolution(surface, resolutionFor(item))} valid={selectedPlacementValid} />}
-    {selected && movingFurnitureId !== id && item.category !== 'wallItem' && <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}><ringGeometry args={[Math.max(width, height) * .22, Math.max(width, height) * .3, 28]} /><meshBasicMaterial color="#fff2a5" transparent opacity={0.9} /></mesh>}
-  </group>
 }
 
 const CORNERS: Array<{ corner: ResizeCorner; x: number; y: number; cursor: string }> = [
