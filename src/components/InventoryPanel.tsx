@@ -75,6 +75,19 @@ function FloorMaterialSwatch({ style, active, onPick }: { style: FloorStyle; act
   return <button type="button" title={t(style.label)} className={active ? 'active' : ''} style={src ? undefined : { background: style.color }} onClick={onPick}>{src && <img src={src} alt={t(style.label)} />}</button>
 }
 
+function FloorImagePicker() {
+  const { floorImage, setFloorImage } = useRoomStore()
+  const input = useRef<HTMLInputElement>(null)
+  const [editing, setEditing] = useState<string | null>(null)
+  const close = () => setEditing((source) => { if (source) URL.revokeObjectURL(source); return null })
+  return <div className="room-color-row"><span>{t('Floor Image')}</span><div>
+    <button type="button" className="look-reset" onClick={() => input.current?.click()}>{t('사진 넣기')}</button>
+    {floorImage && <button type="button" className="look-reset" onClick={() => setFloorImage(null)}>{t('사진 제거')}</button>}
+    <input ref={input} type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) setEditing(URL.createObjectURL(file)); event.target.value = '' }} />
+    {editing && <PhotoCropEditor source={editing} aspect={1} output={[1024, 1024]} onClose={close} onApply={(image) => { setFloorImage(image); close() }} />}
+  </div></div>
+}
+
 // wall and floor recolors live in the inventory now — clicking the room surfaces no longer opens a picker
 function RoomColorEditor() {
   const { wallStyle, floorStyle, setWallStyle, setFloorStyle } = useRoomStore()
@@ -89,6 +102,7 @@ function RoomColorEditor() {
     <div className="room-color-row"><span>{t('바닥 색상')}</span>
       <ColorField value={floor.color} onPick={(hex) => setFloorStyle(`${floor.id}${hex}`)} />
     </div>
+    <FloorImagePicker />
   </div>
 }
 

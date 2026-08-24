@@ -25,6 +25,7 @@ const EN: Record<string, string> = {
   "생성권 {n}회": "{n} credits",
   "기록장": "Journal",
   "바닥": "Floor",
+  "Floor Image": "Floor Image",
   "{title} 삭제": "Delete {title}",
   "완성": "is ready",
   "검수 반영해 수정 중": "Refining from review",
