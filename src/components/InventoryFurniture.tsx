@@ -9,11 +9,11 @@ import { type ReactNode, useRef, useState } from 'react'
 import type { Group, InstancedMesh, MeshStandardMaterial } from 'three'
 import Furniture, { FittedMesh } from './Furniture'
 import MusicPanel from './MusicPanel'
-import { loadAudioPrefs, type FurnitureItem, useOptionalRoomStore, useRoomStore } from '../store'
-import { wallSurfaces } from '../services/roomGrid'
+import { loadAudioPrefs, resolutionFor, type FurnitureItem, useOptionalRoomStore, useRoomStore } from '../store'
+import { fitMeshToFootprint, resolveSurface, wallSurfaces, withResolution } from '../services/roomGrid'
 import { colorPresets } from '../services/styles'
 import { CANVAS_UI_FONT, JONES_BOOK_OTF, PRETENDARD_WOFF, loadCanvasFonts } from '../services/fonts'
-import { clipResumeAt, fitToVideo, getVideo, registerClipPlayer, rememberClipAt, reportClipAspect, useClipAspectRatio, useFrameVideoId, useVideoDisplayMeta } from '../services/mediaStore'
+import { clipResumeAt, fitFrameScreen, getVideo, registerClipPlayer, rememberClipAt, reportClipAspect, useClipAspectRatio, useFrameVideoId, useVideoDisplayMeta } from '../services/mediaStore'
 import { Swing } from './motion'
 import { ROOM_HTML_Z_INDEX_RANGE } from '../services/renderOrder'
 import { lang, t } from '../services/i18n'
@@ -998,7 +998,9 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     const turned = Math.abs(Math.round(rotationY / (Math.PI / 2))) % 2 === 1
     const frameLoading = !!frameLookup && frameDisplay === undefined
     // 화면·백킹은 걸린 영상의 비율로 줄어든다 — 16:9든 세로 쇼츠든 레터박스 없이 꽉 찬다
-    const [screenWidth, screenHeight] = fitToVideo(turned ? h : w, turned ? w : h, frameDisplay?.aspect ?? clipAspect)
+    const surface = resolveSurface(store?.furniture ?? [], item.surfaceId)
+    const [targetWidth, targetHeight] = surface ? fitMeshToFootprint(withResolution(surface, resolutionFor(item)), item.footprint) : [w, h]
+    const [screenWidth, screenHeight] = fitFrameScreen(w, h, targetWidth, targetHeight, frameDisplay?.aspect ?? clipAspect, turned)
     return <>
       {/* 크기 기준용 투명 풀사이즈 박스: FittedMesh는 이 바운즈로 맞춘다 — 화면이 영상 비율로 줄어도
           맞춤 스케일이 흔들리지 않고, DOM 화면만 남았을 때 바운즈 0으로 터지는 사고(실제 발생)도 막는다 */}

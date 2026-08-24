@@ -3,8 +3,9 @@ import { findFit } from './Furniture'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Matrix4, Vector3, type Group } from 'three'
-import { loadAudioPrefs, useRoomStore } from '../store'
-import { fitToVideo, useFrameVideoId, useVideoDisplayMeta } from '../services/mediaStore'
+import { loadAudioPrefs, resolutionFor, useRoomStore } from '../store'
+import { fitMeshToFootprint, resolveSurface, withResolution } from '../services/roomGrid'
+import { fitFrameScreen, useFrameVideoId, useVideoDisplayMeta } from '../services/mediaStore'
 import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
 import { isVisiting } from '../services/social'
 import { openReactionPicker } from './ReactionPicker'
@@ -114,7 +115,9 @@ function WallVideo({ frameId }: { frameId: string }) {
     const frame = requestAnimationFrame(() => setDisplayReady(true))
     return () => cancelAnimationFrame(frame)
   }, [aspectLookup, display])
-  const [screenWidth, screenHeight] = fitToVideo(turned ? dims[1] : dims[0], turned ? dims[0] : dims[1], display?.aspect ?? null)
+  const surface = item && resolveSurface(furniture, item.surfaceId)
+  const [targetWidth, targetHeight] = surface ? fitMeshToFootprint(withResolution(surface, resolutionFor(item)), item.footprint) : dims
+  const [screenWidth, screenHeight] = fitFrameScreen(dims[0], dims[1], targetWidth, targetHeight, display?.aspect ?? null, turned)
   const divHeight = Math.round(640 * (screenHeight / screenWidth))
   const crop = display?.playerCrop ?? { left: 0, top: 0, right: 1, bottom: 1 }
   const cropWidth = Math.max(.01, crop.right - crop.left)

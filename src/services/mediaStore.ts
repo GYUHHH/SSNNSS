@@ -233,6 +233,22 @@ export const fitToVideo = (width: number, height: number, aspect: number | null)
   return [fitted, fitted / aspect]
 }
 
+// FittedMesh may stretch a resized wall frame on each axis. Counter that outer transform here so the final screen
+// still uses the source video ratio instead of inheriting the frame's arbitrary grid ratio.
+export const fitFrameScreen = (frameWidth: number, frameHeight: number, targetWidth: number, targetHeight: number, aspect: number | null, turned = false): [number, number] => {
+  const baseWidth = turned ? frameHeight : frameWidth
+  const baseHeight = turned ? frameWidth : frameHeight
+  const scaleX = turned ? targetHeight / frameHeight : targetWidth / frameWidth
+  const scaleY = turned ? targetWidth / frameWidth : targetHeight / frameHeight
+  const [width, height] = fitToVideo(baseWidth * scaleX, baseHeight * scaleY, aspect)
+  return [width / scaleX, height / scaleY]
+}
+
+if (import.meta.env.DEV) {
+  const [width, height] = fitFrameScreen(2, 1, 4, 1, 16 / 9)
+  console.assert(Math.abs((width * 2) / height - 16 / 9) < .001, 'resized video frame must preserve its source ratio')
+}
+
 // 액자에 걸린 링크에서 "비율을 재야 할 실제 영상 id"를 리액티브하게 — 플레이리스트는 지금 재생 중인 곡을
 // 따라가고(트랙 전환 시 재렌더), 일반 링크는 그 자체다.
 export function useFrameVideoId(frameId: string, link: string | undefined): string | undefined {
