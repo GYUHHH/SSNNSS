@@ -72,7 +72,7 @@ const authorization = (request: Request) => request.headers.get('Authorization')
 async function youtubeThumbnail(request: Request) {
   const id = new URL(request.url).searchParams.get('id')
   if (!id || !/^[\w-]{11}$/.test(id)) return json({ error: 'INVALID_VIDEO' }, 400)
-  const upstream = await fetch(`https://i.ytimg.com/vi/${id}/hqdefault.jpg`)
+  const upstream = await fetch(`https://i.ytimg.com/vi/${id}/mqdefault.jpg`)
   if (!upstream.ok) return json({ error: 'THUMBNAIL_UNAVAILABLE' }, 502)
   return new Response(upstream.body, {
     headers: {
@@ -80,28 +80,6 @@ async function youtubeThumbnail(request: Request) {
       'Cache-Control': 'public, max-age=86400, s-maxage=604800',
     },
   })
-}
-
-// The thumbnail itself can include artistic letter/pillar bars, but YouTube's player response exposes the
-// encoded video's real dimensions. Read it once on the server so mobile clients never have to guess from pixels.
-async function youtubeDisplay(request: Request) {
-  const id = new URL(request.url).searchParams.get('id')
-  if (!id || !/^[\w-]{11}$/.test(id)) return json({ error: 'INVALID_VIDEO' }, 400)
-  try {
-    const upstream = await fetch(`https://www.youtube.com/watch?v=${id}&hl=en`, { headers: { 'Accept-Language': 'en' } })
-    if (!upstream.ok) return json({ error: 'VIDEO_UNAVAILABLE' }, 502)
-    const page = await upstream.text()
-    const start = page.indexOf('"streamingData":')
-    const end = start < 0 ? -1 : page.indexOf(',"playbackTracking"', start)
-    const stream = start >= 0 ? page.slice(start, end >= 0 ? end : start + 250_000) : ''
-    const sizes = [...stream.matchAll(/"width":(\d+),"height":(\d+)/g)]
-      .map((match) => ({ width: Number(match[1]), height: Number(match[2]) }))
-      .filter((size) => size.width >= 240 && size.height >= 240 && size.width / size.height > .35 && size.width / size.height < 3)
-      .sort((a, b) => b.width * b.height - a.width * a.height)
-    const size = sizes[0]
-    if (!size) return json({ error: 'ASPECT_UNAVAILABLE' }, 502)
-    return new Response(JSON.stringify({ aspect: size.width / size.height }), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400, s-maxage=604800' } })
-  } catch { return json({ error: 'ASPECT_UNAVAILABLE' }, 502) }
 }
 
 const signedIn = async (request: Request) => {
@@ -297,7 +275,6 @@ export default {
     const path = new URL(request.url).pathname
     if (path === '/api/ls-webhook') return request.method === 'POST' ? lsWebhook(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
     if (path === '/api/youtube-thumbnail') return request.method === 'GET' ? youtubeThumbnail(request) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
-    if (path === '/api/youtube-display') return request.method === 'GET' ? youtubeDisplay(request) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
     if (path.startsWith('/api/custom-objects')) {
       if (request.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405)
       if (path === '/api/custom-objects') return generate(request, env)
