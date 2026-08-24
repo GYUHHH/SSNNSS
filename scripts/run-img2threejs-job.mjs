@@ -32,7 +32,7 @@ try {
   await mkdir(stateDir, { recursive: true })
   const state = resolve(stateDir, 'state.json')
   const spec = resolve(work, 'object-sculpt-spec.json')
-  execFileSync('python3', [resolve(skillRoot, 'forge/state.py'), 'init', '--state', state, '--reference', reference, '--profile', 'generic'], { stdio: 'inherit' })
+  execFileSync('python3', [resolve(skillRoot, 'forge/state.py'), 'init', '--state', state, '--reference', reference, '--profile', 'generic', '--max-per-pass', '1', '--max-total', '1'], { stdio: 'inherit' })
   execFileSync('python3', [resolve(skillRoot, 'forge/next.py'), '--state', state], { stdio: 'inherit' })
 
   const result = resolve(work, 'result.json')
@@ -46,13 +46,13 @@ Sculpt spec: ${spec}
 Final safe declarative export: ${result}
 
 Mandatory procedure:
-1. Read the reference image. Run forge/next.py against the state before every stage and correction. Run probe_image.py, write image-analysis.md, create the pre-spec assessment with its qualityContract, create and validate object-sculpt-spec.json, and record each state gate with evidence.
-2. Build blockout → structure → form → material → lighting → interaction → optimization in order. Run the real img2threejs scripts for spec validation, pass orchestration, factory generation, integrity gates, review history, and correction-loop accounting. Do not skip a mandatory gate silently.
+1. Read the reference image. Run forge/next.py once at intake. Run probe_image.py, write image-analysis.md, create the pre-spec assessment with its qualityContract, then create and validate object-sculpt-spec.json.
+2. Build blockout → structure → form → material → lighting → interaction → optimization continuously. Use the real img2threejs spec, factory, and integrity scripts, but do not render, visually review, or correct intermediate passes.
 3. Export the browser-safe object to result.json. It must be one JSON object with name, category, footprint {width,depth}, and 3-96 parts. Each part must contain id, primitive (box|roundedBox|cylinder|sphere|capsule|torus|cone), position [x,y,z], rotation [x,y,z], size [x,y,z], color #RRGGBB, roughness 0..1, metalness 0..1. Category must be exactly ${job.category}. Floor objects rest on Y=0; wall decorations face +Z. No code strings or external assets.
 4. Run: node ${resolve('scripts/validate-custom-object-result.mjs')} ${result} ${job.category}
 5. Run: node ${resolve('scripts/render-custom-object.mjs')} ${result} ${resolve(work, 'renders')}
-6. Read the front, quarterLeft, and quarterRight render PNGs and compare them to the reference under the qualityContract. Correct one failure group at a time, rerender, and use the img2threejs correction loop. Maximum three corrections; stop rather than claiming success if an identity-defining feature still fails.
-7. Only finish when the final validator passes, all required render evidence exists, and the final reviewHistory action is continue. Keep assessment, spec, factory, renders, and review history in ${work} for auditability.
+6. Perform exactly one final visual review using the front, quarterLeft, and quarterRight PNGs together. Do not run a correction loop or rerender. If an identity-defining feature fails, stop without exporting a successful result.
+7. Only finish when the validator and that single final review pass. Keep assessment, spec, factory, renders, and the one final review record in ${work} for auditability. The user's one-review limit overrides the skill's repeated per-pass review and correction instructions.
 
 Do the work in the files and tools. Do not merely describe the pipeline.`
 
@@ -80,9 +80,6 @@ Do the work in the files and tools. Do not merely describe the pipeline.`
     if (detail) console.error(detail)
     throw new Error((detail || error?.message || 'SCULPT_SPEC_INVALID').slice(-500))
   }
-  execFileSync('python3', [resolve(skillRoot, 'forge/next.py'), '--state', state, spec], { stdio: 'inherit' })
-  const stateStatus = JSON.parse(execFileSync('python3', [resolve(skillRoot, 'forge/state.py'), 'status', '--state', state, '--json'], { encoding: 'utf8' }))
-  if (stateStatus.status !== 'complete') throw new Error(`IMG2THREEJS_INCOMPLETE:${stateStatus.currentStep || 'unknown'}`)
   const validated = execFileSync('node', [resolve('scripts/validate-custom-object-result.mjs'), result, job.category], { encoding: 'utf8' })
   const output = JSON.parse(validated)
   output.id = crypto.randomUUID()
