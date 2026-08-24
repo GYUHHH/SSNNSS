@@ -6,6 +6,7 @@ import MusicPanel from './components/MusicPanel'
 import ProfileCard from './components/ProfileCard'
 import NotificationPopup from './components/NotificationPopup'
 import Dock from './components/Dock'
+import { customJobLabel, customJobProgress } from './components/InventoryPanel'
 import FollowInvite from './components/FollowInvite'
 import HandleSetup from './components/HandleSetup'
 import ReactionPopup from './components/ReactionPopup'
@@ -21,10 +22,10 @@ import { thumbnailFor } from './services/thumbnails'
 import { lang, t } from './services/i18n'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 536
+const BUILD = 538
 
 function Interface() {
-  const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume } = useRoomStore()
+  const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, customJob } = useRoomStore()
   const [confirmingReset, setConfirmingReset] = useState(false)
   const [confirmingRoom, setConfirmingRoom] = useState<string | null>(null)
   const [inventoryOpen, setInventoryOpen] = useState(false)
@@ -153,6 +154,11 @@ function Interface() {
     {confirmingRoom && <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setConfirmingRoom(null)}><section className="reset-confirm"><p>{t('이 방을 삭제할까요? 안에 놓인 가구는 보관함으로 돌아옵니다.')}</p><div><button type="button" onClick={() => setConfirmingRoom(null)}>{t('취소')}</button><button type="button" onClick={() => { removeRoom(confirmingRoom); setConfirmingRoom(null) }}>{t('삭제')}</button></div></section></div>}
     {confirmingReset && <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setConfirmingReset(false)}><section className="reset-confirm"><p>{t('모든 가구를 처음 위치로 되돌릴까요?')}</p><div><button type="button" onClick={() => setConfirmingReset(false)}>{t('취소')}</button><button type="button" onClick={() => { resetLayout(); setConfirmingReset(false) }}>{t('초기화')}</button></div></section></div>}
     <FollowInvite />
+    {customJob && mode === 'normal' && (customJob.stage === 'done' || customJob.stage === 'error' ? customJob.unseen : true) && (
+      customJob.stage === 'done' || customJob.stage === 'error'
+        ? <button type="button" className={`custom-job-widget${customJob.stage === 'error' ? ' failed' : ''}`} onClick={() => { setInventoryOpen(true); toggleEditMode() }}>{customJobLabel(customJob)}</button>
+        : <div className="custom-job-widget"><span>{customJobLabel(customJob)}</span><span className="custom-job-bar"><i style={{ width: `${customJobProgress(customJob)}%` }} /></span></div>
+    )}
     <Dock onOpenInventory={() => { setInventoryOpen(true); toggleEditMode() }} onDeleteRoom={setConfirmingRoom} />
     <HandleSetup />
     <PanelHistory />

@@ -5,7 +5,7 @@ import { Box3, BufferGeometry, Float32BufferAttribute, type Group, type Mesh, ty
 import Interactive from './Interactive'
 import { type FurnitureId, type FurnitureItem, isResizableWallItem, resolutionFor, useRoomStore } from '../store'
 import { fitMeshToFootprint, resolveSurface, SURFACED_TYPES, wallSurfaces, withResolution, type PlacementSurface, type ResizeCorner } from '../services/roomGrid'
-import { ROOM_OBJECT_ORDER, WALL_BACKDROP_ORDER } from '../services/renderOrder'
+import { ROOM_OBJECT_ORDER, wallItemOrder } from '../services/renderOrder'
 
 // Every room in the explorer names its furniture identically — each one has a `desk` — so a scene-wide lookup for
 // `fit:<id>` can land on a NEIGHBOUR's copy and drag whatever follows it outside the room. Search only inside the
@@ -21,7 +21,7 @@ export default function Furniture({ id, children }: { id: FurnitureId; children:
   const item = furniture.find((value) => value.id === id)
   if (!item || item.removed) return null
   const fitted = <FittedMesh item={item}>{children}</FittedMesh>
-  const order = item.category === 'wallItem' ? WALL_BACKDROP_ORDER : ROOM_OBJECT_ORDER
+  const order = item.category === 'wallItem' ? wallItemOrder(item.type) : ROOM_OBJECT_ORDER
   const content = <group renderOrder={order}>{item.category === 'wallItem' ? <group rotation={wallSurfaces[item.wallId ?? 'leftWall'].rotation}><group rotation={[0, 0, item.rotation[1]]}>{fitted}</group></group> : fitted}</group>
   if (mode === 'normal') return <Interactive id={id} position={item.position} rotation={item.category === 'wallItem' ? [0, 0, 0] : item.rotation} scale={item.scale} pad={id !== 'bookshelf' && item.type !== 'speech-bubble'}>{content}</Interactive>
   return <EditableFurniture id={id}>{content}</EditableFurniture>

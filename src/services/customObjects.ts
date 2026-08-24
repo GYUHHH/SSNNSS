@@ -33,3 +33,26 @@ export async function generateCustomObject(input: { category: CustomObjectCatego
   if (!isCustomObjectSpec(body?.object)) throw new Error('INVALID_CUSTOM_OBJECT')
   return body.object
 }
+
+export async function generateConceptImage(input: { category: CustomObjectCategory; prompt: string }): Promise<string> {
+  const response = await fetch('/api/custom-objects/concept', {
+    method: 'POST',
+    headers: { ...await authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  const body = await response.json().catch(() => null) as { image?: string; error?: string } | null
+  if (!response.ok || typeof body?.image !== 'string') throw new Error(body?.error || `HTTP ${response.status}`)
+  return body.image
+}
+
+export async function reviewCustomObject(input: { category: CustomObjectCategory; prompt: string; image?: string; spec: CustomObjectSpec; screenshot: string }): Promise<{ verdict: 'pass' | 'revise'; object?: CustomObjectSpec }> {
+  const response = await fetch('/api/custom-objects/review', {
+    method: 'POST',
+    headers: { ...await authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  const body = await response.json().catch(() => null) as { verdict?: string; object?: unknown; error?: string } | null
+  if (!response.ok) throw new Error(body?.error || `HTTP ${response.status}`)
+  if (body?.verdict === 'revise' && isCustomObjectSpec(body.object)) return { verdict: 'revise', object: body.object }
+  return { verdict: 'pass' }
+}

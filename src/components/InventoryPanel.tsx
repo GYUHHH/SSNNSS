@@ -125,16 +125,32 @@ function BooksTab() {
   </div>
 }
 
+// 생성 잡 진행 표시: 단계 라벨 + 진행률 바. 완료/실패도 여기서 알린다.
+export const customJobProgress = (job: { stage: string; round: number }): number =>
+  job.stage === 'concept' ? 12 : job.stage === 'draft' ? 45 : job.stage === 'verify' ? (job.round > 1 ? 88 : 65) : job.stage === 'revise' ? 78 : 100
+
+export const customJobLabel = (job: { stage: string; round: number; name?: string; error?: string }): string =>
+  job.stage === 'concept' ? t('컨셉 이미지 생성 중') : job.stage === 'draft' ? t('오브젝트 조립 중') : job.stage === 'verify' ? `${t('렌더 검수 중')} ${job.round}/2` : job.stage === 'revise' ? t('검수 반영해 수정 중') : job.stage === 'done' ? `${job.name ?? ''} ${t('완성')}` : t('생성 실패')
+
+function CustomJobStatus({ job }: { job: { stage: string; round: number; name?: string; error?: string } }) {
+  const running = job.stage !== 'done' && job.stage !== 'error'
+  return <div className={`custom-job-status${job.stage === 'error' ? ' failed' : ''}`}>
+    <span>{customJobLabel(job)}</span>
+    {running && <span className="custom-job-bar"><i style={{ width: `${customJobProgress(job)}%` }} /></span>}
+  </div>
+}
+
 const CUSTOM_CATEGORY_LABELS: Record<CustomObjectCategory, string> = { furniture: '가구', wallDecoration: '벽장식', floor: '바닥', sculpture: '조형물' }
 
 function CustomTab() {
-  const { customObjects, addCustomObject, startPreview, availableCount } = useRoomStore()
+  const { customObjects, startPreview, availableCount, customJob, runCustomGeneration, markCustomSeen } = useRoomStore()
+  // 탭을 열어본 순간 완료/실패 빨간점은 해소된 것으로 본다
+  useEffect(() => { markCustomSeen() }, [customJob?.stage])
   const [source, setSource] = useState<'text' | 'photo' | null>(null)
   const [category, setCategory] = useState<CustomObjectCategory>('furniture')
   const [prompt, setPrompt] = useState('')
   const [image, setImage] = useState<string | null>(null)
   const [editingImage, setEditingImage] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const file = useRef<HTMLInputElement>(null)
   const choosePhoto = () => { setSource('photo'); setError(''); file.current?.click() }
@@ -144,20 +160,18 @@ function CustomTab() {
     reader.onload = () => setEditingImage(typeof reader.result === 'string' ? reader.result : null)
     reader.readAsDataURL(value)
   }
-  const submit = async (event: FormEvent) => {
+  const running = !!customJob && customJob.stage !== 'done' && customJob.stage !== 'error'
+  const submit = (event: FormEvent) => {
     event.preventDefault()
-    if ((source === 'text' && !prompt.trim()) || (source === 'photo' && !image) || loading) return
-    setLoading(true); setError('')
-    try {
-      const object = await generateCustomObject({ category, prompt: prompt.trim(), image: image ?? undefined })
-      addCustomObject(object); setSource(null); setPrompt(''); setImage(null)
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : t('생성 실패'))
-    } finally { setLoading(false) }
+    if ((source === 'text' && !prompt.trim()) || (source === 'photo' && !image) || running) return
+    setError('')
+    runCustomGeneration({ category, prompt: prompt.trim(), image: image ?? undefined })
+    setSource(null); setPrompt(''); setImage(null)
   }
   const objects = customObjects.filter((object) => availableCount(customObjectType(object.id)) > 0)
   return <div className="custom-tab">
     <input ref={file} hidden type="file" accept="image/*" onChange={(event) => { readPhoto(event.target.files?.[0]); event.currentTarget.value = '' }} />
+    {customJob && <CustomJobStatus job={customJob} />}
     {!source && <div className="custom-source"><button type="button" onClick={() => { setSource('text'); setError('') }}>{t('텍스트 넣기')}</button><button type="button" onClick={choosePhoto}>{t('사진 넣기')}</button></div>}
     {source && <form className="custom-form" onSubmit={submit}>
       <div className="custom-form-head"><strong>{t(source === 'text' ? '텍스트 넣기' : '사진 넣기')}</strong><button type="button" onClick={() => { setSource(null); setImage(null); setEditingImage(null); setError('') }}>×</button></div>
@@ -165,7 +179,7 @@ function CustomTab() {
       {source === 'photo' && (image ? <div className="custom-photo"><img src={image} alt="" /><button type="button" aria-label={t('사진 삭제')} onClick={() => { setImage(null); file.current?.click() }}>×</button></div> : <button className="custom-photo-pick" type="button" onClick={choosePhoto}>{t('사진 넣기')}</button>)}
       <textarea maxLength={1200} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={t(source === 'photo' ? '원하는 디자인 (선택)' : '원하는 디자인')} />
       {error && <p className="custom-error">{error}</p>}
-      <button className="custom-generate" type="submit" disabled={(source === 'text' && !prompt.trim()) || (source === 'photo' && !image) || loading}>{t(loading ? '생성 중' : '생성')}</button>
+      <button className="custom-generate" type="submit" disabled={(source === 'text' && !prompt.trim()) || (source === 'photo' && !image) || running}>{t(running ? '생성 중' : '생성')}</button>
     </form>}
     {!source && <div className="inventory-items custom-items">{objects.map((object) => {
       const entry = customObjectTemplate(object) as FurnitureItem
@@ -177,7 +191,7 @@ function CustomTab() {
 
 export default function InventoryPanel() {
   const [tab, setTab] = useState<typeof tabs[number]>('전체')
-  const { startPreview, preview, previewValid, placePreview, availableCount } = useRoomStore()
+  const { startPreview, preview, previewValid, placePreview, availableCount, customJob } = useRoomStore()
   const showingColors = tab === COLOR_TAB
   const showingCharacter = tab === CHARACTER_TAB
   const showingBooks = tab === BOOKS_TAB
@@ -185,7 +199,7 @@ export default function InventoryPanel() {
   // only what you still own and have not put down somewhere — placing one takes it off this list
   const stock = showingColors || showingCharacter || showingBooks || showingCustom ? [] : CATALOG.filter((entry) => availableCount(entry.type) > 0 && (tab === '전체' || (entry.type === 'speech-bubble' ? '소품' : categoryFor(entry.type)) === tab as InventoryCategory))
   return <section className={preview ? 'inventory-panel previewing' : 'inventory-panel'} aria-label={t('보관함')}>
-    <nav>{tabs.map((entry) => <button key={entry} className={tab === entry ? 'active' : ''} type="button" onClick={() => setTab(entry)}>{t(entry)}</button>)}</nav>
+    <nav>{tabs.map((entry) => <button key={entry} className={tab === entry ? 'active' : ''} type="button" onClick={() => setTab(entry)}>{t(entry)}{entry === CUSTOM_TAB && customJob?.unseen && <i className="alert-dot" />}</button>)}</nav>
     {showingCustom ? <CustomTab /> : showingBooks ? <BooksTab /> : showingCharacter ? <CharacterLookEditor /> : showingColors ? <RoomColorEditor /> : <div className="inventory-items">
       {stock.length === 0 && <p className="inventory-empty">{t('남은 가구가 없어요. 방에 놓인 가구를 정리하면 다시 꺼낼 수 있어요.')}</p>}
       {stock.map((entry) => <button key={`${entry.type}:${entry.styleId ?? ''}`} type="button" onClick={() => startPreview(entry.type, entry.styleId)}><ItemIcon item={entry as FurnitureItem} /><span>{t(entry.name)}<small>{RESIZABLE_FRAME_TYPES.has(frameFamily(entry.type)) ? `× ${availableCount(entry.type)}` : entry.footprint.width ? `${entry.size[0]} × ${entry.size[1]}` : t('벽')}</small></span></button>)}

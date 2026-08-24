@@ -53,7 +53,7 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
 // The one control strip, bottom centre. Own room: back · search · explorer · sound · more (room settings, time,
 // inventory and shop unfold upward from the dots). Visiting: back · follow · explorer · sound · forward.
 export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventory: () => void; onDeleteRoom: (id: string) => void }) {
-  const { rooms, activeRoomId, openRoom, createRoom, mode, timeOfDay, setTimeOfDay } = useRoomStore()
+  const { rooms, activeRoomId, openRoom, createRoom, mode, timeOfDay, setTimeOfDay, customJob } = useRoomStore()
   const [roomsOpen, setRoomsOpen] = useState(false)
   // closed -> open -> closing(잠깐 역애니메이션) -> closed
   const [moreState, setMoreState] = useState<'closed' | 'open' | 'closing'>('closed')
@@ -151,9 +151,9 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
           <button type="button" className="dock-button" aria-label={t('방설정')} onClick={() => setRoomsOpen((value) => !value)}><HouseIcon /></button>
         </div>
         <button type="button" className="dock-button" aria-label={t('시간대 변경')} onClick={cycleTime}>{timeOfDay === 'day' ? <SunIcon /> : timeOfDay === 'evening' ? <SunsetIcon /> : <MoonIcon />}</button>
-        <button type="button" className="dock-button" aria-label={t('보관함')} onClick={() => { closeMore(); onOpenInventory() }}><BoxIcon /></button>
+        <button type="button" className="dock-button" aria-label={t('보관함')} onClick={() => { closeMore(); onOpenInventory() }}><BoxIcon />{customJob?.unseen && <i className="alert-dot" />}</button>
       </div>}
-      <button type="button" className="dock-button" aria-label={t('더보기')} onClick={() => { if (moreState === 'open') closeMore(); else if (moreState === 'closed') setMoreState('open') }}><DotsIcon /></button>
+      <button type="button" className="dock-button" aria-label={t('더보기')} onClick={() => { if (moreState === 'open') closeMore(); else if (moreState === 'closed') setMoreState('open') }}><DotsIcon />{customJob?.unseen && <i className="alert-dot" />}</button>
     </div>}
     {visiting && normal && <button type="button" className="dock-button" aria-label={t('다음')} onClick={() => history.forward()}><ForwardIcon /></button>}
     {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} />}

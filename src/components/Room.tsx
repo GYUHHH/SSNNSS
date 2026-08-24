@@ -405,7 +405,19 @@ function RoomContainer({ slot, distance, centred, shown, fresh, open, swapping, 
       // popped back the frame transparency was restored. Scene-graph order is the truth (walls mount before the
       // things hung on them), so during the fade paint order is pinned to traversal order; at full view it goes
       // back to plain depth-tested rendering.
-      object.renderOrder = fading ? ++paintOrder : 0
+      // Preserve the shared room layer contract while fading. The previous traversal-only order erased the
+      // media < wall decor < floor furniture hierarchy and let late-mounted photos/videos jump in front.
+      let baseOrder = object.userData.roomBaseRenderOrder as number | undefined
+      if (baseOrder === undefined) {
+        baseOrder = object.renderOrder
+        let parent = object.parent
+        while (parent && parent !== group.current) {
+          baseOrder = Math.max(baseOrder, (parent.userData.roomBaseRenderOrder as number | undefined) ?? parent.renderOrder)
+          parent = parent.parent
+        }
+        object.userData.roomBaseRenderOrder = baseOrder
+      }
+      object.renderOrder = fading ? baseOrder * 10000 + ++paintOrder : baseOrder
       const mesh = object as Mesh
       if (!mesh.isMesh) return
       const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
