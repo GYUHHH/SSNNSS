@@ -36,9 +36,7 @@ try {
   execFileSync('python3', [resolve(skillRoot, 'forge/next.py'), '--state', state], { stdio: 'inherit' })
 
   const result = resolve(work, 'result.json')
-  const prompt = `/img2threejs
-
-Use the installed skill and its executable Python forge at ${skillRoot}. This is a production image-to-Three.js reconstruction job, not a prompt imitation.
+  const prompt = `Read ${resolve(skillRoot, 'SKILL.md')} completely before acting, then follow that skill and its executable Python forge at ${skillRoot}. This is a production image-to-Three.js reconstruction job, not a prompt imitation.
 
 Reference image: ${reference}
 User request: ${job.prompt || 'Reconstruct the referenced object.'}
