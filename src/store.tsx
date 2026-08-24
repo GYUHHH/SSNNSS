@@ -392,7 +392,7 @@ const toPlacement = ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ
 // every catalogue piece exists exactly once for now; a future account would supply real per-user counts
 const OWNED_PER_TYPE = 1
 // each resizable frame FAMILY comes as a pair; old fixed-size types count toward the same pair
-const OWNED_OVERRIDES: Record<string, number> = { 'video-frame-3': 2, 'photo-frame': 2, 'wall-art': 2, lamp: 2, 'floor-lamp': 2, 'string-lights': 2, 'led-lamp': 2 }
+const OWNED_OVERRIDES: Record<string, number> = { 'video-frame-3': 2, 'photo-frame': 2, 'wall-art': 2, lamp: 2, 'floor-lamp': 2, 'string-lights': 2, 'led-lamp': 2, speaker: 2 }
 const ownedCountOf = (type: string) => OWNED_OVERRIDES[frameFamily(type)] ?? OWNED_PER_TYPE
 const countFamily = (counts: Record<string, number>, family: string) => Object.entries(counts).filter(([type]) => frameFamily(type) === family).reduce((sum, [, count]) => sum + count, 0)
 if (import.meta.env.DEV) console.assert(countFamily({ 'video-frame-3': 1, 'video-frame-5': 1 }, 'video-frame-3') === 2, 'fixed-size frames must share one ownership count')
