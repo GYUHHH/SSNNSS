@@ -301,7 +301,7 @@ const hydrateFurniture = (saved: FurniturePlacement[] | null) => {
     const surface = resolveSurface(resolved, surfaceId) ?? resolveSurface(resolved, 'floor')!
     const resolution = resolutionFor(base)
     // a legacy save's footprint is in old base units — the current template footprint is the migrated truth
-    const footprint = base.id === 'sofa' || isLegacySave(resolution, surface, value) || isDownscaledSave(resolution, surface, value) || !value.footprint?.width || !value.footprint?.depth ? base.footprint : value.footprint
+    const footprint = base.category !== 'wallItem' || isLegacySave(resolution, surface, value) || isDownscaledSave(resolution, surface, value) || !value.footprint?.width || !value.footprint?.depth ? base.footprint : value.footprint
     const savedY = surface.type === 'floor' ? (value.surfaceId === 'floor' ? value.gridY : value.gridZ ?? value.gridY) : value.gridY
     const grid = migratedGrid(resolution, surface, value, footprint, rotation[1], base.position, savedY)
     return placeOnSurface(resolved, { ...base, ...value, id: base.id, footprint, rotation, surfaceId, position: [base.position[0], value.position?.[1] ?? base.position[1], base.position[2]], size: [footprint.width, footprint.depth] as [number, number] }, surfaceId, grid, rotation)
@@ -313,7 +313,7 @@ const hydrateFurniture = (saved: FurniturePlacement[] | null) => {
     const surfaceId = value.surfaceId ?? (template.category === 'wallItem' ? wallIdFor(value.wallId) : 'floor')
     const surface = resolveSurface(resolved, surfaceId) ?? resolveSurface(resolved, 'floor')!
     const resolution = resolutionFor(template)
-    const footprint = isLegacySave(resolution, surface, value) || isDownscaledSave(resolution, surface, value) || !value.footprint?.width || !value.footprint?.depth ? template.footprint : value.footprint
+    const footprint = template.category !== 'wallItem' || isLegacySave(resolution, surface, value) || isDownscaledSave(resolution, surface, value) || !value.footprint?.width || !value.footprint?.depth ? template.footprint : value.footprint
     const savedY = surface.type === 'floor' ? (value.surfaceId === 'floor' ? value.gridY : value.gridZ ?? value.gridY) : value.gridY
     const grid = migratedGrid(resolution, surface, value, footprint, value.rotation[1], [0, 0, 0], savedY)
     const item = { ...template, ...value, id: value.id, surfaceId, wallId: surface.type === 'wall' ? surface.id as WallId : undefined, footprint, gridX: grid.gridX, gridY: grid.gridY, gridZ: surface.type === 'floor' ? grid.gridY : 0, position: [0, value.position?.[1] ?? 0, 0] as [number, number, number], size: [footprint.width, footprint.depth] as [number, number] } as FurnitureItem
