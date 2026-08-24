@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { extname, resolve } from 'node:path'
 
 const origin = process.env.APP_ORIGIN
@@ -58,15 +59,19 @@ Mandatory procedure:
 Do the work in the files and tools. Do not merely describe the pipeline.`
 
   await post('/api/custom-objects/jobs/progress', { jobId, stage: 'sculpting' })
+  let claudeOutput = ''
   try {
-    execFileSync('claude', [
+    claudeOutput = execFileSync('claude', [
       '--print', '--bare', '--model', 'opus', '--effort', 'high', '--max-budget-usd', '10',
       '--dangerously-skip-permissions', '--add-dir', skillRoot,
-    ], { cwd: resolve('.'), input: prompt, stdio: ['pipe', 'pipe', 'pipe'], timeout: 50 * 60 * 1000, env: { ...process.env, HOME: process.env.HOME } })
+    ], { cwd: resolve('.'), input: prompt, encoding: 'utf8', timeout: 50 * 60 * 1000, env: { ...process.env, HOME: process.env.HOME } })
   } catch (error) {
     const detail = [error?.stderr, error?.stdout].map((value) => value?.toString().trim()).find(Boolean)
     if (detail) console.error(detail)
     throw new Error((detail || error?.message || 'CLAUDE_PIPELINE_FAILED').slice(-500))
+  }
+  if (!existsSync(spec) || !existsSync(result)) {
+    throw new Error(`PIPELINE_OUTPUT_MISSING: ${claudeOutput.trim().slice(-450)}`)
   }
 
   await post('/api/custom-objects/jobs/progress', { jobId, stage: 'final-review' })
