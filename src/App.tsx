@@ -22,10 +22,10 @@ import { thumbnailFor } from './services/thumbnails'
 import { lang, t } from './services/i18n'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 568
+const BUILD = 569
 
 function Interface() {
-  const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, toggleDebugAnchors, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, customJob } = useRoomStore()
+  const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, customJob } = useRoomStore()
   const [confirmingReset, setConfirmingReset] = useState(false)
   const [confirmingRoom, setConfirmingRoom] = useState<string | null>(null)
   const [inventoryOpen, setInventoryOpen] = useState(false)
@@ -42,10 +42,10 @@ function Interface() {
     if (mode === 'normal' || ((movingFurnitureId || preview) && window.matchMedia('(max-width: 719px), (max-height: 520px) and (pointer: coarse)').matches)) setInventoryOpen(false)
   }, [mode, movingFurnitureId, preview])
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') mode === 'edit' ? toggleEditMode() : clearSelection(); if (event.key.toLowerCase() === 'r' && mode === 'edit') rotateFurniture(); if (event.key.toLowerCase() === 'd' && event.shiftKey) toggleDebugAnchors() }
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') mode === 'edit' ? toggleEditMode() : clearSelection(); if (event.key.toLowerCase() === 'r' && mode === 'edit') rotateFurniture() }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [clearSelection, mode, rotateFurniture, toggleEditMode, toggleDebugAnchors])
+  }, [clearSelection, mode, rotateFurniture, toggleEditMode])
   useEffect(() => {
     if (!movingFurnitureId) return
     const track = (event: PointerEvent) => setDragPointer({ x: event.clientX, y: event.clientY, overStorage: !!document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-storage-dropzone]') })
