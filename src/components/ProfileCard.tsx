@@ -17,6 +17,7 @@ export default function ProfileCard() {
   const [signedIn, setSignedIn] = useState(false)
   const [editingPhoto, setEditingPhoto] = useState<string | null>(null)
   const [followers, setFollowers] = useState(0)
+  const [actionMenu, setActionMenu] = useState<'copy' | 'share' | null>(null)
   useEffect(() => {
     void currentUserEmail().then((email) => setSignedIn(!!email))
     return onAuthChange((email) => setSignedIn(!!email))
@@ -36,12 +37,19 @@ export default function ProfileCard() {
   const closeEditor = () => setEditingPhoto((source) => { if (source) URL.revokeObjectURL(source); return null })
   const copyInvite = () => void myInviteLink().then((link) => { if (link) void navigator.clipboard.writeText(link).catch(() => {}) })
   return <div className="profile-overlay" onMouseDown={(event) => event.currentTarget === event.target && closeProfile()}>
-    <section className="profile-card" aria-label={t('프로필')}>
+    <section className="profile-card" aria-label={t('프로필')} onMouseDown={(event) => {
+      if (!(event.target as HTMLElement).closest('.profile-actions')) setActionMenu(null)
+    }}>
       {/* a device can hold its id without an open session (the token expires) — it still needs a way out */}
       {(signedIn || myHandle()) && !isVisiting() && <div className="profile-actions">
-        <button type="button" aria-label={t('초대 링크 복사')} onClick={copyInvite}><CopyIcon /></button>
-        <button type="button" aria-label={t('방 공유')} onClick={() => { void shareRoom() }}><ShareIcon /></button>
+        <button type="button" aria-label={t('초대 링크 복사')} onClick={() => setActionMenu((open) => open === 'copy' ? null : 'copy')}><CopyIcon /></button>
+        <button type="button" aria-label={t('방 공유')} onClick={() => setActionMenu((open) => open === 'share' ? null : 'share')}><ShareIcon /></button>
         <button className="profile-signout" type="button" aria-label={t('로그아웃')} onClick={() => { void signOut().then(() => location.replace(import.meta.env.BASE_URL)) }}><SignOutIcon /></button>
+        {actionMenu && <div className="profile-action-menu" role="menu">
+          {actionMenu === 'copy'
+            ? <button type="button" role="menuitem" onClick={() => { copyInvite(); setActionMenu(null) }}>{t('초대 링크 복사')}</button>
+            : <button type="button" role="menuitem" onClick={() => { setActionMenu(null); void shareRoom() }}>{t('방 공유')}</button>}
+        </div>}
       </div>}
       <div className="profile-main">
         {isVisiting()
