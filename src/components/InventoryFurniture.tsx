@@ -678,40 +678,36 @@ function DiaryBookItem({ itemId, preview }: { itemId: string; preview: boolean }
   </group>
 }
 
-// 미끄럼틀: 핑크 곡면 슬라이드 + 크림 라운드탑 패널 + 핑크 가로봉 + 라벤더 A형 사다리.
-// 곡면은 경사 두 단 + 끝단 들림으로 근사. +x 쪽으로 내려가고 사다리는 -x 뒤로 접힌다.
+// 미끄럼틀: 핑크 슬라이드(끝점 좌표로 이어붙인 3마디 + 양옆 레일) + 크림 라운드탑 패널 +
+// 핑크 가로봉 + 라벤더 A형 사다리. 2x1 발자국을 꽉 쓰는 큼직한 플라스틱 비율.
 function KidsSlide({ preview }: { preview: boolean }) {
   const opacity = preview ? .5 : 1
   const mat = (color: string) => <meshStandardMaterial color={color} roughness={.8} transparent={preview} opacity={opacity} />
-  const pink = '#e3aebc'
+  const pink = '#e5aebd'
   const cream = '#f2ead9'
   const purple = '#a89fd3'
+  // [centerX, centerY, length, angle] — 위 경사, 아래 완만, 끝단 들림 (마디끼리 5cm씩 겹침)
+  const chute: Array<[number, number, number, number]> = [[-0.14, 0.43, 0.638, -0.616], [0.3, 0.17, 0.489, -0.423], [0.6, 0.11, 0.259, 0.291]]
   return <>
-    {/* 측면 패널: 사각 몸통 + 반원 머리, 바깥면 리벳 */}
-    {[-1, 1].map((side) => <group key={side} position={[-.45, 0, side * .16]}>
-      <mesh castShadow position={[0, .42, 0]}><boxGeometry args={[.28, .5, .045]} />{mat(cream)}</mesh>
-      <mesh castShadow position={[0, .67, 0]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[.14, .14, .045, 14, 1, false, 0, Math.PI]} />{mat(cream)}</mesh>
-      {[[-.06, .5], [.07, .42], [-.02, .3]].map(([x, y], index) => <mesh key={index} position={[x, y, side * .026]}><sphereGeometry args={[.018, 8, 6]} />{mat('#9aa0a6')}</mesh>)}
+    {/* 측면 패널: 큼직한 몸통 + 반원 머리 + 리벳 */}
+    {[-1, 1].map((side) => <group key={side} position={[-.42, 0, side * .225]}>
+      <mesh castShadow position={[0, .38, 0]}><boxGeometry args={[.34, .62, .05]} />{mat(cream)}</mesh>
+      <mesh castShadow position={[0, .69, 0]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[.17, .17, .05, 16, 1, false, 0, Math.PI]} />{mat(cream)}</mesh>
+      {[[-.08, .58], [.09, .48], [-.03, .32]].map(([x, y], index) => <mesh key={index} position={[x, y, side * .03]}><sphereGeometry args={[.022, 8, 6]} />{mat('#9aa0a6')}</mesh>)}
     </group>)}
-    {/* 가로봉 */}
-    <mesh castShadow position={[-.45, .69, 0]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[.022, .022, .38, 10]} />{mat('#d795ab')}</mesh>
-    {/* 플랫폼 데크 */}
-    <mesh position={[-.42, .565, 0]}><boxGeometry args={[.2, .03, .3]} />{mat('#9fb2c8')}</mesh>
-    {/* 슬라이드: 상단 경사 + 하단 완만 + 끝단 들림, 양옆 레일 */}
-    <group position={[-.12, .4, 0]} rotation={[0, 0, -.62]}>
-      <mesh castShadow><boxGeometry args={[.58, .035, .3]} />{mat(pink)}</mesh>
-      {[-1, 1].map((side) => <mesh key={side} position={[0, .035, side * .148]}><boxGeometry args={[.58, .05, .035]} />{mat(pink)}</mesh>)}
-    </group>
-    <group position={[.38, .115, 0]} rotation={[0, 0, -.18]}>
-      <mesh castShadow><boxGeometry args={[.5, .035, .3]} />{mat(pink)}</mesh>
-      {[-1, 1].map((side) => <mesh key={side} position={[0, .035, side * .148]}><boxGeometry args={[.5, .05, .035]} />{mat(pink)}</mesh>)}
-    </group>
-    <mesh castShadow position={[.62, .075, 0]} rotation={[0, 0, .3]}><boxGeometry args={[.16, .04, .3]} />{mat(pink)}</mesh>
+    {/* 가로봉 + 플랫폼 데크 */}
+    <mesh castShadow position={[-.42, .74, 0]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[.028, .028, .5, 10]} />{mat('#d795ab')}</mesh>
+    <mesh position={[-.42, .575, 0]}><boxGeometry args={[.28, .05, .4]} />{mat('#9fb2c8')}</mesh>
+    {/* 슬라이드 본체 + 양옆 레일 */}
+    {chute.map(([x, y, length, angle], index) => <group key={index} position={[x, y, 0]} rotation={[0, 0, angle]}>
+      <mesh castShadow><boxGeometry args={[length, .05, .44]} />{mat(pink)}</mesh>
+      {[-1, 1].map((side) => <mesh key={side} position={[0, .045, side * .215]}><boxGeometry args={[length, .07, .05]} />{mat(pink)}</mesh>)}
+    </group>)}
     {/* 크림 지지 다리 */}
-    {[-1, 1].map((side) => <mesh key={side} castShadow position={[-.28, .16, side * .13]}><boxGeometry args={[.05, .32, .05]} />{mat(cream)}</mesh>)}
-    {/* 라벤더 사다리: 경사 레일 2개 + 가로대 4개 */}
-    {[-1, 1].map((side) => <mesh key={side} castShadow position={[-.63, .36, side * .14]} rotation={[0, 0, 1.05]}><boxGeometry args={[.7, .05, .04]} />{mat(purple)}</mesh>)}
-    {Array.from({ length: 4 }, (_, index) => <mesh key={index} castShadow position={[-.53 - .075 * index, .5 - .125 * index, 0]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[.022, .022, .3, 8]} />{mat(purple)}</mesh>)}
+    {[-1, 1].map((side) => <mesh key={side} castShadow position={[-.25, .15, side * .18]}><boxGeometry args={[.06, .3, .06]} />{mat(cream)}</mesh>)}
+    {/* 라벤더 사다리: 경사 레일 + 가로대 3개 */}
+    {[-1, 1].map((side) => <mesh key={side} castShadow position={[-.66, .32, side * .19]} rotation={[0, 0, -2.111]}><boxGeometry args={[.76, .06, .05]} />{mat(purple)}</mesh>)}
+    {[[-.552, .5], [-.642, .35], [-.732, .2]].map(([x, y], index) => <mesh key={index} castShadow position={[x, y, 0]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[.028, .028, .42, 8]} />{mat(purple)}</mesh>)}
   </>
 }
 
