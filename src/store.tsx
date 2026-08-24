@@ -12,11 +12,10 @@ import { t, tp } from './services/i18n'
 import { floorStyleOf } from './services/styles'
 import type { CustomObjectCategory, CustomObjectSpec } from './customObjectSpec'
 
-// AI 커스텀 생성 잡: 컨셉 이미지 → 1차 조립 → 렌더 검수(합격이면 즉시 종료, 불합격이면 수정 후 재검수).
+// AI 커스텀 생성 잡: 컨셉 이미지 → 서버 큐 → 실제 img2threejs 조형·다각도 검수 → 통과 결과 수신.
 // 진행 UI·빨간점 알림이 이 하나를 본다. unseen은 완료/실패를 아직 사용자가 확인 안 했다는 뜻.
-export type CustomJob = { stage: 'concept' | 'draft' | 'verify' | 'revise' | 'done' | 'error'; round: number; unseen: boolean; name?: string; error?: string }
-import { customObjectTemplate, generateConceptImage, generateCustomObject, loadCustomObjects, reviewCustomObject, saveCustomObjects } from './services/customObjects'
-import { reviewShot } from './services/thumbnails'
+export type CustomJob = { stage: 'concept' | 'queued' | 'intake' | 'sculpting' | 'finalReview' | 'done' | 'error'; round: number; unseen: boolean; name?: string; error?: string }
+import { consumeCustomObjectJob, createCustomObjectJob, customObjectTemplate, generateConceptImage, latestCustomObjectJob, loadCustomObjects, saveCustomObjects, waitForCustomObjectJob, type CustomObjectJobState } from './services/customObjects'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id, photo: row.photo })
 
@@ -438,7 +437,31 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     })
   }
   const [customJob, setCustomJob] = useState<CustomJob | null>(null)
+  const customJobRunning = useRef(false)
   const markCustomSeen = () => setCustomJob((job) => job && job.unseen ? { ...job, unseen: false } : job)
+  const receiveCustomJob = async (jobId: string) => {
+    if (customJobRunning.current) return
+    customJobRunning.current = true
+    try {
+      const stage = (remote: CustomObjectJobState['stage']): CustomJob['stage'] => remote === 'intake' ? 'intake' : remote === 'sculpting' ? 'sculpting' : remote === 'final-review' ? 'finalReview' : 'queued'
+      const spec = await waitForCustomObjectJob(jobId, (remote) => setCustomJob({ stage: stage(remote), round: 0, unseen: false }))
+      addCustomObject(spec)
+      await consumeCustomObjectJob(jobId)
+      setCustomJob({ stage: 'done', round: 0, unseen: true, name: spec.name })
+    } catch (reason) {
+      await consumeCustomObjectJob(jobId).catch(() => undefined)
+      const message = reason instanceof Error ? reason.message : String(reason)
+      setCustomJob({ stage: 'error', round: 0, unseen: true, error: message === 'NO_CREDITS' ? t('생성권이 없어요') : message })
+    } finally { customJobRunning.current = false }
+  }
+  // 탭을 닫거나 새로고침해도 서버 큐가 권위자다. 미수령 작업이 있으면 결과만 이어받는다.
+  useEffect(() => {
+    let live = true
+    void latestCustomObjectJob().then((job) => {
+      if (live && job.id && job.status !== 'none') void receiveCustomJob(job.id)
+    }).catch(() => undefined)
+    return () => { live = false }
+  }, [])
   const runCustomGeneration = (input: { category: CustomObjectCategory; prompt: string; image?: string }) => {
     if (customJob && customJob.stage !== 'done' && customJob.stage !== 'error') return // 동시에 한 건만
     void (async () => {
@@ -449,21 +472,9 @@ export function RoomProvider({ children }: { children: ReactNode }) {
           setCustomJob({ stage: 'concept', round: 0, unseen: false })
           reference = await generateConceptImage({ category: input.category, prompt: input.prompt })
         }
-        // 2) 1차 조립
-        setCustomJob({ stage: 'draft', round: 0, unseen: false })
-        let spec = await generateCustomObject({ category: input.category, prompt: input.prompt, image: reference })
-        // 3) 렌더 검수 루프 — 합격이면 바로 끝, 수정본이 오면 한 번 더 본다 (최대 2라운드)
-        for (let round = 1; round <= 2; round += 1) {
-          setCustomJob({ stage: 'verify', round, unseen: false })
-          const screenshot = await reviewShot(customObjectTemplate(spec) as FurnitureItem)
-          if (!screenshot) break
-          const review = await reviewCustomObject({ category: input.category, prompt: input.prompt, image: reference, spec, screenshot })
-          if (review.verdict === 'pass' || !review.object) break
-          spec = review.object
-          setCustomJob({ stage: 'revise', round, unseen: false })
-        }
-        addCustomObject(spec)
-        setCustomJob({ stage: 'done', round: 0, unseen: true, name: spec.name })
+        setCustomJob({ stage: 'queued', round: 0, unseen: false })
+        const jobId = await createCustomObjectJob({ category: input.category, prompt: input.prompt, image: reference })
+        await receiveCustomJob(jobId)
       } catch (reason) {
         const message = reason instanceof Error ? reason.message : String(reason)
         setCustomJob({ stage: 'error', round: 0, unseen: true, error: message === 'NO_CREDITS' ? t('생성권이 없어요') : message })

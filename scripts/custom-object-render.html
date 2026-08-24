@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f3f0e9}canvas{display:block}</style></head>
+<body>
+<script type="module">
+import * as THREE from 'three'
+import { RoundedBoxGeometry } from 'three-stdlib'
+
+const query = new URLSearchParams(location.search)
+const spec = await fetch(query.get('model')).then((response) => response.json())
+const scene = new THREE.Scene()
+scene.background = new THREE.Color('#f3f0e9')
+const root = new THREE.Group()
+scene.add(root)
+
+const geometryFor = (part) => {
+  if (part.primitive === 'sphere') return new THREE.SphereGeometry(.5, 32, 20)
+  if (part.primitive === 'cylinder') return new THREE.CylinderGeometry(.5, .5, 1, 32)
+  if (part.primitive === 'cone') return new THREE.ConeGeometry(.5, 1, 32)
+  if (part.primitive === 'capsule') return new THREE.CapsuleGeometry(.35, .3, 4, 12)
+  if (part.primitive === 'torus') return new THREE.TorusGeometry(.35, .15, 10, 20)
+  if (part.primitive === 'roundedBox') return new RoundedBoxGeometry(1, 1, 1, 2, .12)
+  return new THREE.BoxGeometry(1, 1, 1)
+}
+
+for (const part of spec.parts) {
+  const mesh = new THREE.Mesh(geometryFor(part), new THREE.MeshStandardMaterial({ color: part.color, roughness: part.roughness, metalness: part.metalness }))
+  mesh.position.set(...part.position)
+  mesh.rotation.set(...part.rotation)
+  mesh.scale.set(...part.size)
+  root.add(mesh)
+}
+
+scene.add(new THREE.HemisphereLight('#ffffff', '#b9af9c', 2.4))
+const key = new THREE.DirectionalLight('#fff9ee', 3)
+key.position.set(4, 7, 6)
+scene.add(key)
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true })
+renderer.setPixelRatio(1)
+renderer.setSize(512, 512)
+renderer.outputColorSpace = THREE.SRGBColorSpace
+document.body.append(renderer.domElement)
+
+const bounds = new THREE.Box3().setFromObject(root)
+const center = bounds.getCenter(new THREE.Vector3())
+const radius = Math.max(bounds.getSize(new THREE.Vector3()).length() / 2, .1)
+const camera = new THREE.PerspectiveCamera(30, 1, .01, 100)
+const directions = { front: [0, .25, 1], quarterLeft: [-.9, .45, 1.1], quarterRight: [.9, .45, 1.1] }
+const direction = new THREE.Vector3(...(directions[query.get('view')] || directions.quarterRight)).normalize()
+const distance = radius / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * 1.15
+camera.position.copy(center).add(direction.multiplyScalar(distance))
+camera.lookAt(center)
+renderer.render(scene, camera)
+document.title = 'READY'
+</script>
+</body>
+</html>

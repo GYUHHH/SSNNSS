@@ -31,7 +31,7 @@ export const isCustomObjectSpec = (value: unknown): value is CustomObjectSpec =>
   const spec = value as Partial<CustomObjectSpec>
   if (typeof spec.id !== 'string' || !spec.id || typeof spec.name !== 'string' || !spec.name.trim() || spec.name.length > 40) return false
   if (!CUSTOM_OBJECT_CATEGORIES.includes(spec.category as CustomObjectCategory) || !spec.footprint || !cell(spec.footprint.width) || !cell(spec.footprint.depth)) return false
-  if (!Array.isArray(spec.parts) || spec.parts.length < 1 || spec.parts.length > 32) return false
+  if (!Array.isArray(spec.parts) || spec.parts.length < 1 || spec.parts.length > 96) return false
   return new Set(spec.parts.map((part) => part?.id)).size === spec.parts.length && spec.parts.every((part) => !!part && typeof part.id === 'string' && CUSTOM_PRIMITIVES.includes(part.primitive) && tuple3(part.position) && tuple3(part.rotation) && positiveTuple3(part.size) && /^#[0-9a-f]{6}$/i.test(part.color) && unit(part.roughness) && unit(part.metalness))
 }
 
@@ -48,7 +48,7 @@ export const customObjectSchema = {
       properties: { width: { type: 'integer', minimum: 1, maximum: 10 }, depth: { type: 'integer', minimum: 1, maximum: 10 } },
     },
     parts: {
-      type: 'array', minItems: 1, maxItems: 32,
+      type: 'array', minItems: 1, maxItems: 96,
       items: {
         type: 'object', additionalProperties: false,
         required: ['id', 'primitive', 'position', 'rotation', 'size', 'color', 'roughness', 'metalness'],

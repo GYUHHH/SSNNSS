@@ -1,0 +1,69 @@
+name: img2threejs object job
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: Custom object job UUID
+        required: true
+        type: string
+
+concurrency:
+  group: img2threejs-${{ inputs.job_id }}
+  cancel-in-progress: false
+
+jobs:
+  build-object:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      APP_ORIGIN: https://www.dens.world
+      JOB_ID: ${{ inputs.job_id }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      IMG2THREEJS_RUNNER_SECRET: ${{ secrets.IMG2THREEJS_RUNNER_SECRET }}
+      IMG2THREEJS_ROOT: ${{ runner.temp }}/img2threejs
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install project and Claude Code
+        run: |
+          npm ci
+          npm install --global @anthropic-ai/claude-code@2.1.238
+
+      - name: Install img2threejs
+        run: |
+          git clone --depth 1 --branch v1.5-beta https://github.com/img2threejs/img2threejs.git "$IMG2THREEJS_ROOT"
+          mkdir -p "$HOME/.claude/skills"
+          ln -s "$IMG2THREEJS_ROOT" "$HOME/.claude/skills/img2threejs"
+
+      - name: Run the real img2threejs pipeline
+        run: node scripts/run-img2threejs-job.mjs
+
+      - name: Mark interrupted job as failed
+        if: failure()
+        run: |
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $IMG2THREEJS_RUNNER_SECRET" \
+            -H "Content-Type: application/json" \
+            --data "{\"jobId\":\"$JOB_ID\",\"error\":\"GITHUB_WORKFLOW_FAILED\"}" \
+            "$APP_ORIGIN/api/custom-objects/jobs/fail" || true
+
+      - name: Preserve quality evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: img2threejs-${{ inputs.job_id }}
+          path: .img2threejs-runs/${{ inputs.job_id }}
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,31 +1,23 @@
-import { CUSTOM_OBJECT_CATEGORIES, customObjectSchema, isCustomObjectSpec, type CustomObjectCategory } from './customObjectSpec'
+import { CUSTOM_OBJECT_CATEGORIES, isCustomObjectSpec, type CustomObjectCategory } from './customObjectSpec'
 
-type Env = { ASSETS: { fetch: (request: Request) => Promise<Response> }; OPENAI_API_KEY?: string; OPENAI_MODEL?: string; ANTHROPIC_API_KEY?: string; ANTHROPIC_MODEL?: string; SUPABASE_SERVICE_KEY?: string; LS_WEBHOOK_SECRET?: string; LS_BUY_URL?: string; LS_CREDITS_PER_ORDER?: string }
+type Env = { ASSETS: { fetch: (request: Request) => Promise<Response> }; OPENAI_API_KEY?: string; SUPABASE_SERVICE_KEY?: string; GITHUB_ACTIONS_TOKEN?: string; IMG2THREEJS_RUNNER_SECRET?: string; LS_WEBHOOK_SECRET?: string; LS_BUY_URL?: string; LS_CREDITS_PER_ORDER?: string }
 type GenerateBody = { category?: unknown; prompt?: unknown; image?: unknown }
-type ReviewBody = GenerateBody & { spec?: unknown; screenshot?: unknown }
-
-// 검수 판정 도구 스키마: 합격이면 verdict만, 불합격이면 수정 스펙 전체를 함께 낸다
-const reviewSchema = {
-  type: 'object', additionalProperties: false, required: ['verdict'],
-  properties: { verdict: { type: 'string', enum: ['pass', 'revise'] }, revision: customObjectSchema },
-} as const
-
-const REVIEW_INSTRUCTIONS = `You are the render-verification pass of an img2threejs loop. Compare the RENDER screenshot of a primitive-built room object against the REFERENCE image and the user's request. Judge only what matters for identity: silhouette and proportions, presence and placement of the 2-4 identity-defining features, part-to-part scale, colors/materials, grounding (nothing sinking below the floor or floating), and obvious z-fighting or stray parts. The style is intentionally cute low-poly - do not fail for simplification. Verdict 'pass' when the object clearly reads as the requested thing with no glaring defect. Verdict 'revise' otherwise, and then output the FULL corrected spec as 'revision' (all parts, not a diff), keeping what already works and fixing only what you called out.`
+type JobBody = { jobId?: unknown; stage?: unknown; error?: unknown; object?: unknown }
 
 const SUPABASE_URL = 'https://pxjavljsalibpnxdrxel.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4amF2bGpzYWxpYnBueGRyeGVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4NjAxNTgsImV4cCI6MjEwMjQzNjE1OH0.quIFdlk11b7F-YIeHO3TsEhS2RzgxDtntqdh2vHyUfE'
-const INSTRUCTIONS = `Create one cute low-poly miniature room object as a small set of Three.js-friendly primitives. Match the requested category exactly. Use only the allowed primitives and hex colors. Coordinates are local: Y is up; floor objects must rest on Y=0; wall decorations face +Z and stay shallow. Center the object on X/Z for floor objects or X/Y for wall objects. Use the fewest parts that clearly preserve the requested silhouette. Footprint is an integer 10x10 room-grid size. Do not include text, code, explanations, lights, cameras, shadows, or unsupported geometry.
-
-Reconstruction discipline (img2threejs): First identify the object and list its 2-4 identity-defining features (the parts without which it stops reading as itself), then build ONLY those: macro silhouette first, then the identifying components, then at most a few accent details. Pick each part's primitive from its real topology (box for slabs/panels, cylinder for shafts/rims, sphere/ellipsoid for organic blobs, cone for tapers, torus for rings) instead of defaulting to boxes. Materials: pastel-friendly flat colors; roughness .6-.9 for fabric/wood/paper, .1-.3 for glass/metal/gloss; metalness at most .5. Never leave two faces coplanar - offset stacked or touching parts by at least 0.01 so surfaces cannot flicker. Nothing may sink below Y=0 or float without support. Scale parts to each other like the real object's proportions.`
 
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } })
 
-const signedIn = async (request: Request) => {
+const signedInUserId = async (request: Request): Promise<string | null> => {
   const authorization = request.headers.get('Authorization')
-  if (!authorization?.startsWith('Bearer ') || authorization === `Bearer ${SUPABASE_ANON_KEY}`) return false
+  if (!authorization?.startsWith('Bearer ') || authorization === `Bearer ${SUPABASE_ANON_KEY}`) return null
   const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: authorization } })
-  return response.ok
+  if (!response.ok) return null
+  const body = await response.json().catch(() => null) as { id?: unknown } | null
+  return typeof body?.id === 'string' ? body.id : null
 }
+const signedIn = async (request: Request) => !!await signedInUserId(request)
 
 // 로그인 유저의 방 handle: 크레딧은 handle 단위로 적립·차감된다
 const signedInHandle = async (request: Request): Promise<string | null> => {
@@ -44,6 +36,156 @@ const signedInHandle = async (request: Request): Promise<string | null> => {
 const billingEnabled = (env: Env) => !!(env.SUPABASE_SERVICE_KEY && env.LS_WEBHOOK_SECRET && env.LS_BUY_URL)
 
 const serviceHeaders = (env: Env) => ({ apikey: env.SUPABASE_SERVICE_KEY!, Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, 'Content-Type': 'application/json' })
+
+const runnerAuthorized = (request: Request, env: Env) => !!env.IMG2THREEJS_RUNNER_SECRET && request.headers.get('Authorization') === `Bearer ${env.IMG2THREEJS_RUNNER_SECRET}`
+const jobConfigured = (env: Env) => !!(env.SUPABASE_SERVICE_KEY && env.GITHUB_ACTIONS_TOKEN && env.IMG2THREEJS_RUNNER_SECRET)
+const jobIdFrom = (body: JobBody | null) => typeof body?.jobId === 'string' && /^[0-9a-f-]{36}$/i.test(body.jobId) ? body.jobId : null
+
+const decodeImage = (value: string) => {
+  const match = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(value)
+  if (!match) return null
+  const binary = atob(match[2])
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+  return { mime: match[1], bytes }
+}
+
+const jobRows = async (env: Env, query: string) => {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/custom_object_jobs?${query}`, { headers: serviceHeaders(env), cache: 'no-store' })
+  return response.ok ? await response.json().catch(() => []) as Array<Record<string, unknown>> : []
+}
+
+const patchJob = async (env: Env, jobId: string, body: Record<string, unknown>) => fetch(`${SUPABASE_URL}/rest/v1/custom_object_jobs?id=eq.${jobId}`, {
+  method: 'PATCH', headers: { ...serviceHeaders(env), Prefer: 'return=minimal' }, body: JSON.stringify({ ...body, updated_at: new Date().toISOString() }),
+})
+
+const spendGenerationCredit = async (request: Request, env: Env) => {
+  if (!billingEnabled(env)) return true
+  const handle = await signedInHandle(request)
+  if (!handle) return false
+  const spent = await fetch(`${SUPABASE_URL}/rest/v1/rpc/spend_credit`, { method: 'POST', headers: serviceHeaders(env), body: JSON.stringify({ p_handle: handle }) })
+  return spent.ok && await spent.json().catch(() => null) === true
+}
+
+async function createJob(request: Request, env: Env) {
+  if (!jobConfigured(env)) return json({ error: 'IMG2THREEJS_NOT_CONFIGURED' }, 503)
+  const ownerId = await signedInUserId(request)
+  if (!ownerId) return json({ error: 'LOGIN_REQUIRED' }, 401)
+  const body = await request.json().catch(() => null) as GenerateBody | null
+  const category = body?.category as CustomObjectCategory
+  const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : ''
+  const image = typeof body?.image === 'string' ? decodeImage(body.image) : null
+  if (!CUSTOM_OBJECT_CATEGORIES.includes(category) || !image || prompt.length > 1200 || image.bytes.byteLength > 7_000_000) return json({ error: 'INVALID_REQUEST' }, 400)
+  if (!await spendGenerationCredit(request, env)) return json({ error: 'NO_CREDITS' }, 402)
+
+  const jobId = crypto.randomUUID()
+  const extension = image.mime === 'image/jpeg' ? 'jpg' : image.mime.split('/')[1]
+  const referencePath = `${ownerId}/${jobId}.${extension}`
+  const uploaded = await fetch(`${SUPABASE_URL}/storage/v1/object/custom-object-inputs/${referencePath}`, {
+    method: 'POST', headers: { ...serviceHeaders(env), 'Content-Type': image.mime, 'x-upsert': 'false' }, body: image.bytes,
+  })
+  if (!uploaded.ok) return json({ error: 'REFERENCE_UPLOAD_FAILED' }, 502)
+  const inserted = await fetch(`${SUPABASE_URL}/rest/v1/custom_object_jobs`, {
+    method: 'POST', headers: { ...serviceHeaders(env), Prefer: 'return=minimal' },
+    body: JSON.stringify({ id: jobId, owner_id: ownerId, category, prompt, reference_path: referencePath, reference_mime: image.mime }),
+  })
+  if (!inserted.ok) return json({ error: 'JOB_CREATE_FAILED' }, 502)
+  const dispatched = await fetch('https://api.github.com/repos/GYUHHH/SSNNSS/actions/workflows/img2threejs.yml/dispatches', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${env.GITHUB_ACTIONS_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json', 'User-Agent': 'dens-img2threejs' },
+    body: JSON.stringify({ ref: 'main', inputs: { job_id: jobId } }),
+  })
+  if (!dispatched.ok) {
+    await patchJob(env, jobId, { status: 'failed', stage: 'failed', error: 'JOB_DISPATCH_FAILED' })
+    return json({ error: 'JOB_DISPATCH_FAILED' }, 502)
+  }
+  return json({ jobId, status: 'queued', stage: 'queued' }, 202)
+}
+
+async function jobStatus(request: Request, env: Env) {
+  if (!env.SUPABASE_SERVICE_KEY) return json({ error: 'IMG2THREEJS_NOT_CONFIGURED' }, 503)
+  const ownerId = await signedInUserId(request)
+  if (!ownerId) return json({ error: 'LOGIN_REQUIRED' }, 401)
+  const body = await request.json().catch(() => null) as JobBody | null
+  const jobId = jobIdFrom(body)
+  if (!jobId) return json({ error: 'INVALID_REQUEST' }, 400)
+  const row = (await jobRows(env, `id=eq.${jobId}&owner_id=eq.${ownerId}&select=status,stage,result,error&limit=1`))[0]
+  if (!row) return json({ error: 'JOB_NOT_FOUND' }, 404)
+  return json(row)
+}
+
+async function latestJob(request: Request, env: Env) {
+  if (!env.SUPABASE_SERVICE_KEY) return json({ error: 'IMG2THREEJS_NOT_CONFIGURED' }, 503)
+  const ownerId = await signedInUserId(request)
+  if (!ownerId) return json({ error: 'LOGIN_REQUIRED' }, 401)
+  const row = (await jobRows(env, `owner_id=eq.${ownerId}&status=in.(queued,running,completed,failed)&select=id,status,stage,result,error&order=created_at.desc&limit=1`))[0]
+  return json(row ?? { status: 'none' })
+}
+
+async function consumeJob(request: Request, env: Env) {
+  if (!env.SUPABASE_SERVICE_KEY) return json({ error: 'IMG2THREEJS_NOT_CONFIGURED' }, 503)
+  const ownerId = await signedInUserId(request)
+  if (!ownerId) return json({ error: 'LOGIN_REQUIRED' }, 401)
+  const body = await request.json().catch(() => null) as JobBody | null
+  const jobId = jobIdFrom(body)
+  if (!jobId) return json({ error: 'INVALID_REQUEST' }, 400)
+  const row = (await jobRows(env, `id=eq.${jobId}&owner_id=eq.${ownerId}&select=id,status&limit=1`))[0]
+  if (!row || !['completed', 'failed'].includes(String(row.status))) return json({ error: 'JOB_NOT_READY' }, 409)
+  const response = await patchJob(env, jobId, { status: 'consumed' })
+  return response.ok ? json({ ok: true }) : json({ error: 'JOB_UPDATE_FAILED' }, 502)
+}
+
+async function claimJob(request: Request, env: Env) {
+  if (!runnerAuthorized(request, env) || !env.SUPABASE_SERVICE_KEY) return json({ error: 'UNAUTHORIZED' }, 401)
+  const body = await request.json().catch(() => null) as JobBody | null
+  const jobId = jobIdFrom(body)
+  if (!jobId) return json({ error: 'INVALID_REQUEST' }, 400)
+  const row = (await jobRows(env, `id=eq.${jobId}&select=category,prompt,reference_path,reference_mime,status&limit=1`))[0]
+  if (!row || !['queued', 'running'].includes(String(row.status))) return json({ error: 'JOB_NOT_AVAILABLE' }, 409)
+  await patchJob(env, jobId, { status: 'running', stage: 'intake', error: null })
+  return json({ category: row.category, prompt: row.prompt, referencePath: row.reference_path, referenceMime: row.reference_mime })
+}
+
+async function jobReference(request: Request, env: Env) {
+  if (!runnerAuthorized(request, env) || !env.SUPABASE_SERVICE_KEY) return json({ error: 'UNAUTHORIZED' }, 401)
+  const body = await request.json().catch(() => null) as JobBody | null
+  const jobId = jobIdFrom(body)
+  if (!jobId) return json({ error: 'INVALID_REQUEST' }, 400)
+  const row = (await jobRows(env, `id=eq.${jobId}&select=reference_path,reference_mime&limit=1`))[0]
+  if (!row) return json({ error: 'JOB_NOT_FOUND' }, 404)
+  const stored = await fetch(`${SUPABASE_URL}/storage/v1/object/authenticated/custom-object-inputs/${row.reference_path}`, { headers: serviceHeaders(env) })
+  if (!stored.ok) return json({ error: 'REFERENCE_NOT_FOUND' }, 404)
+  return new Response(stored.body, { headers: { 'Content-Type': String(row.reference_mime), 'Cache-Control': 'no-store' } })
+}
+
+async function progressJob(request: Request, env: Env) {
+  if (!runnerAuthorized(request, env) || !env.SUPABASE_SERVICE_KEY) return json({ error: 'UNAUTHORIZED' }, 401)
+  const body = await request.json().catch(() => null) as JobBody | null
+  const jobId = jobIdFrom(body)
+  const stage = typeof body?.stage === 'string' && ['intake', 'sculpting', 'final-review'].includes(body.stage) ? body.stage : null
+  if (!jobId || !stage) return json({ error: 'INVALID_REQUEST' }, 400)
+  const response = await patchJob(env, jobId, { status: 'running', stage })
+  return response.ok ? json({ ok: true }) : json({ error: 'JOB_UPDATE_FAILED' }, 502)
+}
+
+async function completeJob(request: Request, env: Env) {
+  if (!runnerAuthorized(request, env) || !env.SUPABASE_SERVICE_KEY) return json({ error: 'UNAUTHORIZED' }, 401)
+  const body = await request.json().catch(() => null) as JobBody | null
+  const jobId = jobIdFrom(body)
+  if (!jobId || !isCustomObjectSpec(body?.object)) return json({ error: 'INVALID_REQUEST' }, 400)
+  const response = await patchJob(env, jobId, { status: 'completed', stage: 'completed', result: body.object, error: null })
+  return response.ok ? json({ ok: true }) : json({ error: 'JOB_UPDATE_FAILED' }, 502)
+}
+
+async function failJob(request: Request, env: Env) {
+  if (!runnerAuthorized(request, env) || !env.SUPABASE_SERVICE_KEY) return json({ error: 'UNAUTHORIZED' }, 401)
+  const body = await request.json().catch(() => null) as JobBody | null
+  const jobId = jobIdFrom(body)
+  const error = typeof body?.error === 'string' ? body.error.slice(0, 500) : 'PIPELINE_FAILED'
+  if (!jobId) return json({ error: 'INVALID_REQUEST' }, 400)
+  const response = await patchJob(env, jobId, { status: 'failed', stage: 'failed', error })
+  return response.ok ? json({ ok: true }) : json({ error: 'JOB_UPDATE_FAILED' }, 502)
+}
 
 const creditBalance = async (env: Env, handle: string): Promise<{ balance: number; freeLeft: boolean }> => {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/credits?handle=eq.${encodeURIComponent(handle)}&select=balance,free_used&limit=1`, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } })
@@ -81,81 +223,6 @@ async function lsWebhook(request: Request, env: Env) {
   return json({ ok: true })
 }
 
-const outputText = (body: unknown) => {
-  const response = body as { output_text?: unknown; output?: Array<{ content?: Array<{ type?: string; text?: string }> }> }
-  if (typeof response.output_text === 'string') return response.output_text
-  return response.output?.flatMap((item) => item.content ?? []).find((item) => item.type === 'output_text')?.text
-}
-
-async function generate(request: Request, env: Env) {
-  if (!env.ANTHROPIC_API_KEY && !env.OPENAI_API_KEY) return json({ error: 'API_KEY_NOT_SET' }, 503)
-  if (!await signedIn(request)) return json({ error: 'LOGIN_REQUIRED' }, 401)
-  // 생성 1회 = 크레딧 1 — 조립(draft) 시점에만 차감하고, 컨셉·검수는 같은 회차에 포함이라 무료
-  if (billingEnabled(env)) {
-    const handle = await signedInHandle(request)
-    if (!handle) return json({ error: 'LOGIN_REQUIRED' }, 401)
-    const spent = await fetch(`${SUPABASE_URL}/rest/v1/rpc/spend_credit`, { method: 'POST', headers: serviceHeaders(env), body: JSON.stringify({ p_handle: handle }) })
-    const ok = await spent.json().catch(() => null)
-    if (!spent.ok || ok !== true) return json({ error: 'NO_CREDITS' }, 402)
-  }
-  const body = await request.json().catch(() => null) as GenerateBody | null
-  const category = body?.category as CustomObjectCategory
-  const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : ''
-  const image = typeof body?.image === 'string' ? body.image : undefined
-  if (!CUSTOM_OBJECT_CATEGORIES.includes(category) || (!prompt && !image) || prompt.length > 1200) return json({ error: 'INVALID_REQUEST' }, 400)
-  if (image && (!image.startsWith('data:image/') || image.length > 7_000_000)) return json({ error: 'INVALID_IMAGE' }, 400)
-
-  const userText = `Category: ${category}\nRequest: ${prompt || 'Reconstruct the object shown in the reference image.'}`
-  let parsed: Record<string, unknown>
-  if (env.ANTHROPIC_API_KEY) {
-    // Claude: 스키마를 도구 입력으로 강제해 구조화 출력을 받는다 (코드 실행 없음, 스펙만)
-    const content: Array<Record<string, unknown>> = [{ type: 'text', text: userText }]
-    if (image) {
-      const [head, data] = image.split(',', 2)
-      const mediaType = head.slice('data:'.length).split(';')[0]
-      content.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data } })
-    }
-    const upstream = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: env.ANTHROPIC_MODEL || 'claude-sonnet-5',
-        max_tokens: 4000,
-        system: INSTRUCTIONS,
-        messages: [{ role: 'user', content }],
-        tools: [{ name: 'custom_object', description: 'Emit the finished room object spec.', input_schema: customObjectSchema }],
-        tool_choice: { type: 'tool', name: 'custom_object' },
-      }),
-    })
-    const result = await upstream.json().catch(() => null) as { content?: Array<{ type?: string; input?: unknown }> } | null
-    if (!upstream.ok) return json({ error: 'GENERATION_FAILED' }, 502)
-    const input = result?.content?.find((item) => item.type === 'tool_use')?.input
-    if (!input || typeof input !== 'object') return json({ error: 'EMPTY_GENERATION' }, 502)
-    parsed = input as Record<string, unknown>
-  } else {
-    const content: Array<Record<string, unknown>> = [{ type: 'input_text', text: userText }]
-    if (image) content.push({ type: 'input_image', image_url: image, detail: 'high' })
-    const upstream = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: env.OPENAI_MODEL || 'gpt-5-mini',
-        instructions: INSTRUCTIONS,
-        input: [{ role: 'user', content }],
-        text: { format: { type: 'json_schema', name: 'custom_object', strict: true, schema: customObjectSchema } },
-      }),
-    })
-    const result = await upstream.json().catch(() => null)
-    if (!upstream.ok) return json({ error: 'GENERATION_FAILED' }, 502)
-    const text = outputText(result)
-    if (!text) return json({ error: 'EMPTY_GENERATION' }, 502)
-    try { parsed = JSON.parse(text) as Record<string, unknown> } catch { return json({ error: 'INVALID_GENERATION' }, 502) }
-  }
-  const object = { ...parsed, id: crypto.randomUUID(), category }
-  if (!isCustomObjectSpec(object)) return json({ error: 'INVALID_GENERATION' }, 502)
-  return json({ object })
-}
-
 async function concept(request: Request, env: Env) {
   if (!env.OPENAI_API_KEY) return json({ error: 'OPENAI_API_KEY_NOT_SET' }, 503)
   if (!await signedIn(request)) return json({ error: 'LOGIN_REQUIRED' }, 401)
@@ -177,46 +244,6 @@ async function concept(request: Request, env: Env) {
   return json({ image: `data:image/png;base64,${b64}` })
 }
 
-async function review(request: Request, env: Env) {
-  if (!await signedIn(request)) return json({ error: 'LOGIN_REQUIRED' }, 401)
-  const body = await request.json().catch(() => null) as ReviewBody | null
-  const category = body?.category as CustomObjectCategory
-  const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : ''
-  const reference = typeof body?.image === 'string' ? body.image : undefined
-  const screenshot = typeof body?.screenshot === 'string' ? body.screenshot : undefined
-  const spec = body?.spec
-  if (!CUSTOM_OBJECT_CATEGORIES.includes(category) || !screenshot || !isCustomObjectSpec(spec)) return json({ error: 'INVALID_REQUEST' }, 400)
-  for (const img of [reference, screenshot]) if (img && (!img.startsWith('data:image/') || img.length > 7_000_000)) return json({ error: 'INVALID_IMAGE' }, 400)
-  // Claude 키가 없으면 검수 없이 통과 — 루프가 단발 생성으로 자연 강등된다
-  if (!env.ANTHROPIC_API_KEY) return json({ verdict: 'pass' })
-  const toImage = (dataUrl: string) => { const [head, data] = dataUrl.split(',', 2); return { type: 'image', source: { type: 'base64', media_type: head.slice('data:'.length).split(';')[0], data } } }
-  const content: Array<Record<string, unknown>> = [{ type: 'text', text: `Request: ${prompt || '(reference image only)'}\nCategory: ${category}\nCurrent spec JSON:\n${JSON.stringify(spec)}\n\nFirst image = REFERENCE, second image = RENDER of the current spec.` }]
-  if (reference) content.push(toImage(reference))
-  content.push(toImage(screenshot))
-  const upstream = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: env.ANTHROPIC_MODEL || 'claude-sonnet-5',
-      max_tokens: 5000,
-      system: INSTRUCTIONS + '\n\n' + REVIEW_INSTRUCTIONS,
-      messages: [{ role: 'user', content }],
-      tools: [{ name: 'custom_object_review', description: 'Emit the verification verdict, with a full corrected spec when revising.', input_schema: reviewSchema }],
-      tool_choice: { type: 'tool', name: 'custom_object_review' },
-    }),
-  })
-  const result = await upstream.json().catch(() => null) as { content?: Array<{ type?: string; input?: unknown }> } | null
-  if (!upstream.ok) return json({ error: 'REVIEW_FAILED' }, 502)
-  const input = result?.content?.find((item) => item.type === 'tool_use')?.input as { verdict?: string; revision?: Record<string, unknown> } | undefined
-  console.log('custom-review', env.ANTHROPIC_MODEL || 'claude-sonnet-5', input?.verdict, input?.revision ? 'with-revision' : 'no-revision')
-  if (input?.verdict !== 'pass' && input?.verdict !== 'revise') return json({ error: 'EMPTY_REVIEW' }, 502)
-  if (input.verdict === 'revise' && input.revision) {
-    const revised = { ...input.revision, id: (spec as { id: string }).id, category }
-    if (isCustomObjectSpec(revised)) return json({ verdict: 'revise', object: revised })
-  }
-  return json({ verdict: 'pass' })
-}
-
 export default {
   async fetch(request: Request, env: Env) {
     const url = new URL(request.url)
@@ -226,10 +253,17 @@ export default {
     }
     if (url.pathname.startsWith('/api/custom-objects')) {
       if (request.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405)
-      if (url.pathname === '/api/custom-objects') return generate(request, env)
+      if (url.pathname === '/api/custom-objects/jobs') return createJob(request, env)
+      if (url.pathname === '/api/custom-objects/jobs/status') return jobStatus(request, env)
+      if (url.pathname === '/api/custom-objects/jobs/latest') return latestJob(request, env)
+      if (url.pathname === '/api/custom-objects/jobs/consume') return consumeJob(request, env)
+      if (url.pathname === '/api/custom-objects/jobs/claim') return claimJob(request, env)
+      if (url.pathname === '/api/custom-objects/jobs/reference') return jobReference(request, env)
+      if (url.pathname === '/api/custom-objects/jobs/progress') return progressJob(request, env)
+      if (url.pathname === '/api/custom-objects/jobs/complete') return completeJob(request, env)
+      if (url.pathname === '/api/custom-objects/jobs/fail') return failJob(request, env)
       if (url.pathname === '/api/custom-objects/credits') return credits(request, env)
       if (url.pathname === '/api/custom-objects/concept') return concept(request, env)
-      if (url.pathname === '/api/custom-objects/review') return review(request, env)
       return json({ error: 'NOT_FOUND' }, 404)
     }
     return env.ASSETS.fetch(request)
