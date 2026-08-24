@@ -146,6 +146,7 @@ async function review(request: Request, env: Env) {
   const result = await upstream.json().catch(() => null) as { content?: Array<{ type?: string; input?: unknown }> } | null
   if (!upstream.ok) return json({ error: 'REVIEW_FAILED' }, 502)
   const input = result?.content?.find((item) => item.type === 'tool_use')?.input as { verdict?: string; revision?: Record<string, unknown> } | undefined
+  console.log('custom-review', env.ANTHROPIC_MODEL || 'claude-sonnet-5', input?.verdict, input?.revision ? 'with-revision' : 'no-revision')
   if (input?.verdict !== 'pass' && input?.verdict !== 'revise') return json({ error: 'EMPTY_REVIEW' }, 502)
   if (input.verdict === 'revise' && input.revision) {
     const revised = { ...input.revision, id: (spec as { id: string }).id, category }
