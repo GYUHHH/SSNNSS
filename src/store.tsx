@@ -116,7 +116,7 @@ export const initialFurniture: FurnitureItem[] = [
 
 export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surfaceId' | 'gridX' | 'gridY' | 'gridZ' | 'wallId' | 'rotation' | 'updatedAt'>> = [
   { type: 'aero-bubble-chair', name: '에어로 버블 체어', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 2 }, size: [2, 2], scale: 1, allowedSurfaces: ['floor'] },
-  { type: 'pink-slide', name: '핑크 미끄럼틀', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 1, depth: 3 }, size: [1, 3], scale: 1, allowedSurfaces: ['floor'] },
+  { type: 'pink-slide', name: '핑크 미끄럼틀', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 6 }, size: [2, 6], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'kids-slide', name: '미끄럼틀', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'inflatable-sofa', name: '풍선 소파', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'blob-sculpture', name: '크롬 조형물', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 3, depth: 3 }, size: [3, 3], scale: 1, allowedSurfaces: ['floor'] },
