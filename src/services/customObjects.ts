@@ -23,7 +23,7 @@ export const customObjectTemplate = (spec: CustomObjectSpec) => {
 }
 
 export type CustomSize = { width: number; depth: number; height?: number }
-export async function generateCustomObject(input: { category: CustomObjectCategory; prompt: string; image?: string; size?: CustomSize }): Promise<CustomObjectSpec> {
+export async function generateCustomObject(input: { category: CustomObjectCategory; prompt: string; image?: string; imageBack?: string; size?: CustomSize }): Promise<CustomObjectSpec> {
   const response = await fetch('/api/custom-objects', {
     method: 'POST',
     headers: { ...await authHeaders(), 'Content-Type': 'application/json' },
@@ -35,7 +35,7 @@ export async function generateCustomObject(input: { category: CustomObjectCatego
   return body.object
 }
 
-export async function detailCustomObject(input: { category: CustomObjectCategory; prompt: string; image?: string; spec: CustomObjectSpec; feedback?: string; size?: CustomSize }): Promise<CustomObjectSpec> {
+export async function detailCustomObject(input: { category: CustomObjectCategory; prompt: string; image?: string; imageBack?: string; spec: CustomObjectSpec; feedback?: string; size?: CustomSize }): Promise<CustomObjectSpec> {
   const response = await fetch('/api/custom-objects/detail', {
     method: 'POST',
     headers: { ...await authHeaders(), 'Content-Type': 'application/json' },
@@ -47,18 +47,18 @@ export async function detailCustomObject(input: { category: CustomObjectCategory
   return body.object
 }
 
-export async function generateConceptImage(input: { category: CustomObjectCategory; prompt: string }): Promise<string> {
+export async function generateConceptImage(input: { category: CustomObjectCategory; prompt: string }): Promise<{ front: string; back?: string }> {
   const response = await fetch('/api/custom-objects/concept', {
     method: 'POST',
     headers: { ...await authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   })
-  const body = await response.json().catch(() => null) as { image?: string; error?: string } | null
+  const body = await response.json().catch(() => null) as { image?: string; back?: string; error?: string } | null
   if (!response.ok || typeof body?.image !== 'string') throw new Error(body?.error || `HTTP ${response.status}`)
-  return body.image
+  return { front: body.image, back: typeof body.back === 'string' ? body.back : undefined }
 }
 
-export async function reviewCustomObject(input: { category: CustomObjectCategory; prompt: string; image?: string; spec: CustomObjectSpec; screenshots: string[] }): Promise<{ verdict: 'pass' | 'fail'; defects: string[]; violations: string[] }> {
+export async function reviewCustomObject(input: { category: CustomObjectCategory; prompt: string; image?: string; imageBack?: string; spec: CustomObjectSpec; screenshots: string[] }): Promise<{ verdict: 'pass' | 'fail'; defects: string[]; violations: string[] }> {
   const response = await fetch('/api/custom-objects/review', {
     method: 'POST',
     headers: { ...await authHeaders(), 'Content-Type': 'application/json' },

@@ -1,6 +1,19 @@
 import { RoundedBox } from '@react-three/drei'
 import { useMemo } from 'react'
+import { ExtrudeGeometry, Shape } from 'three'
 import type { CustomObjectPart, CustomObjectSpec } from '../customObjectSpec'
+
+// 유닛 쐐기(직각 삼각기둥): 바닥 평평, -X쪽이 수직 등, +X로 내려가는 경사면. 모든 파츠가 공유한다.
+const wedgeGeometry = (() => {
+  const profile = new Shape()
+  profile.moveTo(-.5, -.5)
+  profile.lineTo(.5, -.5)
+  profile.lineTo(-.5, .5)
+  profile.closePath()
+  const geometry = new ExtrudeGeometry(profile, { depth: 1, bevelEnabled: false })
+  geometry.translate(0, 0, -.5)
+  return geometry
+})()
 
 function Part({ part, preview }: { part: CustomObjectPart; preview: boolean }) {
   const material = <meshStandardMaterial color={part.color} roughness={part.roughness} metalness={part.metalness} transparent={preview} opacity={preview ? .55 : 1} />
@@ -13,6 +26,7 @@ function Part({ part, preview }: { part: CustomObjectPart; preview: boolean }) {
     {part.primitive === 'capsule' && <capsuleGeometry args={[.35, .3, 4, 12]} />}
     {part.primitive === 'torus' && <torusGeometry args={[.35, .15, 10, 20]} />}
     {part.primitive === 'cone' && <coneGeometry args={[.5, 1, 16]} />}
+    {part.primitive === 'wedge' && <primitive object={wedgeGeometry} attach="geometry" />}
     {material}
   </mesh>
 }

@@ -450,15 +450,18 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       try {
         // 1) 참조 확보: 사진이 있으면 그대로, 없으면 컨셉 이미지를 생성해 검수 기준으로 삼는다
         let reference = input.image
+        let referenceBack: string | undefined
         if (!reference) {
           setCustomJob({ stage: 'concept', round: 0, unseen: false })
-          reference = await generateConceptImage({ category: input.category, prompt: input.prompt })
+          const views = await generateConceptImage({ category: input.category, prompt: input.prompt })
+          reference = views.front
+          referenceBack = views.back
         }
         // 2) 조립 2패스: 블록아웃(실루엣·비례) → 디테일 (같은 크레딧 1회)
         setCustomJob({ stage: 'draft', round: 0, unseen: false })
-        const blockout = await generateCustomObject({ category: input.category, prompt: input.prompt, image: reference, size: input.size })
+        const blockout = await generateCustomObject({ category: input.category, prompt: input.prompt, image: reference, imageBack: referenceBack, size: input.size })
         setCustomJob({ stage: 'detail', round: 0, unseen: false })
-        let spec = await detailCustomObject({ category: input.category, prompt: input.prompt, image: reference, spec: blockout, size: input.size })
+        let spec = await detailCustomObject({ category: input.category, prompt: input.prompt, image: reference, imageBack: referenceBack, spec: blockout, size: input.size })
         // 3) 검수는 판정만. 불합격이면 결함 피드백으로 디테일 패스를 "새로" 생성하고(수선 금지),
         //    시도들 중 검수 점수가 가장 좋은 것을 채택한다 — 검증 안 된 스펙은 절대 채택하지 않는다.
         let best: { spec: typeof spec; score: number } | null = null
@@ -470,13 +473,13 @@ export function RoomProvider({ children }: { children: ReactNode }) {
             if (shot) shots.push(shot)
           }
           if (!shots.length) break
-          const review = await reviewCustomObject({ category: input.category, prompt: input.prompt, image: reference, spec, screenshots: shots })
+          const review = await reviewCustomObject({ category: input.category, prompt: input.prompt, image: reference, imageBack: referenceBack, spec, screenshots: shots })
           const score = review.violations.length * 2 + review.defects.length
           if (!best || score < best.score) best = { spec, score }
           if (review.verdict === 'pass') { best = { spec, score: 0 }; break }
           if (round === 2) break
           setCustomJob({ stage: 'revise', round, unseen: false })
-          spec = await detailCustomObject({ category: input.category, prompt: input.prompt, image: reference, spec: blockout, feedback: [...review.violations, ...review.defects].join('\n'), size: input.size })
+          spec = await detailCustomObject({ category: input.category, prompt: input.prompt, image: reference, imageBack: referenceBack, spec: blockout, feedback: [...review.violations, ...review.defects].join('\n'), size: input.size })
         }
         if (best) spec = best.spec
         addCustomObject(spec)

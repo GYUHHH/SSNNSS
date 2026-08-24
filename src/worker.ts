@@ -11,14 +11,14 @@ type Env = {
   LS_BUY_URL?: string
   LS_CREDITS_PER_ORDER?: string
 }
-type GenerateBody = { category?: unknown; prompt?: unknown; image?: unknown; spec?: unknown; feedback?: unknown; size?: unknown }
+type GenerateBody = { category?: unknown; prompt?: unknown; image?: unknown; imageBack?: unknown; spec?: unknown; feedback?: unknown; size?: unknown }
 type ReviewBody = GenerateBody & { screenshot?: unknown; screenshots?: unknown }
 
 const SUPABASE_URL = 'https://pxjavljsalibpnxdrxel.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4amF2bGpzYWxpYnBueGRyeGVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4NjAxNTgsImV4cCI6MjEwMjQzNjE1OH0.quIFdlk11b7F-YIeHO3TsEhS2RzgxDtntqdh2vHyUfE'
 const INSTRUCTIONS = `Create one cute low-poly miniature room object as a set of Three.js-friendly primitives. Match the requested category exactly. Use only the allowed primitives and hex colors. Coordinates are local: Y is up; floor objects must rest on Y=0; wall decorations face +Z and stay shallow. Center the object on X/Z for floor objects or X/Y for wall objects. Footprint is an integer 10x10 room-grid size. Do not include text, code, explanations, lights, cameras, shadows, or unsupported geometry.
 
-Reconstruction discipline (distilled img2threejs): First list the object's 2-4 identity-defining features mentally and make sure each one exists as geometry. Choose every part's primitive from its real topology: slabs/panels/frames = box, shafts/legs/rims/rolls = cylinder, organic blobs/cushions = sphere (scale into ellipsoids), rings/handles = torus, tapers/spouts = cone, soft pill shapes = capsule. Proportion parts against each other like the real object - measure relative sizes off the reference before writing numbers. Connected sloped parts must share exact endpoints so nothing floats or gaps. Repeat identical parts with consistent spacing (legs, rungs, slats). Materials: flat pastel-friendly hex colors; roughness .6-.9 for fabric/wood/paper/plastic, .1-.3 for glass/metal/gloss; metalness at most .5 (there is no environment map - higher goes black). Never leave two faces coplanar - offset touching or stacked parts by at least .01 so surfaces cannot flicker. Nothing may sink below Y=0 or float without support.`
+Reconstruction discipline (distilled img2threejs): First list the object's 2-4 identity-defining features mentally and make sure each one exists as geometry. Choose every part's primitive from its real topology: slabs/panels/frames = box, shafts/legs/rims/rolls = cylinder, organic blobs/cushions = sphere (scale into ellipsoids), rings/handles = torus, tapers/spouts = cone, soft pill shapes = capsule, ramps/slopes/slides/slanted braces = wedge (a right-triangular prism: flat bottom, vertical back face at -X, slope descending from the top at -X to the floor at +X; size = [run length X, height Y, width Z]; rotate around Y to aim the slope). Proportion parts against each other like the real object - measure relative sizes off the reference before writing numbers. Connected sloped parts must share exact endpoints so nothing floats or gaps. Repeat identical parts with consistent spacing (legs, rungs, slats). Materials: flat pastel-friendly hex colors; roughness .6-.9 for fabric/wood/paper/plastic, .1-.3 for glass/metal/gloss; metalness at most .5 (there is no environment map - higher goes black). Never leave two faces coplanar - offset touching or stacked parts by at least .01 so surfaces cannot flicker. Nothing may sink below Y=0 or float without support.`
 
 const BLOCKOUT_INSTRUCTIONS = `This is PASS 1 of 2: the blockout. Build ONLY the macro silhouette and the identity-defining components as simple volumes - 4 to 12 parts, each with a unique id. No small accents, no rivets, no trim. Get proportions, stance and grounding right; details come in the next pass.`
 
@@ -139,8 +139,9 @@ async function generate(request: Request, env: Env, detail = false) {
   const category = body?.category as CustomObjectCategory
   const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : ''
   const image = typeof body?.image === 'string' ? body.image : undefined
+  const imageBack = typeof body?.imageBack === 'string' ? body.imageBack : undefined
   if (!CUSTOM_OBJECT_CATEGORIES.includes(category) || (!prompt && !image) || prompt.length > 1200) return json({ error: 'INVALID_REQUEST' }, 400)
-  if (image && (!image.startsWith('data:image/') || image.length > 7_000_000)) return json({ error: 'INVALID_IMAGE' }, 400)
+  for (const ref of [image, imageBack]) if (ref && (!ref.startsWith('data:image/') || ref.length > 7_000_000)) return json({ error: 'INVALID_IMAGE' }, 400)
   // 디테일 패스는 같은 생성 회차의 후반부라 크레딧을 다시 쓰지 않는다
   const blockout = body?.spec !== undefined && isCustomObjectSpec(body.spec) ? body.spec : null
   if (detail && !blockout) return json({ error: 'INVALID_REQUEST' }, 400)
@@ -157,9 +158,9 @@ async function generate(request: Request, env: Env, detail = false) {
   const userText = `Category: ${category}\nRequest: ${prompt || 'Reconstruct the object shown in the reference image.'}${sizeText}${blockout ? `\nBlockout spec:\n${JSON.stringify(blockout)}` : ''}${feedback ? `\nA previous detail attempt FAILED review for these exact reasons - build a fresh detail pass that cannot repeat any of them:\n${feedback}` : ''}`
   let parsed: Record<string, unknown>
   if (env.ANTHROPIC_API_KEY) {
-    const content: Array<Record<string, unknown>> = [{ type: 'text', text: userText }]
-    if (image) {
-      const [head, data] = image.split(',', 2)
+    const content: Array<Record<string, unknown>> = [{ type: 'text', text: `${userText}${imageBack ? '\nTwo reference views are attached: first the front, then the back of the same object.' : ''}` }]
+    for (const ref of [image, imageBack]) if (ref) {
+      const [head, data] = ref.split(',', 2)
       content.push({ type: 'image', source: { type: 'base64', media_type: head.slice(5).split(';')[0], data } })
     }
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
@@ -201,13 +202,20 @@ async function concept(request: Request, env: Env) {
   const category = body?.category as CustomObjectCategory
   const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : ''
   if (!CUSTOM_OBJECT_CATEGORIES.includes(category) || !prompt || prompt.length > 1200) return json({ error: 'INVALID_REQUEST' }, 400)
-  const upstream = await fetch('https://api.openai.com/v1/images/generations', {
-    method: 'POST', headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'gpt-image-1', size: '1024x1024', quality: 'medium', n: 1, prompt: `Cute low-poly 3D render of a single ${category} object for a miniature isometric room: ${prompt}. Plain light background, no text, no people.` }),
-  })
-  const result = await upstream.json().catch(() => null) as { data?: Array<{ b64_json?: string }> } | null
-  const image = result?.data?.[0]?.b64_json
-  return upstream.ok && image ? json({ image: `data:image/png;base64,${image}` }) : json({ error: 'CONCEPT_FAILED' }, 502)
+  // 정면·후면 두 각도를 만들어 참조로 쓴다 — 한 장이면 안 보이는 면을 추측으로 지어낸다
+  const view = async (angle: string) => {
+    const upstream = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST', headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'gpt-image-1', size: '1024x1024', quality: 'medium', n: 1, prompt: `Cute low-poly 3D render of a single ${category} object for a miniature isometric room, ${angle}: ${prompt}. Plain light background, no text, no people. Same object design in every view.` }),
+    })
+    const result = await upstream.json().catch(() => null) as { data?: Array<{ b64_json?: string }> } | null
+    const image = result?.data?.[0]?.b64_json
+    return upstream.ok && image ? `data:image/png;base64,${image}` : null
+  }
+  const front = await view('three-quarter front view')
+  if (!front) return json({ error: 'CONCEPT_FAILED' }, 502)
+  const back = await view('three-quarter rear view showing the back side')
+  return json({ image: front, back })
 }
 
 async function review(request: Request, env: Env) {
@@ -216,6 +224,7 @@ async function review(request: Request, env: Env) {
   const category = body?.category as CustomObjectCategory
   const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : ''
   const reference = typeof body?.image === 'string' ? body.image : undefined
+  const referenceBack = typeof body?.imageBack === 'string' ? body.imageBack : undefined
   const single = typeof body?.screenshot === 'string' ? [body.screenshot] : []
   const screenshots = (Array.isArray(body?.screenshots) ? body.screenshots.filter((value): value is string => typeof value === 'string') : single).slice(0, 3)
   if (!CUSTOM_OBJECT_CATEGORIES.includes(category) || !screenshots.length || !isCustomObjectSpec(body?.spec)) return json({ error: 'INVALID_REQUEST' }, 400)
@@ -223,8 +232,9 @@ async function review(request: Request, env: Env) {
   if (!env.ANTHROPIC_API_KEY) return json({ verdict: 'pass' })
   const toImage = (dataUrl: string) => { const [head, data] = dataUrl.split(',', 2); return { type: 'image', source: { type: 'base64', media_type: head.slice(5).split(';')[0], data } } }
   const violations = validateSpecGeometry(body.spec)
-  const content: Array<Record<string, unknown>> = [{ type: 'text', text: `Request: ${prompt || '(reference only)'}\nCategory: ${category}\nCurrent spec:\n${JSON.stringify(body.spec)}\n${violations.length ? `Deterministic geometry check found these violations (facts, all must be fixed):\n- ${violations.join('\n- ')}\n` : ''}${reference ? 'First image is the reference; the' : 'The'} remaining ${screenshots.length} images are renders of the current spec from different angles (front-iso, side, top). A shape that only reads from one angle fails.` }]
+  const content: Array<Record<string, unknown>> = [{ type: 'text', text: `Request: ${prompt || '(reference only)'}\nCategory: ${category}\nCurrent spec:\n${JSON.stringify(body.spec)}\n${violations.length ? `Deterministic geometry check found these violations (facts, all must be fixed):\n- ${violations.join('\n- ')}\n` : ''}${reference ? (referenceBack ? 'First two images are the reference (front, back); the' : 'First image is the reference; the') : 'The'} remaining ${screenshots.length} images are renders of the current spec from different angles (front-iso, side, top). A shape that only reads from one angle fails.` }]
   if (reference) content.push(toImage(reference))
+  if (referenceBack) content.push(toImage(referenceBack))
   for (const shot of screenshots) content.push(toImage(shot))
   const upstream = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST', headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
