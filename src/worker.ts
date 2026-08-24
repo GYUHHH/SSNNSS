@@ -23,11 +23,47 @@ Reconstruction discipline (distilled img2threejs): First list the object's 2-4 i
 const BLOCKOUT_INSTRUCTIONS = `This is PASS 1 of 2: the blockout. Build ONLY the macro silhouette and the identity-defining components as simple volumes - 4 to 12 parts. No small accents, no rivets, no trim. Get proportions, stance and grounding right; details come in the next pass.`
 
 const DETAIL_INSTRUCTIONS = `This is PASS 2 of 2: the detail pass. You are given the blockout spec. Keep its overall silhouette, proportions and part placement, then refine it: split crude volumes into properly shaped parts where topology demands, add the small identity accents visible in the reference (knobs, trim, feet, seams, hardware), and tune colors/roughness per material. Output the FULL final spec (not a diff). Stay within the parts limit and never break grounding or introduce coplanar faces.`
-const REVIEW_INSTRUCTIONS = `Compare the render against the reference and request. Check identity, silhouette, proportions, defining features, colors, grounding, z-fighting and stray parts. Pass a clearly recognizable cute low-poly object. Otherwise return one complete corrected spec.`
+const REVIEW_INSTRUCTIONS = `Review like an inspector, not an admirer. 1) List the reference's identity-defining features in featureChecks and judge each one against the renders. 2) List every local defect in defects: a detached or leaning-away part, a part that should dock into another but does not, a missing feature (bars, rails, handles), wrong relative proportion. 3) If ANY feature is broken/missing, ANY defect exists, or ANY deterministic geometry violation is listed in the message, the verdict MUST be revise with a full corrected spec. When revising, fix exactly what you called out and keep every other part's coordinates unchanged. Cute low-poly simplification is fine; broken structure is not.`
 const reviewSchema = {
-  type: 'object', additionalProperties: false, required: ['verdict'],
-  properties: { verdict: { type: 'string', enum: ['pass', 'revise'] }, revision: customObjectSchema },
+  type: 'object', additionalProperties: false, required: ['verdict', 'featureChecks', 'defects'],
+  properties: {
+    verdict: { type: 'string', enum: ['pass', 'revise'] },
+    featureChecks: { type: 'array', maxItems: 8, items: { type: 'string' }, description: 'One line per identity-defining feature of the reference: "<feature>: ok" or "<feature>: <what is wrong>"' },
+    defects: { type: 'array', maxItems: 12, items: { type: 'string' }, description: 'Every local defect seen in the renders (floating, detached, missing, misplaced, wrong proportion). Empty only if flawless.' },
+    revision: customObjectSchema,
+  },
 } as const
+
+// 스펙은 숫자라 결함 상당수를 수학으로 잡을 수 있다: 바닥 뚫림, 공중부양, 본체에서 분리된 부품 덩어리.
+// 회전 부품은 감싸는 반지름으로 보수적으로 계산한다 — 오탐(멀쩡한데 지적)보다 놓침이 낫다.
+function validateSpecGeometry(spec: { category: string; parts: Array<{ id: string; primitive: string; position: [number, number, number]; rotation: [number, number, number]; size: [number, number, number] }> }): string[] {
+  const issues: string[] = []
+  const wall = spec.category === 'wallDecoration'
+  const boxes = spec.parts.map((part) => {
+    const rotated = part.rotation.some((angle) => Math.abs(angle) > 1e-3)
+    const half = rotated
+      ? (() => { const r = Math.hypot(part.size[0], part.size[1], part.size[2]) / 2; return [r, r, r] as const })()
+      : [part.size[0] / 2, part.size[1] / 2, part.size[2] / 2] as const
+    const tightHalfY = rotated ? Math.min(...part.size) / 2 : part.size[1] / 2
+    return { id: part.id, min: part.position.map((value, axis) => value - half[axis]) as number[], max: part.position.map((value, axis) => value + half[axis]) as number[], bottomTight: part.position[1] - tightHalfY }
+  })
+  if (!wall) for (const box of boxes) if (box.bottomTight < -0.03) issues.push(`part "${box.id}" sinks below the floor (bottom y=${box.bottomTight.toFixed(2)})`)
+  const touches = (a: typeof boxes[number], b: typeof boxes[number]) => [0, 1, 2].every((axis) => a.min[axis] <= b.max[axis] + 0.03 && b.min[axis] <= a.max[axis] + 0.03)
+  // 연결 그래프: 바닥에 닿은 부품(또는 벽장식의 모든 부품)을 뿌리로 삼아 닿음으로 전파한다
+  const grounded = boxes.map((box) => wall || box.min[1] <= 0.05)
+  let changed = true
+  while (changed) {
+    changed = false
+    for (let a = 0; a < boxes.length; a += 1) {
+      if (grounded[a]) continue
+      for (let b = 0; b < boxes.length; b += 1) {
+        if (a !== b && grounded[b] && touches(boxes[a], boxes[b])) { grounded[a] = true; changed = true; break }
+      }
+    }
+  }
+  boxes.forEach((box, index) => { if (!grounded[index]) issues.push(`part "${box.id}" floats: it touches nothing that reaches the ground`) })
+  return issues
+}
 
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } })
 const authorization = (request: Request) => request.headers.get('Authorization')
@@ -161,7 +197,7 @@ async function concept(request: Request, env: Env) {
   if (!CUSTOM_OBJECT_CATEGORIES.includes(category) || !prompt || prompt.length > 1200) return json({ error: 'INVALID_REQUEST' }, 400)
   const upstream = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST', headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'gpt-image-1', size: '1024x1024', quality: 'low', n: 1, prompt: `Cute low-poly 3D render of a single ${category} object for a miniature isometric room: ${prompt}. Plain light background, no text, no people.` }),
+    body: JSON.stringify({ model: 'gpt-image-1', size: '1024x1024', quality: 'medium', n: 1, prompt: `Cute low-poly 3D render of a single ${category} object for a miniature isometric room: ${prompt}. Plain light background, no text, no people.` }),
   })
   const result = await upstream.json().catch(() => null) as { data?: Array<{ b64_json?: string }> } | null
   const image = result?.data?.[0]?.b64_json
@@ -180,7 +216,8 @@ async function review(request: Request, env: Env) {
   for (const shot of screenshots) if (!shot.startsWith('data:image/') || shot.length > 7_000_000) return json({ error: 'INVALID_IMAGE' }, 400)
   if (!env.ANTHROPIC_API_KEY) return json({ verdict: 'pass' })
   const toImage = (dataUrl: string) => { const [head, data] = dataUrl.split(',', 2); return { type: 'image', source: { type: 'base64', media_type: head.slice(5).split(';')[0], data } } }
-  const content: Array<Record<string, unknown>> = [{ type: 'text', text: `Request: ${prompt || '(reference only)'}\nCategory: ${category}\nCurrent spec:\n${JSON.stringify(body.spec)}\n${reference ? 'First image is the reference; the' : 'The'} remaining ${screenshots.length} images are renders of the current spec from different angles (front-iso, side, top). A shape that only reads from one angle fails.` }]
+  const violations = validateSpecGeometry(body.spec)
+  const content: Array<Record<string, unknown>> = [{ type: 'text', text: `Request: ${prompt || '(reference only)'}\nCategory: ${category}\nCurrent spec:\n${JSON.stringify(body.spec)}\n${violations.length ? `Deterministic geometry check found these violations (facts, all must be fixed):\n- ${violations.join('\n- ')}\n` : ''}${reference ? 'First image is the reference; the' : 'The'} remaining ${screenshots.length} images are renders of the current spec from different angles (front-iso, side, top). A shape that only reads from one angle fails.` }]
   if (reference) content.push(toImage(reference))
   for (const shot of screenshots) content.push(toImage(shot))
   const upstream = await fetch('https://api.anthropic.com/v1/messages', {
@@ -195,10 +232,13 @@ async function review(request: Request, env: Env) {
   const result = await upstream.json().catch(() => null) as { content?: Array<{ type?: string; input?: unknown }> } | null
   if (!upstream.ok) return json({ error: 'REVIEW_FAILED' }, 502)
   const input = result?.content?.find((item) => item.type === 'tool_use')?.input as { verdict?: string; revision?: Record<string, unknown> } | undefined
+  console.log('custom-review', input?.verdict, 'violations', violations.length, 'defects', (input as { defects?: string[] })?.defects?.length ?? 0)
   if (input?.verdict === 'revise' && input.revision) {
     const revised = { ...input.revision, id: body.spec.id, category }
     if (isCustomObjectSpec(revised)) return json({ verdict: 'revise', object: revised })
   }
+  // 검수가 pass라고 해도 결정적 위반이 남아 있으면 통과시키지 않는다 (수정본 없이 pass만 온 경우)
+  if (violations.length) return json({ verdict: 'revise' })
   return json({ verdict: 'pass' })
 }
 
