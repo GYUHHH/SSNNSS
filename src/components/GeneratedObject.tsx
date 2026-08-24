@@ -1,6 +1,6 @@
 import { RoundedBox } from '@react-three/drei'
 import { useMemo } from 'react'
-import { ExtrudeGeometry, Shape } from 'three'
+import { CylinderGeometry, ExtrudeGeometry, Shape, SphereGeometry } from 'three'
 import type { CustomObjectPart, CustomObjectSpec } from '../customObjectSpec'
 
 // 유닛 쐐기(직각 삼각기둥): 바닥 평평, -X쪽이 수직 등, +X로 내려가는 경사면. 모든 파츠가 공유한다.
@@ -12,6 +12,35 @@ const wedgeGeometry = (() => {
   profile.closePath()
   const geometry = new ExtrudeGeometry(profile, { depth: 1, bevelEnabled: false })
   geometry.translate(0, 0, -.5)
+  return geometry
+})()
+
+// 오목 곡면 경사(쿼터파이프): -X쪽 수직 등에서 +X 바닥으로 부드럽게 흘러내리는 진짜 곡선 — 미끄럼틀용
+const rampGeometry = (() => {
+  const profile = new Shape()
+  profile.moveTo(-.5, .5)
+  profile.absarc(.5, .5, 1, Math.PI, Math.PI * 1.5, false)
+  profile.lineTo(-.5, -.5)
+  profile.closePath()
+  const geometry = new ExtrudeGeometry(profile, { depth: 1, bevelEnabled: false, curveSegments: 12 })
+  geometry.translate(0, 0, -.5)
+  return geometry
+})()
+
+// 반원기둥: 평평한 바닥 + 둥근 등, 길이는 X축 — 아치·라운드탑·터널 지붕
+const halfCylinderGeometry = (() => {
+  const geometry = new CylinderGeometry(.5, .5, 1, 16, 1, false, 0, Math.PI)
+  geometry.rotateZ(Math.PI / 2)
+  geometry.scale(1, 2, 1)
+  geometry.translate(0, -.5, 0)
+  return geometry
+})()
+
+// 반구(돔): 평평한 면이 아래, 크기[1]이 전체 높이가 되도록 정규화
+const hemisphereGeometry = (() => {
+  const geometry = new SphereGeometry(.5, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2)
+  geometry.scale(1, 2, 1)
+  geometry.translate(0, -.5, 0)
   return geometry
 })()
 
@@ -27,6 +56,11 @@ function Part({ part, preview }: { part: CustomObjectPart; preview: boolean }) {
     {part.primitive === 'torus' && <torusGeometry args={[.35, .15, 10, 20]} />}
     {part.primitive === 'cone' && <coneGeometry args={[.5, 1, 16]} />}
     {part.primitive === 'wedge' && <primitive object={wedgeGeometry} attach="geometry" />}
+    {part.primitive === 'ramp' && <primitive object={rampGeometry} attach="geometry" />}
+    {part.primitive === 'halfCylinder' && <primitive object={halfCylinderGeometry} attach="geometry" />}
+    {part.primitive === 'hemisphere' && <primitive object={hemisphereGeometry} attach="geometry" />}
+    {part.primitive === 'frustum' && <cylinderGeometry args={[.3, .5, 1, 16]} />}
+    {part.primitive === 'elbow' && <torusGeometry args={[.35, .15, 10, 16, Math.PI / 2]} />}
     {material}
   </mesh>
 }

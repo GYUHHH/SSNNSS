@@ -1,5 +1,5 @@
 export const CUSTOM_OBJECT_CATEGORIES = ['furniture', 'wallDecoration', 'floor', 'sculpture'] as const
-export const CUSTOM_PRIMITIVES = ['box', 'roundedBox', 'cylinder', 'sphere', 'capsule', 'torus', 'cone', 'wedge'] as const
+export const CUSTOM_PRIMITIVES = ['box', 'roundedBox', 'cylinder', 'sphere', 'capsule', 'torus', 'cone', 'wedge', 'frustum', 'hemisphere', 'halfCylinder', 'ramp', 'elbow'] as const
 
 export type CustomObjectCategory = typeof CUSTOM_OBJECT_CATEGORIES[number]
 export type CustomPrimitive = typeof CUSTOM_PRIMITIVES[number]
