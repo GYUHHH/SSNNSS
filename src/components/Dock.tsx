@@ -2,9 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { MAX_ROOMS, useRoomStore } from '../store'
 import { enterRoom, isVisiting, myHandle, searchRooms } from '../services/social'
-import { explorerMode, isFollowingRoom, modeRoom, myInviteLink, onFollowsChange, rememberModeRoom, setExplorerMode, setFollowing } from '../services/follows'
+import { explorerMode, isFollowingRoom, modeRoom, onFollowsChange, rememberModeRoom, setExplorerMode, setFollowing } from '../services/follows'
 import { snapshotActiveFrames } from '../services/ytResume'
-import { shareRoom } from '../services/capture'
 import SoundHub from './SoundHub'
 import { requestExplorerZoom } from './CameraController'
 import { lang, setLang, t, tp } from '../services/i18n'
@@ -65,20 +64,6 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
   }, [moreState])
   const [searchOpen, setSearchOpen] = useState(false)
   const [shopOpen, setShopOpen] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [shareState, setShareState] = useState<'idle' | 'busy' | 'saved'>('idle')
-  const share = () => {
-    if (shareState === 'busy') return
-    setShareState('busy')
-    void shareRoom().then((result) => {
-      if (result === 'saved') { setShareState('saved'); setTimeout(() => { setShareState('idle'); setRoomsOpen(false) }, 1200) }
-      else { setShareState('idle'); setRoomsOpen(false) }
-    })
-  }
-  const copyInvite = () => void myInviteLink().then((link) => {
-    if (!link) return
-    void navigator.clipboard.writeText(link).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) })
-  })
   // home = only rooms I follow around mine, discover = the public directory; the explorer listens to this
   const [explore, setExplore] = useState(explorerMode())
   const { currentHandle } = useRoomStore()
@@ -144,8 +129,6 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
               {rooms.length > 1 && <button type="button" className="dock-pop-delete" aria-label={tp('{name} 삭제', { name: room.name })} onClick={() => { setRoomsOpen(false); onDeleteRoom(room.id) }}>×</button>}
             </li>)}
             {rooms.length < MAX_ROOMS && <li><button type="button" onClick={() => { createRoom(); setRoomsOpen(false) }}>{t('+ 새 방 만들기')}</button></li>}
-            <li><button type="button" onClick={copyInvite}>{copied ? t('복사됨') : t('초대 링크 복사')}</button></li>
-            <li><button type="button" onClick={share}>{shareState === 'busy' ? t('캡처 중') : shareState === 'saved' ? t('저장됨 · 링크 복사됨') : t('방 공유')}</button></li>
             <li><button type="button" onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}>{lang === 'ko' ? 'English' : '한국어'}</button></li>
           </ul>}
           <button type="button" className="dock-button" aria-label={t('방설정')} onClick={() => setRoomsOpen((value) => !value)}><HouseIcon /></button>

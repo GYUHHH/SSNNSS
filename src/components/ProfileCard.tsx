@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRoomStore } from '../store'
 import { currentRoomHandle, currentUserEmail, isVisiting, myHandle, onAuthChange, signOut } from '../services/social'
-import { fetchFollowers, onFollowsChange } from '../services/follows'
+import { fetchFollowers, myInviteLink, onFollowsChange } from '../services/follows'
+import { shareRoom } from '../services/capture'
 import { PhotoCropEditor } from './PhotoCropEditor'
 import { t } from '../services/i18n'
 
 // door-with-an-arrow: the usual sign-out glyph
 const SignOutIcon = () => <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" /><path d="M10 16l-4-4 4-4" /><path d="M6 12h9" /></svg>
+const CopyIcon = () => <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="1" /><path d="M15 9V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h4" /></svg>
+const ShareIcon = () => <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2" /><circle cx="6" cy="12" r="2" /><circle cx="18" cy="19" r="2" /><path d="m8 11 8-5M8 13l8 5" /></svg>
 
 export default function ProfileCard() {
   const { profileOpen, closeProfile, profile, setProfilePhoto, remoteVisits } = useRoomStore()
@@ -31,10 +34,15 @@ export default function ProfileCard() {
   if (!profileOpen) return null
   const pick = (file: File) => setEditingPhoto(URL.createObjectURL(file))
   const closeEditor = () => setEditingPhoto((source) => { if (source) URL.revokeObjectURL(source); return null })
+  const copyInvite = () => void myInviteLink().then((link) => { if (link) void navigator.clipboard.writeText(link).catch(() => {}) })
   return <div className="profile-overlay" onMouseDown={(event) => event.currentTarget === event.target && closeProfile()}>
     <section className="profile-card" aria-label={t('프로필')}>
       {/* a device can hold its id without an open session (the token expires) — it still needs a way out */}
-      {(signedIn || myHandle()) && !isVisiting() && <button className="profile-signout" type="button" aria-label={t('로그아웃')} onClick={() => { void signOut().then(() => location.replace(import.meta.env.BASE_URL)) }}><SignOutIcon /></button>}
+      {(signedIn || myHandle()) && !isVisiting() && <div className="profile-actions">
+        <button type="button" aria-label={t('초대 링크 복사')} onClick={copyInvite}><CopyIcon /></button>
+        <button type="button" aria-label={t('방 공유')} onClick={() => { void shareRoom() }}><ShareIcon /></button>
+        <button className="profile-signout" type="button" aria-label={t('로그아웃')} onClick={() => { void signOut().then(() => location.replace(import.meta.env.BASE_URL)) }}><SignOutIcon /></button>
+      </div>}
       <div className="profile-main">
         {isVisiting()
           ? <div className="profile-photo">{profile.photo ? <img src={profile.photo} alt={t('프로필 사진')} /> : <span>{t('사진')}</span>}</div>
