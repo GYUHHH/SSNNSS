@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo } from 'react'
 import { CanvasTexture, CatmullRomCurve3, Color, EdgesGeometry, MathUtils, Object3D, Path, Shape, ShapeGeometry, SRGBColorSpace, type Texture, TextureLoader, Vector3, VideoTexture, type PointLight } from 'three'
 import { BannerTextInput, SpeechBubbleInput, useArtTexture } from './ArtEditor'
 import { isDefaultProfilePhoto, isVisiting } from '../services/social'
+import { fetchFollowers } from '../services/follows'
 import { type ReactNode, useRef, useState } from 'react'
 import type { Group, InstancedMesh, MeshStandardMaterial } from 'three'
 import Furniture, { FittedMesh } from './Furniture'
@@ -1520,6 +1521,16 @@ function ProfileBoardFace() {
   const store = useOptionalRoomStore()
   const profile = store?.profile
   const total = store?.remoteVisits?.total ?? profile?.total ?? 0
+  // 팔로워 수: 실제 방(자기 방·방문 방)에서만 조회 — 탐색기 이웃 방들은 방마다 요청이 튀므로 방문 수만 보여준다
+  const [followers, setFollowers] = useState<number | null>(null)
+  const handle = store?.currentHandle
+  const readOnly = store?.readOnly
+  useEffect(() => {
+    if (!handle || readOnly) { setFollowers(null); return }
+    let live = true
+    void fetchFollowers(handle).then((list) => { if (live) setFollowers(list.length) })
+    return () => { live = false }
+  }, [handle, readOnly])
   const night = store?.timeOfDay === 'night'
   const nightMix = useRef(night ? 1 : 0)
   const labels = useRef<Array<{ color: string } | null>>([])
@@ -1543,7 +1554,7 @@ function ProfileBoardFace() {
       <mesh position={[0, .08, .078]}><circleGeometry args={[.32, 28, 0, Math.PI]} /><meshBasicMaterial color="#8c7767" /></mesh>
     </group> : portrait && <mesh renderOrder={1} position={[0, .42, .078]}><circleGeometry args={[.47, 30]} /><meshBasicMaterial map={portrait} /></mesh>}
     {profile?.handle && <Text ref={((label: { color: string } | null) => { labels.current[0] = label }) as never} renderOrder={1} font={JONES_BOOK_OTF} position={[0, -.22, .076]} fontSize={.13} color={tone} anchorX="center" anchorY="middle">{profile.handle}</Text>}
-    <Text ref={((label: { color: string } | null) => { labels.current[1] = label }) as never} renderOrder={1} font={JONES_BOOK_OTF} position={[0, -.46, .076]} fontSize={.1} color={tone} anchorX="center" anchorY="middle">{`${total} ${total === 1 ? 'Visit' : 'Visits'}`}</Text>
+    <Text ref={((label: { color: string } | null) => { labels.current[1] = label }) as never} renderOrder={1} font={JONES_BOOK_OTF} position={[0, -.46, .076]} fontSize={followers === null ? .1 : .078} color={tone} anchorX="center" anchorY="middle">{`${total} ${total === 1 ? 'Visit' : 'Visits'}${followers === null ? '' : ` · ${followers} ${followers === 1 ? 'Follower' : 'Followers'}`}`}</Text>
   </>
 }
 
