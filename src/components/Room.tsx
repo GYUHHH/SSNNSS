@@ -30,7 +30,7 @@ import ReactionBadges from './ReactionBadges'
 const LIGHTING = {
   day: { bg: '#f4efe6', ambient: 1.5, ambientColor: '#fff7ee', dir: 3.4, dirColor: '#fff3e2' },
   evening: { bg: '#e9d3bc', ambient: 0.95, ambientColor: '#ffc894', dir: 2.4, dirColor: '#ff9a5e' },
-  night: { bg: '#232939', ambient: 0.36, ambientColor: '#8b97b8', dir: 0.5, dirColor: '#aab4d4' },
+  night: { bg: '#232939', ambient: 0.5, ambientColor: '#8b97b8', dir: 0.7, dirColor: '#aab4d4' },
 } as const
 type TimeOfDay = keyof typeof LIGHTING
 const TIME_LAYER: Record<TimeOfDay, number> = { day: 1, evening: 2, night: 3 }
