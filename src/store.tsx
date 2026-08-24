@@ -464,7 +464,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
         addCustomObject(spec)
         setCustomJob({ stage: 'done', round: 0, unseen: true, name: spec.name })
       } catch (reason) {
-        setCustomJob({ stage: 'error', round: 0, unseen: true, error: reason instanceof Error ? reason.message : String(reason) })
+        const message = reason instanceof Error ? reason.message : String(reason)
+        setCustomJob({ stage: 'error', round: 0, unseen: true, error: message === 'NO_CREDITS' ? t('생성권이 없어요') : message })
       }
     })()
   }

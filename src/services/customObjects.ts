@@ -56,3 +56,10 @@ export async function reviewCustomObject(input: { category: CustomObjectCategory
   if (body?.verdict === 'revise' && isCustomObjectSpec(body.object)) return { verdict: 'revise', object: body.object }
   return { verdict: 'pass' }
 }
+
+export async function fetchCredits(): Promise<{ enabled: boolean; balance: number; freeLeft: boolean; buyUrl: string | null }> {
+  const response = await fetch('/api/custom-objects/credits', { method: 'POST', headers: await authHeaders() })
+  const body = await response.json().catch(() => null) as { enabled?: boolean; balance?: number; freeLeft?: boolean; buyUrl?: string | null } | null
+  if (!response.ok || !body) return { enabled: false, balance: 0, freeLeft: false, buyUrl: null }
+  return { enabled: !!body.enabled, balance: body.balance ?? 0, freeLeft: !!body.freeLeft, buyUrl: body.buyUrl ?? null }
+}

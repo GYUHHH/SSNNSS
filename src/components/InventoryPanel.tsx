@@ -5,7 +5,7 @@ import { colorOf, customizableTypes, DEFAULT_WALL_COLOR, floorStyleOf, floorStyl
 import { DEFAULT_APPEARANCE as CHARACTER_DEFAULTS } from './Character'
 import { t, tp } from '../services/i18n'
 import { CUSTOM_OBJECT_CATEGORIES, customObjectType, type CustomObjectCategory } from '../customObjectSpec'
-import { customObjectTemplate, generateCustomObject } from '../services/customObjects'
+import { customObjectTemplate, fetchCredits } from '../services/customObjects'
 import { PhotoCropEditor } from './PhotoCropEditor'
 
 function ItemIcon({ item }: { item: { type: string; styleId?: string; customSpec?: FurnitureItem['customSpec'] } }) {
@@ -145,6 +145,9 @@ const CUSTOM_CATEGORY_LABELS: Record<CustomObjectCategory, string> = { furniture
 function CustomTab() {
   const { customObjects, startPreview, availableCount, customJob, runCustomGeneration, markCustomSeen, removeCustomObject } = useRoomStore()
   const [removing, setRemoving] = useState<string | null>(null)
+  // 생성권 잔액: 결제가 구성된 경우에만 표시·차단. 생성이 끝날 때마다 새로 읽는다.
+  const [credits, setCredits] = useState<{ enabled: boolean; balance: number; freeLeft: boolean; buyUrl: string | null } | null>(null)
+  useEffect(() => { let live = true; void fetchCredits().then((value) => { if (live) setCredits(value) }); return () => { live = false } }, [customJob?.stage])
   // 탭을 열어본 순간 완료/실패 빨간점은 해소된 것으로 본다
   useEffect(() => { markCustomSeen() }, [customJob?.stage])
   const [source, setSource] = useState<'text' | 'photo' | null>(null)
@@ -172,6 +175,7 @@ function CustomTab() {
   const objects = customObjects.filter((object) => availableCount(customObjectType(object.id)) > 0)
   return <div className="custom-tab">
     <input ref={file} hidden type="file" accept="image/*" onChange={(event) => { readPhoto(event.target.files?.[0]); event.currentTarget.value = '' }} />
+    {credits?.enabled && <div className="custom-credits"><span>{credits.freeLeft ? t('무료 1회 남음') : tp('생성권 {n}회', { n: credits.balance })}</span>{credits.buyUrl && <a href={credits.buyUrl} target="_blank" rel="noreferrer">{t('충전')}</a>}</div>}
     {customJob && <CustomJobStatus job={customJob} />}
     {!source && <div className="custom-source"><button type="button" onClick={() => { setSource('text'); setError('') }}>{t('텍스트 넣기')}</button><button type="button" onClick={choosePhoto}>{t('사진 넣기')}</button></div>}
     {source && <form className="custom-form" onSubmit={submit}>

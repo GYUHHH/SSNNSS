@@ -1,6 +1,6 @@
 import { CUSTOM_OBJECT_CATEGORIES, customObjectSchema, isCustomObjectSpec, type CustomObjectCategory } from './customObjectSpec'
 
-type Env = { ASSETS: { fetch: (request: Request) => Promise<Response> }; OPENAI_API_KEY?: string; OPENAI_MODEL?: string; ANTHROPIC_API_KEY?: string; ANTHROPIC_MODEL?: string }
+type Env = { ASSETS: { fetch: (request: Request) => Promise<Response> }; OPENAI_API_KEY?: string; OPENAI_MODEL?: string; ANTHROPIC_API_KEY?: string; ANTHROPIC_MODEL?: string; SUPABASE_SERVICE_KEY?: string; LS_WEBHOOK_SECRET?: string; LS_BUY_URL?: string; LS_CREDITS_PER_ORDER?: string }
 type GenerateBody = { category?: unknown; prompt?: unknown; image?: unknown }
 type ReviewBody = GenerateBody & { spec?: unknown; screenshot?: unknown }
 
@@ -27,6 +27,60 @@ const signedIn = async (request: Request) => {
   return response.ok
 }
 
+// 로그인 유저의 방 handle: 크레딧은 handle 단위로 적립·차감된다
+const signedInHandle = async (request: Request): Promise<string | null> => {
+  const authorization = request.headers.get('Authorization')
+  if (!authorization?.startsWith('Bearer ') || authorization === `Bearer ${SUPABASE_ANON_KEY}`) return null
+  const user = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: authorization } })
+  if (!user.ok) return null
+  const { id } = await user.json().catch(() => ({})) as { id?: string }
+  if (!id) return null
+  const rooms = await fetch(`${SUPABASE_URL}/rest/v1/rooms?owner=eq.${encodeURIComponent(id)}&select=handle&limit=1`, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } })
+  const rows = await rooms.json().catch(() => null)
+  return Array.isArray(rows) ? rows[0]?.handle ?? null : null
+}
+
+// 결제 구성이 전부 갖춰졌을 때만 유료 모드 — 하나라도 없으면 기존처럼 무료로 동작한다
+const billingEnabled = (env: Env) => !!(env.SUPABASE_SERVICE_KEY && env.LS_WEBHOOK_SECRET && env.LS_BUY_URL)
+
+const serviceHeaders = (env: Env) => ({ apikey: env.SUPABASE_SERVICE_KEY!, Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, 'Content-Type': 'application/json' })
+
+const creditBalance = async (env: Env, handle: string): Promise<{ balance: number; freeLeft: boolean }> => {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/credits?handle=eq.${encodeURIComponent(handle)}&select=balance,free_used&limit=1`, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } })
+  const rows = await response.json().catch(() => null)
+  const row = Array.isArray(rows) ? rows[0] : null
+  return { balance: row?.balance ?? 0, freeLeft: !(row?.free_used ?? false) }
+}
+
+async function credits(request: Request, env: Env) {
+  const handle = await signedInHandle(request)
+  if (!handle) return json({ error: 'LOGIN_REQUIRED' }, 401)
+  if (!billingEnabled(env)) return json({ enabled: false, balance: 0, buyUrl: null })
+  const buyUrl = `${env.LS_BUY_URL}${env.LS_BUY_URL!.includes('?') ? '&' : '?'}checkout[custom][handle]=${encodeURIComponent(handle)}`
+  const { balance, freeLeft } = await creditBalance(env, handle)
+  return json({ enabled: true, balance, freeLeft, buyUrl })
+}
+
+// Lemon Squeezy 웹훅: X-Signature = HMAC-SHA256(raw body, secret) hex. order_created만 적립한다.
+async function lsWebhook(request: Request, env: Env) {
+  if (!billingEnabled(env)) return json({ error: 'BILLING_NOT_CONFIGURED' }, 503)
+  const raw = await request.text()
+  const signature = request.headers.get('X-Signature') ?? ''
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.LS_WEBHOOK_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const digest = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(raw))
+  const expected = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+  if (signature.toLowerCase() !== expected) return json({ error: 'BAD_SIGNATURE' }, 401)
+  const body = JSON.parse(raw) as { meta?: { event_name?: string; custom_data?: { handle?: string } }; data?: { attributes?: { first_order_item?: { quantity?: number } } } }
+  if (body.meta?.event_name !== 'order_created') return json({ ok: true })
+  const handle = body.meta?.custom_data?.handle
+  if (!handle || typeof handle !== 'string') return json({ error: 'NO_HANDLE' }, 400)
+  const quantity = Math.max(1, Number(body.data?.attributes?.first_order_item?.quantity) || 1)
+  const amount = quantity * Math.max(1, Number(env.LS_CREDITS_PER_ORDER) || 10)
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/add_credits`, { method: 'POST', headers: serviceHeaders(env), body: JSON.stringify({ p_handle: handle, p_amount: amount }) })
+  if (!response.ok) return json({ error: 'CREDIT_FAILED' }, 502)
+  return json({ ok: true })
+}
+
 const outputText = (body: unknown) => {
   const response = body as { output_text?: unknown; output?: Array<{ content?: Array<{ type?: string; text?: string }> }> }
   if (typeof response.output_text === 'string') return response.output_text
@@ -36,6 +90,14 @@ const outputText = (body: unknown) => {
 async function generate(request: Request, env: Env) {
   if (!env.ANTHROPIC_API_KEY && !env.OPENAI_API_KEY) return json({ error: 'API_KEY_NOT_SET' }, 503)
   if (!await signedIn(request)) return json({ error: 'LOGIN_REQUIRED' }, 401)
+  // 생성 1회 = 크레딧 1 — 조립(draft) 시점에만 차감하고, 컨셉·검수는 같은 회차에 포함이라 무료
+  if (billingEnabled(env)) {
+    const handle = await signedInHandle(request)
+    if (!handle) return json({ error: 'LOGIN_REQUIRED' }, 401)
+    const spent = await fetch(`${SUPABASE_URL}/rest/v1/rpc/spend_credit`, { method: 'POST', headers: serviceHeaders(env), body: JSON.stringify({ p_handle: handle }) })
+    const ok = await spent.json().catch(() => null)
+    if (!spent.ok || ok !== true) return json({ error: 'NO_CREDITS' }, 402)
+  }
   const body = await request.json().catch(() => null) as GenerateBody | null
   const category = body?.category as CustomObjectCategory
   const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : ''
@@ -158,9 +220,14 @@ async function review(request: Request, env: Env) {
 export default {
   async fetch(request: Request, env: Env) {
     const url = new URL(request.url)
+    if (url.pathname === '/api/ls-webhook') {
+      if (request.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405)
+      return lsWebhook(request, env)
+    }
     if (url.pathname.startsWith('/api/custom-objects')) {
       if (request.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405)
       if (url.pathname === '/api/custom-objects') return generate(request, env)
+      if (url.pathname === '/api/custom-objects/credits') return credits(request, env)
       if (url.pathname === '/api/custom-objects/concept') return concept(request, env)
       if (url.pathname === '/api/custom-objects/review') return review(request, env)
       return json({ error: 'NOT_FOUND' }, 404)
