@@ -10,7 +10,7 @@ import { DEFAULT_PROFILE_PHOTO, purgeReactions, getSeenReactions, markReactionSe
 import { cancelSoundRequest, clearFrameResume, muteFrame, requestSound, snapshotActiveFrames } from './services/ytResume'
 import { t, tp } from './services/i18n'
 import { floorStyleOf } from './services/styles'
-import { isWallMedia } from './services/renderOrder'
+import { isWallMedia, isWallPhoto } from './services/renderOrder'
 import type { CustomObjectCategory, CustomObjectSpec } from './customObjectSpec'
 
 // AI 커스텀 생성 잡: 컨셉 이미지 → API 조립 → 렌더 검수 1회.
@@ -64,8 +64,8 @@ const placementGrid = (item: Pick<FurnitureItem, 'gridX' | 'gridY'>): GridPositi
 const isGridPlaced = (item: Pick<FurnitureItem, 'movable' | 'footprint'>) => item.movable && item.footprint.width > 0
 const isFloorCovering = (item: Pick<FurnitureItem, 'type' | 'surfaceId'>) => item.surfaceId === 'floor' && ['rug', 'carpet', 'mat', 'floor-mat'].includes(item.type)
 // Wall media is a background layer, not physical wall space: a shelf, clock, or other wall furniture may sit
-// over a photo/poster/video. Items in the same layer still keep their regular collision protection.
-const sharesWallBackground = (a: FurnitureItem, b: FurnitureItem) => a.category === 'wallItem' && b.category === 'wallItem' && isWallMedia(a.type) !== isWallMedia(b.type)
+// over a photo/poster/video. Photo layers may also overlap each other; the other same-layer items still collide.
+const sharesWallBackground = (a: FurnitureItem, b: FurnitureItem) => a.category === 'wallItem' && b.category === 'wallItem' && (isWallPhoto(a.type) && isWallPhoto(b.type) || isWallMedia(a.type) !== isWallMedia(b.type))
 // the character's pathfinding runs on the BASE 10x10 grid, but subgrid2 floor items store subcell coords — collapse
 // them (subcell/2) so a floor-standing plant still blocks the base cell(s) it covers
 export const baseFloorCells = (item: Pick<FurnitureItem, 'gridX' | 'gridY' | 'footprint' | 'rotation' | 'allowedSurfaces'>) => {
