@@ -146,7 +146,7 @@ function CustomTab() {
   }
   const submit = async (event: FormEvent) => {
     event.preventDefault()
-    if (!prompt.trim() || (source === 'photo' && !image) || loading) return
+    if ((source === 'text' && !prompt.trim()) || (source === 'photo' && !image) || loading) return
     setLoading(true); setError('')
     try {
       const object = await generateCustomObject({ category, prompt: prompt.trim(), image: image ?? undefined })
@@ -163,9 +163,9 @@ function CustomTab() {
       <div className="custom-form-head"><strong>{t(source === 'text' ? '텍스트 넣기' : '사진 넣기')}</strong><button type="button" onClick={() => { setSource(null); setImage(null); setEditingImage(null); setError('') }}>×</button></div>
       <label>{t('오브젝트 종류')}<select value={category} onChange={(event) => setCategory(event.target.value as CustomObjectCategory)}>{CUSTOM_OBJECT_CATEGORIES.map((value) => <option key={value} value={value}>{t(CUSTOM_CATEGORY_LABELS[value])}</option>)}</select></label>
       {source === 'photo' && (image ? <div className="custom-photo"><img src={image} alt="" /><button type="button" aria-label={t('사진 삭제')} onClick={() => { setImage(null); file.current?.click() }}>×</button></div> : <button className="custom-photo-pick" type="button" onClick={choosePhoto}>{t('사진 넣기')}</button>)}
-      <textarea maxLength={1200} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={t('원하는 디자인')} />
+      <textarea maxLength={1200} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={t(source === 'photo' ? '원하는 디자인 (선택)' : '원하는 디자인')} />
       {error && <p className="custom-error">{error}</p>}
-      <button className="custom-generate" type="submit" disabled={!prompt.trim() || (source === 'photo' && !image) || loading}>{t(loading ? '생성 중' : '생성')}</button>
+      <button className="custom-generate" type="submit" disabled={(source === 'text' && !prompt.trim()) || (source === 'photo' && !image) || loading}>{t(loading ? '생성 중' : '생성')}</button>
     </form>}
     {!source && <div className="inventory-items custom-items">{objects.map((object) => {
       const entry = customObjectTemplate(object) as FurnitureItem

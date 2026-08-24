@@ -27,10 +27,10 @@ async function generate(request: Request, env: Env) {
   const category = body?.category as CustomObjectCategory
   const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : ''
   const image = typeof body?.image === 'string' ? body.image : undefined
-  if (!CUSTOM_OBJECT_CATEGORIES.includes(category) || !prompt || prompt.length > 1200) return json({ error: 'INVALID_REQUEST' }, 400)
+  if (!CUSTOM_OBJECT_CATEGORIES.includes(category) || (!prompt && !image) || prompt.length > 1200) return json({ error: 'INVALID_REQUEST' }, 400)
   if (image && (!image.startsWith('data:image/') || image.length > 7_000_000)) return json({ error: 'INVALID_IMAGE' }, 400)
 
-  const content: Array<Record<string, unknown>> = [{ type: 'input_text', text: `Category: ${category}\nRequest: ${prompt}` }]
+  const content: Array<Record<string, unknown>> = [{ type: 'input_text', text: `Category: ${category}\nRequest: ${prompt || 'Reconstruct the object shown in the reference image.'}` }]
   if (image) content.push({ type: 'input_image', image_url: image, detail: 'high' })
   const upstream = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',

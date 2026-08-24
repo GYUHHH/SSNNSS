@@ -37,6 +37,7 @@ const EN: Record<string, string> = {
   "오브젝트 종류": "Object type",
   "조형물": "Sculpture",
   "원하는 디자인": "Describe the design",
+  "원하는 디자인 (선택)": "Describe the design (optional)",
   "생성": "Generate",
   "생성 중": "Generating",
   "생성 실패": "Generation failed",
