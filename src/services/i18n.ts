@@ -171,6 +171,7 @@ const EN: Record<string, string> = {
   "색상": "Colors",
   "서로 팔로우": "Follow each other",
   "세이지": "Sage",
+  "세이지 오피스 체어": "Sage Office Chair",
   "소리 설정": "Sound settings",
   "소파": "Sofa",
   "소품": "Props",

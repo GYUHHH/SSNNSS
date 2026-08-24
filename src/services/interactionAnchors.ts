@@ -64,10 +64,10 @@ export function interactionAnchorsFor(item: FurnitureItem, typeOverride?: Intera
     approach: { position: [0, 0, .75], rotation: 0 },
     action: { position: [0, item.type === 'boucle-stool' ? .38 : item.type === 'papasan-chair' ? .82 : .62, item.type === 'boucle-stool' ? 0 : .08], rotation: 0 },
   }
-  if (item.type === 'chair') return {
+  if (item.type === 'chair' || item.type === 'sage-office-chair') return {
     type: typeOverride ?? 'sit',
     approach: { position: [0, 0, .7], rotation: 0 },
-    action: { position: [0, topHeight(item), 0], rotation: 0 },
+    action: { position: [0, item.type === 'sage-office-chair' ? .76 : topHeight(item), .04], rotation: 0 },
   }
   const approach = defaultApproach(item)
   return { type: typeOverride ?? (item.type === 'bookshelf' ? 'read' : 'interact'), approach, action: approach }

@@ -468,6 +468,44 @@ function CubeShelf({ preview }: { preview: boolean }) {
   </>
 }
 
+// 사진 레퍼런스 기반의 팔걸이 없는 패브릭 회전 의자.
+// 넓은 좌판·분리된 등받이·5발 캐스터를 유지하되 방 스타일에 맞게 저폴리곤으로 단순화한다.
+function SageOfficeChair({ preview, tint }: { preview: boolean; tint?: string }) {
+  const opacity = preview ? .5 : 1
+  const fabric = (color: string) => <meshStandardMaterial color={tint ?? color} roughness={.94} transparent={preview} opacity={opacity} />
+  const plastic = () => <meshStandardMaterial color="#dedbd2" roughness={.52} transparent={preview} opacity={opacity} />
+  const dark = () => <meshStandardMaterial color="#67665f" roughness={.48} transparent={preview} opacity={opacity} />
+  const spokes = Array.from({ length: 5 }, (_, index) => index * Math.PI * 2 / 5)
+
+  return <group name="sage-office-chair" userData={{ sculptRuntime: { parts: ['backrest', 'seat', 'lift', 'five-star-base', 'casters'], collider: 'box' } }}>
+    <group name="sage-office-chair-backrest">
+      <RoundedBox name="sage-office-chair-back-shell" castShadow args={[1.18, .8, .2]} radius={.2} smoothness={3} position={[0, 1.58, -.31]} rotation={[-.045, 0, 0]}>{fabric('#9eab91')}</RoundedBox>
+      <RoundedBox name="sage-office-chair-back-cushion" castShadow args={[1.1, .72, .205]} radius={.18} smoothness={3} position={[0, 1.59, -.295]} rotation={[-.045, 0, 0]} userData={{ explodeWithParent: true }}>{fabric('#aeb9a2')}</RoundedBox>
+      <RoundedBox name="sage-office-chair-back-support" castShadow args={[.19, .58, .11]} radius={.05} smoothness={2} position={[0, 1.12, -.29]}>{plastic()}</RoundedBox>
+    </group>
+
+    <group name="sage-office-chair-seat">
+      <RoundedBox name="sage-office-chair-seat-shell" castShadow args={[1.45, .25, 1.14]} radius={.2} smoothness={3} position={[0, .82, .02]}>{fabric('#9eab91')}</RoundedBox>
+      <RoundedBox name="sage-office-chair-seat-cushion" castShadow args={[1.37, .2, 1.07]} radius={.18} smoothness={3} position={[0, .87, .04]} userData={{ explodeWithParent: true }}>{fabric('#aeb9a2')}</RoundedBox>
+    </group>
+
+    <group name="sage-office-chair-lift">
+      <mesh name="sage-office-chair-lift-collar" castShadow position={[0, .68, .02]}><cylinderGeometry args={[.12, .14, .16, 12]} />{dark()}</mesh>
+      <mesh name="sage-office-chair-lift-column" castShadow position={[0, .47, .02]}><cylinderGeometry args={[.09, .11, .38, 12]} />{plastic()}</mesh>
+      <mesh name="sage-office-chair-base-hub" castShadow position={[0, .25, .02]}><cylinderGeometry args={[.17, .2, .13, 12]} />{plastic()}</mesh>
+    </group>
+
+    <group name="sage-office-chair-five-star-base">{spokes.map((angle, index) => <group name={`sage-office-chair-spoke-${index + 1}`} key={angle} rotation={[0, angle, 0]}>
+      <RoundedBox name={`sage-office-chair-spoke-arm-${index + 1}`} castShadow args={[.15, .105, .7]} radius={.05} smoothness={2} position={[0, .2, .32]} rotation={[-.04, 0, 0]}>{plastic()}</RoundedBox>
+      <group name={`sage-office-chair-caster-${index + 1}`} position={[0, .11, .69]}>
+        <RoundedBox name={`sage-office-chair-caster-fork-${index + 1}`} castShadow args={[.18, .13, .13]} radius={.035} smoothness={2} position={[0, .055, -.02]}>{plastic()}</RoundedBox>
+        <mesh name={`sage-office-chair-caster-wheel-${index + 1}`} castShadow rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[.105, .105, .1, 12]} />{dark()}</mesh>
+        <mesh name={`sage-office-chair-caster-cap-${index + 1}`} position={[.052, 0, 0]} rotation={[0, Math.PI / 2, 0]} userData={{ explodeWithParent: true }}><circleGeometry args={[.075, 12]} />{plastic()}</mesh>
+      </group>
+    </group>)}</group>
+  </group>
+}
+
 // 파파산 체어: 라탄 이중 링 받침 위에 뒤로 기운 큰 링, 그 안에 도넛형 부클레 쿠션.
 function PapasanChair({ preview }: { preview: boolean }) {
   const opacity = preview ? .5 : 1
@@ -756,6 +794,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'boucle-stool') return <BoucleStool preview={preview} />
   if (item.type === 'cube-shelf') return <CubeShelf preview={preview} />
   if (item.type === 'papasan-chair') return <PapasanChair preview={preview} />
+  if (item.type === 'sage-office-chair') return <SageOfficeChair preview={preview} tint={material.color} />
   if (item.type === 'glass-table') return <GlassTable preview={preview} />
   if (item.type === 'glass-mushroom-lamp') return <GlassMushroomLamp preview={preview} lit={lit} />
   if (item.type === 'pop-shelf') return <PopShelf preview={preview} />
