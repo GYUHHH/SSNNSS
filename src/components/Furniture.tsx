@@ -3,7 +3,7 @@ import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { Html, useCursor } from '@react-three/drei'
 import { Box3, BufferGeometry, Float32BufferAttribute, type Group, type Mesh, type Object3D, type OrthographicCamera, Plane, Vector3 } from 'three'
 import Interactive from './Interactive'
-import { onGlbReady } from './GlbFurniture'
+import { GLB_TYPES, onGlbReady } from './GlbFurniture'
 import { type FurnitureId, type FurnitureItem, isResizableWallItem, resolutionFor, useRoomStore } from '../store'
 import { fitMeshToFootprint, resolveSurface, SURFACED_TYPES, wallSurfaces, withResolution, type PlacementSurface, type ResizeCorner } from '../services/roomGrid'
 import { isWallMedia, isWallPhoto, ROOM_HTML_Z_INDEX_RANGE, ROOM_OBJECT_ORDER, wallItemOrder } from '../services/renderOrder'
@@ -74,10 +74,14 @@ export function FittedMesh({ item, children }: { item: FurnitureItem; children: 
     const uniformScale = Math.min(width / size.x, height / size.z)
     // 바닥 가구도 소품처럼 균일 스케일로 비율을 지킨다 — X/Z만 늘리면 모델과 칸 비율이 다를 때 찌그러진다.
     // 예외: 상판/좌석을 제공하는 가구(SURFACED_TYPES)는 heightOffset 상수가 높이에 묶여 있어 기존 X/Z 맞춤 유지.
+    // GLB 가구는 격자 칸을 꽉 채운다: 가로·깊이를 각각 맞추고 높이는 둘 중 작은 배율을 따라간다
+    const glbFill = GLB_TYPES.has(item.type) || !!item.customSpec?.glbUrl
     const fitted: [number, number, number] = (surface.type !== 'wall'
       ? SURFACED_TYPES.has(item.type)
         ? [width / size.x, 1, height / size.z]
-        : [uniformScale, uniformScale, uniformScale]
+        : glbFill
+          ? [width / size.x, uniformScale, height / size.z]
+          : [uniformScale, uniformScale, uniformScale]
       : item.type === 'wall-shelf'
         ? [width / size.x, 1, 1]
         : [width / size.x, height / size.y, 1])
