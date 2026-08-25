@@ -121,6 +121,7 @@ export const initialFurniture: FurnitureItem[] = [
 ]
 
 export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surfaceId' | 'gridX' | 'gridY' | 'gridZ' | 'wallId' | 'rotation' | 'updatedAt'>> = [
+  { type: 'play-slide', name: '미끄럼틀', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 6 }, size: [2, 6], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'hyper-sculpture', name: '하이퍼 조형물', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 4, depth: 4 }, size: [4, 4], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'bracket-shelf', name: '브래킷 선반', category: 'wallItem', movable: true, interactable: true, footprint: { width: 3, depth: 1 }, size: [3, 1], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'pink-mini-sofa', name: '핑크 미니 소파', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor'] },
@@ -395,7 +396,7 @@ export type TimeOfDay = 'day' | 'evening' | 'night'
 // clicking these walks the character over and poses it (see interactionAnchorsFor); every other item — wall
 // decor, lights, toggles, plain props — must leave the character exactly as it is. Whitelist on purpose: new
 // furniture is inert until it earns a pose here.
-export const POSED_TYPES = new Set(['bed', 'hotel-bed', 'sofa', 'chair', 'desk', 'bookshelf', 'rocking-chair', 'beanbag', 'cup', 'plant', 'cabinet', 'side-table', 'coffee-table', 'wardrobe', 'hanger', 'rug', 'bin', 'glass-shelf', 'boucle-stool', 'papasan-chair', 'cube-shelf', 'pink-slide', 'color-drawers', 'cloud-sofa', 'dome-sofa', 'deco-shelf', 'frutiger-desk', 'aqua-table', 'hanging-bubble-chair', 'pink-mini-sofa', 'pink-vanity', 'hyper-sculpture'])
+export const POSED_TYPES = new Set(['bed', 'hotel-bed', 'sofa', 'chair', 'desk', 'bookshelf', 'rocking-chair', 'beanbag', 'cup', 'plant', 'cabinet', 'side-table', 'coffee-table', 'wardrobe', 'hanger', 'rug', 'bin', 'glass-shelf', 'boucle-stool', 'papasan-chair', 'cube-shelf', 'pink-slide', 'color-drawers', 'cloud-sofa', 'dome-sofa', 'deco-shelf', 'frutiger-desk', 'aqua-table', 'hanging-bubble-chair', 'pink-mini-sofa', 'pink-vanity', 'hyper-sculpture', 'play-slide'])
 export type GuestComment = { id: string; name: string; text: string; createdAt: string; visitor?: string; verified?: boolean; photo?: string }
 const toPlacement = ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, allowedSurfaces, styleId, heightOffset, removed, updatedAt }: FurnitureItem): FurniturePlacement => ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, resolution: resolutionFor({ allowedSurfaces }), styleId, heightOffset, removed, updatedAt })
 // every catalogue piece exists exactly once for now; a future account would supply real per-user counts
