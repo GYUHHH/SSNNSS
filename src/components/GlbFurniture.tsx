@@ -11,6 +11,7 @@ const GLB_URLS: Record<string, string> = {
   'cloud-sofa': `${publicBase}models/cloud-sofa.glb`,
   'dome-sofa': `${publicBase}models/dome-sofa.glb`,
   'deco-shelf': `${publicBase}models/deco-shelf.glb`,
+  'frutiger-desk': `${publicBase}models/frutiger-desk.glb`,
 }
 export const GLB_TYPES = new Set(Object.keys(GLB_URLS))
 for (const url of Object.values(GLB_URLS)) useGLTF.preload(url)

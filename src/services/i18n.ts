@@ -30,6 +30,7 @@ const EN: Record<string, string> = {
   "구름 소파": "Cloud Sofa",
   "돔 소파": "Dome Sofa",
   "데코 선반": "Deco Shelf",
+  "프루티거 데스크": "Frutiger Desk",
   "무료 1회 남음": "1 free generation left",
   "생성권이 없어요": "Out of credits",
   "충전": "Buy more",
