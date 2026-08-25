@@ -123,7 +123,7 @@ export const initialFurniture: FurnitureItem[] = [
 export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surfaceId' | 'gridX' | 'gridY' | 'gridZ' | 'wallId' | 'rotation' | 'updatedAt'>> = [
   { type: 'hanging-bubble-chair', name: '행잉 버블 체어', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 2 }, size: [2, 2], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'aqua-table', name: '아쿠아 테이블', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 4, depth: 2 }, size: [4, 2], scale: 1, allowedSurfaces: ['floor'] },
-  { type: 'frutiger-desk', name: '프루티거 데스크', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 4, depth: 2 }, size: [4, 2], scale: 1, allowedSurfaces: ['floor'] },
+  { type: 'frutiger-desk', name: '프루티거 데스크', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 3, depth: 1 }, size: [3, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'deco-shelf', name: '데코 선반', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 3, depth: 1 }, size: [3, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'dome-sofa', name: '돔 소파', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 4, depth: 4 }, size: [4, 4], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'cloud-sofa', name: '구름 소파', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 6, depth: 2 }, size: [6, 2], scale: 1, allowedSurfaces: ['floor'] },
