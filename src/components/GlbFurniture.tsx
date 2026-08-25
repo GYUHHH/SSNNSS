@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useMemo } from 'react'
 import { useGLTF } from '@react-three/drei'
-import { Box3, Vector3 } from 'three'
+import { Box3, BoxGeometry, Mesh, MeshBasicMaterial, Vector3 } from 'three'
 import { publicBase } from '../services/publicBase'
 
 // GLB 가구 실험: 파일 하나를 카탈로그 아이템으로. 씬은 배치 인스턴스마다 클론하고 그림자를 켠다.
@@ -22,12 +22,14 @@ export const GLB_TYPES = new Set(Object.keys(GLB_URLS))
 for (const url of Object.values(GLB_URLS)) useGLTF.preload(url)
 // 각진 로우폴리 톤으로 통일할 타입 — 사진풍 스무스 셰이딩이 방 감성과 어긋나는 생성 모델용
 const FLAT_TYPES = new Set(['pink-slide', 'color-drawers'])
+// 가로 바운즈 패딩 배율: FittedMesh가 바운즈로 칸을 채우는 성질을 이용해, 실물이 칸 박스보다 작게 보이게 한다
+const PAD_X: Record<string, number> = { 'bracket-shelf': 1.45 }
 
 // GLB는 비동기 로드라 FittedMesh가 로드 전 빈 치수를 잴 수 있다 — 로드 완료를 알려 재측정시킨다
 const readyListeners = new Set<() => void>()
 export const onGlbReady = (listener: () => void) => { readyListeners.add(listener); return () => { readyListeners.delete(listener) } }
 
-function GlbScene({ url, preview, flat, custom, wall }: { url: string; preview: boolean; flat: boolean; custom?: boolean; wall?: boolean }) {
+function GlbScene({ url, preview, flat, custom, wall, padX }: { url: string; preview: boolean; flat: boolean; custom?: boolean; wall?: boolean; padX?: number }) {
   const { scene } = useGLTF(url)
   const cloned = useMemo(() => {
     const copy = scene.clone(true)
@@ -54,8 +56,16 @@ function GlbScene({ url, preview, flat, custom, wall }: { url: string; preview: 
       if (wall) copy.position.set(-center.x, -center.y, -bounds.max.z)
       else copy.position.set(-center.x, -bounds.min.y, -center.z)
     }
+    if (padX) {
+      const bounds = new Box3().setFromObject(copy)
+      const size = bounds.getSize(new Vector3())
+      const keeper = new Mesh(new BoxGeometry(size.x * padX, size.y, size.z), new MeshBasicMaterial())
+      keeper.visible = false
+      bounds.getCenter(keeper.position)
+      copy.add(keeper)
+    }
     return copy
-  }, [scene, preview, flat, custom, wall])
+  }, [scene, preview, flat, custom, wall, padX])
   useEffect(() => { for (const listener of [...readyListeners]) listener() }, [scene])
   return <primitive object={cloned} />
 }
@@ -63,5 +73,5 @@ function GlbScene({ url, preview, flat, custom, wall }: { url: string; preview: 
 export default function GlbFurniture({ type, url, wall, preview }: { type?: string; url?: string; wall?: boolean; preview: boolean }) {
   const resolved = url ?? GLB_URLS[type ?? '']
   if (!resolved) return null
-  return <Suspense fallback={null}><GlbScene url={resolved} preview={preview} flat={!!type && FLAT_TYPES.has(type)} custom={!!url} wall={wall} /></Suspense>
+  return <Suspense fallback={null}><GlbScene url={resolved} preview={preview} flat={!!type && FLAT_TYPES.has(type)} custom={!!url} wall={wall} padX={type ? PAD_X[type] : undefined} /></Suspense>
 }
