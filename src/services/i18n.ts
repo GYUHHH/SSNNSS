@@ -213,6 +213,7 @@ const EN: Record<string, string> = {
   "새 책 제목": "New book title",
   "색 고르기": "Pick a color",
   "색상": "Colors",
+  "벽·바닥": "Walls & Floor",
   "서로 팔로우": "Follow each other",
   "세이지": "Sage",
   "세이지 오피스 체어": "Sage Office Chair",

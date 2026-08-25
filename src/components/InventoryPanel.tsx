@@ -17,7 +17,7 @@ function ItemIcon({ item }: { item: { type: string; styleId?: string; customSpec
 const categories: InventoryCategory[] = ['전체', '가구', '조명', '식물', '벽장식', '소품']
 // The wall and floor pickers get a tab of their own rather than sitting under every item list. Kept out of
 // InventoryCategory because that type is what filters the catalogue, and this tab shows no items at all.
-const COLOR_TAB = '색상'
+const COLOR_TAB = '벽·바닥'
 const CHARACTER_TAB = '캐릭터'
 const BOOKS_TAB = '책'
 const CUSTOM_TAB = 'AI 커스텀'
