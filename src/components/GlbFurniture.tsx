@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useMemo } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { Box3, BoxGeometry, Mesh, MeshBasicMaterial, PMREMGenerator, Vector3, type Texture, type WebGLRenderer } from 'three'
-import { RoomEnvironment } from 'three-stdlib'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { useThree } from '@react-three/fiber'
 import { publicBase } from '../services/publicBase'
 
