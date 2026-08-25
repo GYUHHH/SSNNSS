@@ -987,6 +987,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     <mesh castShadow position={[0, .13, 0]}><sphereGeometry args={[.09, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshStandardMaterial color={material.color ?? '#6b6478'} emissive={lit ? '#8f86ad' : '#000000'} emissiveIntensity={lit ? .5 : 0} transparent={material.transparent} opacity={material.opacity} /></mesh>
     {lit && <StarField />}
   </>
+  if (item.type === 'star-dust') return <StarDust preview={preview} />
   if (item.type === 'profile-board') return <>
     <RoundedBox castShadow args={[1.4, 2.1, .07]} radius={.03} smoothness={2} position={[0, 0, .035]}>{mat('#fbf6ec')}</RoundedBox>
     <mesh position={[0, .42, .073]}><circleGeometry args={[.47, 30]} />{mat('#e2d6c6')}</mesh>
@@ -1366,6 +1367,25 @@ function StarField() {
     return [Math.cos(azimuth) * radius, height, Math.sin(azimuth) * radius] as [number, number, number]
   })
   return <group ref={field} position={[0, .1, 0]}>{dots.map((position, index) => <mesh key={index} position={position} userData={{ excludeFromFit: true }}><sphereGeometry args={[.022, 6, 5]} /><meshStandardMaterial color="#cfd8ff" emissive="#aab8ff" emissiveIntensity={1.6} /></mesh>)}</group>
+}
+
+function StarDust({ preview }: { preview: boolean }) {
+  const cloud = useRef<Group>(null)
+  const skip = usePreviewFrameSkip()
+  const points = useMemo(() => Float32Array.from(Array.from({ length: 42 }, (_, index) => {
+    const angle = index * 2.39996
+    const radius = .12 + ((index * 17) % 23) / 23 * .62
+    return [Math.cos(angle) * radius, .12 + ((index * 29) % 31) / 31 * 1.25, Math.sin(angle) * radius]
+  }).flat()), [])
+  useFrame(({ clock }, delta) => {
+    if (preview || skip(clock.elapsedTime) || !cloud.current) return
+    cloud.current.rotation.y += delta * .16
+    cloud.current.position.y = Math.sin(clock.elapsedTime * .8) * .035
+  })
+  return <group ref={cloud}>
+    <mesh visible={false}><boxGeometry args={[1.5, 1.45, 1.5]} /><meshBasicMaterial /></mesh>
+    <points><bufferGeometry><bufferAttribute attach="attributes-position" args={[points, 3]} /></bufferGeometry><pointsMaterial color="#fff4bf" size={.055} transparent opacity={preview ? .45 : .88} depthWrite={false} sizeAttenuation /></points>
+  </group>
 }
 
 function drawCalendar(canvas: HTMLCanvasElement) {

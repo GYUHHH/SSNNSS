@@ -21,7 +21,8 @@ const COLOR_TAB = '색상'
 const CHARACTER_TAB = '캐릭터'
 const BOOKS_TAB = '책'
 const CUSTOM_TAB = 'AI 커스텀'
-const tabs = [...categories, CUSTOM_TAB, BOOKS_TAB, CHARACTER_TAB, COLOR_TAB] as const
+const PARTICLE_TAB = '파티클'
+const tabs = [...categories, PARTICLE_TAB, CUSTOM_TAB, BOOKS_TAB, CHARACTER_TAB, COLOR_TAB] as const
 const categoryFor = (type: string): InventoryCategory => ({ 'dome-sofa': '가구', 'cloud-sofa': '가구', 'color-drawers': '가구', 'pink-slide': '가구', 'aero-bubble-chair': '가구', 'kids-slide': '가구', 'inflatable-sofa': '가구', 'blob-sculpture': '소품', 'side-table': '가구', 'music-player': '가구', 'floor-lamp': '조명', 'potted-plant': '식물', 'herb-pot': '식물', 'herb-pot-2': '식물', 'succulent-pot': '식물', 'incense-burner': '소품', 'vanity-desk': '가구', 'mushroom-lamp': '조명', 'lavender-sofa': '가구', 'pennant': '벽장식', 'boucle-stool': '가구', 'cube-shelf': '가구', 'papasan-chair': '가구', 'sage-office-chair': '가구', 'glass-table': '가구', 'glass-mushroom-lamp': '조명', 'pop-shelf': '가구', 'bubble-chair': '가구', 'y2k-desk': '가구', 'pod-daybed': '가구', 'wall-art': '벽장식', 'wall-art-3': '벽장식', 'wall-art-4': '벽장식', 'wall-art-5': '벽장식', 'animated-poster': '벽장식', window: '벽장식', banner: '벽장식', 'cd-player': '벽장식', 'profile-board': '벽장식', 'video-frame-3': '벽장식', 'video-frame-4': '벽장식', 'video-frame-5': '벽장식', guestbook: '벽장식', 'notification-box': '벽장식', 'string-lights': '조명', 'wall-sconce-2': '조명', calendar: '벽장식', 'christmas-tree': '식물', 'record-player': '가구', whiteboard: '가구', 'easel-photo': '가구', 'rocking-chair': '가구', beanbag: '가구', 'mini-fridge': '가구', hanger: '가구', 'dual-monitors': '소품', 'full-mirror': '벽장식', 'heart-mirror': '벽장식', 'star-projector': '소품', 'led-lamp': '소품', curtain: '벽장식', fireplace: '가구', 'coffee-table': '가구', 'glass-shelf': '가구', tv: '가구', wardrobe: '가구', 'fish-tank': '소품', candle: '소품', 'wall-shelf': '벽장식', vase: '소품', cushion: '소품', plush: '소품', mug: '소품', 'book-prop': '소품', speaker: '소품', 'photo-frame': '벽장식', 'photo-frame-2': '벽장식', 'photo-frame-3': '벽장식', 'photo-frame-4': '벽장식', 'photo-frame-5': '벽장식', bed: '가구', sofa: '가구', desk: '가구', chair: '가구', bookshelf: '가구', cabinet: '가구', rug: '가구', lamp: '조명', plant: '식물', clock: '벽장식', poster: '벽장식', photo: '벽장식', computer: '소품', cup: '소품' } as Record<string, InventoryCategory>)[type] ?? '가구'
 
 // everything a room can hold: the catalogue plus the movable pieces the room ships with
@@ -237,8 +238,9 @@ export default function InventoryPanel() {
   const showingCharacter = tab === CHARACTER_TAB
   const showingBooks = tab === BOOKS_TAB
   const showingCustom = tab === CUSTOM_TAB
+  const showingParticles = tab === PARTICLE_TAB
   // only what you still own and have not put down somewhere — placing one takes it off this list
-  const stock = showingColors || showingCharacter || showingBooks || showingCustom ? [] : CATALOG.filter((entry) => availableCount(entry.type) > 0 && (tab === '전체' || (entry.type === 'speech-bubble' ? '소품' : categoryFor(entry.type)) === tab as InventoryCategory))
+  const stock = showingColors || showingCharacter || showingBooks || showingCustom ? [] : CATALOG.filter((entry) => availableCount(entry.type) > 0 && (tab === '전체' || (showingParticles ? entry.type === 'star-dust' : (entry.type === 'speech-bubble' ? '소품' : categoryFor(entry.type)) === tab as InventoryCategory)))
   return <section className={preview ? 'inventory-panel previewing' : 'inventory-panel'} aria-label={t('보관함')}>
     <nav>{tabs.map((entry) => <button key={entry} className={tab === entry ? 'active' : ''} type="button" onClick={() => setTab(entry)}>{t(entry)}{entry === CUSTOM_TAB && customJob?.unseen && <i className="alert-dot" />}</button>)}</nav>
     {showingCustom ? <CustomTab /> : showingBooks ? <BooksTab /> : showingCharacter ? <CharacterLookEditor /> : showingColors ? <RoomColorEditor /> : <div className="inventory-items">
