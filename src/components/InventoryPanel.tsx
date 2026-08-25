@@ -240,7 +240,7 @@ export default function InventoryPanel() {
   const showingCustom = tab === CUSTOM_TAB
   const showingParticles = tab === PARTICLE_TAB
   // only what you still own and have not put down somewhere — placing one takes it off this list
-  const stock = showingColors || showingCharacter || showingBooks || showingCustom ? [] : CATALOG.filter((entry) => availableCount(entry.type) > 0 && (tab === '전체' || (showingParticles ? entry.type === 'star-dust' : (entry.type === 'speech-bubble' ? '소품' : categoryFor(entry.type)) === tab as InventoryCategory)))
+  const stock = showingColors || showingCharacter || showingBooks || showingCustom ? [] : CATALOG.filter((entry) => availableCount(entry.type) > 0 && (tab === '전체' || (showingParticles ? entry.type === 'star-dust' || entry.type === 'club-led' : (entry.type === 'speech-bubble' ? '소품' : categoryFor(entry.type)) === tab as InventoryCategory)))
   return <section className={preview ? 'inventory-panel previewing' : 'inventory-panel'} aria-label={t('보관함')}>
     <nav>{tabs.map((entry) => <button key={entry} className={tab === entry ? 'active' : ''} type="button" onClick={() => setTab(entry)}>{t(entry)}{entry === CUSTOM_TAB && customJob?.unseen && <i className="alert-dot" />}</button>)}</nav>
     {showingCustom ? <CustomTab /> : showingBooks ? <BooksTab /> : showingCharacter ? <CharacterLookEditor /> : showingColors ? <RoomColorEditor /> : <div className="inventory-items">

@@ -982,6 +982,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     <mesh position={[.05, .329, 0]} rotation={[Math.PI / 2, 0, 0]}><planeGeometry args={[.2, .04]} /><meshStandardMaterial color={lit ? '#eef3ff' : '#c9ced4'} emissive={lit ? '#dfe8ff' : '#000000'} emissiveIntensity={lit ? .75 : 0} side={2} transparent={material.transparent} opacity={material.opacity} /></mesh>
     {lit && <pointLight color="#dce6f8" intensity={.9} distance={1.1} position={[.05, .28, 0]} />}
   </>
+  if (item.type === 'club-led') return <ClubLights preview={preview} />
   if (item.type === 'star-projector') return <>
     <mesh castShadow position={[0, .05, 0]}><cylinderGeometry args={[.1, .12, .1, 10]} />{mat('#4c4653')}</mesh>
     <mesh castShadow position={[0, .13, 0]}><sphereGeometry args={[.09, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshStandardMaterial color={material.color ?? '#6b6478'} emissive={lit ? '#8f86ad' : '#000000'} emissiveIntensity={lit ? .5 : 0} transparent={material.transparent} opacity={material.opacity} /></mesh>
@@ -1177,6 +1178,20 @@ function FlickerLight({ position, color, base, amp, distance }: { position: [num
   const ref = useRef<PointLight>(null)
   useFrame(({ clock }) => { const t = clock.elapsedTime; if (ref.current) ref.current.intensity = base + Math.sin(t * 11) * amp + Math.sin(t * 23 + 1) * amp * .5 })
   return <pointLight ref={ref} color={color} intensity={base} distance={distance} position={position} />
+}
+
+function ClubLights({ preview }: { preview: boolean }) {
+  const field = useRef<Group>(null)
+  const skip = usePreviewFrameSkip()
+  useFrame(({ clock }, delta) => {
+    if (preview || skip(clock.elapsedTime) || !field.current) return
+    field.current.rotation.y += delta * .28
+    field.current.scale.setScalar(.92 + Math.abs(Math.sin(clock.elapsedTime * 3.5)) * .16)
+  })
+  return <>
+    <mesh visible={false}><boxGeometry args={[1.5, 1.5, 1.5]} /><meshBasicMaterial /></mesh>
+    <group ref={field} position={[0, 1.25, 0]} userData={{ excludeFromFit: true }}>{[['#ff4da1', -.55, -.28], ['#5bc8ff', .48, -.18], ['#9d7cff', -.12, .5], ['#84f5d3', .3, .42], ['#ffcc66', -.43, .3]].map(([color, x, z], index) => <mesh key={String(color)} position={[x as number, 0, z as number]} rotation={[0, index * 1.25, 0]}><coneGeometry args={[.3, 2.2, 10, 1, true]} /><meshBasicMaterial color={String(color)} transparent opacity={preview ? .07 : .15} depthWrite={false} /></mesh>)}</group>
+  </>
 }
 
 function TankFish({ color, y, phase, speed }: { color: string; y: number; phase: number; speed: number }) {

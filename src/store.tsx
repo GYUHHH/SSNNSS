@@ -63,7 +63,7 @@ const placementGrid = (item: Pick<FurnitureItem, 'gridX' | 'gridY'>): GridPositi
 // footprint 0) skips it entirely, same as before this generalized to more than floor/wall
 const isGridPlaced = (item: Pick<FurnitureItem, 'movable' | 'footprint'>) => item.movable && item.footprint.width > 0
 // visual effects are anchored to a grid cell but never reserve physical floor space
-const ignoresPlacementCollision = (item: Pick<FurnitureItem, 'type'>) => item.type === 'star-dust'
+const ignoresPlacementCollision = (item: Pick<FurnitureItem, 'type'>) => item.type === 'star-dust' || item.type === 'club-led'
 const isFloorCovering = (item: Pick<FurnitureItem, 'type' | 'surfaceId'>) => item.surfaceId === 'floor' && ['rug', 'carpet', 'mat', 'floor-mat'].includes(item.type)
 // Wall media is a background layer, not physical wall space: it never occupies placement cells, so photos,
 // posters, videos, and ordinary wall furniture can layer freely. Only two non-media wall furnishings collide.
@@ -157,6 +157,7 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
   { type: 'rocking-chair', name: '흔들의자', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'mini-fridge', name: '미니 냉장고', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'led-lamp', name: 'LED 램프', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop'] },
+  { type: 'club-led', name: '클럽 LED', category: 'decoration', movable: true, interactable: true, elevatable: true, footprint: { width: 2, depth: 2 }, size: [2, 2], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'star-projector', name: '별 프로젝터', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop'] },
   { type: 'star-dust', name: '별가루', category: 'decoration', movable: true, interactable: true, elevatable: true, footprint: { width: 2, depth: 2 }, size: [2, 2], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'speech-bubble', name: '말풍선', category: 'decoration', movable: true, interactable: true, elevatable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor'] },

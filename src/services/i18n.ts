@@ -8,6 +8,7 @@ export const setLang = (next: 'ko' | 'en') => { localStorage.setItem('lang', nex
 const EN: Record<string, string> = {
   "파티클": "Particles",
   "별가루": "Stardust",
+  "클럽 LED": "Club LED",
   "낮추기": "Lower",
   "높이기": "Raise",
   "에어로 버블 체어": "Aero Bubble Chair",
