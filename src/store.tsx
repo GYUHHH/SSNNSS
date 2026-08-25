@@ -62,6 +62,8 @@ const placementGrid = (item: Pick<FurnitureItem, 'gridX' | 'gridY'>): GridPositi
 // grid math only applies to items that actually sit in a surface's cell grid — fixed set-dressing (movable: false,
 // footprint 0) skips it entirely, same as before this generalized to more than floor/wall
 const isGridPlaced = (item: Pick<FurnitureItem, 'movable' | 'footprint'>) => item.movable && item.footprint.width > 0
+// visual effects are anchored to a grid cell but never reserve physical floor space
+const ignoresPlacementCollision = (item: Pick<FurnitureItem, 'type'>) => item.type === 'star-dust'
 const isFloorCovering = (item: Pick<FurnitureItem, 'type' | 'surfaceId'>) => item.surfaceId === 'floor' && ['rug', 'carpet', 'mat', 'floor-mat'].includes(item.type)
 // Wall media is a background layer, not physical wall space: it never occupies placement cells, so photos,
 // posters, videos, and ordinary wall furniture can layer freely. Only two non-media wall furnishings collide.
@@ -323,7 +325,7 @@ const hydrateFurniture = (saved: FurniturePlacement[] | null) => {
 const freeOnSurface = (context: FurnitureItem[], candidate: FurnitureItem): boolean => {
   const surface = resolveSurface(context, candidate.surfaceId); if (!surface) return false
   const resolution = resolutionFor(candidate)
-  const occupied = new Set(context.filter((other) => other.id !== candidate.id && !other.removed && other.surfaceId === candidate.surfaceId && !sharesWallBackground(candidate, other))
+  const occupied = new Set((ignoresPlacementCollision(candidate) ? [] : context.filter((other) => other.id !== candidate.id && !other.removed && other.surfaceId === candidate.surfaceId && !ignoresPlacementCollision(other) && !sharesWallBackground(candidate, other)))
     .flatMap((other) => normalizedCells(cellsFor(placementGrid(other), other.footprint, other.rotation[1]), resolutionFor(other)))
     .map((cell) => `${cell.x}:${cell.y}`))
   return canPlaceItem(withResolution(surface, resolution), candidate, occupied, resolution)
@@ -673,12 +675,12 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     const footprint = candidate.footprint
     // cells are normalized to subgrid2 units so a base-resolution item (a desk) and a subgrid2 one (a cup) sharing
     // the same surfaceId (the floor) still collide-check correctly against each other
-    const occupied = new Set((isFloorCovering(candidate) ? [] : context.filter((other) => other.id !== candidate.id && !other.removed && other.surfaceId === candidate.surfaceId && !isFloorCovering(other) && !sharesWallBackground(candidate, other))).flatMap((other) => {
+    const occupied = new Set((isFloorCovering(candidate) || ignoresPlacementCollision(candidate) ? [] : context.filter((other) => other.id !== candidate.id && !other.removed && other.surfaceId === candidate.surfaceId && !isFloorCovering(other) && !ignoresPlacementCollision(other) && !sharesWallBackground(candidate, other))).flatMap((other) => {
       const otherResolution = resolutionFor(other)
       return normalizedCells(cellsFor(placementGrid(other), other.footprint, other.rotation[1]), otherResolution)
     }).map((cell) => `${cell.x}:${cell.y}`))
     // the character's current cell counts as occupied too — furniture can't be dropped on top of them
-    if (surface.type === 'floor' && !isFloorCovering(candidate)) {
+    if (surface.type === 'floor' && !isFloorCovering(candidate) && !ignoresPlacementCollision(candidate)) {
       const cell = worldToGrid(floorSurface, [characterPosition[0], 0, characterPosition[2]], { width: 1, depth: 1 })
       for (const sub of normalizedCells([{ x: cell.gridX, y: cell.gridY }], 'base')) occupied.add(`${sub.x}:${sub.y}`)
     }
