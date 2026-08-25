@@ -61,7 +61,8 @@ function GlbScene({ url, preview, flat, custom, wall, padX }: { url: string; pre
       const size = bounds.getSize(new Vector3())
       const keeper = new Mesh(new BoxGeometry(size.x * padX, size.y, size.z), new MeshBasicMaterial())
       keeper.visible = false
-      bounds.getCenter(keeper.position)
+      // bounds는 copy.position이 이미 반영된 좌표계 — 자식으로 넣을 땐 그 오프셋을 빼야 이중 적용이 안 된다
+      keeper.position.copy(bounds.getCenter(new Vector3()).sub(copy.position))
       copy.add(keeper)
     }
     return copy
