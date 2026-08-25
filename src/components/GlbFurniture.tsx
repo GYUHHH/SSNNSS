@@ -1,6 +1,8 @@
 import { Suspense, useEffect, useMemo } from 'react'
 import { useGLTF } from '@react-three/drei'
-import { Box3, BoxGeometry, Mesh, MeshBasicMaterial, Vector3 } from 'three'
+import { Box3, BoxGeometry, Mesh, MeshBasicMaterial, PMREMGenerator, Vector3, type Texture, type WebGLRenderer } from 'three'
+import { RoomEnvironment } from 'three-stdlib'
+import { useThree } from '@react-three/fiber'
 import { publicBase } from '../services/publicBase'
 
 // GLB 가구 실험: 파일 하나를 카탈로그 아이템으로. 씬은 배치 인스턴스마다 클론하고 그림자를 켠다.
@@ -25,13 +27,25 @@ for (const url of Object.values(GLB_URLS)) useGLTF.preload(url)
 const FLAT_TYPES = new Set(['pink-slide', 'color-drawers'])
 // 가로 바운즈 패딩 배율: FittedMesh가 바운즈로 칸을 채우는 성질을 이용해, 실물이 칸 박스보다 작게 보이게 한다
 const PAD_X: Record<string, number> = {}
+// 금속·유리 광택 타입에만 환경맵(가상 스튜디오 반사)을 붙인다 — 씬 전체에 걸면 파스텔 톤이 흔들려서 선별 적용
+const GLOSS_TYPES = new Set(['hyper-sculpture'])
+let sharedEnvironment: Texture | null = null
+const environmentFor = (gl: WebGLRenderer) => {
+  if (!sharedEnvironment) {
+    const generator = new PMREMGenerator(gl)
+    sharedEnvironment = generator.fromScene(new RoomEnvironment(), .04).texture
+    generator.dispose()
+  }
+  return sharedEnvironment
+}
 
 // GLB는 비동기 로드라 FittedMesh가 로드 전 빈 치수를 잴 수 있다 — 로드 완료를 알려 재측정시킨다
 const readyListeners = new Set<() => void>()
 export const onGlbReady = (listener: () => void) => { readyListeners.add(listener); return () => { readyListeners.delete(listener) } }
 
-function GlbScene({ url, preview, flat, custom, wall, padX }: { url: string; preview: boolean; flat: boolean; custom?: boolean; wall?: boolean; padX?: number }) {
+function GlbScene({ url, preview, flat, custom, wall, padX, gloss }: { url: string; preview: boolean; flat: boolean; custom?: boolean; wall?: boolean; padX?: number; gloss?: boolean }) {
   const { scene } = useGLTF(url)
+  const gl = useThree((state) => state.gl)
   const cloned = useMemo(() => {
     const copy = scene.clone(true)
     copy.traverse((node) => {
@@ -45,6 +59,7 @@ function GlbScene({ url, preview, flat, custom, wall, padX }: { url: string; pre
           if (flat) mesh.material.flatShading = true
           // 유저 생성 GLB는 후처리 없이 그대로 오므로 카탈로그와 같은 무광 정책을 런타임에 적용
           if (custom) { const material = mesh.material as { metalness?: number; roughness?: number }; material.metalness = 0; material.roughness = .95 }
+          if (gloss) { const material = mesh.material as { envMap?: Texture; envMapIntensity?: number; needsUpdate?: boolean }; material.envMap = environmentFor(gl); material.envMapIntensity = .9; material.needsUpdate = true }
           if (preview) { mesh.material.transparent = true; mesh.material.opacity = .55 }
         }
       }
@@ -67,7 +82,7 @@ function GlbScene({ url, preview, flat, custom, wall, padX }: { url: string; pre
       copy.add(keeper)
     }
     return copy
-  }, [scene, preview, flat, custom, wall, padX])
+  }, [scene, preview, flat, custom, wall, padX, gloss, gl])
   useEffect(() => { for (const listener of [...readyListeners]) listener() }, [scene])
   return <primitive object={cloned} />
 }
@@ -75,5 +90,5 @@ function GlbScene({ url, preview, flat, custom, wall, padX }: { url: string; pre
 export default function GlbFurniture({ type, url, wall, preview }: { type?: string; url?: string; wall?: boolean; preview: boolean }) {
   const resolved = url ?? GLB_URLS[type ?? '']
   if (!resolved) return null
-  return <Suspense fallback={null}><GlbScene url={resolved} preview={preview} flat={!!type && FLAT_TYPES.has(type)} custom={!!url} wall={wall} padX={type ? PAD_X[type] : undefined} /></Suspense>
+  return <Suspense fallback={null}><GlbScene url={resolved} preview={preview} flat={!!type && FLAT_TYPES.has(type)} custom={!!url} wall={wall} padX={type ? PAD_X[type] : undefined} gloss={!!type && GLOSS_TYPES.has(type)} /></Suspense>
 }
