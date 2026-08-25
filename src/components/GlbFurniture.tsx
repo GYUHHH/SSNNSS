@@ -1,4 +1,4 @@
-import { Suspense, useMemo } from 'react'
+import { Suspense, useEffect, useMemo } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { publicBase } from '../services/publicBase'
 
@@ -14,6 +14,10 @@ export const GLB_TYPES = new Set(Object.keys(GLB_URLS))
 for (const url of Object.values(GLB_URLS)) useGLTF.preload(url)
 // 각진 로우폴리 톤으로 통일할 타입 — 사진풍 스무스 셰이딩이 방 감성과 어긋나는 생성 모델용
 const FLAT_TYPES = new Set(['pink-slide', 'color-drawers'])
+
+// GLB는 비동기 로드라 FittedMesh가 로드 전 빈 치수를 잴 수 있다 — 로드 완료를 알려 재측정시킨다
+const readyListeners = new Set<() => void>()
+export const onGlbReady = (listener: () => void) => { readyListeners.add(listener); return () => { readyListeners.delete(listener) } }
 
 function GlbScene({ url, preview, flat }: { url: string; preview: boolean; flat: boolean }) {
   const { scene } = useGLTF(url)
@@ -34,6 +38,7 @@ function GlbScene({ url, preview, flat }: { url: string; preview: boolean; flat:
     })
     return copy
   }, [scene, preview, flat])
+  useEffect(() => { for (const listener of [...readyListeners]) listener() }, [scene])
   return <primitive object={cloned} />
 }
 
