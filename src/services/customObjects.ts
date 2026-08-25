@@ -1,4 +1,4 @@
-import { customObjectType, isCustomObjectSpec, type CustomObjectCategory, type CustomObjectSpec, type CustomTopSurface } from '../customObjectSpec'
+import { clampModelScale, customObjectType, isCustomObjectSpec, type CustomObjectCategory, type CustomObjectSpec, type CustomTopSurface } from '../customObjectSpec'
 import { authHeaders, readStored, writeStored } from './social'
 import type { Material, Mesh, Object3D, Texture } from 'three'
 
@@ -7,7 +7,7 @@ export const CUSTOM_OBJECTS_KEY = 'my-room-custom-objects-v1'
 export const loadCustomObjects = (): CustomObjectSpec[] => {
   try {
     const values = JSON.parse(readStored(CUSTOM_OBJECTS_KEY) ?? '[]') as unknown
-    return Array.isArray(values) ? values.filter(isCustomObjectSpec) : []
+    return Array.isArray(values) ? values.filter(isCustomObjectSpec).map((value) => ({ ...value, modelScale: clampModelScale(value.modelScale) })) : []
   } catch { return [] }
 }
 

@@ -69,6 +69,7 @@ export const isCustomObjectSpec = (value: unknown): value is CustomObjectSpec =>
 }
 
 export const customObjectType = (id: string) => `custom:${id}`
+export const clampModelScale = (scale: CustomObjectSpec['modelScale']): [number, number, number] => (scale ?? [1, 1, 1]).map((value) => Math.max(.25, Math.min(1, value))) as [number, number, number]
 
 if (typeof window !== 'undefined' && import.meta.env.DEV) {
   console.assert(isCustomObjectSpec({ id: 'check', name: 'check', category: 'furniture', footprint: { width: 1, depth: 1 }, parts: [{ id: 'body', primitive: 'box', position: [0, .5, 0], rotation: [0, 0, 0], size: [1, 1, 1], color: '#ffffff', roughness: .8, metalness: 0 }] }), 'custom object schema must accept a valid primitive object')

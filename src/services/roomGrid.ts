@@ -1,5 +1,5 @@
 import { Euler, Quaternion, Vector3 } from 'three'
-import type { CustomObjectSpec } from '../customObjectSpec'
+import { clampModelScale, type CustomObjectSpec } from '../customObjectSpec'
 
 export const GRID_COUNT = 10
 export const GRID_SIZE = .7
@@ -82,7 +82,7 @@ export const surfacesForOwner = (item: SurfaceHost): PlacementSurface[] => {
   const top = custom?.topSurface
   const model = custom?.modelSize
   if (custom?.category === 'furniture' && top && top.enabled !== false && model) {
-    const scale = custom.modelScale ?? [1, 1, 1]
+    const scale = clampModelScale(custom.modelScale)
     const fitX = item.footprint.width * GRID_SIZE / model[0]
     const fitZ = item.footprint.depth * GRID_SIZE / model[2]
     const fitY = Math.min(fitX, fitZ)

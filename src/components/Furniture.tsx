@@ -4,6 +4,7 @@ import { Html, useCursor } from '@react-three/drei'
 import { Box3, BufferGeometry, Float32BufferAttribute, type Group, type Mesh, type Object3D, type OrthographicCamera, Plane, Vector3 } from 'three'
 import Interactive from './Interactive'
 import { GLB_TYPES, onGlbReady } from './GlbFurniture'
+import { clampModelScale } from '../customObjectSpec'
 import { type FurnitureId, type FurnitureItem, isResizableWallItem, resolutionFor, useRoomStore } from '../store'
 import { fitMeshToFootprint, resolveSurface, SURFACED_TYPES, wallSurfaces, withResolution, type PlacementSurface, type ResizeCorner } from '../services/roomGrid'
 import { isWallMedia, isWallPhoto, ROOM_HTML_Z_INDEX_RANGE, ROOM_OBJECT_ORDER, wallItemOrder } from '../services/renderOrder'
@@ -85,7 +86,7 @@ export function FittedMesh({ item, children }: { item: FurnitureItem; children: 
       : item.type === 'wall-shelf'
         ? [width / size.x, 1, 1]
         : [width / size.x, height / size.y, 1])
-    const customScale = item.customSpec?.modelScale ?? [1, 1, 1]
+    const customScale = clampModelScale(item.customSpec?.modelScale)
     const finalScale: [number, number, number] = [fitted[0] * customScale[0], fitted[1] * customScale[1], fitted[2] * customScale[2]]
     group.current.scale.set(...finalScale)
     // Media lives on the wall's back plane. Other wall furniture is deliberately lifted forward so it can be
