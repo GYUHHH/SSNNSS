@@ -23,7 +23,7 @@ for (const url of Object.values(GLB_URLS)) useGLTF.preload(url)
 // 각진 로우폴리 톤으로 통일할 타입 — 사진풍 스무스 셰이딩이 방 감성과 어긋나는 생성 모델용
 const FLAT_TYPES = new Set(['pink-slide', 'color-drawers'])
 // 가로 바운즈 패딩 배율: FittedMesh가 바운즈로 칸을 채우는 성질을 이용해, 실물이 칸 박스보다 작게 보이게 한다
-const PAD_X: Record<string, number> = { 'bracket-shelf': 1.45 }
+const PAD_X: Record<string, number> = {}
 
 // GLB는 비동기 로드라 FittedMesh가 로드 전 빈 치수를 잴 수 있다 — 로드 완료를 알려 재측정시킨다
 const readyListeners = new Set<() => void>()
