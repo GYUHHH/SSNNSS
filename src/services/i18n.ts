@@ -347,6 +347,7 @@ const EN: Record<string, string> = {
   "피부": "Skin",
   "핑크 화장대": "Pink Vanity",
   "브래킷 선반": "Bracket Shelf",
+  "하이퍼 조형물": "Hyper Sculpture",
   "하루의 기록": "Notes on the day",
   "하의": "Bottoms",
   "하트 거울": "Heart Mirror",
