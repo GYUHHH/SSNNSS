@@ -16,7 +16,7 @@ import type { CustomObjectCategory, CustomObjectSpec } from './customObjectSpec'
 // AI 커스텀 생성 잡: 컨셉 이미지 → API 조립 → 렌더 검수 1회.
 // 진행 UI·빨간점 알림이 이 하나를 본다. unseen은 완료/실패를 아직 사용자가 확인 안 했다는 뜻.
 export type CustomJob = { stage: 'concept' | 'draft' | 'detail' | 'verify' | 'revise' | 'done' | 'error'; round: number; unseen: boolean; name?: string; error?: string }
-import { customObjectTemplate, detailCustomObject, generateConceptImage, generateCustomObject, loadCustomObjects, pollGlbObject, reviewCustomObject, saveCustomObjects, submitGlbObject } from './services/customObjects'
+import { customObjectTemplate, detailCustomObject, generateConceptImage, generateCustomObject, generatedModelBlob, loadCustomObjects, pollGlbObject, reviewCustomObject, saveCustomObjects, submitGlbObject, type GeneratedModel } from './services/customObjects'
 import { REVIEW_ANGLES, reviewShot } from './services/thumbnails'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id, photo: row.photo })
@@ -461,15 +461,14 @@ export function RoomProvider({ children }: { children: ReactNode }) {
           }
           setCustomJob({ stage: 'draft', round: 0, unseen: false })
           const requestId = await submitGlbObject(reference)
-          let url: string | undefined
-          for (let attempt = 0; attempt < 100 && !url; attempt += 1) {
+          let model: GeneratedModel | undefined
+          for (let attempt = 0; attempt < 100 && !model; attempt += 1) {
             await new Promise((resolve) => setTimeout(resolve, 3000))
-            // 일시적 폴링 실패는 다음 회차로 — 생성은 큐에서 계속 돌고 있다
-            const state = await pollGlbObject(requestId).catch(() => ({ done: false, url: undefined as string | undefined }))
-            if (state.done) url = state.url
+            const state = await pollGlbObject(requestId)
+            if (state.done) model = state.model
           }
-          if (!url) throw new Error('GLB_TIMEOUT')
-          const file = await (await fetch(url)).blob()
+          if (!model) throw new Error('MODEL_TIMEOUT')
+          const file = await generatedModelBlob(model)
           const id = `g${Date.now()}`
           const stored = await uploadMedia(`glbobj/${id}`, file)
           if (!stored) throw new Error('UPLOAD_FAILED')

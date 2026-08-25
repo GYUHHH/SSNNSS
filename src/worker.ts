@@ -272,7 +272,7 @@ async function review(request: Request, env: Env) {
   return json({ verdict: pass ? 'pass' : 'fail', defects, violations })
 }
 
-// GLB 생성: Rapid의 PBR 출력은 기존 textured v2보다 저렴하면서 방 안의 광택 재질을 보존한다.
+// Rapid는 OBJ를 반환할 수 있다. 클라이언트가 이를 GLB로 묶어 기존 보관함 렌더러에 넣는다.
 const FAL_MODEL = 'fal-ai/hunyuan-3d/v3.1/rapid/image-to-3d'
 // fal 큐의 상태·결과 조회는 하위 경로가 아니라 앱 루트 경로로 받는다.
 const FAL_QUEUE_APP = 'fal-ai/hunyuan-3d'
@@ -286,7 +286,7 @@ async function glbSubmit(request: Request, env: Env) {
   if (!image.startsWith('data:image/') || image.length > 7_000_000) return json({ error: 'INVALID_IMAGE' }, 400)
   const upstream = await fetch(`https://queue.fal.run/${FAL_MODEL}`, {
     method: 'POST', headers: { Authorization: `Key ${env.FAL_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ input_image_url: image, enable_pbr: true }),
+    body: JSON.stringify({ input_image_url: image, enable_pbr: false }),
   })
   const result = await upstream.json().catch(() => null) as { request_id?: string } | null
   if (!upstream.ok || !result?.request_id) { console.log('glb-submit-failed', upstream.status); return json({ error: 'GLB_SUBMIT_FAILED' }, 502) }
@@ -305,12 +305,15 @@ async function glbPoll(request: Request, env: Env) {
   if (state.status !== 'COMPLETED') return json({ done: false })
   const result = await fetch(`https://queue.fal.run/${FAL_QUEUE_APP}/requests/${id}`, { headers: auth })
   type FalFile = { url?: string; content_type?: string; file_name?: string }
-  const payload = await result.json().catch(() => null) as { model_glb?: FalFile; model_urls?: { glb?: FalFile } } | null
-  const file = payload?.model_urls?.glb ?? payload?.model_glb
-  const url = file?.url
-  const glb = file?.content_type === 'model/gltf-binary' || file?.file_name?.toLowerCase().endsWith('.glb') || url?.split('?', 1)[0].toLowerCase().endsWith('.glb')
-  if (!result.ok || typeof url !== 'string' || !glb) { console.log('glb-result-failed', result.status, file?.content_type, file?.file_name); return json({ error: 'GLB_RESULT_FAILED' }, 502) }
-  return json({ done: true, url })
+  const payload = await result.json().catch(() => null) as { model_glb?: FalFile; material_mtl?: FalFile; texture?: FalFile; model_urls?: { glb?: FalFile | null; obj?: FalFile | null; mtl?: FalFile | null; texture?: FalFile | null } } | null
+  const glb = payload?.model_urls?.glb ?? (payload?.model_glb?.content_type === 'model/gltf-binary' ? payload.model_glb : null)
+  if (result.ok && glb?.url) return json({ done: true, model: { format: 'glb', url: glb.url } })
+  const obj = payload?.model_urls?.obj ?? (payload?.model_glb?.content_type === 'model/obj' ? payload.model_glb : null)
+  const mtl = payload?.model_urls?.mtl ?? payload?.material_mtl
+  const texture = payload?.model_urls?.texture ?? payload?.texture
+  if (result.ok && obj?.url) return json({ done: true, model: { format: 'obj', objUrl: obj.url, mtlUrl: mtl?.url, textureUrl: texture?.url } })
+  console.log('model-result-failed', result.status)
+  return json({ error: 'MODEL_RESULT_FAILED' }, 502)
 }
 
 export default {

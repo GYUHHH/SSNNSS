@@ -1,5 +1,6 @@
 import { customObjectType, isCustomObjectSpec, type CustomObjectCategory, type CustomObjectSpec } from '../customObjectSpec'
 import { authHeaders, readStored, writeStored } from './social'
+import type { Mesh } from 'three'
 
 export const CUSTOM_OBJECTS_KEY = 'my-room-custom-objects-v1'
 
@@ -88,9 +89,47 @@ export async function submitGlbObject(image: string): Promise<string> {
   return body.requestId
 }
 
-export async function pollGlbObject(requestId: string): Promise<{ done: boolean; url?: string }> {
+export type GeneratedModel = { format: 'glb'; url: string } | { format: 'obj'; objUrl: string; mtlUrl?: string; textureUrl?: string }
+
+export async function pollGlbObject(requestId: string): Promise<{ done: boolean; model?: GeneratedModel }> {
   const response = await fetch(`/api/glb-objects/poll?id=${encodeURIComponent(requestId)}`, { headers: await authHeaders() })
-  const body = await response.json().catch(() => null) as { done?: boolean; url?: string; error?: string } | null
+  const body = await response.json().catch(() => null) as { done?: boolean; model?: GeneratedModel; error?: string } | null
   if (!response.ok || typeof body?.done !== 'boolean') throw new Error(body?.error || `HTTP ${response.status}`)
-  return { done: body.done, url: typeof body.url === 'string' ? body.url : undefined }
+  return { done: body.done, model: body.model }
+}
+
+export async function generatedModelBlob(model: GeneratedModel): Promise<Blob> {
+  if (model.format === 'glb') {
+    const response = await fetch(model.url)
+    if (!response.ok) throw new Error('MODEL_DOWNLOAD_FAILED')
+    return response.blob()
+  }
+  const [objResponse, textureResponse] = await Promise.all([
+    fetch(model.objUrl),
+    model.textureUrl ? fetch(model.textureUrl) : null,
+  ])
+  if (!objResponse.ok || (textureResponse && !textureResponse.ok)) throw new Error('MODEL_DOWNLOAD_FAILED')
+  const [{ OBJLoader }, { GLTFExporter }, three] = await Promise.all([
+    import('three/addons/loaders/OBJLoader.js'),
+    import('three/addons/exporters/GLTFExporter.js'),
+    import('three'),
+  ])
+  const object = new OBJLoader().parse(await objResponse.text())
+  let bitmap: ImageBitmap | undefined
+  let texture: InstanceType<typeof three.Texture> | undefined
+  if (textureResponse) {
+    bitmap = await createImageBitmap(await textureResponse.blob())
+    texture = new three.Texture(bitmap)
+    texture.colorSpace = three.SRGBColorSpace
+    texture.needsUpdate = true
+    object.traverse((node) => {
+      const mesh = node as Mesh
+      if (mesh.isMesh) mesh.material = new three.MeshStandardMaterial({ map: texture, roughness: .8, metalness: 0 })
+    })
+  }
+  const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+    new GLTFExporter().parse(object, (output) => output instanceof ArrayBuffer ? resolve(output) : reject(new Error('GLB_EXPORT_FAILED')), reject, { binary: true, onlyVisible: true })
+  })
+  texture?.dispose(); bitmap?.close()
+  return new Blob([buffer], { type: 'model/gltf-binary' })
 }
