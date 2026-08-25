@@ -20,7 +20,7 @@ const FLAT_TYPES = new Set(['pink-slide', 'color-drawers'])
 const readyListeners = new Set<() => void>()
 export const onGlbReady = (listener: () => void) => { readyListeners.add(listener); return () => { readyListeners.delete(listener) } }
 
-function GlbScene({ url, preview, flat, custom }: { url: string; preview: boolean; flat: boolean; custom?: boolean }) {
+function GlbScene({ url, preview, flat, custom, wall }: { url: string; preview: boolean; flat: boolean; custom?: boolean; wall?: boolean }) {
   const { scene } = useGLTF(url)
   const cloned = useMemo(() => {
     const copy = scene.clone(true)
@@ -43,16 +43,18 @@ function GlbScene({ url, preview, flat, custom }: { url: string; preview: boolea
     if (custom) {
       const bounds = new Box3().setFromObject(copy)
       const center = bounds.getCenter(new Vector3())
-      copy.position.set(-center.x, -bounds.min.y, -center.z)
+      // 벽 장식은 중앙 정렬 + 등면을 벽에(z=0), 바닥 가구는 밑면을 바닥에
+      if (wall) copy.position.set(-center.x, -center.y, -bounds.max.z)
+      else copy.position.set(-center.x, -bounds.min.y, -center.z)
     }
     return copy
-  }, [scene, preview, flat, custom])
+  }, [scene, preview, flat, custom, wall])
   useEffect(() => { for (const listener of [...readyListeners]) listener() }, [scene])
   return <primitive object={cloned} />
 }
 
-export default function GlbFurniture({ type, url, preview }: { type?: string; url?: string; preview: boolean }) {
+export default function GlbFurniture({ type, url, wall, preview }: { type?: string; url?: string; wall?: boolean; preview: boolean }) {
   const resolved = url ?? GLB_URLS[type ?? '']
   if (!resolved) return null
-  return <Suspense fallback={null}><GlbScene url={resolved} preview={preview} flat={!!type && FLAT_TYPES.has(type)} custom={!!url} /></Suspense>
+  return <Suspense fallback={null}><GlbScene url={resolved} preview={preview} flat={!!type && FLAT_TYPES.has(type)} custom={!!url} wall={wall} /></Suspense>
 }

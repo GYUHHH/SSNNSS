@@ -780,7 +780,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   const frameDisplay = useVideoDisplayMeta(frameLookup)
   const clipAspect = useClipAspectRatio(item.id, item.type.startsWith('video-frame') && !preview && !frameLink)
   const customSpec = item.customSpec ?? store?.customObjects.find((spec) => `custom:${spec.id}` === item.type)
-  if (item.type.startsWith('custom:') && customSpec) return customSpec.glbUrl ? <GlbFurniture url={customSpec.glbUrl} preview={preview} /> : <GeneratedObject spec={customSpec} preview={preview} />
+  if (item.type.startsWith('custom:') && customSpec) return customSpec.glbUrl ? <GlbFurniture url={customSpec.glbUrl} wall={customSpec.category === 'wallDecoration'} preview={preview} /> : <GeneratedObject spec={customSpec} preview={preview} />
   if (item.type === 'speech-bubble') {
     const bubbleScale = 1.8
     const bubbleText = preview ? t('말풍선') : store?.artworks[item.id] ?? ''
