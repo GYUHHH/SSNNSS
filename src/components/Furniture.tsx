@@ -42,8 +42,8 @@ function HeightControls({ item }: { item: FurnitureItem }) {
   const stop = (event: { stopPropagation: () => void }) => event.stopPropagation()
   return <Html position={[0, .12 - height, 0]} center zIndexRange={ROOM_HTML_Z_INDEX_RANGE}>
     <div className="height-controls" onPointerDown={stop} onClick={stop}>
-      <button type="button" aria-label={t('낮추기')} disabled={height <= 0} onClick={(event) => { event.stopPropagation(); adjustFurnitureHeight(item.id, -1) }}>−</button>
-      <button type="button" aria-label={t('높이기')} disabled={height >= 5.6} onClick={(event) => { event.stopPropagation(); adjustFurnitureHeight(item.id, 1) }}>+</button>
+      <button type="button" aria-label={t('낮추기')} disabled={height <= 0} onClick={(event) => { event.stopPropagation(); adjustFurnitureHeight(item.id, -1) }}>∨</button>
+      <button type="button" aria-label={t('높이기')} disabled={height >= 5.6} onClick={(event) => { event.stopPropagation(); adjustFurnitureHeight(item.id, 1) }}>∧</button>
     </div>
   </Html>
 }
