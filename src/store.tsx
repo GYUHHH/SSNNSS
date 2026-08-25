@@ -147,10 +147,6 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
   { type: 'papasan-chair', name: '파파산 체어', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 2 }, size: [2, 2], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'glass-table', name: '유리 테이블', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'glass-mushroom-lamp', name: '유리 버섯 램프', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
-  { type: 'pop-shelf', name: '팝 선반', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
-  { type: 'bubble-chair', name: '버블 체어', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 2 }, size: [2, 2], scale: 1, allowedSurfaces: ['floor'] },
-  { type: 'y2k-desk', name: 'Y2K 책상', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
-  { type: 'pod-daybed', name: '포드 데이베드', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 3, depth: 3 }, size: [3, 3], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'string-lights', name: '스트링 라이트', category: 'wallItem', movable: true, interactable: true, footprint: { width: 3, depth: 1 }, size: [3, 1], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'wall-sconce-2', name: '벽조명2', category: 'wallItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'calendar', name: '달력', category: 'wallItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['wall'] },
@@ -398,7 +394,7 @@ export type TimeOfDay = 'day' | 'evening' | 'night'
 // clicking these walks the character over and poses it (see interactionAnchorsFor); every other item — wall
 // decor, lights, toggles, plain props — must leave the character exactly as it is. Whitelist on purpose: new
 // furniture is inert until it earns a pose here.
-export const POSED_TYPES = new Set(['bed', 'hotel-bed', 'sofa', 'chair', 'desk', 'bookshelf', 'rocking-chair', 'beanbag', 'cup', 'plant', 'cabinet', 'side-table', 'coffee-table', 'wardrobe', 'hanger', 'rug', 'bin', 'glass-shelf', 'boucle-stool', 'papasan-chair', 'bubble-chair', 'pod-daybed', 'y2k-desk', 'glass-table', 'pop-shelf', 'cube-shelf', 'vanity-desk', 'inflatable-sofa', 'pink-slide', 'color-drawers', 'cloud-sofa', 'dome-sofa', 'deco-shelf', 'frutiger-desk', 'aqua-table', 'hanging-bubble-chair'])
+export const POSED_TYPES = new Set(['bed', 'hotel-bed', 'sofa', 'chair', 'desk', 'bookshelf', 'rocking-chair', 'beanbag', 'cup', 'plant', 'cabinet', 'side-table', 'coffee-table', 'wardrobe', 'hanger', 'rug', 'bin', 'glass-shelf', 'boucle-stool', 'papasan-chair', 'glass-table', 'cube-shelf', 'vanity-desk', 'inflatable-sofa', 'pink-slide', 'color-drawers', 'cloud-sofa', 'dome-sofa', 'deco-shelf', 'frutiger-desk', 'aqua-table', 'hanging-bubble-chair'])
 export type GuestComment = { id: string; name: string; text: string; createdAt: string; visitor?: string; verified?: boolean; photo?: string }
 const toPlacement = ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, allowedSurfaces, styleId, heightOffset, removed, updatedAt }: FurnitureItem): FurniturePlacement => ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, resolution: resolutionFor({ allowedSurfaces }), styleId, heightOffset, removed, updatedAt })
 // every catalogue piece exists exactly once for now; a future account would supply real per-user counts
