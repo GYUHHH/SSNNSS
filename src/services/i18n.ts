@@ -10,6 +10,8 @@ const EN: Record<string, string> = {
   "품질": "Quality",
   "일반": "Standard",
   "고품질": "High Quality",
+  "이름 수정": "Rename",
+  "수정 취소": "Cancel renaming",
   "별가루": "Stardust",
   "클럽 LED": "Club LED",
   "낮추기": "Lower",

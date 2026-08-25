@@ -159,8 +159,10 @@ function CustomJobStatus({ job }: { job: { stage: string; round: number; name?: 
 const CUSTOM_CATEGORY_LABELS: Record<CustomObjectCategory, string> = { furniture: '가구', wallDecoration: '벽장식', floor: '바닥', sculpture: '조형물' }
 
 function CustomTab() {
-  const { customObjects, startPreview, availableCount, customJob, runCustomGeneration, markCustomSeen, removeCustomObject } = useRoomStore()
+  const { customObjects, startPreview, availableCount, customJob, runCustomGeneration, markCustomSeen, renameCustomObject, removeCustomObject } = useRoomStore()
   const [removing, setRemoving] = useState<string | null>(null)
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
   // 생성권 잔액: 결제가 구성된 경우에만 표시·차단. 생성이 끝날 때마다 새로 읽는다.
   const [credits, setCredits] = useState<{ enabled: boolean; balance: number; freeLeft: boolean; buyUrl: string | null } | null>(null)
   useEffect(() => { let live = true; void fetchCredits().then((value) => { if (live) setCredits(value) }); return () => { live = false } }, [customJob?.stage])
@@ -225,6 +227,8 @@ function CustomTab() {
       const entry = customObjectTemplate(object) as FurnitureItem
       return <div key={object.id} className="custom-item-wrap">
         <button type="button" onClick={() => startPreview(entry.type)}><ItemIcon item={entry} /><span>{object.name}<small>{entry.size[0]} × {entry.size[1]}</small></span></button>
+        {renaming === object.id && <form className="custom-item-rename" onSubmit={(event) => { event.preventDefault(); if (!renameValue.trim()) return; renameCustomObject(object.id, renameValue); setRenaming(null) }}><input autoFocus maxLength={40} value={renameValue} aria-label={t('이름 수정')} onChange={(event) => setRenameValue(event.target.value)} /><button type="submit">{t('저장')}</button></form>}
+        <button type="button" className="custom-item-edit" aria-label={t(renaming === object.id ? '수정 취소' : '이름 수정')} onClick={() => { setRemoving(null); setRenaming((current) => { if (current === object.id) return null; setRenameValue(object.name); return object.id }) }}>{renaming === object.id ? '×' : '✎'}</button>
         <button type="button" className="custom-item-delete" aria-label={tp('{title} 삭제', { title: object.name })} onClick={() => setRemoving(object.id)}>×</button>
         {removing === object.id && <div className="delete-confirm"><span>{tp('‘{title}’ 삭제할까요?', { title: object.name })}</span><button type="button" onClick={() => setRemoving(null)}>{t('취소')}</button><button type="button" onClick={() => { removeCustomObject(object.id); setRemoving(null) }}>{t('삭제')}</button></div>}
       </div>

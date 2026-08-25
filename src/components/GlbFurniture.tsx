@@ -41,8 +41,8 @@ const environmentFor = (gl: WebGLRenderer) => {
 }
 
 // GLB는 비동기 로드라 FittedMesh가 로드 전 빈 치수를 잴 수 있다 — 로드 완료를 알려 재측정시킨다
-const readyListeners = new Set<() => void>()
-export const onGlbReady = (listener: () => void) => { readyListeners.add(listener); return () => { readyListeners.delete(listener) } }
+const readyListeners = new Set<(url: string) => void>()
+export const onGlbReady = (listener: (url: string) => void) => { readyListeners.add(listener); return () => { readyListeners.delete(listener) } }
 
 function GlbScene({ url, preview, flat, custom, wall, padX, gloss }: { url: string; preview: boolean; flat: boolean; custom?: boolean; wall?: boolean; padX?: number; gloss?: boolean }) {
   const { scene } = useGLTF(url)
@@ -84,7 +84,7 @@ function GlbScene({ url, preview, flat, custom, wall, padX, gloss }: { url: stri
     }
     return copy
   }, [scene, preview, flat, custom, wall, padX, gloss, gl])
-  useEffect(() => { for (const listener of [...readyListeners]) listener() }, [scene])
+  useEffect(() => { for (const listener of [...readyListeners]) listener(url) }, [scene, url])
   return <primitive object={cloned} />
 }
 

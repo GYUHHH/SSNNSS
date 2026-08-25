@@ -1,7 +1,8 @@
 import { createRoot, useThree } from '@react-three/fiber'
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Box3, type Group, type PerspectiveCamera, Vector3 } from 'three'
 import { ItemVisual } from '../components/InventoryFurniture'
+import { onGlbReady } from '../components/GlbFurniture'
 import type { FurnitureItem } from '../store'
 import type { FloorStyle } from './styles'
 
@@ -22,9 +23,17 @@ const ensureRoot = () => {
 function Shot({ item, direction = [0.9, 0.8, 1.4], done }: { item: FurnitureItem; direction?: [number, number, number]; done: (url: string) => void }) {
   const group = useRef<Group>(null)
   const state = useThree()
+  const glbUrl = item.customSpec?.glbUrl
+  const [modelReady, setModelReady] = useState(!glbUrl)
+  // 커스텀 GLB는 Suspense 뒤에서 비동기로 붙는다. 빈 group을 먼저 찍지 않고 이 URL의 로드 신호를 기다린다.
+  useLayoutEffect(() => {
+    if (!glbUrl) { setModelReady(true); return }
+    setModelReady(false)
+    return onGlbReady((url) => { if (url === glbUrl) setModelReady(true) })
+  }, [glbUrl])
   // the detached root has no running frameloop, so render + capture synchronously once the scene graph is committed
   useLayoutEffect(() => {
-    if (!group.current) return
+    if (!group.current || !modelReady) return
     const camera = state.camera as PerspectiveCamera
     const bounds = new Box3().setFromObject(group.current)
     const center = bounds.getCenter(new Vector3())
@@ -34,7 +43,7 @@ function Shot({ item, direction = [0.9, 0.8, 1.4], done }: { item: FurnitureItem
     camera.lookAt(center)
     state.gl.render(state.scene, camera)
     done(state.gl.domElement.toDataURL('image/png'))
-  }, [item, direction])
+  }, [item, direction, modelReady])
   return <>
     <ambientLight intensity={1.1} />
     <directionalLight position={[2, 4, 3]} intensity={1.4} />
@@ -43,13 +52,13 @@ function Shot({ item, direction = [0.9, 0.8, 1.4], done }: { item: FurnitureItem
 }
 
 export function thumbnailFor(item: FurnitureItem): Promise<string> {
-  const key = `${item.type}:${item.styleId ?? ''}`
+  const key = `${item.type}:${item.styleId ?? ''}:${item.customSpec?.glbUrl ?? ''}`
   const hit = cache.get(key)
   if (hit) return Promise.resolve(hit)
   const job = chain.then(() => Promise.race([new Promise<string>((resolve) => {
     ensureRoot()
     root!.render(<Shot item={item} done={(url) => { cache.set(key, url); resolve(url) }} />)
-  }), new Promise<string>((resolve) => setTimeout(() => resolve(''), 4000))]))
+  }), new Promise<string>((resolve) => setTimeout(() => resolve(''), item.customSpec?.glbUrl ? 20000 : 4000))]))
   chain = job.catch(() => undefined)
   return job
 }
