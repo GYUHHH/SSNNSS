@@ -1,8 +1,10 @@
+import { useEffect, useMemo } from 'react'
+import { type ThreeEvent } from '@react-three/fiber'
+import { SRGBColorSpace, Shape, TextureLoader } from 'three'
 import Furniture from './Furniture'
 import PlacementGrid, { gridAreaFor } from './PlacementGrid'
-import { Shape } from 'three'
 import { useRoomStore } from '../store'
-import { type WallId, wallSurfaces } from '../services/roomGrid'
+import { type PlacementSurface, type WallId, wallSurfaces } from '../services/roomGrid'
 import { palette } from '../services/palette'
 import { colorOf, DEFAULT_WALL_COLOR, floorStyleOf } from '../services/styles'
 
@@ -11,6 +13,15 @@ import { colorOf, DEFAULT_WALL_COLOR, floorStyleOf } from '../services/styles'
 
 const LEFT_MITER = (() => { const shape = new Shape(); shape.moveTo(.11, -.11); shape.lineTo(-.11, -.11); shape.lineTo(-.11, .11); shape.closePath(); return shape })()
 const RIGHT_MITER = (() => { const shape = new Shape(); shape.moveTo(.11, -.11); shape.lineTo(.11, .11); shape.lineTo(-.11, .11); shape.closePath(); return shape })()
+type WallEvents = { onPointerDown: (event: ThreeEvent<PointerEvent>) => void; onPointerMove: (event: ThreeEvent<PointerEvent>) => void; onClick: (event: ThreeEvent<MouseEvent>) => void }
+
+function WallImage({ source, wall, events }: { source: string; wall: PlacementSurface; events: WallEvents }) {
+  const texture = useMemo(() => { const value = new TextureLoader().load(source); value.colorSpace = SRGBColorSpace; return value }, [source])
+  useEffect(() => () => texture.dispose(), [texture])
+  return <mesh position={[wall.position[0] + wall.normal[0] * .001, wall.position[1] + wall.normal[1] * .001, wall.position[2] + wall.normal[2] * .001]} rotation={wall.rotation} {...events}>
+    <planeGeometry args={[wall.width, wall.height]} /><meshStandardMaterial map={texture} roughness={.9} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1} />
+  </mesh>
+}
 
 export default function Walls() {
 
@@ -25,12 +36,14 @@ export default function Walls() {
     if (previewDragging && preview?.allowedSurfaces.includes('wall')) return movePreview([point.x, point.y, point.z], wallId)
     if (movingFurnitureId && selected?.id === movingFurnitureId && selected.allowedSurfaces.includes('wall')) moveFurniture(selected.id, [point.x, point.y, point.z], wallId)
   }
+  const eventsFor = (wallId: WallId): WallEvents => ({
+    onPointerDown: (event) => { if (!readOnly && mode === 'edit') event.stopPropagation() },
+    onPointerMove: (event) => { if (!readOnly && (movingFurnitureId === selected?.id || (previewDragging && preview?.allowedSurfaces.includes('wall')))) { event.stopPropagation(); moveTo(wallId, event.point) } },
+    onClick: (event) => { if (readOnly) return; event.stopPropagation(); if (mode !== 'normal' && selected?.movable && selected.allowedSurfaces.includes('wall') && !movingFurnitureId) placeFurnitureAt(selected.id, [event.point.x, event.point.y, event.point.z], wallId) },
+  })
   return <>
-    {(Object.values(wallSurfaces) as typeof wallSurfaces[WallId][]).map((wall) => <mesh key={wall.id} receiveShadow position={[wall.position[0] - wall.normal[0] * .11, wall.position[1] - wall.normal[1] * .11, wall.position[2] - wall.normal[2] * .11]} rotation={wall.rotation}
-      onPointerDown={(event) => { if (!readOnly && mode === 'edit') event.stopPropagation() }}
-      onPointerMove={(event) => { if (!readOnly && (movingFurnitureId === selected?.id || (previewDragging && preview?.allowedSurfaces.includes('wall')))) { event.stopPropagation(); moveTo(wall.id as WallId, event.point) } }}
-      onClick={(event) => { if (readOnly) return; event.stopPropagation(); if (mode !== 'normal' && selected?.movable && selected.allowedSurfaces.includes('wall') && !movingFurnitureId) placeFurnitureAt(selected.id, [event.point.x, event.point.y, event.point.z], wall.id) }}
-    ><boxGeometry args={[wall.width, wall.height, .22]} /><meshStandardMaterial color={colorOf(wallStyle[wall.id as WallId], DEFAULT_WALL_COLOR[wall.id as WallId])} /></mesh>)}
+    {(Object.values(wallSurfaces) as typeof wallSurfaces[WallId][]).map((wall) => <mesh key={wall.id} receiveShadow position={[wall.position[0] - wall.normal[0] * .11, wall.position[1] - wall.normal[1] * .11, wall.position[2] - wall.normal[2] * .11]} rotation={wall.rotation} {...eventsFor(wall.id as WallId)}><boxGeometry args={[wall.width, wall.height, .22]} /><meshStandardMaterial color={colorOf(wallStyle[wall.id as WallId], DEFAULT_WALL_COLOR[wall.id as WallId])} /></mesh>)}
+    {(Object.values(wallSurfaces) as typeof wallSurfaces[WallId][]).map((wall) => { const key = wall.id === 'leftWall' ? 'leftWallImage' : 'rightWallImage'; const source = wallStyle[key]; return source ? <WallImage key={`${wall.id}:image`} source={source} wall={wall} events={eventsFor(wall.id as WallId)} /> : null })}
     {/* Trim bars: square channels under each wall plus the open corner column between the walls. Tagged so the
         explorer's fade can hold them back — thin dark boxes read double-dense while semi-transparent and floated
         over the ghosted room as three hard bars; flagged materials join the fade only at its very end. */}
