@@ -183,6 +183,7 @@ function CustomTab() {
     reader.onload = () => setEditingImage(typeof reader.result === 'string' ? reader.result : null)
     reader.readAsDataURL(value)
   }
+  const [quality, setQuality] = useState<'standard' | 'glb'>('standard')
   const running = !!customJob && customJob.stage !== 'done' && customJob.stage !== 'error'
   // 가로x세로는 함께, 높이는 선택. 전부 비우면 모델이 알아서 정한다
   const parseSize = (): { width: number; depth: number; height?: number } | null | undefined => {
@@ -201,7 +202,7 @@ function CustomTab() {
     const size = parseSize()
     if (size === null) { setError(t('크기는 1~12 사이 숫자로 (가로·세로는 함께)')); return }
     setError('')
-    runCustomGeneration({ category, prompt: prompt.trim(), image: image ?? undefined, size })
+    runCustomGeneration({ category, prompt: prompt.trim(), image: image ?? undefined, size, quality: quality === 'glb' ? 'glb' : undefined })
     setSource(null); setPrompt(''); setImage(null); setSizeW(''); setSizeD(''); setSizeH('')
   }
   const objects = customObjects.filter((object) => availableCount(customObjectType(object.id)) > 0)
@@ -213,6 +214,7 @@ function CustomTab() {
     {source && <form className="custom-form" onSubmit={submit}>
       <div className="custom-form-head"><strong>{t(source === 'text' ? '텍스트 넣기' : '사진 넣기')}</strong><button type="button" onClick={() => { setSource(null); setImage(null); setEditingImage(null); setError('') }}>×</button></div>
       <label>{t('오브젝트 종류')}<select value={category} onChange={(event) => setCategory(event.target.value as CustomObjectCategory)}>{CUSTOM_OBJECT_CATEGORIES.map((value) => <option key={value} value={value}>{t(CUSTOM_CATEGORY_LABELS[value])}</option>)}</select></label>
+      <label>{t('품질')}<select value={quality} onChange={(event) => setQuality(event.target.value as 'standard' | 'glb')}><option value="standard">{t('일반')}</option><option value="glb">{t('고품질')}</option></select></label>
       <label>{t('크기 (선택)')}<div className="custom-size"><input type="number" min={1} max={12} value={sizeW} onChange={(event) => setSizeW(event.target.value)} placeholder={t('가로')} aria-label={t('가로')} /><span>×</span><input type="number" min={1} max={12} value={sizeD} onChange={(event) => setSizeD(event.target.value)} placeholder={t('세로')} aria-label={t('세로')} /><span>×</span><input type="number" min={1} max={12} value={sizeH} onChange={(event) => setSizeH(event.target.value)} placeholder={t('높이(선택)')} aria-label={t('높이(선택)')} /></div></label>
       {source === 'photo' && (image ? <div className="custom-photo"><img src={image} alt="" /><button type="button" aria-label={t('사진 삭제')} onClick={() => { setImage(null); file.current?.click() }}>×</button></div> : <button className="custom-photo-pick" type="button" onClick={choosePhoto}>{t('사진 넣기')}</button>)}
       <textarea maxLength={1200} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={t(source === 'photo' ? '원하는 디자인 (선택)' : '원하는 디자인')} />

@@ -76,3 +76,21 @@ export async function fetchCredits(): Promise<{ enabled: boolean; balance: numbe
   if (!response.ok || !body) return { enabled: false, balance: 0, freeLeft: false, buyUrl: null }
   return { enabled: !!body.enabled, balance: body.balance ?? 0, freeLeft: !!body.freeLeft, buyUrl: body.buyUrl ?? null }
 }
+
+export async function submitGlbObject(image: string): Promise<string> {
+  const response = await fetch('/api/glb-objects', {
+    method: 'POST',
+    headers: { ...await authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image }),
+  })
+  const body = await response.json().catch(() => null) as { requestId?: string; error?: string } | null
+  if (!response.ok || typeof body?.requestId !== 'string') throw new Error(body?.error || `HTTP ${response.status}`)
+  return body.requestId
+}
+
+export async function pollGlbObject(requestId: string): Promise<{ done: boolean; url?: string }> {
+  const response = await fetch(`/api/glb-objects/poll?id=${encodeURIComponent(requestId)}`, { headers: await authHeaders() })
+  const body = await response.json().catch(() => null) as { done?: boolean; url?: string; error?: string } | null
+  if (!response.ok || typeof body?.done !== 'boolean') throw new Error(body?.error || `HTTP ${response.status}`)
+  return { done: body.done, url: typeof body.url === 'string' ? body.url : undefined }
+}

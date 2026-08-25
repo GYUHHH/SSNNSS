@@ -16,7 +16,7 @@ import type { CustomObjectCategory, CustomObjectSpec } from './customObjectSpec'
 // AI 커스텀 생성 잡: 컨셉 이미지 → API 조립 → 렌더 검수 1회.
 // 진행 UI·빨간점 알림이 이 하나를 본다. unseen은 완료/실패를 아직 사용자가 확인 안 했다는 뜻.
 export type CustomJob = { stage: 'concept' | 'draft' | 'detail' | 'verify' | 'revise' | 'done' | 'error'; round: number; unseen: boolean; name?: string; error?: string }
-import { customObjectTemplate, detailCustomObject, generateConceptImage, generateCustomObject, loadCustomObjects, reviewCustomObject, saveCustomObjects } from './services/customObjects'
+import { customObjectTemplate, detailCustomObject, generateConceptImage, generateCustomObject, loadCustomObjects, pollGlbObject, reviewCustomObject, saveCustomObjects, submitGlbObject } from './services/customObjects'
 import { REVIEW_ANGLES, reviewShot } from './services/thumbnails'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id, photo: row.photo })
@@ -385,7 +385,7 @@ type RoomStore = {
   mode: RoomMode; furniture: FurnitureItem[]; selectedFurnitureId: FurnitureId | null; selectedPlacementValid: boolean; movingFurnitureId: FurnitureId | null; preview: FurnitureItem | null; previewValid: boolean; previewDragging: boolean
   wallStyle: RoomStyle; floorStyle: string | undefined; floorImage: string | undefined; styleTarget: StyleTarget | null; debugAnchors: boolean; moveNotice: boolean; floorTarget: [number, number, number] | null; musicTrack: string | null; setMusicTrack: (id: string | null) => void; musicVolume: number; setMusicVolume: (value: number) => void
   customObjects: CustomObjectSpec[]; addCustomObject: (spec: CustomObjectSpec) => void; removeCustomObject: (id: string) => void
-  customJob: CustomJob | null; runCustomGeneration: (input: { category: CustomObjectCategory; prompt: string; image?: string; size?: { width: number; depth: number; height?: number } }) => void; markCustomSeen: () => void
+  customJob: CustomJob | null; runCustomGeneration: (input: { category: CustomObjectCategory; prompt: string; image?: string; size?: { width: number; depth: number; height?: number }; quality?: 'glb' }) => void; markCustomSeen: () => void
   selectObject: (object: Exclude<SelectedObject, null>) => void; clearSelection: () => void; finishCharacterAction: (state: Exclude<CharacterState, 'walking'>, transform?: CharacterTransform) => void; moveCharacterTo: (position: [number, number, number]) => void; settleFloorMove: (reached: boolean, transform?: CharacterTransform) => void; openBook: (id: string) => void; closeBook: () => void; addBook: (title: string, visibility: Visibility) => string; deleteBook: (id: string) => void; updateBook: (id: string, patch: Partial<Pick<Book, 'title' | 'visibility' | 'shelf'>>) => void; addEntry: (bookId: string, entry: EntryDraft) => void; deleteEntry: (bookId: string, entryId: string) => void; updateEntry: (bookId: string, entryId: string, patch: Partial<Pick<Entry, 'content' | 'images' | 'visibility'>>) => void; toggleDebugAnchors: () => void
   toggleEditMode: () => void; enterEditFurniture: (id: FurnitureId) => void; selectFurniture: (id: FurnitureId) => void; beginMove: (id: FurnitureId) => void; moveFurniture: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; placeFurnitureAt: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; endMove: () => void; beginResize: (id: FurnitureId) => void; resizeFurniture: (id: FurnitureId, corner: ResizeCorner, position: [number, number, number]) => void; endResize: (id: FurnitureId) => void; rotateFurniture: () => void; adjustFurnitureHeight: (id: FurnitureId, direction: -1 | 1) => void; removeFurniture: (id?: FurnitureId) => void; undoLayout: () => void; resetLayout: () => void; startPreview: (type: string, styleId?: string, restoreId?: string) => void; beginPreviewDrag: () => void; movePreview: (position: [number, number, number], surfaceId?: SurfaceId) => void; endPreviewDrag: () => void; placePreview: () => void; cancelPreview: () => void
   openStyleTarget: (target: StyleTarget) => void; setWallStyle: (wallId: WallId, presetId: string) => void; setFloorStyle: (presetId: string) => void; setFloorImage: (image: string | null) => void; setFurnitureStyle: (id: FurnitureId, presetId: string) => void
@@ -446,10 +446,37 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }
   const [customJob, setCustomJob] = useState<CustomJob | null>(null)
   const markCustomSeen = () => setCustomJob((job) => job && job.unseen ? { ...job, unseen: false } : job)
-  const runCustomGeneration = (input: { category: CustomObjectCategory; prompt: string; image?: string; size?: { width: number; depth: number; height?: number } }) => {
+  const runCustomGeneration = (input: { category: CustomObjectCategory; prompt: string; image?: string; size?: { width: number; depth: number; height?: number }; quality?: 'glb' }) => {
     if (customJob && customJob.stage !== 'done' && customJob.stage !== 'error') return // 동시에 한 건만
     void (async () => {
       try {
+        // 고품질(GLB) 경로: 컨셉 한 장을 fal(Hunyuan)에 넣고 완성 모델을 저장소에 올려 커스텀으로 등록
+        if (input.quality === 'glb') {
+          let reference = input.image
+          if (!reference) {
+            setCustomJob({ stage: 'concept', round: 0, unseen: false })
+            reference = (await generateConceptImage({ category: input.category, prompt: input.prompt })).front
+          }
+          setCustomJob({ stage: 'draft', round: 0, unseen: false })
+          const requestId = await submitGlbObject(reference)
+          let url: string | undefined
+          for (let attempt = 0; attempt < 100 && !url; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 3000))
+            const state = await pollGlbObject(requestId)
+            if (state.done) url = state.url
+          }
+          if (!url) throw new Error('GLB_TIMEOUT')
+          const file = await (await fetch(url)).blob()
+          const id = `g${Date.now()}`
+          const stored = await uploadMedia(`glbobj/${id}`, file)
+          if (!stored) throw new Error('UPLOAD_FAILED')
+          const name = (input.prompt.trim() || t('커스텀 오브젝트')).slice(0, 40)
+          const clampCell = (value: number) => Math.max(1, Math.min(10, Math.round(value)))
+          const footprint = input.size ? { width: clampCell(input.size.width), depth: clampCell(input.size.depth) } : { width: 2, depth: 2 }
+          addCustomObject({ id, name, category: input.category, footprint, parts: [], glbUrl: stored })
+          setCustomJob({ stage: 'done', round: 0, unseen: true, name })
+          return
+        }
         // 1) 참조 확보: 사진이 있으면 그대로, 없으면 컨셉 이미지를 생성해 검수 기준으로 삼는다
         let reference = input.image
         let referenceBack: string | undefined

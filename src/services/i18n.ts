@@ -7,6 +7,9 @@ export const setLang = (next: 'ko' | 'en') => { localStorage.setItem('lang', nex
 // 한국어 문장이 곧 키. 사전에 없으면 한국어 그대로 — 빠뜨려도 깨지지 않는다.
 const EN: Record<string, string> = {
   "효과": "Effects",
+  "품질": "Quality",
+  "일반": "Standard",
+  "고품질": "High Quality",
   "별가루": "Stardust",
   "클럽 LED": "Club LED",
   "낮추기": "Lower",

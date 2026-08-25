@@ -21,6 +21,8 @@ export type CustomObjectSpec = {
   category: CustomObjectCategory
   footprint: { width: number; depth: number }
   parts: CustomObjectPart[]
+  // GLB 커스텀: parts 대신 저장소의 모델 파일을 그대로 그린다
+  glbUrl?: string
 }
 
 const tuple3 = (value: unknown): value is [number, number, number] => Array.isArray(value) && value.length === 3 && value.every((part) => typeof part === 'number' && Number.isFinite(part))
@@ -33,7 +35,8 @@ export const isCustomObjectSpec = (value: unknown): value is CustomObjectSpec =>
   const spec = value as Partial<CustomObjectSpec>
   if (typeof spec.id !== 'string' || !spec.id || typeof spec.name !== 'string' || !spec.name.trim() || spec.name.length > 40) return false
   if (!CUSTOM_OBJECT_CATEGORIES.includes(spec.category as CustomObjectCategory) || !spec.footprint || !cell(spec.footprint.width) || !cell(spec.footprint.depth)) return false
-  if (!Array.isArray(spec.parts) || spec.parts.length < 1 || spec.parts.length > 32) return false
+  if (spec.glbUrl !== undefined && (typeof spec.glbUrl !== 'string' || !/^https:\/\/\S+$/.test(spec.glbUrl) || spec.glbUrl.length > 500)) return false
+  if (!Array.isArray(spec.parts) || spec.parts.length > 32 || (spec.parts.length < 1 && typeof spec.glbUrl !== 'string')) return false
   const profileOk = (part: Partial<CustomObjectPart>) => {
     if (part.primitive !== 'extrudeProfile' && part.primitive !== 'latheProfile') return true
     const points = part.profile

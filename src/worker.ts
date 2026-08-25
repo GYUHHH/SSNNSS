@@ -10,6 +10,7 @@ type Env = {
   LS_WEBHOOK_SECRET?: string
   LS_BUY_URL?: string
   LS_CREDITS_PER_ORDER?: string
+  FAL_KEY?: string
 }
 type GenerateBody = { category?: unknown; prompt?: unknown; image?: unknown; imageBack?: unknown; spec?: unknown; feedback?: unknown; size?: unknown }
 type ReviewBody = GenerateBody & { screenshot?: unknown; screenshots?: unknown }
@@ -271,11 +272,49 @@ async function review(request: Request, env: Env) {
   return json({ verdict: pass ? 'pass' : 'fail', defects, violations })
 }
 
+// GLB 생성: fal.ai 큐에 이미지 한 장을 넣고, 클라이언트가 완료를 폴링한다. 크레딧은 제출 시 1회.
+const FAL_MODEL = 'fal-ai/hunyuan3d/v2'
+
+async function glbSubmit(request: Request, env: Env) {
+  if (!env.FAL_KEY) return json({ error: 'FAL_KEY_NOT_SET' }, 503)
+  if (!await signedIn(request)) return json({ error: 'LOGIN_REQUIRED' }, 401)
+  if (!await spendCredit(request, env)) return json({ error: 'NO_CREDITS' }, 402)
+  const body = await request.json().catch(() => null) as { image?: unknown } | null
+  const image = typeof body?.image === 'string' ? body.image : ''
+  if (!image.startsWith('data:image/') || image.length > 7_000_000) return json({ error: 'INVALID_IMAGE' }, 400)
+  const upstream = await fetch(`https://queue.fal.run/${FAL_MODEL}`, {
+    method: 'POST', headers: { Authorization: `Key ${env.FAL_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ input_image_url: image, textured_mesh: true }),
+  })
+  const result = await upstream.json().catch(() => null) as { request_id?: string } | null
+  if (!upstream.ok || !result?.request_id) { console.log('glb-submit-failed', upstream.status); return json({ error: 'GLB_SUBMIT_FAILED' }, 502) }
+  return json({ requestId: result.request_id })
+}
+
+async function glbPoll(request: Request, env: Env) {
+  if (!env.FAL_KEY) return json({ error: 'FAL_KEY_NOT_SET' }, 503)
+  if (!await signedIn(request)) return json({ error: 'LOGIN_REQUIRED' }, 401)
+  const id = new URL(request.url).searchParams.get('id') ?? ''
+  if (!/^[\w-]{8,64}$/.test(id)) return json({ error: 'INVALID_REQUEST' }, 400)
+  const auth = { Authorization: `Key ${env.FAL_KEY}` }
+  const status = await fetch(`https://queue.fal.run/${FAL_MODEL}/requests/${id}/status`, { headers: auth })
+  const state = await status.json().catch(() => null) as { status?: string } | null
+  if (!status.ok || !state?.status) return json({ error: 'GLB_POLL_FAILED' }, 502)
+  if (state.status !== 'COMPLETED') return json({ done: false })
+  const result = await fetch(`https://queue.fal.run/${FAL_MODEL}/requests/${id}`, { headers: auth })
+  const payload = await result.json().catch(() => null) as { model_mesh?: { url?: string } } | null
+  const url = payload?.model_mesh?.url
+  if (!result.ok || typeof url !== 'string') return json({ error: 'GLB_RESULT_FAILED' }, 502)
+  return json({ done: true, url })
+}
+
 export default {
   async fetch(request: Request, env: Env) {
     const path = new URL(request.url).pathname
     if (path === '/api/ls-webhook') return request.method === 'POST' ? lsWebhook(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
     if (path === '/api/youtube-thumbnail') return request.method === 'GET' ? youtubeThumbnail(request) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
+    if (path === '/api/glb-objects') return request.method === 'POST' ? glbSubmit(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
+    if (path === '/api/glb-objects/poll') return request.method === 'GET' ? glbPoll(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
     if (path.startsWith('/api/custom-objects')) {
       if (request.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405)
       if (path === '/api/custom-objects') return generate(request, env)

@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useMemo } from 'react'
 import { useGLTF } from '@react-three/drei'
+import { Box3, Vector3 } from 'three'
 import { publicBase } from '../services/publicBase'
 
 // GLB 가구 실험: 파일 하나를 카탈로그 아이템으로. 씬은 배치 인스턴스마다 클론하고 그림자를 켠다.
@@ -19,7 +20,7 @@ const FLAT_TYPES = new Set(['pink-slide', 'color-drawers'])
 const readyListeners = new Set<() => void>()
 export const onGlbReady = (listener: () => void) => { readyListeners.add(listener); return () => { readyListeners.delete(listener) } }
 
-function GlbScene({ url, preview, flat }: { url: string; preview: boolean; flat: boolean }) {
+function GlbScene({ url, preview, flat, custom }: { url: string; preview: boolean; flat: boolean; custom?: boolean }) {
   const { scene } = useGLTF(url)
   const cloned = useMemo(() => {
     const copy = scene.clone(true)
@@ -32,16 +33,26 @@ function GlbScene({ url, preview, flat }: { url: string; preview: boolean; flat:
         if (mesh.material?.clone) {
           mesh.material = mesh.material.clone()
           if (flat) mesh.material.flatShading = true
+          // 유저 생성 GLB는 후처리 없이 그대로 오므로 카탈로그와 같은 무광 정책을 런타임에 적용
+          if (custom) { const material = mesh.material as { metalness?: number; roughness?: number }; material.metalness = 0; material.roughness = .95 }
           if (preview) { mesh.material.transparent = true; mesh.material.opacity = .55 }
         }
       }
     })
+    // 생성 모델은 원점이 중앙이라 절반이 바닥에 잠긴다 — 바닥 중앙 기준으로 정렬
+    if (custom) {
+      const bounds = new Box3().setFromObject(copy)
+      const center = bounds.getCenter(new Vector3())
+      copy.position.set(-center.x, -bounds.min.y, -center.z)
+    }
     return copy
-  }, [scene, preview, flat])
+  }, [scene, preview, flat, custom])
   useEffect(() => { for (const listener of [...readyListeners]) listener() }, [scene])
   return <primitive object={cloned} />
 }
 
-export default function GlbFurniture({ type, preview }: { type: string; preview: boolean }) {
-  return <Suspense fallback={null}><GlbScene url={GLB_URLS[type]} preview={preview} flat={FLAT_TYPES.has(type)} /></Suspense>
+export default function GlbFurniture({ type, url, preview }: { type?: string; url?: string; preview: boolean }) {
+  const resolved = url ?? GLB_URLS[type ?? '']
+  if (!resolved) return null
+  return <Suspense fallback={null}><GlbScene url={resolved} preview={preview} flat={!!type && FLAT_TYPES.has(type)} custom={!!url} /></Suspense>
 }
