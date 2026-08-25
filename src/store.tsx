@@ -121,7 +121,7 @@ export const initialFurniture: FurnitureItem[] = [
 ]
 
 export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surfaceId' | 'gridX' | 'gridY' | 'gridZ' | 'wallId' | 'rotation' | 'updatedAt'>> = [
-  { type: 'deco-shelf', name: '데코 선반', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 3, depth: 1 }, size: [3, 1], scale: 1, allowedSurfaces: ['floor'] },
+  { type: 'deco-shelf', name: '데코 선반', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 6, depth: 2 }, size: [6, 2], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'dome-sofa', name: '돔 소파', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 4, depth: 4 }, size: [4, 4], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'cloud-sofa', name: '구름 소파', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 6, depth: 2 }, size: [6, 2], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'color-drawers', name: '컬러 서랍장', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 3, depth: 1 }, size: [3, 1], scale: 1, allowedSurfaces: ['floor'] },
