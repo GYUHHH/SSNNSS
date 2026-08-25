@@ -121,7 +121,7 @@ export const initialFurniture: FurnitureItem[] = [
 ]
 
 export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surfaceId' | 'gridX' | 'gridY' | 'gridZ' | 'wallId' | 'rotation' | 'updatedAt'>> = [
-  { type: 'pink-mini-sofa', name: '핑크 미니 소파', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 2 }, size: [2, 2], scale: 1, allowedSurfaces: ['floor'] },
+  { type: 'pink-mini-sofa', name: '핑크 미니 소파', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'pink-vanity', name: '핑크 화장대', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'hanging-bubble-chair', name: '행잉 버블 체어', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 2 }, size: [2, 2], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'aqua-table', name: '아쿠아 테이블', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 4, depth: 2 }, size: [4, 2], scale: 1, allowedSurfaces: ['floor'] },
