@@ -491,7 +491,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }
   const [mode, setMode] = useState<RoomMode>('normal'); const [furniture, setFurniture] = useState<FurnitureItem[]>(() => hydrateFurniture(typeof window === 'undefined' ? null : slotItems(rooms0.active))); const [selectedFurnitureId, setSelectedFurnitureId] = useState<FurnitureId | null>(null); const [history, setHistory] = useState<FurnitureItem[][]>([]); const [dragOrigin, setDragOrigin] = useState<FurnitureItem[] | null>(null); const [movingFurnitureId, setMovingFurnitureId] = useState<FurnitureId | null>(null); const [preview, setPreview] = useState<FurnitureItem | null>(null); const [previewValid, setPreviewValid] = useState(false); const [previewDragging, setPreviewDragging] = useState(false)
   const [customEditing, setCustomEditing] = useState<CustomObjectSpec | null>(null)
-  const customEditOrigin = useRef<{ spec: CustomObjectSpec; furniture: FurnitureItem[]; preview: FurnitureItem | null; selected: FurnitureId | null } | null>(null)
+  const customEditOrigin = useRef<{ furniture: FurnitureItem[]; selected: FurnitureId | null } | null>(null)
   const customEditId = useRef<string | null>(null)
   const customEditDraft = useRef<CustomObjectSpec | null>(null)
   const [wallStyle, setWallStyleState] = useState<RoomStyle>(() => (typeof window === 'undefined' ? {} : slotStyle(rooms0.active) ?? {})); const [floorStyle, setFloorStyleState] = useState<string | undefined>(() => (typeof window === 'undefined' ? undefined : slotStyle(rooms0.active)?.floor)); const [floorImage, setFloorImageState] = useState<string | undefined>(() => (typeof window === 'undefined' ? undefined : slotStyle(rooms0.active)?.floorImage)); const [styleTarget, setStyleTarget] = useState<StyleTarget | null>(null)
@@ -749,7 +749,9 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     setPreview(next); setPreviewValid(isAvailable(next))
   }
   const placePreview = () => {
-    if (!preview || !previewValid) return
+    // The model-size editor borrows the normal room preview only as a live measuring stand.
+    // It must never turn into placed furniture through PreviewFurniture's pointer-up shortcut.
+    if (customEditing || !preview || !previewValid) return
     // taking a stored DEFAULT item back out restores the original (same id, so its interactions keep working)
     // instead of spawning a duplicate; catalog decor still adds a fresh copy
     const restoreTarget = furniture.find((value) => value.id === preview.id && value.removed) ?? storedTemplateFor(preview.type)
@@ -785,7 +787,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const startCustomObjectEdit = (id: string) => {
     const spec = customObjects.find((value) => value.id === id); if (!spec) return
     const placed = furniture.find((item) => item.type === customObjectType(id) && !item.removed)
-    customEditOrigin.current = { spec, furniture, preview, selected: selectedFurnitureId }
+    customEditOrigin.current = { furniture, selected: selectedFurnitureId }
     customEditId.current = id
     customEditDraft.current = spec
     setCustomEditing(spec)
@@ -819,7 +821,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }
   const cancelCustomObjectEdit = () => {
     const origin = customEditOrigin.current
-    if (origin) { setFurniture(origin.furniture); setPreview(origin.preview); setSelectedFurnitureId(origin.selected) }
+    if (origin) { setFurniture(origin.furniture); setSelectedFurnitureId(origin.selected) }
+    setPreview(null); setPreviewDragging(false)
     setMode('normal'); setCustomEditing(null); customEditOrigin.current = null; customEditId.current = null; customEditDraft.current = null
   }
   // leaving edit mode mid-drag (완료 button, Escape, clicking empty space) must settle the drag the same way a

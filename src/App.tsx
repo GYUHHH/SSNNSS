@@ -23,10 +23,10 @@ import { thumbnailFor } from './services/thumbnails'
 import { lang, t } from './services/i18n'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 680
+const BUILD = 681
 
 function Interface() {
-  const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, customJob, customEditing, startCustomObjectEdit, applyCustomObjectEdit } = useRoomStore()
+  const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, customJob, customEditing, startCustomObjectEdit, applyCustomObjectEdit, cancelCustomObjectEdit } = useRoomStore()
   const [confirmingReset, setConfirmingReset] = useState(false)
   const [confirmingRoom, setConfirmingRoom] = useState<string | null>(null)
   const [inventoryOpen, setInventoryOpen] = useState(false)
@@ -137,7 +137,7 @@ function Interface() {
     event.stopPropagation()
   }
   return <main className={`app${panelOpen ? ' art-open' : ''}`}>
-    <div className="scene" onContextMenu={(event) => event.preventDefault()}><Room /></div>
+    <div className="scene" onContextMenu={(event) => event.preventDefault()} onPointerDownCapture={(event) => { if (customEditing && (event.target as HTMLElement).closest('.canvas-host')) cancelCustomObjectEdit() }}><Room /></div>
     <span className="build-tag" aria-hidden="true">{BUILD}</span>
     {myHandle() && <span className="me-tag">{myHandle()}</span>}
     <aside className="room-ui">
