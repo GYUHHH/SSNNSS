@@ -274,6 +274,8 @@ async function review(request: Request, env: Env) {
 
 // GLB 생성: fal.ai 큐에 이미지 한 장을 넣고, 클라이언트가 완료를 폴링한다. 크레딧은 제출 시 1회.
 const FAL_MODEL = 'fal-ai/hunyuan3d/v2'
+// fal 큐의 상태·결과 조회는 하위 경로가 아니라 앱 루트 경로로 받는다 (hunyuan3d/v2 → hunyuan3d)
+const FAL_QUEUE_APP = 'fal-ai/hunyuan3d'
 
 async function glbSubmit(request: Request, env: Env) {
   if (!env.FAL_KEY) return json({ error: 'FAL_KEY_NOT_SET' }, 503)
@@ -297,11 +299,11 @@ async function glbPoll(request: Request, env: Env) {
   const id = new URL(request.url).searchParams.get('id') ?? ''
   if (!/^[\w-]{8,64}$/.test(id)) return json({ error: 'INVALID_REQUEST' }, 400)
   const auth = { Authorization: `Key ${env.FAL_KEY}` }
-  const status = await fetch(`https://queue.fal.run/${FAL_MODEL}/requests/${id}/status`, { headers: auth })
+  const status = await fetch(`https://queue.fal.run/${FAL_QUEUE_APP}/requests/${id}/status`, { headers: auth })
   const state = await status.json().catch(() => null) as { status?: string } | null
-  if (!status.ok || !state?.status) return json({ error: 'GLB_POLL_FAILED' }, 502)
+  if (!status.ok || !state?.status) { console.log('glb-poll-failed', status.status, JSON.stringify(state)?.slice(0, 200)); return json({ error: 'GLB_POLL_FAILED' }, 502) }
   if (state.status !== 'COMPLETED') return json({ done: false })
-  const result = await fetch(`https://queue.fal.run/${FAL_MODEL}/requests/${id}`, { headers: auth })
+  const result = await fetch(`https://queue.fal.run/${FAL_QUEUE_APP}/requests/${id}`, { headers: auth })
   const payload = await result.json().catch(() => null) as { model_mesh?: { url?: string } } | null
   const url = payload?.model_mesh?.url
   if (!result.ok || typeof url !== 'string') return json({ error: 'GLB_RESULT_FAILED' }, 502)

@@ -464,7 +464,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
           let url: string | undefined
           for (let attempt = 0; attempt < 100 && !url; attempt += 1) {
             await new Promise((resolve) => setTimeout(resolve, 3000))
-            const state = await pollGlbObject(requestId)
+            // 일시적 폴링 실패는 다음 회차로 — 생성은 큐에서 계속 돌고 있다
+            const state = await pollGlbObject(requestId).catch(() => ({ done: false, url: undefined as string | undefined }))
             if (state.done) url = state.url
           }
           if (!url) throw new Error('GLB_TIMEOUT')
