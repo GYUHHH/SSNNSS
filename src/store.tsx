@@ -16,7 +16,7 @@ import { customObjectType, type CustomObjectCategory, type CustomObjectSpec } fr
 // AI 커스텀 생성 잡: Rapid 생성 → 로컬 최적화·검증.
 // 진행 UI·빨간점 알림이 이 하나를 본다. unseen은 완료/실패를 아직 사용자가 확인 안 했다는 뜻.
 export type CustomJob = { stage: 'draft' | 'verify' | 'done' | 'error'; round: number; unseen: boolean; name?: string; error?: string }
-import { customObjectTemplate, generatedModelBlob, loadCustomObjects, pollGlbObject, saveCustomObjects, submitGlbObject, type GeneratedModel } from './services/customObjects'
+import { customObjectTemplate, generatedModelBlob, inspectCustomModel, loadCustomObjects, pollGlbObject, saveCustomObjects, submitGlbObject, type GeneratedModel } from './services/customObjects'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id, photo: row.photo })
 
@@ -386,6 +386,7 @@ type RoomStore = {
   mode: RoomMode; furniture: FurnitureItem[]; selectedFurnitureId: FurnitureId | null; selectedPlacementValid: boolean; movingFurnitureId: FurnitureId | null; preview: FurnitureItem | null; previewValid: boolean; previewDragging: boolean
   wallStyle: RoomStyle; floorStyle: string | undefined; floorImage: string | undefined; styleTarget: StyleTarget | null; debugAnchors: boolean; moveNotice: boolean; floorTarget: [number, number, number] | null; musicTrack: string | null; setMusicTrack: (id: string | null) => void; musicVolume: number; setMusicVolume: (value: number) => void
   customObjects: CustomObjectSpec[]; addCustomObject: (spec: CustomObjectSpec) => void; renameCustomObject: (id: string, name: string) => void; removeCustomObject: (id: string) => void
+  customEditing: CustomObjectSpec | null; startCustomObjectEdit: (id: string) => void; updateCustomObjectEdit: (patch: Partial<Pick<CustomObjectSpec, 'name' | 'footprint' | 'modelScale' | 'topSurface'>>) => void; applyCustomObjectEdit: () => void; cancelCustomObjectEdit: () => void
   customJob: CustomJob | null; runCustomGeneration: (input: { category: CustomObjectCategory; prompt: string; image?: string; size?: { width: number; depth: number; height?: number }; finish?: 'gloss' }) => void; markCustomSeen: () => void
   selectObject: (object: Exclude<SelectedObject, null>) => void; clearSelection: () => void; finishCharacterAction: (state: Exclude<CharacterState, 'walking'>, transform?: CharacterTransform) => void; moveCharacterTo: (position: [number, number, number]) => void; settleFloorMove: (reached: boolean, transform?: CharacterTransform) => void; openBook: (id: string) => void; closeBook: () => void; addBook: (title: string, visibility: Visibility) => string; deleteBook: (id: string) => void; updateBook: (id: string, patch: Partial<Pick<Book, 'title' | 'visibility' | 'shelf'>>) => void; addEntry: (bookId: string, entry: EntryDraft) => void; deleteEntry: (bookId: string, entryId: string) => void; updateEntry: (bookId: string, entryId: string, patch: Partial<Pick<Entry, 'content' | 'images' | 'visibility'>>) => void; toggleDebugAnchors: () => void
   toggleEditMode: () => void; enterEditFurniture: (id: FurnitureId) => void; selectFurniture: (id: FurnitureId) => void; beginMove: (id: FurnitureId) => void; moveFurniture: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; placeFurnitureAt: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; endMove: () => void; beginResize: (id: FurnitureId) => void; resizeFurniture: (id: FurnitureId, corner: ResizeCorner, position: [number, number, number]) => void; endResize: (id: FurnitureId) => void; rotateFurniture: () => void; adjustFurnitureHeight: (id: FurnitureId, direction: -1 | 1) => void; removeFurniture: (id?: FurnitureId) => void; undoLayout: () => void; resetLayout: () => void; startPreview: (type: string, styleId?: string, restoreId?: string) => void; beginPreviewDrag: () => void; movePreview: (position: [number, number, number], surfaceId?: SurfaceId) => void; endPreviewDrag: () => void; placePreview: () => void; cancelPreview: () => void
@@ -473,14 +474,14 @@ export function RoomProvider({ children }: { children: ReactNode }) {
         }
         if (!model) throw new Error('MODEL_TIMEOUT')
         setCustomJob({ stage: 'verify', round: 1, unseen: false })
-        const file = await generatedModelBlob(model, input.finish)
+        const generated = await generatedModelBlob(model, input.finish)
         const id = `g${Date.now()}`
-        const stored = await uploadMedia(`glbobj/${id}`, file)
+        const stored = await uploadMedia(`glbobj/${id}`, generated.blob)
         if (!stored) throw new Error('UPLOAD_FAILED')
         const name = (input.prompt.trim() || t('커스텀 오브젝트')).slice(0, 40)
         const clampCell = (value: number) => Math.max(1, Math.min(10, Math.round(value)))
         const footprint = input.size ? { width: clampCell(input.size.width), depth: clampCell(input.size.depth) } : { width: 2, depth: 2 }
-        addCustomObject({ id, name, category: input.category, footprint, parts: [], glbUrl: stored, ...(input.finish ? { finish: input.finish } : {}) })
+        addCustomObject({ id, name, category: input.category, footprint, parts: [], glbUrl: stored, modelSize: generated.modelSize, modelScale: [1, 1, 1], ...(generated.topSurface && input.category === 'furniture' ? { topSurface: generated.topSurface } : {}), ...(input.finish ? { finish: input.finish } : {}) })
         setCustomJob({ stage: 'done', round: 0, unseen: true, name })
       } catch (reason) {
         const message = reason instanceof Error ? reason.message : String(reason)
@@ -489,6 +490,10 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     })()
   }
   const [mode, setMode] = useState<RoomMode>('normal'); const [furniture, setFurniture] = useState<FurnitureItem[]>(() => hydrateFurniture(typeof window === 'undefined' ? null : slotItems(rooms0.active))); const [selectedFurnitureId, setSelectedFurnitureId] = useState<FurnitureId | null>(null); const [history, setHistory] = useState<FurnitureItem[][]>([]); const [dragOrigin, setDragOrigin] = useState<FurnitureItem[] | null>(null); const [movingFurnitureId, setMovingFurnitureId] = useState<FurnitureId | null>(null); const [preview, setPreview] = useState<FurnitureItem | null>(null); const [previewValid, setPreviewValid] = useState(false); const [previewDragging, setPreviewDragging] = useState(false)
+  const [customEditing, setCustomEditing] = useState<CustomObjectSpec | null>(null)
+  const customEditOrigin = useRef<{ spec: CustomObjectSpec; furniture: FurnitureItem[]; preview: FurnitureItem | null; selected: FurnitureId | null } | null>(null)
+  const customEditId = useRef<string | null>(null)
+  const customEditDraft = useRef<CustomObjectSpec | null>(null)
   const [wallStyle, setWallStyleState] = useState<RoomStyle>(() => (typeof window === 'undefined' ? {} : slotStyle(rooms0.active) ?? {})); const [floorStyle, setFloorStyleState] = useState<string | undefined>(() => (typeof window === 'undefined' ? undefined : slotStyle(rooms0.active)?.floor)); const [floorImage, setFloorImageState] = useState<string | undefined>(() => (typeof window === 'undefined' ? undefined : slotStyle(rooms0.active)?.floorImage)); const [styleTarget, setStyleTarget] = useState<StyleTarget | null>(null)
   const [profileOpen, setProfileOpen] = useState(false)
   const [profile, setProfile] = useState<Profile>(() => {
@@ -758,10 +763,69 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     setPreview(null); setPreviewDragging(false)
   }
   const cancelPreview = () => { setPreview(null); setPreviewDragging(false) }
+  const paintCustomSpec = (spec: CustomObjectSpec) => {
+    const type = customObjectType(spec.id)
+    setFurniture((items) => items.map((item) => {
+      if (item.type !== type) return item
+      const surface = resolveSurface(items, item.surfaceId); if (!surface) return { ...item, name: spec.name, customSpec: spec, footprint: spec.footprint }
+      const resolved = withResolution(surface, resolutionFor(item))
+      const grid = clampGrid(resolved, placementGrid(item), spec.footprint, item.rotation[1])
+      return placeOnSurface(items, { ...item, name: spec.name, customSpec: spec, footprint: spec.footprint, size: [spec.footprint.width, spec.footprint.depth] }, item.surfaceId, grid)
+    }))
+    setPreview((current) => {
+      if (!current || current.type !== type) return current
+      const surface = resolveSurface(furniture, current.surfaceId); if (!surface) return current
+      const resolved = withResolution(surface, resolutionFor(current))
+      const grid = clampGrid(resolved, placementGrid(current), spec.footprint, current.rotation[1])
+      const next = placeOnSurface(furniture, { ...current, name: spec.name, customSpec: spec, footprint: spec.footprint, size: [spec.footprint.width, spec.footprint.depth] }, current.surfaceId, grid)
+      setPreviewValid(isAvailable(next))
+      return next
+    })
+  }
+  const startCustomObjectEdit = (id: string) => {
+    const spec = customObjects.find((value) => value.id === id); if (!spec) return
+    const placed = furniture.find((item) => item.type === customObjectType(id) && !item.removed)
+    customEditOrigin.current = { spec, furniture, preview, selected: selectedFurnitureId }
+    customEditId.current = id
+    customEditDraft.current = spec
+    setCustomEditing(spec)
+    setMode('edit'); setMovingFurnitureId(null); setDragOrigin(null)
+    if (placed) { setPreview(null); setSelectedFurnitureId(placed.id) }
+    else startPreview(customObjectType(id))
+    if (!spec.modelSize && spec.glbUrl) void inspectCustomModel(spec.glbUrl).then((metadata) => {
+      if (customEditId.current !== id) return
+      const current = customEditDraft.current ?? spec
+      const next = { ...current, ...metadata, modelScale: current.modelScale ?? [1, 1, 1] as [number, number, number], ...(current.category !== 'furniture' ? { topSurface: undefined } : {}) }
+      customEditDraft.current = next
+      setCustomEditing(next); paintCustomSpec(next)
+    }).catch(() => { /* the size editor still works with the GLB's live bounds */ })
+  }
+  const updateCustomObjectEdit = (patch: Partial<Pick<CustomObjectSpec, 'name' | 'footprint' | 'modelScale' | 'topSurface'>>) => {
+    if (!customEditing) return
+    const next = { ...customEditing, ...patch }
+    customEditDraft.current = next
+    setCustomEditing(next); paintCustomSpec(next)
+  }
+  const applyCustomObjectEdit = () => {
+    if (!customEditing || (!preview && !selectedPlacementValid) || (preview && !previewValid)) return
+    const origin = customEditOrigin.current
+    setCustomObjects((current) => {
+      const next = current.map((value) => value.id === customEditing.id ? customEditing : value)
+      saveCustomObjects(next); return next
+    })
+    if (origin && !preview) commit(furniture, origin.furniture)
+    setPreview(null); setPreviewDragging(false); setSelectedFurnitureId(null)
+    setMode('normal'); setCustomEditing(null); customEditOrigin.current = null; customEditId.current = null; customEditDraft.current = null
+  }
+  const cancelCustomObjectEdit = () => {
+    const origin = customEditOrigin.current
+    if (origin) { setFurniture(origin.furniture); setPreview(origin.preview); setSelectedFurnitureId(origin.selected) }
+    setMode('normal'); setCustomEditing(null); customEditOrigin.current = null; customEditId.current = null; customEditDraft.current = null
+  }
   // leaving edit mode mid-drag (완료 button, Escape, clicking empty space) must settle the drag the same way a
   // pointerUp would — validate the final spot and snap back to the origin if it overlaps — instead of
   // silently keeping whatever position the item was hovering at
-  const toggleEditMode = () => { if (isVisiting()) return; endMove(); pendingMove.current = null; setMode((value) => value === 'normal' ? 'edit' : 'normal'); setPreview(null); setPreviewDragging(false); setDragOrigin(null); setMovingFurnitureId(null); setSelectedObject(null); setBookshelfOpen(false); setOpenBookId(null); setSelectedFurnitureId(null) }
+  const toggleEditMode = () => { if (isVisiting()) return; if (customEditing) { cancelCustomObjectEdit(); return } endMove(); pendingMove.current = null; setMode((value) => value === 'normal' ? 'edit' : 'normal'); setPreview(null); setPreviewDragging(false); setDragOrigin(null); setMovingFurnitureId(null); setSelectedObject(null); setBookshelfOpen(false); setOpenBookId(null); setSelectedFurnitureId(null) }
   const openBook = (id: string) => { setSelectedObject('book'); setBookshelfOpen(false); setOpenBookId(id) }
   const addBook = (title: string, visibility: Visibility) => {
     const id = `book-${Date.now()}`; const createdAt = new Date().toISOString()
@@ -1102,7 +1166,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       if (url) setArtworks((prev) => prev[id] === dataURL ? { ...prev, [id]: url } : prev)
     })
   }
-  return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, profile, profileOpen, openProfile: () => setProfileOpen(true), closeProfile: () => setProfileOpen(false), setProfilePhoto, videoFrames, videoClips: loadClipUrls(), setVideoClip, videoLinks, setVideoLink, playingFrames, stopFrame: (id: string) => setPlayingFrames((prev) => prev.filter((value) => value !== id)), mutedFrames, setFrameMuted, highlightFrame, setHighlightFrame, openVideoPanel: (id: string) => { if (isVisiting()) return; setFrameMuted(id, false); closePanels(); setSelectedObject(id) }, rooms, activeRoomId, openRoom, createRoom, removeRoom, availableCount, guestbook, addGuestComment, removeGuestComment, remoteVisits, othersLikes, likeTotals, myLikes, pendingReactions, markReactionsSeen, openObject, reactionIdsFor, reactionTarget, setReactionTarget, commentTarget, setCommentTarget, timeOfDay, setTimeOfDay, books: visibleBooks, openBookId, bookshelfOpen, readOnly: false, characterHome: characterSnapshot.position, characterPose: characterSnapshot, characterWritable: !isVisiting(), characterLook, setCharacterLook, currentHandle, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, floorImage, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, setMusicVolume, musicVolume, customObjects, addCustomObject, renameCustomObject, removeCustomObject, customJob, runCustomGeneration, markCustomSeen, selectObject, clearSelection, finishCharacterAction, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject(null) }, addBook, deleteBook, updateBook, addEntry, deleteEntry, updateEntry, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, beginResize, resizeFurniture, endResize, rotateFurniture, adjustFurnitureHeight, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, setWallStyle, setFloorStyle, setFloorImage, setWallImage, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
+  return <RoomContext value={{ selectedObject, characterState, computerOn, toggledOn, cupHeld, artworks, setArtwork, profile, profileOpen, openProfile: () => setProfileOpen(true), closeProfile: () => setProfileOpen(false), setProfilePhoto, videoFrames, videoClips: loadClipUrls(), setVideoClip, videoLinks, setVideoLink, playingFrames, stopFrame: (id: string) => setPlayingFrames((prev) => prev.filter((value) => value !== id)), mutedFrames, setFrameMuted, highlightFrame, setHighlightFrame, openVideoPanel: (id: string) => { if (isVisiting()) return; setFrameMuted(id, false); closePanels(); setSelectedObject(id) }, rooms, activeRoomId, openRoom, createRoom, removeRoom, availableCount, guestbook, addGuestComment, removeGuestComment, remoteVisits, othersLikes, likeTotals, myLikes, pendingReactions, markReactionsSeen, openObject, reactionIdsFor, reactionTarget, setReactionTarget, commentTarget, setCommentTarget, timeOfDay, setTimeOfDay, books: visibleBooks, openBookId, bookshelfOpen, readOnly: false, characterHome: characterSnapshot.position, characterPose: characterSnapshot, characterWritable: !isVisiting(), characterLook, setCharacterLook, currentHandle, mode, furniture: resolvedFurniture, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, previewDragging, wallStyle, floorStyle, floorImage, styleTarget, debugAnchors, moveNotice, floorTarget, musicTrack, setMusicTrack, setMusicVolume, musicVolume, customObjects, addCustomObject, renameCustomObject, removeCustomObject, customEditing, startCustomObjectEdit, updateCustomObjectEdit, applyCustomObjectEdit, cancelCustomObjectEdit, customJob, runCustomGeneration, markCustomSeen, selectObject, clearSelection, finishCharacterAction, moveCharacterTo, settleFloorMove, openBook, closeBook: () => { setOpenBookId(null); setSelectedObject(null) }, addBook, deleteBook, updateBook, addEntry, deleteEntry, updateEntry, toggleEditMode, enterEditFurniture, selectFurniture, beginMove, moveFurniture, placeFurnitureAt, endMove, beginResize, resizeFurniture, endResize, rotateFurniture, adjustFurnitureHeight, removeFurniture, undoLayout, resetLayout, startPreview, beginPreviewDrag, movePreview, endPreviewDrag, placePreview, cancelPreview, openStyleTarget, setWallStyle, setFloorStyle, setFloorImage, setWallImage, setFurnitureStyle, toggleDebugAnchors }}>{children}</RoomContext>
 }
 // A neighbour room in the zoom-out explorer, drawn from that room's own published bundle with the SAME furniture
 // components as the live room — so it is the real room, not a stand-in. Read-only by construction: there is no
@@ -1161,7 +1225,7 @@ export function NeighbourRoomProvider({ bundle, handle, children }: { bundle: Re
       mode: 'normal', furniture, selectedFurnitureId: null, selectedPlacementValid: true, movingFurnitureId: null, preview: null, previewValid: false, previewDragging: false,
       wallStyle: style, floorStyle: style.floor, floorImage: style.floorImage, styleTarget: null, debugAnchors: false, moveNotice: false, floorTarget: null,
       musicTrack: null, setMusicTrack: noop, musicVolume: 0, setMusicVolume: noop,
-      customObjects: loadCustomObjects(), addCustomObject: noop, renameCustomObject: noop, removeCustomObject: noop, customJob: null, runCustomGeneration: noop, markCustomSeen: noop,
+      customObjects: loadCustomObjects(), addCustomObject: noop, renameCustomObject: noop, removeCustomObject: noop, customEditing: null, startCustomObjectEdit: noop, updateCustomObjectEdit: noop, applyCustomObjectEdit: noop, cancelCustomObjectEdit: noop, customJob: null, runCustomGeneration: noop, markCustomSeen: noop,
       selectObject: noop, clearSelection: noop, finishCharacterAction: noop, moveCharacterTo: noop, settleFloorMove: noop,
       openBook: noop, closeBook: noop, addBook: () => '', deleteBook: noop, updateBook: noop, addEntry: noop, deleteEntry: noop, updateEntry: noop,
       toggleEditMode: noop, enterEditFurniture: noop, selectFurniture: noop, beginMove: noop, moveFurniture: noop, placeFurnitureAt: noop, endMove: noop, beginResize: noop, resizeFurniture: noop, endResize: noop, rotateFurniture: noop, adjustFurnitureHeight: noop, removeFurniture: noop, undoLayout: noop, resetLayout: noop,

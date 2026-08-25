@@ -15,6 +15,13 @@ export type CustomObjectPart = {
   // extrudeProfile/latheProfile 전용: 유닛 사각(-0.5..0.5) 안의 2D 단면 점들
   profile?: Array<[number, number]>
 }
+export type CustomTopSurface = {
+  height: number
+  center: [number, number]
+  size: [number, number]
+  enabled?: boolean
+  offset?: number
+}
 export type CustomObjectSpec = {
   id: string
   name: string
@@ -25,12 +32,20 @@ export type CustomObjectSpec = {
   glbUrl?: string
   // 광택(PBR) 등급: 런타임에서 무광 강제 대신 재질 존중 + 환경맵
   finish?: 'gloss'
+  // 생성 모델의 원본 외곽과, 격자 맞춤 뒤 사용자가 조절하는 모델 자체 X/Y/Z 크기
+  modelSize?: [number, number, number]
+  modelScale?: [number, number, number]
+  // 생성 시 한 번 감지한 평평한 윗면. 크기 변경 뒤에는 이 로컬 값을 함께 스케일한다.
+  topSurface?: CustomTopSurface
 }
 
 const tuple3 = (value: unknown): value is [number, number, number] => Array.isArray(value) && value.length === 3 && value.every((part) => typeof part === 'number' && Number.isFinite(part))
 const positiveTuple3 = (value: unknown): value is [number, number, number] => tuple3(value) && value.every((part) => part > 0 && part <= 12)
+const modelTuple3 = (value: unknown): value is [number, number, number] => tuple3(value) && value.every((part) => part > 0 && part <= 10000)
 const unit = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
 const cell = (value: unknown) => Number.isInteger(value) && Number(value) >= 1 && Number(value) <= 10
+const positivePair = (value: unknown): value is [number, number] => Array.isArray(value) && value.length === 2 && value.every((part) => typeof part === 'number' && Number.isFinite(part) && part > 0)
+const finitePair = (value: unknown): value is [number, number] => Array.isArray(value) && value.length === 2 && value.every((part) => typeof part === 'number' && Number.isFinite(part))
 
 export const isCustomObjectSpec = (value: unknown): value is CustomObjectSpec => {
   if (!value || typeof value !== 'object') return false
@@ -39,6 +54,9 @@ export const isCustomObjectSpec = (value: unknown): value is CustomObjectSpec =>
   if (!CUSTOM_OBJECT_CATEGORIES.includes(spec.category as CustomObjectCategory) || !spec.footprint || !cell(spec.footprint.width) || !cell(spec.footprint.depth)) return false
   if (spec.glbUrl !== undefined && (typeof spec.glbUrl !== 'string' || !/^https:\/\/\S+$/.test(spec.glbUrl) || spec.glbUrl.length > 500)) return false
   if (spec.finish !== undefined && spec.finish !== 'gloss') return false
+  if (spec.modelSize !== undefined && !modelTuple3(spec.modelSize)) return false
+  if (spec.modelScale !== undefined && (!positiveTuple3(spec.modelScale) || spec.modelScale.some((part) => part < .25 || part > 2))) return false
+  if (spec.topSurface !== undefined && (!Number.isFinite(spec.topSurface.height) || !finitePair(spec.topSurface.center) || !positivePair(spec.topSurface.size) || (spec.topSurface.enabled !== undefined && typeof spec.topSurface.enabled !== 'boolean') || (spec.topSurface.offset !== undefined && (!Number.isFinite(spec.topSurface.offset) || Math.abs(spec.topSurface.offset) > 2)))) return false
   if (!Array.isArray(spec.parts) || spec.parts.length > 32 || (spec.parts.length < 1 && typeof spec.glbUrl !== 'string')) return false
   const profileOk = (part: Partial<CustomObjectPart>) => {
     if (part.primitive !== 'extrudeProfile' && part.primitive !== 'latheProfile') return true

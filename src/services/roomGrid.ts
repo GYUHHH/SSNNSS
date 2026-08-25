@@ -1,4 +1,5 @@
 import { Euler, Quaternion, Vector3 } from 'three'
+import type { CustomObjectSpec } from '../customObjectSpec'
 
 export const GRID_COUNT = 10
 export const GRID_SIZE = .7
@@ -55,7 +56,7 @@ const OWNED_SURFACES: Record<string, OwnedSurfaceConfig[]> = {
 // 위에 물건이 올라가는 가구: 상판/좌석 높이(heightOffset)가 이 모델들의 계약값이라, 맞춤 스케일이
 // 높이를 건드리면 안 된다 — FittedMesh가 이 셋만 기존 X/Z 맞춤을 유지한다
 export const SURFACED_TYPES = new Set([...Object.keys(OWNED_SURFACES), 'wall-shelf'])
-export type SurfaceHost = { id: string; type: string; position: [number, number, number]; rotation: [number, number, number]; footprint: Footprint; wallId?: WallId }
+export type SurfaceHost = { id: string; type: string; position: [number, number, number]; rotation: [number, number, number]; footprint: Footprint; wallId?: WallId; customSpec?: CustomObjectSpec }
 
 // the surfaces a piece of furniture currently hosts, positioned/rotated from its LIVE position — move or rotate the
 // owner and every surface (and everything placed on it) moves with it, because this is recomputed from scratch each
@@ -77,6 +78,30 @@ export const surfacesForOwner = (item: SurfaceHost): PlacementSurface[] => {
       rotation: [rotation.x, rotation.y, rotation.z], normal: [0, 1, 0],
     }]
   }
+  const custom = item.customSpec
+  const top = custom?.topSurface
+  const model = custom?.modelSize
+  if (custom?.category === 'furniture' && top && top.enabled !== false && model) {
+    const scale = custom.modelScale ?? [1, 1, 1]
+    const fitX = item.footprint.width * GRID_SIZE / model[0]
+    const fitZ = item.footprint.depth * GRID_SIZE / model[2]
+    const fitY = Math.min(fitX, fitZ)
+    const width = top.size[0] * fitX * scale[0]
+    const depth = top.size[1] * fitZ * scale[2]
+    const columns = Math.floor(width / (GRID_SIZE / 2) + 1e-4)
+    const rows = Math.floor(depth / (GRID_SIZE / 2) + 1e-4)
+    if (columns > 0 && rows > 0) {
+      const localX = top.center[0] * fitX * scale[0]
+      const localZ = top.center[1] * fitZ * scale[2]
+      const yaw = item.rotation[1]; const cos = Math.cos(yaw); const sin = Math.sin(yaw)
+      return [{
+        id: `${item.id}:top`, ownerId: item.id, type: 'tabletop', orientation: 'horizontal',
+        width: columns * GRID_SIZE / 2, height: rows * GRID_SIZE / 2, gridColumns: columns, gridRows: rows,
+        position: [item.position[0] + cos * localX + sin * localZ, item.position[1] + (top.height * fitY * scale[1]) + (top.offset ?? 0), item.position[2] - sin * localX + cos * localZ],
+        rotation: [Math.PI / 2, 0, -yaw], normal: [0, 1, 0],
+      }]
+    }
+  }
   const configs = OWNED_SURFACES[item.type]
   if (!configs) return []
   const footprint = item.footprint
@@ -87,6 +112,10 @@ export const surfacesForOwner = (item: SurfaceHost): PlacementSurface[] => {
     rotation: [Math.PI / 2, 0, -item.rotation[1]], normal: [0, 1, 0],
     allowedItemTypes: config.allowedItemTypes,
   }))
+}
+if (import.meta.env.DEV) {
+  const customTop = surfacesForOwner({ id: 'custom-check', type: 'custom:check', position: [1, 0, 2], rotation: [0, Math.PI / 2, 0], footprint: { width: 2, depth: 2 }, customSpec: { id: 'check', name: 'check', category: 'furniture', footprint: { width: 2, depth: 2 }, parts: [], glbUrl: 'https://example.com/check.glb', modelSize: [2, 2, 2], modelScale: [1, .5, 1], topSurface: { height: 1, center: [0, 0], size: [2, 2] } } })[0]
+  console.assert(customTop?.position[1] === .35 && customTop.gridColumns === 4 && customTop.gridRows === 4, 'custom top surface must follow model scale and keep the shared sub-grid')
 }
 export const isOwnedSurfaceId = (id: SurfaceId) => id.includes(':')
 export const ownerIdOf = (surfaceId: SurfaceId) => surfaceId.split(':')[0]

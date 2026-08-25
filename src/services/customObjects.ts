@@ -1,4 +1,4 @@
-import { customObjectType, isCustomObjectSpec, type CustomObjectCategory, type CustomObjectSpec } from '../customObjectSpec'
+import { customObjectType, isCustomObjectSpec, type CustomObjectCategory, type CustomObjectSpec, type CustomTopSurface } from '../customObjectSpec'
 import { authHeaders, readStored, writeStored } from './social'
 import type { Material, Mesh, Object3D, Texture } from 'three'
 
@@ -111,7 +111,51 @@ function validateObject(object: Object3D, three: typeof import('three')) {
   return bounds
 }
 
-export async function generatedModelBlob(model: GeneratedModel, finish?: 'gloss'): Promise<Blob> {
+function modelMetadata(object: Object3D, bounds: import('three').Box3, three: typeof import('three')): { modelSize: [number, number, number]; topSurface?: CustomTopSurface } {
+  const size = bounds.getSize(new three.Vector3())
+  const tolerance = Math.max(size.y * .02, 1e-4)
+  const bands = new Map<number, { area: number; y: number; minX: number; maxX: number; minZ: number; maxZ: number }>()
+  const a = new three.Vector3(); const b = new three.Vector3(); const c = new three.Vector3(); const edge = new three.Vector3(); const normal = new three.Vector3()
+  object.updateWorldMatrix(true, true)
+  object.traverse((node) => {
+    const mesh = node as Mesh
+    if (!mesh.isMesh) return
+    const position = mesh.geometry.getAttribute('position'); if (!position) return
+    const index = mesh.geometry.index
+    const vertex = (target: import('three').Vector3, at: number) => target.fromBufferAttribute(position, index ? index.getX(at) : at).applyMatrix4(mesh.matrixWorld)
+    const count = index?.count ?? position.count
+    for (let at = 0; at + 2 < count; at += 3) {
+      vertex(a, at); vertex(b, at + 1); vertex(c, at + 2)
+      normal.subVectors(b, a).cross(edge.subVectors(c, a))
+      const length = normal.length(); if (!length || normal.y / length < .85) continue
+      const area = Math.abs((b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x)) / 2
+      if (area <= 1e-8) continue
+      const y = (a.y + b.y + c.y) / 3
+      const key = Math.round(y / tolerance)
+      const band = bands.get(key) ?? { area: 0, y: 0, minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity }
+      band.area += area; band.y += y * area
+      band.minX = Math.min(band.minX, a.x, b.x, c.x); band.maxX = Math.max(band.maxX, a.x, b.x, c.x)
+      band.minZ = Math.min(band.minZ, a.z, b.z, c.z); band.maxZ = Math.max(band.maxZ, a.z, b.z, c.z)
+      bands.set(key, band)
+    }
+  })
+  const minimumArea = size.x * size.z * .08
+  const top = [...bands.values()].filter((band) => band.area >= minimumArea).sort((left, right) => right.y / right.area - left.y / left.area)[0]
+  return {
+    modelSize: [size.x, size.y, size.z],
+    ...(top ? { topSurface: { height: top.y / top.area, center: [(top.minX + top.maxX) / 2, (top.minZ + top.maxZ) / 2], size: [top.maxX - top.minX, top.maxZ - top.minZ] } } : {}),
+  }
+}
+
+export async function inspectCustomModel(url: string) {
+  const [{ GLTFLoader }, three] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three')])
+  const response = await fetch(url); if (!response.ok) throw new Error('MODEL_DOWNLOAD_FAILED')
+  const object = (await new GLTFLoader().parseAsync(await response.arrayBuffer(), '')).scene
+  const bounds = validateObject(object, three)
+  return modelMetadata(object, bounds, three)
+}
+
+export async function generatedModelBlob(model: GeneratedModel, finish?: 'gloss'): Promise<{ blob: Blob; modelSize: [number, number, number]; topSurface?: CustomTopSurface }> {
   const [{ OBJLoader }, { GLTFLoader }, { GLTFExporter }, { mergeVertices }, three] = await Promise.all([
     import('three/addons/loaders/OBJLoader.js'),
     import('three/addons/loaders/GLTFLoader.js'),
@@ -173,6 +217,8 @@ export async function generatedModelBlob(model: GeneratedModel, finish?: 'gloss'
   const center = bounds.getCenter(new three.Vector3())
   object.position.add(new three.Vector3(-center.x, -bounds.min.y, -center.z))
   object.updateMatrixWorld(true)
+  const normalizedBounds = validateObject(object, three)
+  const metadata = modelMetadata(object, normalizedBounds, three)
   const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
     new GLTFExporter().parse(object, (output) => output instanceof ArrayBuffer ? resolve(output) : reject(new Error('GLB_EXPORT_FAILED')), reject, { binary: true, onlyVisible: true, maxTextureSize: 2048 })
   })
@@ -180,5 +226,5 @@ export async function generatedModelBlob(model: GeneratedModel, finish?: 'gloss'
   validateModelStats([1, 1, 1], 1, buffer.byteLength)
   const reopened = (await new GLTFLoader().parseAsync(buffer, '')).scene
   validateObject(reopened, three)
-  return new Blob([buffer], { type: 'model/gltf-binary' })
+  return { blob: new Blob([buffer], { type: 'model/gltf-binary' }), ...metadata }
 }
