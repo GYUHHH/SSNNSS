@@ -81,8 +81,8 @@ function SurfaceImagePicker({ label, image, onChange }: { label: string; image?:
   const [editing, setEditing] = useState<string | null>(null)
   const close = () => setEditing((source) => { if (source) URL.revokeObjectURL(source); return null })
   return <div className="room-color-row"><span>{t(label)}</span><div>
-    <button type="button" className="look-reset" onClick={() => input.current?.click()}>{t('사진 넣기')}</button>
-    {image && <button type="button" className="look-reset" onClick={() => onChange(null)}>{t('사진 제거')}</button>}
+    <button type="button" className="image-action add" onClick={() => input.current?.click()}>{t('사진 넣기')}</button>
+    {image && <button type="button" className="image-action remove" onClick={() => onChange(null)}>{t('사진 제거')}</button>}
     <input ref={input} type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) setEditing(URL.createObjectURL(file)); event.target.value = '' }} />
     {editing && <PhotoCropEditor source={editing} aspect={1} output={[1024, 1024]} onClose={close} onApply={(next) => { onChange(next); close() }} />}
   </div></div>
