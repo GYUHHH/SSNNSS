@@ -3,6 +3,7 @@ import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { useCursor } from '@react-three/drei'
 import { Box3, BufferGeometry, Float32BufferAttribute, type Group, type Mesh, type Object3D, type OrthographicCamera, Plane, Vector3 } from 'three'
 import Interactive from './Interactive'
+import { onGlbReady } from './GlbFurniture'
 import { type FurnitureId, type FurnitureItem, isResizableWallItem, resolutionFor, useRoomStore } from '../store'
 import { fitMeshToFootprint, resolveSurface, SURFACED_TYPES, wallSurfaces, withResolution, type PlacementSurface, type ResizeCorner } from '../services/roomGrid'
 import { isWallMedia, isWallPhoto, ROOM_OBJECT_ORDER, wallItemOrder } from '../services/renderOrder'
@@ -36,6 +37,9 @@ export default function Furniture({ id, children }: { id: FurnitureId; children:
 export function FittedMesh({ item, children }: { item: FurnitureItem; children: ReactNode }) {
   const { furniture } = useRoomStore()
   const group = useRef<Group>(null)
+  // GLB 가구는 비동기 로드라 첫 마운트 때 빈 치수를 잴 수 있다 — 로드 완료 알림마다 재측정
+  const [glbTick, setGlbTick] = useState(0)
+  useEffect(() => onGlbReady(() => setGlbTick((tick) => tick + 1)), [])
   useLayoutEffect(() => {
     if (!group.current || !item.footprint.width) return
     const surface = resolveSurface(furniture, item.surfaceId); if (!surface) return
@@ -67,7 +71,7 @@ export function FittedMesh({ item, children }: { item: FurnitureItem; children: 
     // Media lives on the wall's back plane. Other wall furniture is deliberately lifted forward so it can be
     // installed over a photo, poster, or video without z-fighting or being hidden by that background layer.
     group.current.position.z = item.category === 'wallItem' ? (isWallPhoto(item.type) ? .002 : isWallMedia(item.type) ? .006 : .05) - bounds.min.z : 0
-  }, [item.surfaceId, item.footprint.width, item.footprint.depth, item.rotation[1], item.type])
+  }, [item.surfaceId, item.footprint.width, item.footprint.depth, item.rotation[1], item.type, glbTick])
   return <group ref={group} name={`fit:${item.id}`}>{children}</group>
 }
 
