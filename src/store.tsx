@@ -387,7 +387,7 @@ type RoomStore = {
   mode: RoomMode; furniture: FurnitureItem[]; selectedFurnitureId: FurnitureId | null; selectedPlacementValid: boolean; movingFurnitureId: FurnitureId | null; preview: FurnitureItem | null; previewValid: boolean; previewDragging: boolean
   wallStyle: RoomStyle; floorStyle: string | undefined; floorImage: string | undefined; styleTarget: StyleTarget | null; debugAnchors: boolean; moveNotice: boolean; floorTarget: [number, number, number] | null; musicTrack: string | null; setMusicTrack: (id: string | null) => void; musicVolume: number; setMusicVolume: (value: number) => void
   customObjects: CustomObjectSpec[]; addCustomObject: (spec: CustomObjectSpec) => void; renameCustomObject: (id: string, name: string) => void; removeCustomObject: (id: string) => void
-  customJob: CustomJob | null; runCustomGeneration: (input: { category: CustomObjectCategory; prompt: string; image?: string; size?: { width: number; depth: number; height?: number }; quality?: 'glb' }) => void; markCustomSeen: () => void
+  customJob: CustomJob | null; runCustomGeneration: (input: { category: CustomObjectCategory; prompt: string; image?: string; size?: { width: number; depth: number; height?: number }; quality?: 'glb'; finish?: 'gloss' }) => void; markCustomSeen: () => void
   selectObject: (object: Exclude<SelectedObject, null>) => void; clearSelection: () => void; finishCharacterAction: (state: Exclude<CharacterState, 'walking'>, transform?: CharacterTransform) => void; moveCharacterTo: (position: [number, number, number]) => void; settleFloorMove: (reached: boolean, transform?: CharacterTransform) => void; openBook: (id: string) => void; closeBook: () => void; addBook: (title: string, visibility: Visibility) => string; deleteBook: (id: string) => void; updateBook: (id: string, patch: Partial<Pick<Book, 'title' | 'visibility' | 'shelf'>>) => void; addEntry: (bookId: string, entry: EntryDraft) => void; deleteEntry: (bookId: string, entryId: string) => void; updateEntry: (bookId: string, entryId: string, patch: Partial<Pick<Entry, 'content' | 'images' | 'visibility'>>) => void; toggleDebugAnchors: () => void
   toggleEditMode: () => void; enterEditFurniture: (id: FurnitureId) => void; selectFurniture: (id: FurnitureId) => void; beginMove: (id: FurnitureId) => void; moveFurniture: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; placeFurnitureAt: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; endMove: () => void; beginResize: (id: FurnitureId) => void; resizeFurniture: (id: FurnitureId, corner: ResizeCorner, position: [number, number, number]) => void; endResize: (id: FurnitureId) => void; rotateFurniture: () => void; adjustFurnitureHeight: (id: FurnitureId, direction: -1 | 1) => void; removeFurniture: (id?: FurnitureId) => void; undoLayout: () => void; resetLayout: () => void; startPreview: (type: string, styleId?: string, restoreId?: string) => void; beginPreviewDrag: () => void; movePreview: (position: [number, number, number], surfaceId?: SurfaceId) => void; endPreviewDrag: () => void; placePreview: () => void; cancelPreview: () => void
   openStyleTarget: (target: StyleTarget) => void; setWallStyle: (wallId: WallId, presetId: string) => void; setFloorStyle: (presetId: string) => void; setFloorImage: (image: string | null) => void; setWallImage: (wallId: WallId, image: string | null) => void; setFurnitureStyle: (id: FurnitureId, presetId: string) => void
@@ -460,7 +460,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }
   const [customJob, setCustomJob] = useState<CustomJob | null>(null)
   const markCustomSeen = () => setCustomJob((job) => job && job.unseen ? { ...job, unseen: false } : job)
-  const runCustomGeneration = (input: { category: CustomObjectCategory; prompt: string; image?: string; size?: { width: number; depth: number; height?: number }; quality?: 'glb' }) => {
+  const runCustomGeneration = (input: { category: CustomObjectCategory; prompt: string; image?: string; size?: { width: number; depth: number; height?: number }; quality?: 'glb'; finish?: 'gloss' }) => {
     if (customJob && customJob.stage !== 'done' && customJob.stage !== 'error') return // 동시에 한 건만
     void (async () => {
       try {
@@ -472,7 +472,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
             reference = (await generateConceptImage({ category: input.category, prompt: input.prompt })).front
           }
           setCustomJob({ stage: 'draft', round: 0, unseen: false })
-          const requestId = await submitGlbObject(reference)
+          const requestId = await submitGlbObject(reference, input.finish)
           let model: GeneratedModel | undefined
           for (let attempt = 0; attempt < 100 && !model; attempt += 1) {
             await new Promise((resolve) => setTimeout(resolve, 3000))
@@ -487,7 +487,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
           const name = (input.prompt.trim() || t('커스텀 오브젝트')).slice(0, 40)
           const clampCell = (value: number) => Math.max(1, Math.min(10, Math.round(value)))
           const footprint = input.size ? { width: clampCell(input.size.width), depth: clampCell(input.size.depth) } : { width: 2, depth: 2 }
-          addCustomObject({ id, name, category: input.category, footprint, parts: [], glbUrl: stored })
+          addCustomObject({ id, name, category: input.category, footprint, parts: [], glbUrl: stored, ...(input.finish ? { finish: input.finish } : {}) })
           setCustomJob({ stage: 'done', round: 0, unseen: true, name })
           return
         }

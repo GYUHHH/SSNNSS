@@ -59,7 +59,9 @@ function GlbScene({ url, preview, flat, custom, wall, padX, gloss }: { url: stri
           mesh.material = mesh.material.clone()
           if (flat) mesh.material.flatShading = true
           // 유저 생성 GLB는 후처리 없이 그대로 오므로 카탈로그와 같은 무광 정책을 런타임에 적용
-          if (custom) { const material = mesh.material as { metalness?: number; roughness?: number }; material.metalness = 0; material.roughness = .95 }
+          if (custom && !gloss) { const material = mesh.material as { metalness?: number; roughness?: number }; material.metalness = 0; material.roughness = .95 }
+          // 광택 커스텀: PBR 맵이 있으면 존중, 없으면 균일 광택값 — 어느 쪽이든 아래 gloss 분기가 환경맵을 얹는다
+          if (custom && gloss) { const material = mesh.material as { metalness?: number; roughness?: number; metalnessMap?: unknown }; if (!material.metalnessMap) { material.metalness = .25; material.roughness = .35 } }
           if (gloss) { const material = mesh.material as { envMap?: Texture; envMapIntensity?: number; needsUpdate?: boolean }; material.envMap = environmentFor(gl); material.envMapIntensity = .9; material.needsUpdate = true }
           if (preview) { mesh.material.transparent = true; mesh.material.opacity = .55 }
         }
@@ -88,8 +90,8 @@ function GlbScene({ url, preview, flat, custom, wall, padX, gloss }: { url: stri
   return <primitive object={cloned} />
 }
 
-export default function GlbFurniture({ type, url, wall, preview }: { type?: string; url?: string; wall?: boolean; preview: boolean }) {
+export default function GlbFurniture({ type, url, wall, gloss, preview }: { type?: string; url?: string; wall?: boolean; gloss?: boolean; preview: boolean }) {
   const resolved = url ?? GLB_URLS[type ?? '']
   if (!resolved) return null
-  return <Suspense fallback={null}><GlbScene url={resolved} preview={preview} flat={!!type && FLAT_TYPES.has(type)} custom={!!url} wall={wall} padX={type ? PAD_X[type] : undefined} gloss={!!type && GLOSS_TYPES.has(type)} /></Suspense>
+  return <Suspense fallback={null}><GlbScene url={resolved} preview={preview} flat={!!type && FLAT_TYPES.has(type)} custom={!!url} wall={wall} padX={type ? PAD_X[type] : undefined} gloss={gloss || (!!type && GLOSS_TYPES.has(type))} /></Suspense>
 }

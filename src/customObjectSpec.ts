@@ -23,6 +23,8 @@ export type CustomObjectSpec = {
   parts: CustomObjectPart[]
   // GLB 커스텀: parts 대신 저장소의 모델 파일을 그대로 그린다
   glbUrl?: string
+  // 광택(PBR) 등급: 런타임에서 무광 강제 대신 재질 존중 + 환경맵
+  finish?: 'gloss'
 }
 
 const tuple3 = (value: unknown): value is [number, number, number] => Array.isArray(value) && value.length === 3 && value.every((part) => typeof part === 'number' && Number.isFinite(part))
@@ -36,6 +38,7 @@ export const isCustomObjectSpec = (value: unknown): value is CustomObjectSpec =>
   if (typeof spec.id !== 'string' || !spec.id || typeof spec.name !== 'string' || !spec.name.trim() || spec.name.length > 40) return false
   if (!CUSTOM_OBJECT_CATEGORIES.includes(spec.category as CustomObjectCategory) || !spec.footprint || !cell(spec.footprint.width) || !cell(spec.footprint.depth)) return false
   if (spec.glbUrl !== undefined && (typeof spec.glbUrl !== 'string' || !/^https:\/\/\S+$/.test(spec.glbUrl) || spec.glbUrl.length > 500)) return false
+  if (spec.finish !== undefined && spec.finish !== 'gloss') return false
   if (!Array.isArray(spec.parts) || spec.parts.length > 32 || (spec.parts.length < 1 && typeof spec.glbUrl !== 'string')) return false
   const profileOk = (part: Partial<CustomObjectPart>) => {
     if (part.primitive !== 'extrudeProfile' && part.primitive !== 'latheProfile') return true

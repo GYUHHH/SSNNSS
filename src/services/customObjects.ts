@@ -78,11 +78,11 @@ export async function fetchCredits(): Promise<{ enabled: boolean; balance: numbe
   return { enabled: !!body.enabled, balance: body.balance ?? 0, freeLeft: !!body.freeLeft, buyUrl: body.buyUrl ?? null }
 }
 
-export async function submitGlbObject(image: string): Promise<string> {
+export async function submitGlbObject(image: string, finish?: 'gloss'): Promise<string> {
   const response = await fetch('/api/glb-objects', {
     method: 'POST',
     headers: { ...await authHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ image }),
+    body: JSON.stringify({ image, finish }),
   })
   const body = await response.json().catch(() => null) as { requestId?: string; error?: string } | null
   if (!response.ok || typeof body?.requestId !== 'string') throw new Error(body?.error || `HTTP ${response.status}`)

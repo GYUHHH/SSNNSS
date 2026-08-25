@@ -106,11 +106,12 @@ const signedInHandle = async (request: Request): Promise<string | null> => {
 const billingEnabled = (env: Env) => !!(env.SUPABASE_SERVICE_KEY && env.LS_WEBHOOK_SECRET && env.LS_BUY_URL)
 const serviceHeaders = (env: Env) => ({ apikey: env.SUPABASE_SERVICE_KEY!, Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, 'Content-Type': 'application/json' })
 
-async function spendCredit(request: Request, env: Env) {
+async function spendCredit(request: Request, env: Env, amount = 1) {
   if (!billingEnabled(env)) return true
   const handle = await signedInHandle(request)
   if (!handle) return false
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/spend_credit`, { method: 'POST', headers: serviceHeaders(env), body: JSON.stringify({ p_handle: handle }) })
+  // 광택 등급은 2코인 — 원자적 차감(spend_credits)으로 절반만 빠지는 일이 없게 한다
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/spend_credits`, { method: 'POST', headers: serviceHeaders(env), body: JSON.stringify({ p_handle: handle, p_amount: amount }) })
   return response.ok && await response.json().catch(() => null) === true
 }
 
@@ -280,13 +281,14 @@ const FAL_QUEUE_APP = 'fal-ai/hunyuan-3d'
 async function glbSubmit(request: Request, env: Env) {
   if (!env.FAL_KEY) return json({ error: 'FAL_KEY_NOT_SET' }, 503)
   if (!await signedIn(request)) return json({ error: 'LOGIN_REQUIRED' }, 401)
-  if (!await spendCredit(request, env)) return json({ error: 'NO_CREDITS' }, 402)
-  const body = await request.json().catch(() => null) as { image?: unknown } | null
+  const body = await request.json().catch(() => null) as { image?: unknown; finish?: unknown } | null
+  const gloss = body?.finish === 'gloss'
+  if (!await spendCredit(request, env, gloss ? 2 : 1)) return json({ error: 'NO_CREDITS' }, 402)
   const image = typeof body?.image === 'string' ? body.image : ''
   if (!image.startsWith('data:image/') || image.length > 7_000_000) return json({ error: 'INVALID_IMAGE' }, 400)
   const upstream = await fetch(`https://queue.fal.run/${FAL_MODEL}`, {
     method: 'POST', headers: { Authorization: `Key ${env.FAL_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ input_image_url: image, enable_pbr: false }),
+    body: JSON.stringify({ input_image_url: image, enable_pbr: gloss }),
   })
   const result = await upstream.json().catch(() => null) as { request_id?: string } | null
   if (!upstream.ok || !result?.request_id) { console.log('glb-submit-failed', upstream.status); return json({ error: 'GLB_SUBMIT_FAILED' }, 502) }
