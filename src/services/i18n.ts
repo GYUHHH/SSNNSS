@@ -8,6 +8,8 @@ export const setLang = (next: 'ko' | 'en') => { localStorage.setItem('lang', nex
 const EN: Record<string, string> = {
   "파티클": "Particles",
   "별가루": "Stardust",
+  "낮추기": "Lower",
+  "높이기": "Raise",
   "에어로 버블 체어": "Aero Bubble Chair",
   "크기는 1~12 사이 숫자로 (가로·세로는 함께)": "Size needs whole numbers 1-12 (width and depth together)",
   "높이(선택)": "Height (opt.)",

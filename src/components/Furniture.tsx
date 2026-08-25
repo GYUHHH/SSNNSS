@@ -1,12 +1,13 @@
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
-import { useCursor } from '@react-three/drei'
+import { Html, useCursor } from '@react-three/drei'
 import { Box3, BufferGeometry, Float32BufferAttribute, type Group, type Mesh, type Object3D, type OrthographicCamera, Plane, Vector3 } from 'three'
 import Interactive from './Interactive'
 import { onGlbReady } from './GlbFurniture'
 import { type FurnitureId, type FurnitureItem, isResizableWallItem, resolutionFor, useRoomStore } from '../store'
 import { fitMeshToFootprint, resolveSurface, SURFACED_TYPES, wallSurfaces, withResolution, type PlacementSurface, type ResizeCorner } from '../services/roomGrid'
-import { isWallMedia, isWallPhoto, ROOM_OBJECT_ORDER, wallItemOrder } from '../services/renderOrder'
+import { isWallMedia, isWallPhoto, ROOM_HTML_Z_INDEX_RANGE, ROOM_OBJECT_ORDER, wallItemOrder } from '../services/renderOrder'
+import { t } from '../services/i18n'
 
 // Every room in the explorer names its furniture identically — each one has a `desk` — so a scene-wide lookup for
 // `fit:<id>` can land on a NEIGHBOUR's copy and drag whatever follows it outside the room. Search only inside the
@@ -30,8 +31,21 @@ export default function Furniture({ id, children }: { id: FurnitureId; children:
   const editOverlay = selected && movingFurnitureId !== id && surface ? <>
     {isResizableWallItem(item) && <ResizeBounds item={item} surface={withResolution(surface, resolutionFor(item))} valid={selectedPlacementValid} />}
     {item.category !== 'wallItem' && <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}><ringGeometry args={[Math.max(width, height) * .22, Math.max(width, height) * .3, 28]} /><meshBasicMaterial color="#fff2a5" transparent opacity={0.9} /></mesh>}
+    {item.elevatable && <HeightControls item={item} />}
   </> : null
   return <Interactive id={id} position={item.position} rotation={item.category === 'wallItem' ? [0, 0, 0] : item.rotation} scale={item.scale} pad={id !== 'bookshelf' && item.type !== 'speech-bubble'} editing={mode === 'edit'} editOverlay={editOverlay}>{content}</Interactive>
+}
+
+function HeightControls({ item }: { item: FurnitureItem }) {
+  const { adjustFurnitureHeight } = useRoomStore()
+  const height = item.heightOffset ?? 0
+  const stop = (event: { stopPropagation: () => void }) => event.stopPropagation()
+  return <Html position={[0, .12 - height, 0]} center zIndexRange={ROOM_HTML_Z_INDEX_RANGE}>
+    <div className="height-controls" onPointerDown={stop} onClick={stop}>
+      <button type="button" aria-label={t('낮추기')} disabled={height <= 0} onClick={(event) => { event.stopPropagation(); adjustFurnitureHeight(item.id, -1) }}>−</button>
+      <button type="button" aria-label={t('높이기')} disabled={height >= 5.6} onClick={(event) => { event.stopPropagation(); adjustFurnitureHeight(item.id, 1) }}>+</button>
+    </div>
+  </Html>
 }
 
 export function FittedMesh({ item, children }: { item: FurnitureItem; children: ReactNode }) {
