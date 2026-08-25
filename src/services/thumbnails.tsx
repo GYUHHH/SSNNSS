@@ -99,24 +99,3 @@ export function thumbnailForFloorStyle(style: FloorStyle): Promise<string> {
   chain = job.catch(() => undefined)
   return job
 }
-
-// 검수 루프용 스크린샷: 아이템 썸네일과 같은 촬영 방식이되 320px 전용 루트로 크게 찍는다.
-// 캐시하지 않는다 — 매 라운드 스펙이 바뀌므로 항상 새로 렌더한다.
-let reviewRoot: ReturnType<typeof createRoot> | null = null
-const ensureReviewRoot = () => {
-  if (reviewRoot) return
-  const canvas = document.createElement('canvas')
-  canvas.width = 320
-  canvas.height = 320
-  reviewRoot = createRoot(canvas)
-  reviewRoot.configure({ frameloop: 'never', gl: { alpha: true, antialias: true, preserveDrawingBuffer: true }, size: { width: 320, height: 320, top: 0, left: 0 }, dpr: 1, camera: { fov: 30, near: 0.01, far: 100 } })
-}
-export const REVIEW_ANGLES: Array<[number, number, number]> = [[0.9, 0.8, 1.4], [1.6, 0.35, 0.15], [0.25, 1.9, 0.6]]
-export function reviewShot(item: FurnitureItem, direction: [number, number, number] = REVIEW_ANGLES[0]): Promise<string> {
-  const job = chain.then(() => Promise.race([new Promise<string>((resolve) => {
-    ensureReviewRoot()
-    reviewRoot!.render(<Shot item={item} direction={direction} done={resolve} />)
-  }), new Promise<string>((resolve) => setTimeout(() => resolve(''), 5000))]))
-  chain = job.catch(() => undefined)
-  return job
-}

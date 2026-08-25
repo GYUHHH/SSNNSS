@@ -14,8 +14,6 @@
     "not_found_handling": "single-page-application"
   },
   "vars": {
-    "OPENAI_MODEL": "gpt-5-mini",
-    "ANTHROPIC_MODEL": "claude-opus-5",
     "LS_CREDITS_PER_ORDER": "5",
     "LS_BUY_URL": "https://itsden.lemonsqueezy.com/checkout/buy/965944b8-a3d8-4c6f-92c5-5547c1357522"
   },

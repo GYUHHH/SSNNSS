@@ -142,10 +142,10 @@ function BooksTab() {
 
 // 생성 잡 진행 표시: 단계 라벨 + 진행률 바. 완료/실패도 여기서 알린다.
 export const customJobProgress = (job: { stage: string; round: number }): number =>
-  job.stage === 'concept' ? 10 : job.stage === 'draft' ? 32 : job.stage === 'detail' ? 52 : job.stage === 'verify' ? (job.round > 1 ? 88 : 68) : job.stage === 'revise' ? 80 : 100
+  job.stage === 'draft' ? 45 : job.stage === 'verify' ? 82 : 100
 
 export const customJobLabel = (job: { stage: string; round: number; name?: string; error?: string }): string =>
-  job.stage === 'concept' ? t('컨셉 이미지 생성 중') : job.stage === 'draft' ? t('뼈대 조립 중') : job.stage === 'detail' ? t('디테일 조립 중') : job.stage === 'revise' ? t('검수 반영해 수정 중') : job.stage === 'verify' ? t('렌더 검수 중') : job.stage === 'done' ? `${job.name ?? ''} ${t('완성')}` : t('생성 실패')
+  job.stage === 'draft' ? t('오브젝트 조립 중') : job.stage === 'verify' ? t('모델 정리 중') : job.stage === 'done' ? `${job.name ?? ''} ${t('완성')}` : t('생성 실패')
 
 function CustomJobStatus({ job }: { job: { stage: string; round: number; name?: string; error?: string } }) {
   const running = job.stage !== 'done' && job.stage !== 'error'
@@ -185,7 +185,7 @@ function CustomTab() {
     reader.onload = () => setEditingImage(typeof reader.result === 'string' ? reader.result : null)
     reader.readAsDataURL(value)
   }
-  const [quality, setQuality] = useState<'standard' | 'glb'>('standard')
+  const [quality, setQuality] = useState<'standard' | 'high'>('standard')
   const running = !!customJob && customJob.stage !== 'done' && customJob.stage !== 'error'
   // 가로x세로는 함께, 높이는 선택. 전부 비우면 모델이 알아서 정한다
   const parseSize = (): { width: number; depth: number; height?: number } | null | undefined => {
@@ -204,7 +204,7 @@ function CustomTab() {
     const size = parseSize()
     if (size === null) { setError(t('크기는 1~12 사이 숫자로 (가로·세로는 함께)')); return }
     setError('')
-    runCustomGeneration({ category, prompt: prompt.trim(), image: image ?? undefined, size, quality: quality === 'glb' ? 'glb' : undefined })
+    runCustomGeneration({ category, prompt: prompt.trim(), image: image ?? undefined, size, finish: quality === 'high' ? 'gloss' : undefined })
     setSource(null); setPrompt(''); setImage(null); setSizeW(''); setSizeD(''); setSizeH('')
   }
   const objects = customObjects.filter((object) => availableCount(customObjectType(object.id)) > 0)
@@ -216,10 +216,10 @@ function CustomTab() {
     {source && <form className="custom-form" onSubmit={submit}>
       <div className="custom-form-head"><strong>{t(source === 'text' ? '텍스트 넣기' : '사진 넣기')}</strong><button type="button" onClick={() => { setSource(null); setImage(null); setEditingImage(null); setError('') }}>×</button></div>
       <label>{t('오브젝트 종류')}<select value={category} onChange={(event) => setCategory(event.target.value as CustomObjectCategory)}>{CUSTOM_OBJECT_CATEGORIES.map((value) => <option key={value} value={value}>{t(CUSTOM_CATEGORY_LABELS[value])}</option>)}</select></label>
-      <label>{t('품질')}<select value={quality} onChange={(event) => setQuality(event.target.value as 'standard' | 'glb')}><option value="standard">{t('일반')}</option><option value="glb">{t('고품질')}</option></select></label>
+      <label>{t('품질')}<select value={quality} onChange={(event) => setQuality(event.target.value as 'standard' | 'high')}><option value="standard">{t('일반')}</option><option value="high">{t('고품질')}</option></select></label>
       <label>{t('크기 (선택)')}<div className="custom-size"><input type="number" min={1} max={12} value={sizeW} onChange={(event) => setSizeW(event.target.value)} placeholder={t('가로')} aria-label={t('가로')} /><span>×</span><input type="number" min={1} max={12} value={sizeD} onChange={(event) => setSizeD(event.target.value)} placeholder={t('세로')} aria-label={t('세로')} /><span>×</span><input type="number" min={1} max={12} value={sizeH} onChange={(event) => setSizeH(event.target.value)} placeholder={t('높이(선택)')} aria-label={t('높이(선택)')} /></div></label>
       {source === 'photo' && (image ? <div className="custom-photo"><img src={image} alt="" /><button type="button" aria-label={t('사진 삭제')} onClick={() => { setImage(null); file.current?.click() }}>×</button></div> : <button className="custom-photo-pick" type="button" onClick={choosePhoto}>{t('사진 넣기')}</button>)}
-      <textarea maxLength={1200} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={t(source === 'photo' ? '원하는 디자인 (선택)' : '원하는 디자인')} />
+      <textarea maxLength={source === 'text' ? 200 : 1200} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={t(source === 'photo' ? '원하는 디자인 (선택)' : '원하는 디자인')} />
       {error && <p className="custom-error">{error}</p>}
       <button className="custom-generate" type="submit" disabled={(source === 'text' && !prompt.trim()) || (source === 'photo' && !image) || running}>{t(running ? '생성 중' : '생성')}</button>
     </form>}
