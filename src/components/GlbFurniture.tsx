@@ -16,6 +16,7 @@ const GLB_URLS: Record<string, string> = {
   'hanging-bubble-chair': `${publicBase}models/hanging-bubble-chair.glb`,
   'pink-mini-sofa': `${publicBase}models/pink-mini-sofa.glb`,
   'pink-vanity': `${publicBase}models/pink-vanity.glb`,
+  'bracket-shelf': `${publicBase}models/bracket-shelf.glb`,
 }
 export const GLB_TYPES = new Set(Object.keys(GLB_URLS))
 for (const url of Object.values(GLB_URLS)) useGLTF.preload(url)
@@ -46,7 +47,7 @@ function GlbScene({ url, preview, flat, custom, wall }: { url: string; preview: 
       }
     })
     // 생성 모델은 원점이 중앙이라 절반이 바닥에 잠긴다 — 바닥 중앙 기준으로 정렬
-    if (custom) {
+    if (custom || wall) {
       const bounds = new Box3().setFromObject(copy)
       const center = bounds.getCenter(new Vector3())
       // 벽 장식은 중앙 정렬 + 등면을 벽에(z=0), 바닥 가구는 밑면을 바닥에

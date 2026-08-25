@@ -346,6 +346,7 @@ const EN: Record<string, string> = {
   "플로어 램프": "Floor Lamp",
   "피부": "Skin",
   "핑크 화장대": "Pink Vanity",
+  "브래킷 선반": "Bracket Shelf",
   "하루의 기록": "Notes on the day",
   "하의": "Bottoms",
   "하트 거울": "Heart Mirror",
