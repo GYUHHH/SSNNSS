@@ -2,7 +2,7 @@ import { currentRoomHandle, DEFAULT_PROFILE_PHOTO, defaultProfileData, isReading
 import { t } from './i18n'
 
 export type FurniturePlacement = { id: string; type: string; position?: [number, number, number]; rotation: [number, number, number]; scale: number; surfaceId?: string; gridX?: number; gridZ?: number; gridY?: number; wallId?: 'leftWall' | 'rightWall'; footprint?: { width: number; depth: number }; resolution?: 'base' | 'subgrid2'; styleId?: string; heightOffset?: number; removed?: boolean; updatedAt: string }
-export type RoomStyle = { leftWall?: string; rightWall?: string; floor?: string; floorImage?: string }
+export type RoomStyle = { leftWall?: string; rightWall?: string; floor?: string; floorImage?: string; leftWallImage?: string; rightWallImage?: string }
 
 const key = 'my-room-layout-v1'
 

@@ -23,7 +23,7 @@ const BOOKS_TAB = '책'
 const CUSTOM_TAB = 'AI 커스텀'
 const PARTICLE_TAB = '효과'
 const tabs = [...categories, PARTICLE_TAB, CUSTOM_TAB, BOOKS_TAB, CHARACTER_TAB, COLOR_TAB] as const
-const categoryFor = (type: string): InventoryCategory => ({ 'hanging-bubble-chair': '가구', 'aqua-table': '가구', 'frutiger-desk': '가구', 'deco-shelf': '가구', 'dome-sofa': '가구', 'cloud-sofa': '가구', 'color-drawers': '가구', 'pink-slide': '가구', 'aero-bubble-chair': '가구', 'kids-slide': '가구', 'inflatable-sofa': '가구', 'blob-sculpture': '소품', 'side-table': '가구', 'music-player': '가구', 'floor-lamp': '조명', 'potted-plant': '식물', 'herb-pot': '식물', 'herb-pot-2': '식물', 'succulent-pot': '식물', 'incense-burner': '소품', 'vanity-desk': '가구', 'mushroom-lamp': '조명', 'lavender-sofa': '가구', 'pennant': '벽장식', 'boucle-stool': '가구', 'cube-shelf': '가구', 'papasan-chair': '가구', 'sage-office-chair': '가구', 'glass-table': '가구', 'glass-mushroom-lamp': '조명', 'pop-shelf': '가구', 'bubble-chair': '가구', 'y2k-desk': '가구', 'pod-daybed': '가구', 'wall-art': '벽장식', 'wall-art-3': '벽장식', 'wall-art-4': '벽장식', 'wall-art-5': '벽장식', 'animated-poster': '벽장식', window: '벽장식', banner: '벽장식', 'cd-player': '벽장식', 'profile-board': '벽장식', 'video-frame-3': '벽장식', 'video-frame-4': '벽장식', 'video-frame-5': '벽장식', guestbook: '벽장식', 'notification-box': '벽장식', 'string-lights': '조명', 'wall-sconce-2': '조명', calendar: '벽장식', 'christmas-tree': '식물', 'record-player': '가구', whiteboard: '가구', 'easel-photo': '가구', 'rocking-chair': '가구', beanbag: '가구', 'mini-fridge': '가구', hanger: '가구', 'dual-monitors': '소품', 'full-mirror': '벽장식', 'heart-mirror': '벽장식', 'star-projector': '소품', 'led-lamp': '소품', curtain: '벽장식', fireplace: '가구', 'coffee-table': '가구', 'glass-shelf': '가구', tv: '가구', wardrobe: '가구', 'fish-tank': '소품', candle: '소품', 'wall-shelf': '벽장식', vase: '소품', cushion: '소품', plush: '소품', mug: '소품', 'book-prop': '소품', speaker: '소품', 'photo-frame': '벽장식', 'photo-frame-2': '벽장식', 'photo-frame-3': '벽장식', 'photo-frame-4': '벽장식', 'photo-frame-5': '벽장식', bed: '가구', sofa: '가구', desk: '가구', chair: '가구', bookshelf: '가구', cabinet: '가구', rug: '가구', lamp: '조명', plant: '식물', clock: '벽장식', poster: '벽장식', photo: '벽장식', computer: '소품', cup: '소품' } as Record<string, InventoryCategory>)[type] ?? '가구'
+const categoryFor = (type: string): InventoryCategory => ({ 'pink-mini-sofa': '가구', 'pink-vanity': '가구', 'hanging-bubble-chair': '가구', 'aqua-table': '가구', 'frutiger-desk': '가구', 'deco-shelf': '가구', 'dome-sofa': '가구', 'cloud-sofa': '가구', 'color-drawers': '가구', 'pink-slide': '가구', 'aero-bubble-chair': '가구', 'kids-slide': '가구', 'inflatable-sofa': '가구', 'blob-sculpture': '소품', 'side-table': '가구', 'music-player': '가구', 'floor-lamp': '조명', 'potted-plant': '식물', 'herb-pot': '식물', 'herb-pot-2': '식물', 'succulent-pot': '식물', 'incense-burner': '소품', 'vanity-desk': '가구', 'mushroom-lamp': '조명', 'lavender-sofa': '가구', 'pennant': '벽장식', 'boucle-stool': '가구', 'cube-shelf': '가구', 'papasan-chair': '가구', 'sage-office-chair': '가구', 'glass-table': '가구', 'glass-mushroom-lamp': '조명', 'pop-shelf': '가구', 'bubble-chair': '가구', 'y2k-desk': '가구', 'pod-daybed': '가구', 'wall-art': '벽장식', 'wall-art-3': '벽장식', 'wall-art-4': '벽장식', 'wall-art-5': '벽장식', 'animated-poster': '벽장식', window: '벽장식', banner: '벽장식', 'cd-player': '벽장식', 'profile-board': '벽장식', 'video-frame-3': '벽장식', 'video-frame-4': '벽장식', 'video-frame-5': '벽장식', guestbook: '벽장식', 'notification-box': '벽장식', 'string-lights': '조명', 'wall-sconce-2': '조명', calendar: '벽장식', 'christmas-tree': '식물', 'record-player': '가구', whiteboard: '가구', 'easel-photo': '가구', 'rocking-chair': '가구', beanbag: '가구', 'mini-fridge': '가구', hanger: '가구', 'dual-monitors': '소품', 'full-mirror': '벽장식', 'heart-mirror': '벽장식', 'star-projector': '소품', 'led-lamp': '소품', curtain: '벽장식', fireplace: '가구', 'coffee-table': '가구', 'glass-shelf': '가구', tv: '가구', wardrobe: '가구', 'fish-tank': '소품', candle: '소품', 'wall-shelf': '벽장식', vase: '소품', cushion: '소품', plush: '소품', mug: '소품', 'book-prop': '소품', speaker: '소품', 'photo-frame': '벽장식', 'photo-frame-2': '벽장식', 'photo-frame-3': '벽장식', 'photo-frame-4': '벽장식', 'photo-frame-5': '벽장식', bed: '가구', sofa: '가구', desk: '가구', chair: '가구', bookshelf: '가구', cabinet: '가구', rug: '가구', lamp: '조명', plant: '식물', clock: '벽장식', poster: '벽장식', photo: '벽장식', computer: '소품', cup: '소품' } as Record<string, InventoryCategory>)[type] ?? '가구'
 
 // everything a room can hold: the catalogue plus the movable pieces the room ships with
 type InventoryEntry = { type: string; name: string; size: [number, number]; footprint: FurnitureItem['footprint']; allowedSurfaces: FurnitureItem['allowedSurfaces']; styleId?: string }
@@ -76,34 +76,34 @@ function FloorMaterialSwatch({ style, active, onPick }: { style: FloorStyle; act
   return <button type="button" title={t(style.label)} className={active ? 'active' : ''} style={src ? undefined : { background: style.color }} onClick={onPick}>{src && <img src={src} alt={t(style.label)} />}</button>
 }
 
-function FloorImagePicker() {
-  const { floorImage, setFloorImage } = useRoomStore()
+function SurfaceImagePicker({ label, image, onChange }: { label: string; image?: string; onChange: (image: string | null) => void }) {
   const input = useRef<HTMLInputElement>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const close = () => setEditing((source) => { if (source) URL.revokeObjectURL(source); return null })
-  return <div className="room-color-row"><span>{t('Floor Image')}</span><div>
+  return <div className="room-color-row"><span>{t(label)}</span><div>
     <button type="button" className="look-reset" onClick={() => input.current?.click()}>{t('사진 넣기')}</button>
-    {floorImage && <button type="button" className="look-reset" onClick={() => setFloorImage(null)}>{t('사진 제거')}</button>}
+    {image && <button type="button" className="look-reset" onClick={() => onChange(null)}>{t('사진 제거')}</button>}
     <input ref={input} type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) setEditing(URL.createObjectURL(file)); event.target.value = '' }} />
-    {editing && <PhotoCropEditor source={editing} aspect={1} output={[1024, 1024]} onClose={close} onApply={(image) => { setFloorImage(image); close() }} />}
+    {editing && <PhotoCropEditor source={editing} aspect={1} output={[1024, 1024]} onClose={close} onApply={(next) => { onChange(next); close() }} />}
   </div></div>
 }
 
 // wall and floor recolors live in the inventory now — clicking the room surfaces no longer opens a picker
 function RoomColorEditor() {
-  const { wallStyle, floorStyle, setWallStyle, setFloorStyle } = useRoomStore()
+  const { wallStyle, floorStyle, floorImage, setWallStyle, setFloorStyle, setFloorImage, setWallImage } = useRoomStore()
   const floor = floorStyleOf(floorStyle)
   return <div className="room-colors">
-    {([['leftWall', '왼쪽 벽'], ['rightWall', '오른쪽 벽']] as const).map(([wallId, label]) => <div key={wallId} className="room-color-row"><span>{t(label)}</span>
-      <ColorField value={colorOf(wallStyle[wallId], DEFAULT_WALL_COLOR[wallId])} onPick={(hex) => setWallStyle(wallId, hex)} />
-    </div>)}
-    <div className="room-color-row"><span>{t('바닥 재질')}</span>
-      <div className="style-swatches">{floorStyles.map((style) => <FloorMaterialSwatch key={style.id} style={style} active={floor.id === style.id} onPick={() => setFloorStyle(style.id)} />)}</div>
-    </div>
-    <div className="room-color-row"><span>{t('바닥 색상')}</span>
-      <ColorField value={floor.color} onPick={(hex) => setFloorStyle(`${floor.id}${hex}`)} />
-    </div>
-    <FloorImagePicker />
+    <section className="room-style-section"><strong>{t('벽')}</strong>
+      {([['leftWall', '왼쪽 벽', '왼쪽 벽 이미지'], ['rightWall', '오른쪽 벽', '오른쪽 벽 이미지']] as const).map(([wallId, label, imageLabel]) => <div key={wallId} className="room-style-surface"><span>{t(label)}</span>
+        <div className="room-color-row"><span>{t('색상')}</span><ColorField value={colorOf(wallStyle[wallId], DEFAULT_WALL_COLOR[wallId])} onPick={(hex) => setWallStyle(wallId, hex)} /></div>
+        <SurfaceImagePicker label={imageLabel} image={wallStyle[wallId === 'leftWall' ? 'leftWallImage' : 'rightWallImage']} onChange={(image) => setWallImage(wallId, image)} />
+      </div>)}
+    </section>
+    <section className="room-style-section"><strong>{t('바닥')}</strong>
+      <div className="room-color-row"><span>{t('바닥 재질')}</span><div className="style-swatches">{floorStyles.map((style) => <FloorMaterialSwatch key={style.id} style={style} active={floor.id === style.id} onPick={() => setFloorStyle(style.id)} />)}</div></div>
+      <div className="room-color-row"><span>{t('바닥 색상')}</span><ColorField value={floor.color} onPick={(hex) => setFloorStyle(`${floor.id}${hex}`)} /></div>
+      <SurfaceImagePicker label="바닥 이미지" image={floorImage} onChange={setFloorImage} />
+    </section>
   </div>
 }
 
