@@ -272,10 +272,10 @@ async function review(request: Request, env: Env) {
   return json({ verdict: pass ? 'pass' : 'fail', defects, violations })
 }
 
-// GLB 생성: fal.ai 큐에 이미지 한 장을 넣고, 클라이언트가 완료를 폴링한다. 크레딧은 제출 시 1회.
-const FAL_MODEL = 'fal-ai/hunyuan3d/v2'
-// fal 큐의 상태·결과 조회는 하위 경로가 아니라 앱 루트 경로로 받는다 (hunyuan3d/v2 → hunyuan3d)
-const FAL_QUEUE_APP = 'fal-ai/hunyuan3d'
+// GLB 생성: Rapid의 PBR 출력은 기존 textured v2보다 저렴하면서 방 안의 광택 재질을 보존한다.
+const FAL_MODEL = 'fal-ai/hunyuan-3d/v3.1/rapid/image-to-3d'
+// fal 큐의 상태·결과 조회는 하위 경로가 아니라 앱 루트 경로로 받는다.
+const FAL_QUEUE_APP = 'fal-ai/hunyuan-3d'
 
 async function glbSubmit(request: Request, env: Env) {
   if (!env.FAL_KEY) return json({ error: 'FAL_KEY_NOT_SET' }, 503)
@@ -286,7 +286,7 @@ async function glbSubmit(request: Request, env: Env) {
   if (!image.startsWith('data:image/') || image.length > 7_000_000) return json({ error: 'INVALID_IMAGE' }, 400)
   const upstream = await fetch(`https://queue.fal.run/${FAL_MODEL}`, {
     method: 'POST', headers: { Authorization: `Key ${env.FAL_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ input_image_url: image, textured_mesh: true }),
+    body: JSON.stringify({ input_image_url: image, enable_pbr: true }),
   })
   const result = await upstream.json().catch(() => null) as { request_id?: string } | null
   if (!upstream.ok || !result?.request_id) { console.log('glb-submit-failed', upstream.status); return json({ error: 'GLB_SUBMIT_FAILED' }, 502) }
@@ -304,9 +304,12 @@ async function glbPoll(request: Request, env: Env) {
   if (!status.ok || !state?.status) { console.log('glb-poll-failed', status.status, JSON.stringify(state)?.slice(0, 200)); return json({ error: 'GLB_POLL_FAILED' }, 502) }
   if (state.status !== 'COMPLETED') return json({ done: false })
   const result = await fetch(`https://queue.fal.run/${FAL_QUEUE_APP}/requests/${id}`, { headers: auth })
-  const payload = await result.json().catch(() => null) as { model_mesh?: { url?: string } } | null
-  const url = payload?.model_mesh?.url
-  if (!result.ok || typeof url !== 'string') return json({ error: 'GLB_RESULT_FAILED' }, 502)
+  type FalFile = { url?: string; content_type?: string; file_name?: string }
+  const payload = await result.json().catch(() => null) as { model_glb?: FalFile; model_urls?: { glb?: FalFile } } | null
+  const file = payload?.model_urls?.glb ?? payload?.model_glb
+  const url = file?.url
+  const glb = file?.content_type === 'model/gltf-binary' || file?.file_name?.toLowerCase().endsWith('.glb') || url?.split('?', 1)[0].toLowerCase().endsWith('.glb')
+  if (!result.ok || typeof url !== 'string' || !glb) { console.log('glb-result-failed', result.status, file?.content_type, file?.file_name); return json({ error: 'GLB_RESULT_FAILED' }, 502) }
   return json({ done: true, url })
 }
 
