@@ -175,7 +175,7 @@ function WallVideo({ frameId }: { frameId: string }) {
         {/* No CSS matrix3d: iPhone Chrome and Safari share WebKit's iframe compositor and both drift there. The
             child receives one affine matrix calculated from these exact three projected screen corners. */}
         <Html calculatePosition={() => [0, 0]} wrapperClass="wall-video-portal" zIndexRange={WALL_HTML_Z_INDEX_RANGE} style={{ pointerEvents: 'none' }}>
-        <div ref={element} className="wall-video" data-frame-id={frameId} style={{ width: 640, height: divHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
+        <div ref={element} className="wall-video" data-frame-id={frameId} data-video-id={aspectLookup} style={{ width: 640, height: divHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
           {/* controls=0 keeps YouTube's control bar from popping over the wall screen (it auto-shows on tab
               return); the expanded panel player keeps its controls */}
           <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra="autoplay=1&playsinline=1&mute=1&controls=0" frameStyle={{ width: 640 / cropWidth, height: divHeight / cropHeight, left: -640 * crop.left / cropWidth, top: -divHeight * crop.top / cropHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto' }} />

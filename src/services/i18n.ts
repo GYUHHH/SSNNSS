@@ -337,6 +337,8 @@ const EN: Record<string, string> = {
   "캐릭터": "Character",
   "캔들": "Candle",
   "캡처 중": "Capturing",
+  "방 캡처": "Capture room",
+  "캡처 저장됨": "Capture saved",
   "커튼": "Curtain",
   "컴퓨터": "Computer",
   "쿠션": "Cushion",

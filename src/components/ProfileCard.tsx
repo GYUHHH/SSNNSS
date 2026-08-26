@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRoomStore } from '../store'
 import { currentRoomHandle, currentUserEmail, isVisiting, myHandle, onAuthChange, signOut } from '../services/social'
-import { fetchFollowers, myInviteLink, onFollowsChange } from '../services/follows'
-import { shareRoom } from '../services/capture'
+import { fetchFollowers, onFollowsChange } from '../services/follows'
+import { saveRoomCapture, shareRoom } from '../services/capture'
 import { PhotoCropEditor } from './PhotoCropEditor'
 import { t } from '../services/i18n'
 
 // door-with-an-arrow: the usual sign-out glyph
 const SignOutIcon = () => <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" /><path d="M10 16l-4-4 4-4" /><path d="M6 12h9" /></svg>
-const CopyIcon = () => <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="1" /><path d="M15 9V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h4" /></svg>
+const CaptureIcon = () => <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h2l1.2-2h4.6l1.2 2h2A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z" /><circle cx="12" cy="12.5" r="3.2" /></svg>
 const ShareIcon = () => <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2" /><circle cx="6" cy="12" r="2" /><circle cx="18" cy="19" r="2" /><path d="m8 11 8-5M8 13l8 5" /></svg>
 
 export default function ProfileCard() {
@@ -42,15 +42,12 @@ export default function ProfileCard() {
     window.clearTimeout(actionHintTimerRef.current)
     actionHintTimerRef.current = window.setTimeout(() => setActionHint(null), 1100)
   }
-  const copyInvite = () => void myInviteLink().then((link) => {
-    if (link) void navigator.clipboard.writeText(link).then(() => showActionHint(t('복사됨'))).catch(() => {})
-  })
   return <div className="profile-overlay" onMouseDown={(event) => event.currentTarget === event.target && closeProfile()}>
     <section className="profile-card" aria-label={t('프로필')}>
       {/* a device can hold its id without an open session (the token expires) — it still needs a way out */}
       {(signedIn || myHandle()) && !isVisiting() && <div className="profile-actions">
         {actionHint && <span className="profile-action-hint" role="status">{actionHint}</span>}
-        <button type="button" aria-label={t('초대 링크 복사')} onClick={copyInvite}><CopyIcon /></button>
+        <button type="button" aria-label={t('방 캡처')} onClick={() => { showActionHint(t('캡처 중')); void saveRoomCapture().then((result) => { if (result) showActionHint(t('캡처 저장됨')) }) }}><CaptureIcon /></button>
         <button type="button" aria-label={t('방 공유')} onClick={() => { showActionHint(t('방 공유')); void shareRoom() }}><ShareIcon /></button>
         <button className="profile-signout" type="button" aria-label={t('로그아웃')} onClick={() => { void signOut().then(() => location.replace(import.meta.env.BASE_URL)) }}><SignOutIcon /></button>
       </div>}

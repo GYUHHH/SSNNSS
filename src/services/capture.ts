@@ -48,34 +48,58 @@ export async function captureRoom(): Promise<HTMLCanvasElement | null> {
     const id = element.dataset.frameId ?? ''
     const link = links[id]
     if (!link) continue
-    const videoId = link.startsWith('pl:') ? (playlistVideoResume[id] ?? link.slice(3).split('@')[1]) : link
+    // 화면에 실제 떠 있는 곡이 캡처의 기준이다. 플레이리스트 저장값은 전환 직후 잠깐 이전 곡일 수 있다.
+    const videoId = element.dataset.videoId || (link.startsWith('pl:') ? (playlistVideoResume[id] ?? link.slice(3).split('@')[1]) : link)
     if (!videoId) continue
     const rect = element.getBoundingClientRect()
     if (rect.width < 4 || rect.height < 4) continue
-    const img = await loadImage(`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`)
+    // 외부 ytimg는 모바일 캔버스에서 CORS로 빠질 수 있다. 비율 판정과 같은 동일 출처 프록시를 쓴다.
+    const img = await loadImage(`/api/youtube-thumbnail?id=${encodeURIComponent(videoId)}&variant=mq-v2`)
     if (!img) continue
     const crop = (await videoDisplayMeta(videoId))?.thumbnailCrop ?? { left: 0, top: 0, right: 1, bottom: 1 }
-    const dx = (rect.left - canvasRect.left) * scaleX
-    const dy = (rect.top - canvasRect.top) * scaleY
-    const dw = rect.width * scaleX
-    const dh = rect.height * scaleY
+    const targetWidth = element.offsetWidth
+    const targetHeight = element.offsetHeight
     const sx = img.width * crop.left, sy = img.height * crop.top
     const sourceWidth = img.width * (crop.right - crop.left), sourceHeight = img.height * (crop.bottom - crop.top)
-    const cover = Math.max(dw / sourceWidth, dh / sourceHeight)
-    const sw = dw / cover, sh = dh / cover
-    context.drawImage(img, sx + (sourceWidth - sw) / 2, sy + (sourceHeight - sh) / 2, sw, sh, dx, dy, dw, dh)
+    const cover = Math.max(targetWidth / sourceWidth, targetHeight / sourceHeight)
+    const sw = targetWidth / cover, sh = targetHeight / cover
+    const values = element.style.transform.match(/^matrix\(([^)]+)\)$/)?.[1].split(',').map(Number)
+    context.save()
+    if (values?.length === 6 && values.every(Number.isFinite)) {
+      const [a, b, c, d, e, f] = values
+      context.setTransform(a * scaleX, b * scaleY, c * scaleX, d * scaleY, e * scaleX, f * scaleY)
+      context.drawImage(img, sx + (sourceWidth - sw) / 2, sy + (sourceHeight - sh) / 2, sw, sh, 0, 0, targetWidth, targetHeight)
+    } else {
+      context.drawImage(img, sx + (sourceWidth - sw) / 2, sy + (sourceHeight - sh) / 2, sw, sh, (rect.left - canvasRect.left) * scaleX, (rect.top - canvasRect.top) * scaleY, rect.width * scaleX, rect.height * scaleY)
+    }
+    context.restore()
   }
   return copy
 }
 
-// mobile gets the native share sheet (image + invite link); desktop saves the image and copies the link
-export async function shareRoom(): Promise<'shared' | 'saved' | null> {
+const captureFile = async () => {
   const canvas = await captureRoom()
   if (!canvas) return null
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', .9))
-  if (!blob) return null
+  return blob ? new File([blob], 'my-room.jpg', { type: 'image/jpeg' }) : null
+}
+
+export async function saveRoomCapture(): Promise<'saved' | null> {
+  const file = await captureFile()
+  if (!file) return null
+  const anchor = document.createElement('a')
+  anchor.href = URL.createObjectURL(file)
+  anchor.download = file.name
+  anchor.click()
+  setTimeout(() => URL.revokeObjectURL(anchor.href), 5000)
+  return 'saved'
+}
+
+// mobile gets the native share sheet (image + invite link); desktop saves the image and copies the link
+export async function shareRoom(): Promise<'shared' | 'saved' | null> {
+  const file = await captureFile()
+  if (!file) return null
   const link = (await myInviteLink()) ?? `${location.origin}/${myHandle() ?? ''}`
-  const file = new File([blob], 'my-room.jpg', { type: 'image/jpeg' })
   if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({ files: [file], text: t('내 방에 놀러와'), url: link })
@@ -83,8 +107,8 @@ export async function shareRoom(): Promise<'shared' | 'saved' | null> {
     } catch { return null } // user closed the sheet
   }
   const anchor = document.createElement('a')
-  anchor.href = URL.createObjectURL(blob)
-  anchor.download = 'my-room.jpg'
+  anchor.href = URL.createObjectURL(file)
+  anchor.download = file.name
   anchor.click()
   setTimeout(() => URL.revokeObjectURL(anchor.href), 5000)
   await navigator.clipboard.writeText(link).catch(() => { /* clipboard unavailable */ })
