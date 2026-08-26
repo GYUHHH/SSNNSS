@@ -241,7 +241,7 @@ function CustomTab() {
   const objects = customObjects.filter((object) => availableCount(customObjectType(object.id)) > 0)
   return <div ref={root} className="custom-tab">
     <input ref={file} hidden type="file" accept="image/*" onChange={(event) => { readPhoto(event.target.files?.[0]); event.currentTarget.value = '' }} />
-    {credits?.enabled && <div className="custom-credits"><span>{credits.freeLeft && <>{t('무료 1회 남음')} · </>}<span className="credit-balance"><CoinIcon />Credits {credits.balance}</span></span>{credits.fungies ? <button type="button" disabled={openingCheckout} onClick={openCheckout}>{t('충전')}</button> : credits.buyUrl && <a href={credits.buyUrl} target="_blank" rel="noreferrer">{t('충전')}</a>}</div>}
+    {credits?.enabled && <div className="custom-credits"><span>{credits.freeLeft && <>{t('무료 1회 남음')} · </>}<span className="credit-balance"><CoinIcon />Credits {credits.balance}</span></span>{credits.checkout ? <button type="button" disabled={openingCheckout} onClick={openCheckout}>{t('충전')}</button> : credits.buyUrl && <a href={credits.buyUrl} target="_blank" rel="noreferrer">{t('충전')}</a>}</div>}
     {customJob && <CustomJobStatus job={customJob} />}
     {!source && <div className="custom-source"><button type="button" onClick={() => { setSource('text'); setError('') }}>{t('텍스트 넣기')}</button><button type="button" onClick={choosePhoto}>{t('사진 넣기')}</button></div>}
     {source && <form className="custom-form" onSubmit={submit}>

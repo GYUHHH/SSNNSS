@@ -1,5 +1,5 @@
 import { CUSTOM_OBJECT_CATEGORIES, type CustomObjectCategory } from './customObjectSpec'
-import { fungiesOfferFor, fungiesPurchase, type FungiesEvent } from './fungies'
+import { creemProductFor, creemPurchase, type CreemEvent } from './creem'
 
 type Env = {
   ASSETS: { fetch: (request: Request) => Promise<Response> }
@@ -7,16 +7,12 @@ type Env = {
   LS_WEBHOOK_SECRET?: string
   LS_BUY_URL?: string
   LS_CREDITS_PER_ORDER?: string
-  FUNGIES_PUBLIC_KEY?: string
-  FUNGIES_SECRET_KEY?: string
-  FUNGIES_WEBHOOK_SECRET?: string
-  FUNGIES_OFFER_ID?: string
-  FUNGIES_FIRST_OFFER_ID?: string
-  FUNGIES_HANDLE_FIELD_ID?: string
-  FUNGIES_HANDLE_FIELD_KEY?: string
-  FUNGIES_STORE_URL?: string
-  FUNGIES_CREDITS_PER_ORDER?: string
-  FUNGIES_ACCEPT_TEST?: string
+  CREEM_API_KEY?: string
+  CREEM_WEBHOOK_SECRET?: string
+  CREEM_PRODUCT_ID?: string
+  CREEM_FIRST_PRODUCT_ID?: string
+  CREEM_CREDITS_PER_ORDER?: string
+  CREEM_TEST_MODE?: string
   FAL_KEY?: string
 }
 const SUPABASE_URL = 'https://pxjavljsalibpnxdrxel.supabase.co'
@@ -60,8 +56,10 @@ const signedInHandle = async (request: Request): Promise<string | null> => {
 }
 
 const lemonEnabled = (env: Env) => !!(env.SUPABASE_SERVICE_KEY && env.LS_WEBHOOK_SECRET && env.LS_BUY_URL)
-const fungiesEnabled = (env: Env) => !!(env.SUPABASE_SERVICE_KEY && env.FUNGIES_PUBLIC_KEY && env.FUNGIES_SECRET_KEY && env.FUNGIES_WEBHOOK_SECRET && env.FUNGIES_OFFER_ID && env.FUNGIES_HANDLE_FIELD_ID && env.FUNGIES_STORE_URL)
-const billingEnabled = (env: Env) => fungiesEnabled(env) || lemonEnabled(env)
+const creemEnabled = (env: Env) => !!(env.SUPABASE_SERVICE_KEY && env.CREEM_API_KEY && env.CREEM_WEBHOOK_SECRET && env.CREEM_PRODUCT_ID)
+// 테스트 모드는 호스트만 갈아끼우면 된다 — 키·상품·웹훅 시크릿이 전부 테스트용으로 따로 발급된다
+const creemApi = (env: Env) => env.CREEM_TEST_MODE === 'true' ? 'https://test-api.creem.io' : 'https://api.creem.io'
+const billingEnabled = (env: Env) => creemEnabled(env) || lemonEnabled(env)
 const serviceHeaders = (env: Env) => ({ apikey: env.SUPABASE_SERVICE_KEY!, Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`, 'Content-Type': 'application/json' })
 
 async function spendCredit(request: Request, env: Env, amount = 1) {
@@ -80,42 +78,42 @@ async function credits(request: Request, env: Env) {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/credits?handle=eq.${encodeURIComponent(handle)}&select=balance,free_used&limit=1`, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } })
   const rows = await response.json().catch(() => null)
   const row = Array.isArray(rows) ? rows[0] : null
-  const buyUrl = lemonEnabled(env) && !fungiesEnabled(env) ? `${env.LS_BUY_URL}${env.LS_BUY_URL!.includes('?') ? '&' : '?'}checkout[custom][handle]=${encodeURIComponent(handle)}` : null
-  return json({ enabled: true, balance: row?.balance ?? 0, freeLeft: !(row?.free_used ?? false), buyUrl, fungies: fungiesEnabled(env) })
+  const buyUrl = lemonEnabled(env) && !creemEnabled(env) ? `${env.LS_BUY_URL}${env.LS_BUY_URL!.includes('?') ? '&' : '?'}checkout[custom][handle]=${encodeURIComponent(handle)}` : null
+  return json({ enabled: true, balance: row?.balance ?? 0, freeLeft: !(row?.free_used ?? false), buyUrl, checkout: creemEnabled(env) })
 }
 
-async function fungiesCheckout(request: Request, env: Env) {
-  if (!fungiesEnabled(env)) return json({ error: 'BILLING_NOT_CONFIGURED' }, 503)
+async function creemCheckout(request: Request, env: Env) {
+  if (!creemEnabled(env)) return json({ error: 'BILLING_NOT_CONFIGURED' }, 503)
   const handle = await signedInHandle(request)
   if (!handle) return json({ error: 'LOGIN_REQUIRED' }, 401)
+  // 결제 이력 테이블은 Fungies 때 쓰던 것을 그대로 쓴다 — 이벤트 id에 결제사 접두어가 붙어 섞이지 않는다
   const history = await fetch(`${SUPABASE_URL}/rest/v1/fungies_payment_events?handle=eq.${encodeURIComponent(handle)}&select=event_id&limit=1`, { headers: serviceHeaders(env) })
   const payments = history.ok ? await history.json().catch(() => null) : null
-  const offerId = fungiesOfferFor(!(Array.isArray(payments) && payments.length === 0), env.FUNGIES_OFFER_ID!, env.FUNGIES_FIRST_OFFER_ID)
-  const response = await fetch('https://api.fungies.io/v0/elements/checkout/create', {
+  const productId = creemProductFor(!(Array.isArray(payments) && payments.length === 0), env.CREEM_PRODUCT_ID!, env.CREEM_FIRST_PRODUCT_ID)
+  const response = await fetch(`${creemApi(env)}/v1/checkouts`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-fngs-public-key': env.FUNGIES_PUBLIC_KEY!, 'x-fngs-secret-key': env.FUNGIES_SECRET_KEY! },
-    body: JSON.stringify({ offersIds: [offerId], customFields: [{ id: env.FUNGIES_HANDLE_FIELD_ID, value: handle }] }),
+    headers: { 'Content-Type': 'application/json', 'x-api-key': env.CREEM_API_KEY! },
+    body: JSON.stringify({ product_id: productId, request_id: handle, metadata: { handle } }),
   })
-  const body = await response.json().catch(() => null) as { data?: { checkoutElement?: { id?: string } } } | null
-  const id = body?.data?.checkoutElement?.id
-  if (!response.ok || !id) return json({ error: 'CHECKOUT_FAILED' }, 502)
-  return json({ url: `${env.FUNGIES_STORE_URL!.replace(/\/$/, '')}/checkout-element/${encodeURIComponent(id)}` })
+  const body = await response.json().catch(() => null) as { checkout_url?: string } | null
+  if (!response.ok || !body?.checkout_url) { console.log('creem-checkout-failed', response.status); return json({ error: 'CHECKOUT_FAILED' }, 502) }
+  return json({ url: body.checkout_url })
 }
 
-async function fungiesWebhook(request: Request, env: Env) {
-  if (!fungiesEnabled(env)) return json({ error: 'BILLING_NOT_CONFIGURED' }, 503)
+async function creemWebhook(request: Request, env: Env) {
+  if (!creemEnabled(env)) return json({ error: 'BILLING_NOT_CONFIGURED' }, 503)
   const raw = await request.text()
-  const signature = request.headers.get('x-fngs-signature') ?? ''
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.FUNGIES_WEBHOOK_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const signature = request.headers.get('creem-signature') ?? ''
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.CREEM_WEBHOOK_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
   const digest = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(raw))
-  const expected = `sha256_${[...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')}`
-  if (signature.length !== expected.length || [...signature].reduce((diff, char, index) => diff | (char.charCodeAt(0) ^ expected.charCodeAt(index)), 0) !== 0) return json({ error: 'BAD_SIGNATURE' }, 401)
-  const body = await Promise.resolve().then(() => JSON.parse(raw) as FungiesEvent).catch(() => null)
+  const expected = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+  const given = signature.toLowerCase()
+  if (given.length !== expected.length || [...given].reduce((diff, char, index) => diff | (char.charCodeAt(0) ^ expected.charCodeAt(index)), 0) !== 0) return json({ error: 'BAD_SIGNATURE' }, 401)
+  const body = await Promise.resolve().then(() => JSON.parse(raw) as CreemEvent).catch(() => null)
   if (!body) return json({ error: 'INVALID_PAYLOAD' }, 400)
-  const purchase = fungiesPurchase(body, [env.FUNGIES_OFFER_ID!, env.FUNGIES_FIRST_OFFER_ID].filter((id): id is string => !!id), env.FUNGIES_HANDLE_FIELD_KEY || 'handle')
+  const purchase = creemPurchase(body, [env.CREEM_PRODUCT_ID!, env.CREEM_FIRST_PRODUCT_ID].filter((id): id is string => !!id))
   if (!purchase) return json({ ok: true })
-  if (purchase.testMode && env.FUNGIES_ACCEPT_TEST !== 'true') return json({ ok: true, ignored: 'TEST_MODE' })
-  const amount = purchase.quantity * Math.max(1, Number(env.FUNGIES_CREDITS_PER_ORDER) || 5)
+  const amount = purchase.quantity * Math.max(1, Number(env.CREEM_CREDITS_PER_ORDER) || 5)
   const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/fulfill_fungies_payment`, {
     method: 'POST', headers: serviceHeaders(env),
     body: JSON.stringify({ p_event_id: purchase.eventId, p_handle: purchase.handle, p_amount: amount }),
@@ -237,13 +235,13 @@ export default {
   async fetch(request: Request, env: Env) {
     const path = new URL(request.url).pathname
     if (path === '/api/ls-webhook') return request.method === 'POST' ? lsWebhook(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
-    if (path === '/api/fungies-webhook') return request.method === 'POST' ? fungiesWebhook(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
+    if (path === '/api/creem-webhook') return request.method === 'POST' ? creemWebhook(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
     if (path === '/api/youtube-thumbnail') return request.method === 'GET' ? youtubeThumbnail(request) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
     if (path === '/api/glb-objects') return request.method === 'POST' ? glbSubmit(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
     if (path === '/api/media/file' || path === '/api/glb-objects/file') return request.method === 'DELETE' ? mediaDelete(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
     if (path === '/api/glb-objects/poll') return request.method === 'GET' ? glbPoll(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
     if (path === '/api/custom-objects/credits') return request.method === 'POST' ? credits(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
-    if (path === '/api/custom-objects/checkout') return request.method === 'POST' ? fungiesCheckout(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
+    if (path === '/api/custom-objects/checkout') return request.method === 'POST' ? creemCheckout(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
     return env.ASSETS.fetch(request)
   },
 }

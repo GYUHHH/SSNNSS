@@ -26,13 +26,13 @@ export const customObjectTemplate = (spec: CustomObjectSpec) => {
 
 export type CustomSize = { width: number; depth: number; height?: number }
 
-export type CreditStatus = { enabled: boolean; balance: number; freeLeft: boolean; buyUrl: string | null; fungies: boolean }
+export type CreditStatus = { enabled: boolean; balance: number; freeLeft: boolean; buyUrl: string | null; checkout: boolean }
 
 export async function fetchCredits(): Promise<CreditStatus> {
   const response = await fetch('/api/custom-objects/credits', { method: 'POST', headers: await authHeaders() })
   const body = await response.json().catch(() => null) as Partial<CreditStatus> | null
-  if (!response.ok || !body) return { enabled: false, balance: 0, freeLeft: false, buyUrl: null, fungies: false }
-  return { enabled: !!body.enabled, balance: body.balance ?? 0, freeLeft: !!body.freeLeft, buyUrl: body.buyUrl ?? null, fungies: !!body.fungies }
+  if (!response.ok || !body) return { enabled: false, balance: 0, freeLeft: false, buyUrl: null, checkout: false }
+  return { enabled: !!body.enabled, balance: body.balance ?? 0, freeLeft: !!body.freeLeft, buyUrl: body.buyUrl ?? null, checkout: !!body.checkout }
 }
 
 export async function createCreditCheckout(): Promise<string> {
