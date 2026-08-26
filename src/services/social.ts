@@ -296,12 +296,19 @@ export function publishRoom(leaving = false): Promise<boolean> {
   })
   return publishTask
 }
+// 캐릭터가 걷는 동안 위치는 매 틱 바뀌고, 그때마다 방 번들 전체가 저장된다 — 저장 1회당 요청 3개(병합 GET,
+// 저장, 검증 GET)라 이동 한 번에 수십 개가 나갔다. 잠깐 모았다가 한 번만 보낸다.
+// 대기 중인 저장은 flushPublish가 떠날 때 즉시 밀어내므로 유실되지 않는다.
+let publishDebounce: ReturnType<typeof setTimeout> | undefined
 export const schedulePublish = () => {
   if (isVisiting()) return
-  void publishRoom()
+  clearTimeout(publishDebounce)
+  publishDebounce = setTimeout(() => { publishDebounce = undefined; void publishRoom() }, 500)
 }
 const flushPublish = () => {
-  if (publishQueued || publishTask) void saveRoomSnapshot(true)
+  clearTimeout(publishDebounce)
+  publishDebounce = undefined
+  if (publishQueued || publishTask || dirtyKeys.size) void saveRoomSnapshot(true)
 }
 if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', flushPublish)
