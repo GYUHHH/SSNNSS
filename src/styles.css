@@ -681,6 +681,7 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 .mobile-music-sheet { display: none; }
 @media (max-width: 719px) {
   html, body, #root, .app { max-width: 100%; overflow: hidden; }
+  input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]), textarea, select { font-size: 16px !important; }
   .art-panel { max-width: 100%; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .art-panel > * { min-width: 0; max-width: 100%; }
   .music-object-popup { display: none; }

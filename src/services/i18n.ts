@@ -10,6 +10,8 @@ const EN: Record<string, string> = {
   "품질": "Quality",
   "일반": "Standard",
   "고품질": "High Quality",
+  "일반 (1 credit)": "Standard (1 credit)",
+  "고품질 (2 credit)": "High Quality (2 credits)",
   "이름 수정": "Rename",
   "모델 크기 수정": "Resize model",
   "크기": "Size",

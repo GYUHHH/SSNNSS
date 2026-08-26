@@ -178,7 +178,7 @@ function CustomTab() {
   const [editingImage, setEditingImage] = useState<string | null>(null)
   const [error, setError] = useState('')
   const file = useRef<HTMLInputElement>(null)
-  const choosePhoto = () => { setSource('photo'); setError(''); file.current?.click() }
+  const choosePhoto = () => { setSource('photo'); setPrompt(''); setError(''); file.current?.click() }
   const readPhoto = (value?: File) => {
     if (!value?.type.startsWith('image/')) return
     const reader = new FileReader()
@@ -204,7 +204,7 @@ function CustomTab() {
     const size = parseSize()
     if (size === null) { setError(t('크기는 1~12 사이 숫자로 (가로·세로는 함께)')); return }
     setError('')
-    runCustomGeneration({ category, prompt: prompt.trim(), image: image ?? undefined, size, finish: quality === 'high' ? 'gloss' : undefined })
+    runCustomGeneration({ category, prompt: source === 'text' ? prompt.trim() : '', image: image ?? undefined, size, finish: quality === 'high' ? 'gloss' : undefined })
     setSource(null); setPrompt(''); setImage(null); setSizeW(''); setSizeD(''); setSizeH('')
   }
   const objects = customObjects.filter((object) => availableCount(customObjectType(object.id)) > 0)
@@ -214,12 +214,12 @@ function CustomTab() {
     {customJob && <CustomJobStatus job={customJob} />}
     {!source && <div className="custom-source"><button type="button" onClick={() => { setSource('text'); setError('') }}>{t('텍스트 넣기')}</button><button type="button" onClick={choosePhoto}>{t('사진 넣기')}</button></div>}
     {source && <form className="custom-form" onSubmit={submit}>
-      <div className="custom-form-head"><strong>{t(source === 'text' ? '텍스트 넣기' : '사진 넣기')}</strong><button type="button" onClick={() => { setSource(null); setImage(null); setEditingImage(null); setError('') }}>×</button></div>
+      <div className="custom-form-head"><strong>{t(source === 'text' ? '텍스트 넣기' : '사진 넣기')}</strong><button type="button" onClick={() => { setSource(null); setPrompt(''); setImage(null); setEditingImage(null); setError('') }}>×</button></div>
       <label>{t('오브젝트 종류')}<select value={category} onChange={(event) => setCategory(event.target.value as CustomObjectCategory)}>{CUSTOM_OBJECT_CATEGORIES.map((value) => <option key={value} value={value}>{t(CUSTOM_CATEGORY_LABELS[value])}</option>)}</select></label>
-      <label>{t('품질')}<select value={quality} onChange={(event) => setQuality(event.target.value as 'standard' | 'high')}><option value="standard">{t('일반')}</option><option value="high">{t('고품질')}</option></select></label>
+      <label>{t('품질')}<select value={quality} onChange={(event) => setQuality(event.target.value as 'standard' | 'high')}><option value="standard">{t('일반 (1 credit)')}</option><option value="high">{t('고품질 (2 credit)')}</option></select></label>
       <label>{t('크기 (선택)')}<div className="custom-size"><input type="number" min={1} max={12} value={sizeW} onChange={(event) => setSizeW(event.target.value)} placeholder={t('가로')} aria-label={t('가로')} /><span>×</span><input type="number" min={1} max={12} value={sizeD} onChange={(event) => setSizeD(event.target.value)} placeholder={t('세로')} aria-label={t('세로')} /><span>×</span><input type="number" min={1} max={12} value={sizeH} onChange={(event) => setSizeH(event.target.value)} placeholder={t('높이(선택)')} aria-label={t('높이(선택)')} /></div></label>
       {source === 'photo' && (image ? <div className="custom-photo"><img src={image} alt="" /><button type="button" aria-label={t('사진 삭제')} onClick={() => { setImage(null); file.current?.click() }}>×</button></div> : <button className="custom-photo-pick" type="button" onClick={choosePhoto}>{t('사진 넣기')}</button>)}
-      <textarea maxLength={source === 'text' ? 200 : 1200} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={t(source === 'photo' ? '원하는 디자인 (선택)' : '원하는 디자인')} />
+      {source === 'text' && <textarea maxLength={200} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={t('원하는 디자인')} />}
       {error && <p className="custom-error">{error}</p>}
       <button className="custom-generate" type="submit" disabled={(source === 'text' && !prompt.trim()) || (source === 'photo' && !image) || running}>{t(running ? '생성 중' : '생성')}</button>
     </form>}
