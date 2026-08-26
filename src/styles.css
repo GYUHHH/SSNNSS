@@ -760,10 +760,11 @@ button.custom-job-widget::after { content: ''; width: 8px; height: 8px; border-r
 .inventory-panel nav { scrollbar-width: none; }
 .inventory-panel nav::-webkit-scrollbar { display: none; }
 .custom-credits { position: sticky; z-index: 2; top: 0; display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; padding: 8px 12px; border: 0; border-radius: 4px; background: #fafaf8; font-size: 12px; color: #3a3a38; }
-.custom-credits > span, .custom-credits a { display: inline-flex; align-items: center; min-height: 20px; line-height: 1; }
+.custom-credits > span, .custom-credits a, .custom-credits button { display: inline-flex; align-items: center; min-height: 20px; line-height: 1; }
 .credit-balance { display: inline-flex; align-items: center; gap: 4px; }
 .credit-coin { display: block; flex: 0 0 auto; width: 14px; height: 14px; fill: #e1b74d; stroke: #9a7626; stroke-width: 1; }
-.custom-credits a { color: #3a6ea5; text-decoration: none; font-weight: 600; }
+.custom-credits a, .custom-credits button { padding: 0; border: 0; color: #3a6ea5; background: transparent; text-decoration: none; font: inherit; font-weight: 600; cursor: pointer; }
+.custom-credits button:disabled { opacity: .5; cursor: default; }
 .custom-category-label { display: flex; align-items: center; gap: 5px; }
 .custom-category-label button { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; color: var(--ui-muted); background: var(--ui-soft); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
 .custom-prop-size { padding: 8px 9px; border-radius: 4px; color: var(--ui-text); background: var(--ui-soft); font-size: 13px; }

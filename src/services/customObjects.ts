@@ -26,11 +26,20 @@ export const customObjectTemplate = (spec: CustomObjectSpec) => {
 
 export type CustomSize = { width: number; depth: number; height?: number }
 
-export async function fetchCredits(): Promise<{ enabled: boolean; balance: number; freeLeft: boolean; buyUrl: string | null }> {
+export type CreditStatus = { enabled: boolean; balance: number; freeLeft: boolean; buyUrl: string | null; fungies: boolean }
+
+export async function fetchCredits(): Promise<CreditStatus> {
   const response = await fetch('/api/custom-objects/credits', { method: 'POST', headers: await authHeaders() })
-  const body = await response.json().catch(() => null) as { enabled?: boolean; balance?: number; freeLeft?: boolean; buyUrl?: string | null } | null
-  if (!response.ok || !body) return { enabled: false, balance: 0, freeLeft: false, buyUrl: null }
-  return { enabled: !!body.enabled, balance: body.balance ?? 0, freeLeft: !!body.freeLeft, buyUrl: body.buyUrl ?? null }
+  const body = await response.json().catch(() => null) as Partial<CreditStatus> | null
+  if (!response.ok || !body) return { enabled: false, balance: 0, freeLeft: false, buyUrl: null, fungies: false }
+  return { enabled: !!body.enabled, balance: body.balance ?? 0, freeLeft: !!body.freeLeft, buyUrl: body.buyUrl ?? null, fungies: !!body.fungies }
+}
+
+export async function createCreditCheckout(): Promise<string> {
+  const response = await fetch('/api/custom-objects/checkout', { method: 'POST', headers: await authHeaders() })
+  const body = await response.json().catch(() => null) as { url?: string; error?: string } | null
+  if (!response.ok || !body?.url) throw new Error(body?.error || `HTTP ${response.status}`)
+  return body.url
 }
 
 export async function submitGlbObject(input: { category: CustomObjectCategory; prompt: string; image?: string; finish?: 'gloss' }): Promise<string> {

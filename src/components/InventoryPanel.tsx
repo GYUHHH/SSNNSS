@@ -6,7 +6,7 @@ import { colorOf, customizableTypes, DEFAULT_WALL_COLOR, floorStyleOf, floorStyl
 import { DEFAULT_APPEARANCE as CHARACTER_DEFAULTS } from './Character'
 import { t, tp } from '../services/i18n'
 import { CUSTOM_OBJECT_CATEGORIES, customObjectType, type CustomObjectCategory } from '../customObjectSpec'
-import { customObjectTemplate, fetchCredits } from '../services/customObjects'
+import { createCreditCheckout, customObjectTemplate, fetchCredits, type CreditStatus } from '../services/customObjects'
 import { PhotoCropEditor } from './PhotoCropEditor'
 
 function ItemIcon({ item }: { item: { type: string; styleId?: string; customSpec?: FurnitureItem['customSpec'] } }) {
@@ -177,7 +177,8 @@ function CustomTab() {
   const { customObjects, startPreview, startCustomObjectEdit, availableCount, customJob, runCustomGeneration, markCustomSeen, removeCustomObject } = useRoomStore()
   const [removing, setRemoving] = useState<string | null>(null)
   // 생성권 잔액: 결제가 구성된 경우에만 표시·차단. 생성이 끝날 때마다 새로 읽는다.
-  const [credits, setCredits] = useState<{ enabled: boolean; balance: number; freeLeft: boolean; buyUrl: string | null } | null>(null)
+  const [credits, setCredits] = useState<CreditStatus | null>(null)
+  const [openingCheckout, setOpeningCheckout] = useState(false)
   useEffect(() => { let live = true; void fetchCredits().then((value) => { if (live) setCredits(value) }); return () => { live = false } }, [customJob?.stage])
   // 탭을 열어본 순간 완료/실패 빨간점은 해소된 것으로 본다
   useEffect(() => { markCustomSeen() }, [customJob?.stage])
@@ -208,6 +209,12 @@ function CustomTab() {
     reader.readAsDataURL(value)
   }
   const [quality, setQuality] = useState<'standard' | 'high'>('standard')
+  const openCheckout = async () => {
+    if (openingCheckout) return
+    setOpeningCheckout(true)
+    try { window.location.assign(await createCreditCheckout()) }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'CHECKOUT_FAILED'); setOpeningCheckout(false) }
+  }
   const running = !!customJob && customJob.stage !== 'done' && customJob.stage !== 'error'
   const canGenerate = (source === 'text' ? !!prompt.trim() : source === 'photo' ? !!image : false) && !running
   // 가로x세로는 함께, 높이는 선택. 전부 비우면 모델이 알아서 정한다
@@ -234,7 +241,7 @@ function CustomTab() {
   const objects = customObjects.filter((object) => availableCount(customObjectType(object.id)) > 0)
   return <div ref={root} className="custom-tab">
     <input ref={file} hidden type="file" accept="image/*" onChange={(event) => { readPhoto(event.target.files?.[0]); event.currentTarget.value = '' }} />
-    {credits?.enabled && <div className="custom-credits"><span>{credits.freeLeft && <>{t('무료 1회 남음')} · </>}<span className="credit-balance"><CoinIcon />Credits {credits.balance}</span></span>{credits.buyUrl && <a href={credits.buyUrl} target="_blank" rel="noreferrer">{t('충전')}</a>}</div>}
+    {credits?.enabled && <div className="custom-credits"><span>{credits.freeLeft && <>{t('무료 1회 남음')} · </>}<span className="credit-balance"><CoinIcon />Credits {credits.balance}</span></span>{credits.fungies ? <button type="button" disabled={openingCheckout} onClick={openCheckout}>{t('충전')}</button> : credits.buyUrl && <a href={credits.buyUrl} target="_blank" rel="noreferrer">{t('충전')}</a>}</div>}
     {customJob && <CustomJobStatus job={customJob} />}
     {!source && <div className="custom-source"><button type="button" onClick={() => { setSource('text'); setError('') }}>{t('텍스트 넣기')}</button><button type="button" onClick={choosePhoto}>{t('사진 넣기')}</button></div>}
     {source && <form className="custom-form" onSubmit={submit}>

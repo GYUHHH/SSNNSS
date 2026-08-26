@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "check:fungies": "node scripts/check-fungies-webhook.mjs",
     "check:video-crop": "node scripts/check-video-crop.ts",
     "preview": "vite preview"
   },
