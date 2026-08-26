@@ -427,6 +427,7 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 .custom-photo img { display: block; width: 100%; max-height: 170px; object-fit: contain; }
 .custom-photo button { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border-radius: 50%; background: rgb(255 255 255 / 88%); }
 .custom-generate { background: var(--ui-blue); color: #fff; }
+.custom-generate.ready { position: sticky; z-index: 3; bottom: 0; }
 .custom-generate:disabled { opacity: .45; cursor: default; }
 .custom-error { margin: 0; color: var(--ui-red); font-size: 12px; word-break: break-word; }
 .custom-items { flex: initial; }

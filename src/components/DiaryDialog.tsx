@@ -1,6 +1,7 @@
 import { autosize } from '../services/autosize'
 import { timeAgo } from '../services/timeAgo'
 import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { type Book, type Entry, type EntryDraft, type Visibility, useRoomStore } from '../store'
 import { HeartIcon, CommentIcon } from './ReactionIcons'
 import { currentRoomHandle, isVisiting, myVisitorId, requireHandle, roomPath, toggleLike, uploadDataUrl } from '../services/social'
@@ -114,7 +115,7 @@ function EntryEditor({ bookId, entry, onClose }: { bookId: string; entry: Entry;
   const [editing, setEditing] = useState<number | null>(null)
   const [visibility, setVisibility] = useState<Visibility>(entry.visibility)
   const save = (event: FormEvent) => { event.preventDefault(); updateEntry(bookId, entry.id, { content, images, visibility }); onClose() }
-  return <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && onClose()}>
+  return createPortal(<div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && onClose()}>
     <form className="entry-editor" onSubmit={save}>
       <strong>{t('기록 수정')}</strong>
       <DraftImages images={images} onEdit={setEditing} onRemove={(index) => setImages((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
@@ -126,7 +127,7 @@ function EntryEditor({ bookId, entry, onClose }: { bookId: string; entry: Entry;
       </div>
     </form>
     {editing !== null && images[editing] && <PhotoCropEditor source={assetUrl(images[editing])} onClose={() => setEditing(null)} onApply={(edited) => { const index = editing; setImages((current) => current.map((image, itemIndex) => itemIndex === index ? edited : image)); setEditing(null); void uploadDataUrl('records', edited).then((url) => { if (url) setImages((current) => current.map((image, itemIndex) => itemIndex === index && image === edited ? url : image)) }) }} />}
-  </div>
+  </div>, document.body)
 }
 
 function EntryComments({ entry, inputRef }: { entry: Entry; inputRef: React.RefObject<HTMLTextAreaElement | null> }) {

@@ -205,6 +205,7 @@ function CustomTab() {
   }
   const [quality, setQuality] = useState<'standard' | 'high'>('standard')
   const running = !!customJob && customJob.stage !== 'done' && customJob.stage !== 'error'
+  const canGenerate = (source === 'text' ? !!prompt.trim() : source === 'photo' ? !!image : false) && !running
   // 가로x세로는 함께, 높이는 선택. 전부 비우면 모델이 알아서 정한다
   const parseSize = (): { width: number; depth: number; height?: number } | null | undefined => {
     if (category === 'sculpture') return { width: 1, depth: 1 }
@@ -240,7 +241,7 @@ function CustomTab() {
       {source === 'photo' && (image ? <div className="custom-photo"><img src={image} alt="" /><button type="button" aria-label={t('사진 삭제')} onClick={() => { setImage(null); file.current?.click() }}>×</button></div> : <button className="custom-photo-pick" type="button" onClick={choosePhoto}>{t('사진 넣기')}</button>)}
       {source === 'text' && <textarea maxLength={200} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={t('원하는 디자인')} />}
       {error && <p className="custom-error">{error}</p>}
-      <button className="custom-generate" type="submit" disabled={(source === 'text' && !prompt.trim()) || (source === 'photo' && !image) || running}>{t(running ? '생성 중' : '생성')}</button>
+      <button className={`custom-generate${canGenerate ? ' ready' : ''}`} type="submit" disabled={!canGenerate}>{t(running ? '생성 중' : '생성')}</button>
     </form>}
     {!source && <div className="inventory-items custom-items">{objects.map((object) => {
       const entry = customObjectTemplate(object) as FurnitureItem
