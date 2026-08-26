@@ -10,9 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@gltf-transform/core": "^4.4.2",
+    "@gltf-transform/extensions": "^4.4.2",
+    "@gltf-transform/functions": "^4.4.2",
     "@react-three/drei": "latest",
     "@react-three/fiber": "latest",
     "@supabase/supabase-js": "^2.112.3",
+    "meshoptimizer": "^1.2.0",
     "react": "latest",
     "react-dom": "latest",
     "three": "latest"

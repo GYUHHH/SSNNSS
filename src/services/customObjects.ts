@@ -52,23 +52,28 @@ export async function pollGlbObject(requestId: string): Promise<{ done: boolean;
   return { done: body.done, model: body.model }
 }
 
-const TARGET_GLB_BYTES = 8 * 1024 * 1024
-const MAX_GLB_BYTES = 16 * 1024 * 1024
+const MAX_GLB_BYTES = 8 * 1024 * 1024
 const MAX_TRIANGLES = 250_000
+const MAX_SOURCE_TRIANGLES = 2_000_000
 
-function validateModelStats(size: [number, number, number], triangles: number, bytes = 0) {
+const compressionTarget = (finish?: 'gloss') => finish === 'gloss'
+  ? { bytes: 6 * 1024 * 1024, triangles: 100_000 }
+  : { bytes: 3 * 1024 * 1024, triangles: 60_000 }
+
+function validateModelStats(size: [number, number, number], triangles: number, bytes = 0, maxTriangles = MAX_TRIANGLES) {
   if (!size.every(Number.isFinite) || Math.max(...size) <= 1e-4) throw new Error('INVALID_MODEL_BOUNDS')
-  if (!triangles || triangles > MAX_TRIANGLES) throw new Error('MODEL_TOO_COMPLEX')
+  if (!triangles || triangles > maxTriangles) throw new Error('MODEL_TOO_COMPLEX')
   if (bytes > MAX_GLB_BYTES) throw new Error('MODEL_TOO_LARGE')
 }
 if (import.meta.env.DEV) {
   validateModelStats([1, 1, 1], 12, 1024)
   console.assert((() => { try { validateModelStats([1, 1, 1], MAX_TRIANGLES + 1); return false } catch { return true } })(), 'generated model limits must reject oversized geometry')
+  console.assert(compressionTarget().bytes === 3 * 1024 * 1024 && compressionTarget('gloss').triangles === 100_000, 'generated model compression targets must remain quality-specific')
 }
 
 const materialsOf = (mesh: Mesh) => Array.isArray(mesh.material) ? mesh.material : [mesh.material]
 const standardMaterial = (material: Material) => material as Material & {
-  map?: Texture | null; normalMap?: Texture | null; roughnessMap?: Texture | null; metalnessMap?: Texture | null
+  map?: Texture | null; normalMap?: Texture | null; roughnessMap?: Texture | null; metalnessMap?: Texture | null; aoMap?: Texture | null; emissiveMap?: Texture | null
   metalness?: number; roughness?: number; needsUpdate?: boolean
 }
 
@@ -97,7 +102,7 @@ async function shrinkTexture(texture: Texture, maxEdge: number, bitmaps: Set<Ima
   texture.needsUpdate = true
 }
 
-function validateObject(object: Object3D, three: typeof import('three')) {
+function validateObject(object: Object3D, three: typeof import('three'), maxTriangles = MAX_TRIANGLES) {
   const { Box3, Vector3 } = three
   const bounds = new Box3().setFromObject(object)
   const size = bounds.getSize(new Vector3())
@@ -108,8 +113,39 @@ function validateObject(object: Object3D, three: typeof import('three')) {
     const position = mesh.geometry.getAttribute('position')
     triangles += (mesh.geometry.index?.count ?? position?.count ?? 0) / 3
   })
-  validateModelStats([size.x, size.y, size.z], triangles)
-  return bounds
+  validateModelStats([size.x, size.y, size.z], triangles, 0, maxTriangles)
+  return { bounds, triangles }
+}
+
+async function optimizeGlb(buffer: ArrayBuffer, sourceTriangles: number, targetTriangles: number) {
+  const [{ WebIO }, { ALL_EXTENSIONS }, { dedup, meshopt, prune, simplify, weld }, { MeshoptDecoder, MeshoptEncoder, MeshoptSimplifier }] = await Promise.all([
+    import('@gltf-transform/core'),
+    import('@gltf-transform/extensions'),
+    import('@gltf-transform/functions'),
+    import('meshoptimizer'),
+  ])
+  await Promise.all([MeshoptDecoder.ready, MeshoptEncoder.ready, MeshoptSimplifier.ready])
+  const io = new WebIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({
+    'meshopt.decoder': MeshoptDecoder,
+    'meshopt.encoder': MeshoptEncoder,
+  })
+  const document = await io.readBinary(new Uint8Array(buffer))
+  const transforms = [dedup(), prune(), weld()]
+  if (sourceTriangles > targetTriangles) transforms.push(simplify({
+    simplifier: MeshoptSimplifier,
+    ratio: targetTriangles / sourceTriangles,
+    error: sourceTriangles > MAX_TRIANGLES ? .01 : .002,
+    lockBorder: true,
+  }))
+  transforms.push(meshopt({
+    encoder: MeshoptEncoder,
+    level: 'high',
+    quantizePosition: 16,
+    quantizeNormal: 10,
+    quantizeTexcoord: 12,
+  }))
+  await document.transform(...transforms)
+  return (await io.writeBinary(document)).buffer
 }
 
 function modelMetadata(object: Object3D, bounds: import('three').Box3, three: typeof import('three')): { modelSize: [number, number, number]; topSurface?: CustomTopSurface } {
@@ -149,27 +185,31 @@ function modelMetadata(object: Object3D, bounds: import('three').Box3, three: ty
 }
 
 export async function inspectCustomModel(url: string) {
-  const [{ GLTFLoader }, three] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three')])
+  const [{ GLTFLoader }, { MeshoptDecoder }, three] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('meshoptimizer'), import('three')])
+  await MeshoptDecoder.ready
   const response = await fetch(url); if (!response.ok) throw new Error('MODEL_DOWNLOAD_FAILED')
-  const object = (await new GLTFLoader().parseAsync(await response.arrayBuffer(), '')).scene
-  const bounds = validateObject(object, three)
+  const object = (await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parseAsync(await response.arrayBuffer(), '')).scene
+  const { bounds } = validateObject(object, three)
   return modelMetadata(object, bounds, three)
 }
 
 export async function generatedModelBlob(model: GeneratedModel, finish?: 'gloss'): Promise<{ blob: Blob; modelSize: [number, number, number]; topSurface?: CustomTopSurface }> {
-  const [{ OBJLoader }, { GLTFLoader }, { GLTFExporter }, { mergeVertices }, three] = await Promise.all([
+  const [{ OBJLoader }, { GLTFLoader }, { GLTFExporter }, { mergeVertices }, { MeshoptDecoder }, three] = await Promise.all([
     import('three/addons/loaders/OBJLoader.js'),
     import('three/addons/loaders/GLTFLoader.js'),
     import('three/addons/exporters/GLTFExporter.js'),
     import('three/addons/utils/BufferGeometryUtils.js'),
+    import('meshoptimizer'),
     import('three'),
   ])
+  await MeshoptDecoder.ready
+  const gltfLoader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)
   const bitmaps = new Set<ImageBitmap>()
   let object: Object3D
   if (model.format === 'glb') {
     const response = await fetch(model.url)
     if (!response.ok) throw new Error('MODEL_DOWNLOAD_FAILED')
-    object = (await new GLTFLoader().parseAsync(await response.arrayBuffer(), '')).scene
+    object = (await gltfLoader.parseAsync(await response.arrayBuffer(), '')).scene
   } else {
     const [objResponse, textureResponse] = await Promise.all([fetch(model.objUrl), model.textureUrl ? fetch(model.textureUrl) : null])
     if (!objResponse.ok || (textureResponse && !textureResponse.ok)) throw new Error('MODEL_DOWNLOAD_FAILED')
@@ -204,37 +244,51 @@ export async function generatedModelBlob(model: GeneratedModel, finish?: 'gloss'
         material.normalMap = null
         material.metalnessMap = null
         material.roughnessMap = null
+        material.aoMap = null
+        mesh.geometry.deleteAttribute('tangent')
+        mesh.geometry.deleteAttribute('uv1')
       }
-      if (material.map) textureLimits.set(material.map, Math.min(textureLimits.get(material.map) ?? 2048, 2048))
-      if (finish === 'gloss') for (const map of [material.normalMap, material.metalnessMap, material.roughnessMap]) {
+      if (material.map) textureLimits.set(material.map, Math.min(textureLimits.get(material.map) ?? 1024, 1024))
+      if (material.emissiveMap) textureLimits.set(material.emissiveMap, Math.min(textureLimits.get(material.emissiveMap) ?? 1024, 1024))
+      if (finish === 'gloss') for (const map of [material.normalMap]) {
         if (map) textureLimits.set(map, Math.min(textureLimits.get(map) ?? 1024, 1024))
+      }
+      if (finish === 'gloss') for (const map of [material.metalnessMap, material.roughnessMap, material.aoMap]) {
+        if (map) textureLimits.set(map, Math.min(textureLimits.get(map) ?? 512, 512))
       }
       material.needsUpdate = true
     }
   })
   for (const [texture, maxEdge] of textureLimits) await shrinkTexture(texture, maxEdge, bitmaps)
 
-  const bounds = validateObject(object, three)
+  const source = validateObject(object, three, MAX_SOURCE_TRIANGLES)
+  const bounds = source.bounds
   const center = bounds.getCenter(new three.Vector3())
   object.position.add(new three.Vector3(-center.x, -bounds.min.y, -center.z))
   object.updateMatrixWorld(true)
-  const normalizedBounds = validateObject(object, three)
+  const normalizedBounds = validateObject(object, three, MAX_SOURCE_TRIANGLES).bounds
   const metadata = modelMetadata(object, normalizedBounds, three)
   const exportGlb = () => new Promise<ArrayBuffer>((resolve, reject) => {
     new GLTFExporter().parse(object, (output) => output instanceof ArrayBuffer ? resolve(output) : reject(new Error('GLB_EXPORT_FAILED')), reject, { binary: true, onlyVisible: true, maxTextureSize: 2048 })
   })
-  let buffer = await exportGlb()
-  if (buffer.byteLength > TARGET_GLB_BYTES) {
-    for (const [texture, maxEdge] of textureLimits) await shrinkTexture(texture, Math.max(256, maxEdge / 2), bitmaps, .72)
-    buffer = await exportGlb()
+  const target = compressionTarget(finish)
+  let rawBytes = 0
+  const compressedExport = async () => {
+    const raw = await exportGlb(); rawBytes = raw.byteLength
+    try { return await optimizeGlb(raw, source.triangles, target.triangles) }
+    catch (error) { console.warn('[custom-model] geometry compression skipped', error); return raw }
   }
-  if (buffer.byteLength > TARGET_GLB_BYTES) {
-    for (const [texture, maxEdge] of textureLimits) await shrinkTexture(texture, Math.max(256, maxEdge / 4), bitmaps, .66)
-    buffer = await exportGlb()
-  }
-  bitmaps.forEach((bitmap) => bitmap.close())
+  let buffer: ArrayBuffer
+  try {
+    buffer = await compressedExport()
+    if (buffer.byteLength > target.bytes) {
+      for (const [texture, maxEdge] of textureLimits) await shrinkTexture(texture, Math.max(256, maxEdge / 2), bitmaps, .72)
+      buffer = await compressedExport()
+    }
+  } finally { bitmaps.forEach((bitmap) => bitmap.close()) }
+  console.info('[custom-model] compressed', { finish: finish ?? 'standard', triangles: source.triangles, targetTriangles: target.triangles, rawBytes, finalBytes: buffer.byteLength })
   validateModelStats([1, 1, 1], 1, buffer.byteLength)
-  const reopened = (await new GLTFLoader().parseAsync(buffer, '')).scene
+  const reopened = (await gltfLoader.parseAsync(buffer, '')).scene
   validateObject(reopened, three)
   return { blob: new Blob([buffer], { type: 'model/gltf-binary' }), ...metadata }
 }
