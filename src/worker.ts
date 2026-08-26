@@ -93,7 +93,8 @@ async function creemCheckout(request: Request, env: Env) {
   const response = await fetch(`${creemApi(env)}/v1/checkouts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': env.CREEM_API_KEY! },
-    body: JSON.stringify({ product_id: productId, request_id: handle, metadata: { handle } }),
+    // success_url이 없으면 Creem 기본 완료 페이지에 머문다 — 결제 후 방으로 돌려보낸다
+    body: JSON.stringify({ product_id: productId, request_id: handle, metadata: { handle }, success_url: new URL(request.url).origin }),
   })
   const body = await response.json().catch(() => null) as { checkout_url?: string } | null
   if (!response.ok || !body?.checkout_url) { console.log('creem-checkout-failed', response.status); return json({ error: 'CHECKOUT_FAILED' }, 502) }
