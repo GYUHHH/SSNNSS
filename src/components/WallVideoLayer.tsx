@@ -166,7 +166,7 @@ function WallVideo({ frameId }: { frameId: string }) {
   if (!active) return null
   return <FollowFit fitName={`fit:${item.id}`} synced={fitSynced}>
     <group rotation={[0, 0, -item.rotation[1]]}>
-      <group ref={screen} position={[0, 0, .042]}>
+      <group ref={screen} position={[0, 0, .001]}>
         {/* The transparent WebGL plane punches the screen through the wall. Later room objects draw over it, so
             wall media stays behind furniture, photos, speech bubbles and every future 3D object. */}
         <mesh renderOrder={WALL_VIDEO_ORDER}><planeGeometry args={[screenWidth, screenHeight]} /><shaderMaterial side={2} depthWrite={false} vertexShader={VIDEO_MASK_VERTEX} fragmentShader={VIDEO_MASK_FRAGMENT} /></mesh>

@@ -1004,12 +1004,12 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
     const [targetWidth, targetHeight] = surface ? fitMeshToFootprint(withResolution(surface, resolutionFor(item)), item.footprint) : [w, h]
     const [screenWidth, screenHeight] = fitFrameScreen(w, h, targetWidth, targetHeight, frameDisplay?.aspect ?? clipAspect, turned)
     return <>
-      {/* 크기 기준용 투명 풀사이즈 박스: FittedMesh는 이 바운즈로 맞춘다 — 화면이 영상 비율로 줄어도
+      {/* 크기 기준용 투명 풀사이즈 평면: FittedMesh는 이 바운즈로 맞춘다 — 화면이 영상 비율로 줄어도
           맞춤 스케일이 흔들리지 않고, DOM 화면만 남았을 때 바운즈 0으로 터지는 사고(실제 발생)도 막는다 */}
-      <mesh visible={false} position={[0, 0, .01]}><boxGeometry args={[w, h, .02]} /><meshBasicMaterial /></mesh>
+      <mesh visible={false}><planeGeometry args={[w, h]} /><meshBasicMaterial /></mesh>
       {!frameLoading && <group rotation={[0, 0, -rotationY]}>
-        <mesh position={[0, 0, .01]}><boxGeometry args={[screenWidth, screenHeight, .02]} />{mat('#20262b')}</mesh>
-        {preview ? <mesh position={[0, 0, .042]}><planeGeometry args={[screenWidth, screenHeight]} />{mat('#20262b')}</mesh> : <VideoScreen id={item.id} width={screenWidth} height={screenHeight} posterId={frameLookup} thumbnailCrop={frameDisplay?.thumbnailCrop} />}
+        <mesh><planeGeometry args={[screenWidth, screenHeight]} />{mat('#20262b')}</mesh>
+        {preview ? <mesh position={[0, 0, .001]}><planeGeometry args={[screenWidth, screenHeight]} />{mat('#20262b')}</mesh> : <VideoScreen id={item.id} width={screenWidth} height={screenHeight} posterId={frameLookup} thumbnailCrop={frameDisplay?.thumbnailCrop} />}
       </group>}
     </>
   }
@@ -1536,7 +1536,7 @@ function VideoScreen({ id, width, height, posterId, thumbnailCrop }: { id: strin
       if (url) URL.revokeObjectURL(url)
     }
   }, [id, version, link, clip, posterId, thumbnailCrop?.left, thumbnailCrop?.top, thumbnailCrop?.right, thumbnailCrop?.bottom])
-  return <>{!store?.playingFrames.includes(id) && <mesh position={[0, 0, .042]}>
+  return <>{!store?.playingFrames.includes(id) && <mesh position={[0, 0, .001]}>
     <planeGeometry args={[width, height]} />
     {texture
       ? <meshBasicMaterial key="clip" map={texture} />
@@ -1544,7 +1544,7 @@ function VideoScreen({ id, width, height, posterId, thumbnailCrop }: { id: strin
   </mesh>}
   {/* Not in a neighbour room: there the frame is a picture, and a click on it picks the room rather than starting
      anything, so a play badge would be promising something that does not happen. */}
-  {link && !store?.readOnly && !store?.playingFrames.includes(id) && <group position={[0, 0, .048]}>
+  {link && !store?.readOnly && !store?.playingFrames.includes(id) && <group position={[0, 0, .003]}>
     <mesh><circleGeometry args={[.16, 20]} /><meshBasicMaterial color="#000000" transparent opacity={.55} /></mesh>
     {/* a 3-segment circle spans -r/2..r on x, so pull it left by r/4 to sit dead-center in the badge */}
     <mesh position={[-.019, 0, .002]}><circleGeometry args={[.075, 3]} /><meshBasicMaterial color="#ffffff" /></mesh>

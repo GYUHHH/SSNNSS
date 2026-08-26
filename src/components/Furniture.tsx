@@ -89,9 +89,9 @@ export function FittedMesh({ item, children }: { item: FurnitureItem; children: 
     const customScale = clampModelScale(item.customSpec?.modelScale)
     const finalScale: [number, number, number] = [fitted[0] * customScale[0], fitted[1] * customScale[1], fitted[2] * customScale[2]]
     group.current.scale.set(...finalScale)
-    // Media lives on the wall's back plane. Other wall furniture is deliberately lifted forward so it can be
-    // installed over a photo, poster, or video without z-fighting or being hidden by that background layer.
-    group.current.position.z = item.category === 'wallItem' ? (isWallPhoto(item.type) ? .002 : isWallMedia(item.type) ? .006 : .05) - bounds.min.z * finalScale[2] : 0
+    // Every wall item rests on the visible wall face. Only millimetre-scale layer separation remains so photos,
+    // videos and decor can overlap without z-fighting while still reading as wall-mounted from the side.
+    group.current.position.z = item.category === 'wallItem' ? (isWallPhoto(item.type) ? .002 : isWallMedia(item.type) ? .003 : .004) - bounds.min.z * finalScale[2] : 0
   }, [item.surfaceId, item.footprint.width, item.footprint.depth, item.rotation[1], item.type, item.customSpec?.modelScale?.[0], item.customSpec?.modelScale?.[1], item.customSpec?.modelScale?.[2], glbTick])
   return <group ref={group} name={`fit:${item.id}`}>{children}</group>
 }

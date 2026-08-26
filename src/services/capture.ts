@@ -42,6 +42,9 @@ export async function captureRoom(): Promise<HTMLCanvasElement | null> {
   const links = loadVideoLinks()
   const context = copy.getContext('2d')
   if (!context) return copy
+  // The live iframe sits behind the WebGL canvas. Match that stack in the exported image: transparent video
+  // holes receive the thumbnail, while opaque furniture already drawn by WebGL stays in front.
+  context.globalCompositeOperation = 'destination-over'
   // ponytail: the thumbnail fills the screen's axis-aligned box, not its exact 3D parallelogram — close
   // enough at room scale; project the four corners instead if the skew ever bothers anyone.
   for (const element of document.querySelectorAll<HTMLElement>('.wall-video[data-frame-id]')) {
@@ -74,6 +77,7 @@ export async function captureRoom(): Promise<HTMLCanvasElement | null> {
     }
     context.restore()
   }
+  context.globalCompositeOperation = 'source-over'
   return copy
 }
 
