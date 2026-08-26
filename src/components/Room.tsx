@@ -39,6 +39,19 @@ const TIME_LAYER: Record<TimeOfDay, number> = { day: 1, evening: 2, night: 3 }
 const HOVER_LAYER: Record<TimeOfDay, number> = { day: 4, evening: 5, night: 6 }
 const EXPLORER_LAYER_MASK = (1 << 7) - 1
 let hoverLayerMask = 0
+// RoomContainer callbacks run before RenderGovernor (priority 0 vs 1), so visible neighbour rooms can cheaply
+// publish the time layers needed by this frame. Rendering an unused layer still walks the whole scene graph.
+let activeTimeLayerMask = 0
+// The idle governor must not deliberately throw away every other draw while the explorer camera or room opacity
+// is still moving. This is only a short hold renewed by real motion; once everything settles, idle saving resumes.
+let explorerMotionUntil = 0
+
+// compileAsync is expensive when several newly-mounted rooms start it together. Keep the existing two warm-up
+// passes, but let only one room compile at a time so explorer entry does not inherit a burst of concurrent work.
+let roomCompileQueue = Promise.resolve()
+const queueRoomCompile = (compile: () => Promise<unknown>) => {
+  roomCompileQueue = roomCompileQueue.catch(() => {}).then(compile).then(() => {})
+}
 
 // Pointer coords are computed from the canvas's LIVE on-screen rect — the scene slides 240px left while a
 // panel is open, and the default client-coordinate mapping would leave every click/hover offset by that shift.
@@ -113,6 +126,7 @@ function RenderGovernor() {
   const { characterState } = useRoomStore()
   const activeUntil = useRef(0)
   const skip = useRef(false)
+  const lastCamera = useRef({ x: NaN, y: NaN, z: NaN, qx: NaN, qy: NaN, qz: NaN, qw: NaN, zoom: NaN })
   useEffect(() => {
     activeUntil.current = performance.now() + 3000 // full rate through boot, while everything is still settling
     const wake = () => { activeUntil.current = performance.now() + 1000 }
@@ -122,8 +136,18 @@ function RenderGovernor() {
   }, [])
   useFrame(({ gl, scene, camera, size }) => {
     setRoomFrameRendered(false)
+    const timeLayers = activeTimeLayerMask
+    activeTimeLayerMask = 0
+    const now = performance.now()
+    const previous = lastCamera.current
+    const cameraMoving = !Number.isFinite(previous.zoom)
+      || Math.abs(camera.zoom - previous.zoom) > .001
+      || Math.abs(camera.position.x - previous.x) + Math.abs(camera.position.y - previous.y) + Math.abs(camera.position.z - previous.z) > .001
+      || 1 - Math.abs(camera.quaternion.x * previous.qx + camera.quaternion.y * previous.qy + camera.quaternion.z * previous.qz + camera.quaternion.w * previous.qw) > .000001
+    if (cameraMoving) explorerMotionUntil = now + 120
+    lastCamera.current = { x: camera.position.x, y: camera.position.y, z: camera.position.z, qx: camera.quaternion.x, qy: camera.quaternion.y, qz: camera.quaternion.z, qw: camera.quaternion.w, zoom: camera.zoom }
     const characterMoving = characterState === 'walking' || characterState === 'aligning'
-    if (!characterMoving && performance.now() >= activeUntil.current) {
+    if (!characterMoving && now >= activeUntil.current && now >= explorerMotionUntil) {
       skip.current = !skip.current
       if (skip.current) return
     } else skip.current = false
@@ -133,7 +157,11 @@ function RenderGovernor() {
     gl.render(scene, camera)
     if (camera.zoom <= entryZoom(size.width, size.height)) {
       gl.autoClear = false
-      Object.values(TIME_LAYER).forEach((layer) => { camera.layers.set(layer); gl.render(scene, camera) })
+      Object.values(TIME_LAYER).forEach((layer) => {
+        if (!(timeLayers & (1 << layer))) return
+        camera.layers.set(layer)
+        gl.render(scene, camera)
+      })
       if (hoverLayerMask) {
         gl.clearDepth()
         camera.layers.mask = hoverLayerMask
@@ -352,6 +380,7 @@ function RoomContainer({ slot, distance, centred, shown, fresh, open, swapping, 
   }, [centred, roomTime])
   const nextFetch = useRef(0)
   const nextCollect = useRef(0)
+  const nextFadeCollect = useRef(0)
   const lastRaw = useRef('')
   const mounted = useRef(true)
   // a pushed update from the live stream lands exactly like a fetched one, dedupe included
@@ -387,7 +416,7 @@ function RoomContainer({ slot, distance, centred, shown, fresh, open, swapping, 
   // costs nothing.
   useEffect(() => {
     if (!bundle || !group.current) return
-    const warm = () => { if (group.current) void gl.compileAsync(group.current, camera, scene).catch(() => {}) }
+    const warm = () => queueRoomCompile(() => group.current ? gl.compileAsync(group.current, camera, scene) : Promise.resolve())
     const first = setTimeout(warm, 300)
     const second = setTimeout(warm, 2000)
     return () => { clearTimeout(first); clearTimeout(second) }
@@ -456,17 +485,22 @@ function RoomContainer({ slot, distance, centred, shown, fresh, open, swapping, 
     // hanging over an entered room before winking out. Once entry has fired, the ring clears at full pace.
     const leavingRate = camera.zoom > entryZoom(size.width, size.height) ? 12 : 5
     opacity.current = MathUtils.damp(opacity.current, wanted, wanted < opacity.current ? leavingRate : 12, Math.min(delta, 1 / 30))
+    if (Math.abs(opacity.current - wanted) > .001) explorerMotionUntil = performance.now() + 120
     // Materials keep arriving after the layout effect ran — a suspended font resolves, and a photo or thumbnail
     // texture finishing its load SWAPS IN a whole new material. A newcomer the loop below doesn't know about is
     // drawn at its natural full opacity, which against a half-faded room reads as the photo popping in — and on
-    // the way out, popping off. So while the room is mid-fade the collection is rebuilt every frame: the traverse
-    // is a few hundred objects and the fade lasts under a second, and it guarantees a material's very first drawn
-    // frame already carries the room's opacity.
-    if (opacity.current > .01 && opacity.current < .995) collect()
+    // the way out, popping off. During the fade the collection is refreshed at 30Hz: at most one display frame can
+    // see a late material, while high-refresh displays no longer traverse every room 120 times a second.
+    const now = performance.now()
+    if (opacity.current > .01 && opacity.current < .995 && now >= nextFadeCollect.current) {
+      nextFadeCollect.current = now + 1000 / 30
+      collect()
+    }
     // At full view the sweep drops to a slow cadence, purely so materials swapped in later (a photo texture
     // finishing its download replaces the material object) are still discovered and get their entrance below.
     else if (opacity.current >= .995 && performance.now() > nextCollect.current) { nextCollect.current = performance.now() + 500; collect() }
     group.current.visible = opacity.current > .01
+    if (group.current.visible) activeTimeLayerMask |= 1 << layer
     // A nudge in size is the whole highlight. The cluster is stacked by storey, so lifting or outlining the picked
     // room would fight that illusion, while 6% reads as hover without moving anything out of its own cell.
     glow.current = MathUtils.damp(glow.current, centred ? 1 : 0, 9, delta)
@@ -476,7 +510,6 @@ function RoomContainer({ slot, distance, centred, shown, fresh, open, swapping, 
     // on — a few thousandths apart — and when the decal won that toss the panel behind it failed the depth test
     // and the wall showed through it. The profile board's stats read as wall-coloured because of it.
     const full = opacity.current > .995
-    const now = performance.now()
     materials.current.forEach((material) => {
       // Entrance: a material starts counting only once it can actually show pixels (its map has image data, or
       // it has no map), then eases in over 300ms. Without this, a photo texture that finishes downloading during
