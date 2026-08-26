@@ -28,7 +28,7 @@ import ReactionBadges from './ReactionBadges'
 
 // per-time-of-day lighting: night keeps lights low so lit lamps visibly carry the room
 const LIGHTING = {
-  day: { bg: '#f4efe6', ambient: 1.5, ambientColor: '#fff7ee', dir: 3.4, dirColor: '#fff3e2' },
+  day: { bg: '#f4f4f2', ambient: 1.5, ambientColor: '#ffffff', dir: 3.4, dirColor: '#fffefa' },
   evening: { bg: '#e9d3bc', ambient: 0.95, ambientColor: '#ffc894', dir: 2.4, dirColor: '#ff9a5e' },
   night: { bg: '#232939', ambient: 0.5, ambientColor: '#8b97b8', dir: 0.7, dirColor: '#aab4d4' },
 } as const
