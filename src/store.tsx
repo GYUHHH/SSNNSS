@@ -16,7 +16,7 @@ import { customObjectType, type CustomObjectCategory, type CustomObjectSpec } fr
 // AI 커스텀 생성 잡: Rapid 생성 → 로컬 최적화·검증.
 // 진행 UI·빨간점 알림이 이 하나를 본다. unseen은 완료/실패를 아직 사용자가 확인 안 했다는 뜻.
 export type CustomJob = { stage: 'draft' | 'verify' | 'done' | 'error'; round: number; unseen: boolean; name?: string; error?: string }
-import { customObjectTemplate, generatedModelBlob, inspectCustomModel, loadCustomObjects, pollGlbObject, saveCustomObjects, submitGlbObject, type GeneratedModel } from './services/customObjects'
+import { customObjectTemplate, deleteGlbObject, generatedModelBlob, inspectCustomModel, loadCustomObjects, pollGlbObject, saveCustomObjects, submitGlbObject, type GeneratedModel } from './services/customObjects'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id, photo: row.photo })
 
@@ -451,6 +451,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   // 삭제는 스펙과 함께 방에 배치된 인스턴스도 걷어낸다 — 스펙 없는 배치물은 다음 로드에서 조용히 사라지지만,
   // 지금 화면에서도 즉시 사라져야 삭제가 삭제로 보인다
   const removeCustomObject = (id: string) => {
+    // 스펙을 저장하기 전에 부른다 — 서버는 방 데이터에 남은 참조로 소유를 확인한다
+    deleteGlbObject(customObjects.find((value) => value.id === id)?.glbUrl)
     commit(furniture.filter((item) => item.type !== `custom:${id}`))
     setCustomObjects((current) => {
       const next = current.filter((value) => value.id !== id)
