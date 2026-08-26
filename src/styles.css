@@ -446,7 +446,11 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 .bookshelf-panel h2, .diary-head h2, .right-page h3, .entry-item h3 { letter-spacing: -.025em; }
 .book-list { gap: 0; border-top: 1px solid var(--ui-line); }
 .book-row-wrap { gap: 0; border-bottom: 1px solid var(--ui-line); }
-.book-row { padding: 10px 6px; border: 0; border-radius: 0; color: var(--ui-text); background: var(--ui-bg); }
+.book-row { grid-template-columns: 24px 1fr auto; padding: 10px 6px; border: 0; border-radius: 0; color: var(--ui-text); background: var(--ui-bg); }
+.book-cover-color { width: 24px; height: 31px; padding: 0; border: 0; border-radius: 2px; background: transparent; cursor: pointer; }
+.book-cover-color::-webkit-color-swatch-wrapper { padding: 0; }
+.book-cover-color::-webkit-color-swatch { border: 0; border-radius: 2px; }
+.book-cover-color::-moz-color-swatch { border: 0; border-radius: 2px; }
 .book-row:hover { background: var(--ui-hover); }
 .book-row small, .diary-head span, .diary-head label, .diary small, .entry-item time, .entry-item small, .entry-empty { color: var(--ui-muted); }
 .book-delete { margin: 7px 0; border: 0; color: var(--ui-red); }

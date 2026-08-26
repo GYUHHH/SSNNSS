@@ -128,7 +128,9 @@ function BooksTab() {
       ? <form className="new-book" onSubmit={create}><input autoFocus aria-label={t('새 책 제목')} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t('새 책 제목')} /><button type="submit">{t('책 만들기')}</button></form>
       : <div className="books-tools"><button type="button" onClick={() => { setAdding(true); setManaging(false) }}>{t('+ 새 기록장')}</button><button type="button" onClick={() => { setManaging((value) => !value); setDeleting(null) }}>{managing ? t('관리 닫기') : t('관리')}</button></div>}
     <div className="book-list">{books.map((book) => <div key={book.id} className="book-row-wrap">
-      <div className="book-row"><i style={{ background: book.coverColor }} />
+      <div className="book-row">{managing
+        ? <input className="book-cover-color" type="color" aria-label={`${book.title} ${t('표지 색상')}`} title={t('표지 색상')} value={book.coverColor} onChange={(event) => updateBook(book.id, { coverColor: event.target.value })} />
+        : <i style={{ background: book.coverColor }} />}
         {managing
           ? <input className="book-title-input" maxLength={50} value={book.title} onChange={(event) => updateBook(book.id, { title: event.target.value })} />
           : <span>{book.title}<small>{stored(book.id) ? t('보관 중') : t('배치됨')}</small></span>}

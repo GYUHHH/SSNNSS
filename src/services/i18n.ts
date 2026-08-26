@@ -315,6 +315,7 @@ const EN: Record<string, string> = {
   "책상": "Desk",
   "책장": "Bookshelf",
   "책장으로": "Back to bookshelf",
+  "표지 색상": "Cover color",
   "초기화": "Reset",
   "초대 링크 복사": "Copy invite link",
   "추가한 사진 {n}": "Added photo {n}",
