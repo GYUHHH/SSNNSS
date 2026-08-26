@@ -152,6 +152,24 @@ const CATEGORY_PROMPT: Record<CustomObjectCategory, string> = {
   sculpture: 'small compact room prop',
 }
 
+// Creem 심사 필수 항목: 프롬프트는 생성 모델에 닿기 전에 Creem 판정을 받아야 한다.
+// 응답이 없거나 느리면 생성을 막는다(fail closed) — 판정을 못 받은 프롬프트를 통과시키면 연동한 의미가 없다.
+// 사진 업로드에는 텍스트가 없어 이 검사가 걸리지 않는다.
+async function creemAllows(prompt: string, env: Env) {
+  if (!env.CREEM_API_KEY) return true
+  try {
+    const response = await fetch(`${creemApi(env)}/v1/moderation/prompt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': env.CREEM_API_KEY },
+      body: JSON.stringify({ prompt }),
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!response.ok) { console.log('moderation-failed', response.status); return false }
+    const body = await response.json().catch(() => null) as { decision?: string } | null
+    return body?.decision === 'allow'
+  } catch { console.log('moderation-error'); return false }
+}
+
 // ponytail: 단어 목록 한 벌, 우회는 막지 못한다 — 신고가 들어오기 시작하면 분류 모델로 올린다
 const BLOCKED_PROMPT = /\b(nude|naked|nsfw|porn|porno|sex|sexual|sexy|erotic|hentai|genital|nipple|penis|vagina|lingerie|fetish|bdsm|gore|corpse|behead|dismember|nazi|swastika)\b|누드|야한|음란|성인용|섹스|시체|참수/i
 
@@ -168,6 +186,7 @@ async function glbSubmit(request: Request, env: Env) {
   if (!image && prompt.length > 200) return json({ error: 'INVALID_REQUEST' }, 400)
   // 성인·폭력 프롬프트는 크레딧 차감 전에 끊는다 — 생성 모델 자체 필터에만 기대지 않는다
   if (BLOCKED_PROMPT.test(prompt)) return json({ error: 'BLOCKED_PROMPT' }, 400)
+  if (prompt && !await creemAllows(prompt, env)) return json({ error: 'BLOCKED_PROMPT' }, 400)
   if (!await spendCredit(request, env, gloss ? 2 : 1)) return json({ error: 'NO_CREDITS' }, 402)
   const model = image ? FAL_IMAGE_MODEL : FAL_TEXT_MODEL
   const input = image
