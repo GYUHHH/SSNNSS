@@ -22,6 +22,7 @@ const BackIcon = () => icon(<><line x1="19" y1="12" x2="5" y2="12" /><polyline p
 const ForwardIcon = () => icon(<><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></>)
 const SearchIcon = () => icon(<><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.3" y2="16.3" /></>)
 const DotsIcon = () => icon(<><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" /></>)
+const InfoIcon = () => icon(<><circle cx="12" cy="12" r="10" /><line x1="12" y1="11" x2="12" y2="16.5" /><circle cx="12" cy="7.6" r="1" fill="currentColor" stroke="none" /></>)
 const ShopIcon = () => icon(<><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" /></>)
 
 // Full-page handle search: the room disappears behind a solid sheet, one input, live prefix matches from the
@@ -56,7 +57,8 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
   const [roomsOpen, setRoomsOpen] = useState(false)
   // closed -> open -> closing(잠깐 역애니메이션) -> closed
   const [moreState, setMoreState] = useState<'closed' | 'open' | 'closing'>('closed')
-  const closeMore = () => { setRoomsOpen(false); setMoreState((state) => state === 'open' ? 'closing' : state) }
+  const [infoOpen, setInfoOpen] = useState(false)
+  const closeMore = () => { setRoomsOpen(false); setInfoOpen(false); setMoreState((state) => state === 'open' ? 'closing' : state) }
   useEffect(() => {
     if (moreState !== 'closing') return
     const timer = setTimeout(() => setMoreState('closed'), 260)
@@ -132,6 +134,16 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
             <li><button type="button" onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}>{lang === 'ko' ? 'English' : '한국어'}</button></li>
           </ul>}
           <button type="button" className="dock-button" aria-label={t('방설정')} onClick={() => setRoomsOpen((value) => !value)}><HouseIcon /></button>
+        </div>
+        <div className="dock-item">
+          {infoOpen && <ul className="dock-pop dock-pop-side" aria-label={t('안내')}>
+            <li><a href="/pricing">{t('요금제')}</a></li>
+            <li><a href="/terms">{t('이용약관')}</a></li>
+            <li><a href="/privacy">{t('개인정보')}</a></li>
+            <li><a href="/refund">{t('환불정책')}</a></li>
+            <li><a href="mailto:support@dens.world">support@dens.world</a></li>
+          </ul>}
+          <button type="button" className="dock-button" aria-label={t('안내')} onClick={() => setInfoOpen((value) => !value)}><InfoIcon /></button>
         </div>
         <button type="button" className="dock-button" aria-label={t('시간대 변경')} onClick={cycleTime}>{timeOfDay === 'day' ? <SunIcon /> : timeOfDay === 'evening' ? <SunsetIcon /> : <MoonIcon />}</button>
         <button type="button" className="dock-button" aria-label={t('보관함')} onClick={() => { closeMore(); onOpenInventory() }}><BoxIcon />{customJob?.unseen && <i className="alert-dot" />}</button>
