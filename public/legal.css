@@ -1,0 +1,32 @@
+/* 정적 법적 페이지 전용 — 앱 번들과 분리돼 있어 styles.css의 토큰만 값으로 옮겨 적었다 */
+:root {
+  --bg: #fafafa; --card: #fff; --line: #dbdbdb; --text: #000; --muted: #737373; --link: #0095f6;
+  font-family: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 0 20px 80px; color: var(--text); background: var(--bg); line-height: 1.65; }
+.wrap { max-width: 680px; margin: 0 auto; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; padding: 28px 0 18px; }
+header a.home { color: var(--text); font-size: 17px; font-weight: 600; text-decoration: none; }
+header nav { display: flex; flex-wrap: wrap; gap: 14px; margin-left: auto; }
+header nav a { color: var(--muted); font-size: 13px; text-decoration: none; }
+header nav a:hover, header nav a[aria-current] { color: var(--text); }
+main { padding: 14px 0 0; border-top: 1px solid var(--line); }
+h1 { margin: 26px 0 4px; font-size: 26px; letter-spacing: -.01em; }
+.updated { margin: 0 0 30px; color: var(--muted); font-size: 13px; }
+h2 { margin: 34px 0 8px; font-size: 16px; }
+p, li { font-size: 14.5px; }
+ul { margin: 8px 0; padding-left: 20px; }
+li { margin: 4px 0; }
+a { color: var(--link); }
+strong { font-weight: 600; }
+.card { margin: 18px 0; padding: 18px 20px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+.price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin: 0 0 6px; }
+.price b { font-size: 30px; font-weight: 600; letter-spacing: -.02em; }
+.price span { color: var(--muted); font-size: 14px; }
+table { width: 100%; margin: 10px 0; border-collapse: collapse; font-size: 14.5px; }
+th, td { padding: 9px 0; border-bottom: 1px solid var(--line); text-align: left; }
+th { color: var(--muted); font-size: 13px; font-weight: 500; }
+td:last-child, th:last-child { text-align: right; }
+footer { margin-top: 46px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+footer p { font-size: 13px; margin: 4px 0; }

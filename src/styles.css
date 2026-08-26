@@ -85,6 +85,9 @@ input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-
    them. Still positioned, so they read over the room itself — the room is not a positioned layer. */
 .me-tag { position: fixed; z-index: 0; top: 26px; right: 14px; color: var(--ui-muted); font-size: 12px; pointer-events: none; }
 .build-tag { position: fixed; top: 8px; right: 10px; z-index: 0; font-size: 11px; color: #b3b3af; pointer-events: none; }
+.legal-links { position: fixed; left: 14px; bottom: 14px; z-index: 6; display: flex; gap: 12px; }
+.legal-links a { color: var(--ui-muted); font-size: 11px; text-decoration: none; }
+.legal-links a:hover { color: var(--ui-text); text-decoration: underline; }
 /* the two reactions that rise out of a visitor's object click */
 .reaction-picker-dismiss { position: fixed; inset: 0; z-index: 39; background: transparent; }
 .reaction-pick { position: fixed; z-index: 40; display: grid; place-items: center; width: 46px; height: 46px; padding: 0; border: 0; border-radius: 50%; color: #3a3a38; background: #fff; box-shadow: 0 6px 18px rgb(0 0 0 / 22%); transform: translate(-50%, -50%); animation: reaction-pop .26s cubic-bezier(.2, 1.5, .4, 1) backwards; transition: transform .16s cubic-bezier(.2, 1.4, .4, 1), color .16s ease; }
@@ -216,9 +219,9 @@ div.art-view { aspect-ratio: 3 / 4; }
 .room-ui { transition: right .42s cubic-bezier(.4, 0, .2, 1); }
 /* 전체방보기(탐색기)에서는 볼륨·시간대 버튼만 남기고 주변 UI를 페이드아웃 */
 .room-controls { transition: right .42s cubic-bezier(.4, 0, .2, 1), opacity .35s; }
-.room-slots, .entry-buttons, .me-tag, .build-tag { transition: opacity .35s; }
+.room-slots, .entry-buttons, .me-tag, .build-tag, .legal-links { transition: opacity .35s; }
 .dock-fade { transition: opacity .35s; }
-body.exploring :is(.dock-fade, .entry-buttons, .me-tag, .build-tag) { opacity: 0; pointer-events: none; }
+body.exploring :is(.dock-fade, .entry-buttons, .me-tag, .build-tag, .legal-links) { opacity: 0; pointer-events: none; }
 .guest-form { display: grid; gap: 6px; padding-bottom: 14px; border-bottom: 1px solid #e0e0dd; }
 .guest-form input, .guest-form textarea { border: 1px solid #c2c2be; border-radius: 4px; padding: 7px 9px; color: #403f3d; background: #ffffff; font-family: inherit; }
 .guest-form textarea { overflow: hidden; resize: none; }
