@@ -149,11 +149,17 @@ function publishPrivate(): Promise<boolean> {
       const handle = ownHandle()
       if (!handle) return false // 익명 방은 서버 비공개 보관소가 없다 — 메모리에만 남는다
       let notReady = false
+      let permanent = false
       try {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/save_room_private`, { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ p_handle: handle, p_secret: roomSecret(), p_data: privateData }) })
         ok = response.ok
         notReady = response.status === 404 // SQL 함수 미설치 — 느긋하게 재시도
+        // 400 'not owner'처럼 요청 자체가 거절된 경우는 몇 번을 더 보내도 같은 답이 온다.
+        // 재시도는 끊기거나 밀린 요청을 위한 것이지, 거절을 뒤집으려는 게 아니다.
+        permanent = !ok && !notReady && response.status >= 400 && response.status < 500 && response.status !== 429
+        if (permanent) console.warn('[room] private store rejected', response.status, await response.text().catch(() => ''))
       } catch { ok = false }
+      if (permanent) break
       if (!ok) { privateQueued = true; setTimeout(() => { void publishPrivate() }, notReady ? 60_000 : 2500); break }
     }
     return ok
