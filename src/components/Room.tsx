@@ -597,17 +597,17 @@ function RoomWorld() {
   useEffect(() => onFollowsChange(() => setFollowsTick((value) => value + 1)), [])
   useEffect(() => {
     let live = true
-    const centre = ringMode === 'home' ? activeHandle : hubHandle
+    // Home is one stable neighbourhood: my room followed by only the rooms I follow. Visiting one of them must
+    // never rebuild the array around that room or inject an unrelated visited room into my ring.
+    const centre = hubHandle
     const source = ringMode === 'home'
       ? fetchFollowing(hubHandle).then(sortByActivity)
       : discoverPage.current ? Promise.resolve(discoverPage.current) : fetchRoomDirectory().then((all) => (discoverPage.current = shuffled(all)))
     void source.then((found) => {
       if (!live) return
-      // The room being viewed is the only owned room in this cluster. Keeping the owner's hub here made it
-      // appear again behind a visited room when zooming out, so it could overlap the current room on phones.
       const rest = found.filter((handle) => handle !== centre && handle !== hubHandle)
-      // the room actually being viewed needs a cell of its own even if the list misses it
-      const viewed = currentRoomHandle()
+      // Discover keeps the room being browsed. Home never adds it: that ring is exactly mine + my follows.
+      const viewed = ringMode === 'discover' ? currentRoomHandle() : null
       if (viewed && viewed !== centre && !rest.includes(viewed)) rest.unshift(viewed)
       const next = withVacancies([centre, ...rest])
       // Inside a room the ring is off screen, so the exchange is free — which is the usual case, since a new
