@@ -123,6 +123,16 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
     <span className="dock-slot"><SoundHub /></span>
     {owner && <div className="dock-item dock-fade" ref={moreItem}>
       {moreState !== 'closed' && <div className={moreState === 'closing' ? 'dock-stack closing' : 'dock-stack'}>
+        <div className="dock-item">
+          {infoOpen && <ul className="dock-pop dock-pop-side" aria-label={t('안내')}>
+            <li><a href="/pricing">{t('요금제')}</a></li>
+            <li><a href="/terms">{t('이용약관')}</a></li>
+            <li><a href="/privacy">{t('개인정보')}</a></li>
+            <li><a href="/refund">{t('환불정책')}</a></li>
+            <li><a href="mailto:support@dens.world">support@dens.world</a></li>
+          </ul>}
+          <button type="button" className="dock-button" aria-label={t('안내')} onClick={() => setInfoOpen((value) => !value)}><InfoIcon /></button>
+        </div>
         <button type="button" className="dock-button" aria-label={t('상점')} onClick={() => { closeMore(); setShopOpen(true) }}><ShopIcon /></button>
         <div className="dock-item">
           {roomsOpen && <ul className="dock-pop dock-pop-side" aria-label={t('내 방 목록')}>
@@ -134,16 +144,6 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
             <li><button type="button" onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}>{lang === 'ko' ? 'English' : '한국어'}</button></li>
           </ul>}
           <button type="button" className="dock-button" aria-label={t('방설정')} onClick={() => setRoomsOpen((value) => !value)}><HouseIcon /></button>
-        </div>
-        <div className="dock-item">
-          {infoOpen && <ul className="dock-pop dock-pop-side" aria-label={t('안내')}>
-            <li><a href="/pricing">{t('요금제')}</a></li>
-            <li><a href="/terms">{t('이용약관')}</a></li>
-            <li><a href="/privacy">{t('개인정보')}</a></li>
-            <li><a href="/refund">{t('환불정책')}</a></li>
-            <li><a href="mailto:support@dens.world">support@dens.world</a></li>
-          </ul>}
-          <button type="button" className="dock-button" aria-label={t('안내')} onClick={() => setInfoOpen((value) => !value)}><InfoIcon /></button>
         </div>
         <button type="button" className="dock-button" aria-label={t('시간대 변경')} onClick={cycleTime}>{timeOfDay === 'day' ? <SunIcon /> : timeOfDay === 'evening' ? <SunsetIcon /> : <MoonIcon />}</button>
         <button type="button" className="dock-button" aria-label={t('보관함')} onClick={() => { closeMore(); onOpenInventory() }}><BoxIcon />{customJob?.unseen && <i className="alert-dot" />}</button>
