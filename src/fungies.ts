@@ -6,9 +6,13 @@ export type FungiesEvent = {
   data?: { items?: Array<{ quantity?: number | string; offer?: { id?: string }; customFields?: Record<string, unknown> }> }
 }
 
-export function fungiesPurchase(body: FungiesEvent, offerId: string, fieldKey = 'handle') {
+export const fungiesOfferFor = (hasPurchase: boolean, regularOfferId: string, firstOfferId?: string) =>
+  !hasPurchase && firstOfferId ? firstOfferId : regularOfferId
+
+export function fungiesPurchase(body: FungiesEvent, offerId: string | readonly string[], fieldKey = 'handle') {
   if (body.type !== 'payment_success') return null
-  const item = body.data?.items?.find((value) => value.offer?.id === offerId)
+  const offerIds = typeof offerId === 'string' ? [offerId] : offerId
+  const item = body.data?.items?.find((value) => !!value.offer?.id && offerIds.includes(value.offer.id))
   const handle = item?.customFields?.[fieldKey]
   const eventId = body.idempotencyKey || body.id
   const quantity = Number(item?.quantity ?? 1)

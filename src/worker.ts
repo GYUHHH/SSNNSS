@@ -1,5 +1,5 @@
 import { CUSTOM_OBJECT_CATEGORIES, type CustomObjectCategory } from './customObjectSpec'
-import { fungiesPurchase, type FungiesEvent } from './fungies'
+import { fungiesOfferFor, fungiesPurchase, type FungiesEvent } from './fungies'
 
 type Env = {
   ASSETS: { fetch: (request: Request) => Promise<Response> }
@@ -11,6 +11,7 @@ type Env = {
   FUNGIES_SECRET_KEY?: string
   FUNGIES_WEBHOOK_SECRET?: string
   FUNGIES_OFFER_ID?: string
+  FUNGIES_FIRST_OFFER_ID?: string
   FUNGIES_HANDLE_FIELD_ID?: string
   FUNGIES_HANDLE_FIELD_KEY?: string
   FUNGIES_STORE_URL?: string
@@ -87,10 +88,13 @@ async function fungiesCheckout(request: Request, env: Env) {
   if (!fungiesEnabled(env)) return json({ error: 'BILLING_NOT_CONFIGURED' }, 503)
   const handle = await signedInHandle(request)
   if (!handle) return json({ error: 'LOGIN_REQUIRED' }, 401)
+  const history = await fetch(`${SUPABASE_URL}/rest/v1/fungies_payment_events?handle=eq.${encodeURIComponent(handle)}&select=event_id&limit=1`, { headers: serviceHeaders(env) })
+  const payments = history.ok ? await history.json().catch(() => null) : null
+  const offerId = fungiesOfferFor(!(Array.isArray(payments) && payments.length === 0), env.FUNGIES_OFFER_ID!, env.FUNGIES_FIRST_OFFER_ID)
   const response = await fetch('https://api.fungies.io/v0/elements/checkout/create', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-fngs-public-key': env.FUNGIES_PUBLIC_KEY!, 'x-fngs-secret-key': env.FUNGIES_SECRET_KEY! },
-    body: JSON.stringify({ offersIds: [env.FUNGIES_OFFER_ID], customFields: [{ id: env.FUNGIES_HANDLE_FIELD_ID, value: handle }] }),
+    body: JSON.stringify({ offersIds: [offerId], customFields: [{ id: env.FUNGIES_HANDLE_FIELD_ID, value: handle }] }),
   })
   const body = await response.json().catch(() => null) as { data?: { checkoutElement?: { id?: string } } } | null
   const id = body?.data?.checkoutElement?.id
@@ -108,7 +112,7 @@ async function fungiesWebhook(request: Request, env: Env) {
   if (signature.length !== expected.length || [...signature].reduce((diff, char, index) => diff | (char.charCodeAt(0) ^ expected.charCodeAt(index)), 0) !== 0) return json({ error: 'BAD_SIGNATURE' }, 401)
   const body = await Promise.resolve().then(() => JSON.parse(raw) as FungiesEvent).catch(() => null)
   if (!body) return json({ error: 'INVALID_PAYLOAD' }, 400)
-  const purchase = fungiesPurchase(body, env.FUNGIES_OFFER_ID!, env.FUNGIES_HANDLE_FIELD_KEY || 'handle')
+  const purchase = fungiesPurchase(body, [env.FUNGIES_OFFER_ID!, env.FUNGIES_FIRST_OFFER_ID].filter((id): id is string => !!id), env.FUNGIES_HANDLE_FIELD_KEY || 'handle')
   if (!purchase) return json({ ok: true })
   if (purchase.testMode && env.FUNGIES_ACCEPT_TEST !== 'true') return json({ ok: true, ignored: 'TEST_MODE' })
   const amount = purchase.quantity * Math.max(1, Number(env.FUNGIES_CREDITS_PER_ORDER) || 5)
