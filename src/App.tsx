@@ -23,7 +23,7 @@ import { thumbnailFor } from './services/thumbnails'
 import { lang, t } from './services/i18n'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 719
+const BUILD = 720
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, customJob, customEditing, startCustomObjectEdit, applyCustomObjectEdit, cancelCustomObjectEdit } = useRoomStore()
@@ -141,10 +141,10 @@ function Interface() {
     <span className="build-tag" aria-hidden="true">{BUILD}</span>
     {/* 결제사 심사 요건: 요금제와 법적 고지가 로그인 없이 어디서나 닿아야 한다 */}
     <nav className="legal-links" aria-label={t('안내')}>
-      <a href="/pricing.html">{t('요금제')}</a>
-      <a href="/terms.html">{t('이용약관')}</a>
-      <a href="/privacy.html">{t('개인정보')}</a>
-      <a href="/refund.html">{t('환불정책')}</a>
+      <a href="/pricing">{t('요금제')}</a>
+      <a href="/terms">{t('이용약관')}</a>
+      <a href="/privacy">{t('개인정보')}</a>
+      <a href="/refund">{t('환불정책')}</a>
     </nav>
     {myHandle() && <span className="me-tag">{myHandle()}</span>}
     <aside className="room-ui">
