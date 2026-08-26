@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { t } from '../services/i18n'
 
 export function PhotoCropEditor({ source, aspect: fixedAspect, output, onApply, onClose }: { source: string; aspect?: number; output?: [number, number]; onApply: (image: string) => void; onClose: () => void }) {
@@ -25,7 +26,7 @@ export function PhotoCropEditor({ source, aspect: fixedAspect, output, onApply, 
     canvas.getContext('2d')?.drawImage(photo, canvas.width / 2 + position.x * factor - width / 2, canvas.height / 2 + position.y * factor - height / 2, width, height)
     onApply(canvas.toDataURL('image/jpeg', .92))
   }
-  return <div className="photo-editor-overlay" onPointerDown={(event) => event.currentTarget === event.target && onClose()}>
+  return createPortal(<div className="photo-editor-overlay" onPointerDown={(event) => event.currentTarget === event.target && onClose()}>
     <section className="photo-editor">
       <div ref={crop} className="crop-area" style={{ aspectRatio: String(aspect) }} onPointerDown={(event) => { start.current = { x: event.clientX, y: event.clientY, offsetX: position.x, offsetY: position.y }; event.currentTarget.setPointerCapture(event.pointerId) }} onPointerMove={(event) => { if (start.current) setPosition(clamp({ x: start.current.offsetX + (event.clientX - start.current.x) * 1.25, y: start.current.offsetY + (event.clientY - start.current.y) * 1.25 })) }} onPointerUp={() => { start.current = null }} onPointerCancel={() => { start.current = null }}>
         <img ref={image} crossOrigin="anonymous" src={source} alt={t('사진 조정')} onLoad={() => { const photo = image.current; if (!photo) return; setScale(1); setPosition({ x: 0, y: 0 }); setAspect(fixedAspect ?? photo.naturalWidth / photo.naturalHeight); requestAnimationFrame(() => { const area = crop.current; if (!area) return; const base = Math.max(area.clientWidth / photo.naturalWidth, area.clientHeight / photo.naturalHeight); setSize({ width: photo.naturalWidth * base, height: photo.naturalHeight * base }) }) }} style={{ width: size?.width, height: size?.height, opacity: size ? 1 : 0, transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px)) scale(${scale})` }} />
@@ -33,5 +34,5 @@ export function PhotoCropEditor({ source, aspect: fixedAspect, output, onApply, 
       <label>{t('확대')}<input type="range" min="1" max="2.5" step="0.01" value={scale} onChange={(event) => { const zoom = Number(event.target.value); setScale(zoom); setPosition((current) => clamp(current, zoom)) }} /></label>
       <button type="button" onClick={apply}>{t('적용')}</button>
     </section>
-  </div>
+  </div>, document.body)
 }
