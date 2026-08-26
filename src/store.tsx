@@ -466,15 +466,18 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       try {
         setCustomJob({ stage: 'draft', round: 0, unseen: false })
         const requestId = await submitGlbObject({ category: input.category, prompt: input.prompt, image: input.image, finish: input.finish })
+        setCustomJob({ stage: 'draft', round: 1, unseen: false })
         let model: GeneratedModel | undefined
         for (let attempt = 0; attempt < 100 && !model; attempt += 1) {
           await new Promise((resolve) => setTimeout(resolve, 3000))
           const state = await pollGlbObject(requestId)
           if (state.done) model = state.model
+          else setCustomJob({ stage: 'draft', round: attempt + 2, unseen: false })
         }
         if (!model) throw new Error('MODEL_TIMEOUT')
-        setCustomJob({ stage: 'verify', round: 1, unseen: false })
+        setCustomJob({ stage: 'verify', round: 0, unseen: false })
         const generated = await generatedModelBlob(model, input.finish)
+        setCustomJob({ stage: 'verify', round: 1, unseen: false })
         const id = `g${Date.now()}`
         const stored = await uploadMedia(`glbobj/${id}`, generated.blob)
         if (!stored) throw new Error('UPLOAD_FAILED')

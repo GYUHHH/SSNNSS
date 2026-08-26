@@ -741,6 +741,7 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 .custom-job-bar { display: block; flex: 1; height: 5px; min-width: 90px; border-radius: 3px; background: #e8e8e5; overflow: hidden; }
 .custom-job-bar i { display: block; height: 100%; border-radius: 3px; background: #3a6ea5; transition: width .4s ease; }
 .custom-job-status { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid #e0e0dd; border-radius: 6px; background: #fafaf8; color: #3a3a38; font-size: 12px; }
+.custom-tab .custom-job-status { position: sticky; z-index: 2; top: 38px; }
 .custom-job-status.failed { color: #b3372c; border-color: #e6c4c0; }
 .custom-job-widget { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 45; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid #dbdbdb; border-radius: 9px; background: #ffffff; color: #3a3a38; font-size: 12px; box-shadow: 0 4px 14px rgb(0 0 0 / 8%); }
 button.custom-job-widget { cursor: pointer; }
@@ -769,6 +770,12 @@ button.custom-job-widget::after { content: ''; width: 8px; height: 8px; border-r
 .custom-category-dialog dl div { display: grid; gap: 4px; }
 .custom-category-dialog dt { font-size: 13px; font-weight: 700; }
 .custom-category-dialog dd { margin: 0; color: var(--ui-muted); font-size: 13px; line-height: 1.5; }
+
+@media (max-width: 719px) {
+  .custom-job-status { flex-wrap: wrap; }
+  .custom-job-status .custom-job-bar { flex-basis: 100%; }
+  .custom-job-widget { right: 12px; bottom: calc(76px + env(safe-area-inset-bottom)); left: 12px; box-sizing: border-box; }
+}
 
 .custom-size { display: flex; align-items: center; gap: 6px; }
 .custom-size input { width: 0; flex: 1; min-width: 0; padding: 7px 9px; border: 1px solid #d6d6d2; border-radius: 5px; font-size: 13px; }
