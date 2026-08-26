@@ -52,7 +52,8 @@ export async function pollGlbObject(requestId: string): Promise<{ done: boolean;
   return { done: body.done, model: body.model }
 }
 
-const MAX_GLB_BYTES = 8 * 1024 * 1024
+const TARGET_GLB_BYTES = 8 * 1024 * 1024
+const MAX_GLB_BYTES = 16 * 1024 * 1024
 const MAX_TRIANGLES = 250_000
 
 function validateModelStats(size: [number, number, number], triangles: number, bytes = 0) {
@@ -76,7 +77,7 @@ const imageSize = (image: unknown) => {
   return { width: value?.naturalWidth ?? value?.videoWidth ?? value?.width ?? 0, height: value?.naturalHeight ?? value?.videoHeight ?? value?.height ?? 0 }
 }
 
-async function shrinkTexture(texture: Texture, maxEdge: number, bitmaps: Set<ImageBitmap>) {
+async function shrinkTexture(texture: Texture, maxEdge: number, bitmaps: Set<ImageBitmap>, quality = .82) {
   const { width, height } = imageSize(texture.image)
   if (!width || !height) return
   const scale = Math.min(1, maxEdge / Math.max(width, height))
@@ -86,7 +87,7 @@ async function shrinkTexture(texture: Texture, maxEdge: number, bitmaps: Set<Ima
   const context = canvas.getContext('2d')
   if (!context) return
   context.drawImage(texture.image as CanvasImageSource, 0, 0, canvas.width, canvas.height)
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', .82))
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', quality))
   if (!blob) return
   const bitmap = await createImageBitmap(blob)
   if (texture.image instanceof ImageBitmap) bitmaps.add(texture.image)
@@ -219,9 +220,18 @@ export async function generatedModelBlob(model: GeneratedModel, finish?: 'gloss'
   object.updateMatrixWorld(true)
   const normalizedBounds = validateObject(object, three)
   const metadata = modelMetadata(object, normalizedBounds, three)
-  const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+  const exportGlb = () => new Promise<ArrayBuffer>((resolve, reject) => {
     new GLTFExporter().parse(object, (output) => output instanceof ArrayBuffer ? resolve(output) : reject(new Error('GLB_EXPORT_FAILED')), reject, { binary: true, onlyVisible: true, maxTextureSize: 2048 })
   })
+  let buffer = await exportGlb()
+  if (buffer.byteLength > TARGET_GLB_BYTES) {
+    for (const [texture, maxEdge] of textureLimits) await shrinkTexture(texture, Math.max(256, maxEdge / 2), bitmaps, .72)
+    buffer = await exportGlb()
+  }
+  if (buffer.byteLength > TARGET_GLB_BYTES) {
+    for (const [texture, maxEdge] of textureLimits) await shrinkTexture(texture, Math.max(256, maxEdge / 4), bitmaps, .66)
+    buffer = await exportGlb()
+  }
   bitmaps.forEach((bitmap) => bitmap.close())
   validateModelStats([1, 1, 1], 1, buffer.byteLength)
   const reopened = (await new GLTFLoader().parseAsync(buffer, '')).scene
