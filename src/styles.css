@@ -500,7 +500,10 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 @keyframes heart-pop { 0% { transform: scale(1) } 40% { transform: scale(1.32) } 70% { transform: scale(.92) } 100% { transform: scale(1) } }
 .entry-actions button.shared { color: var(--ui-blue); }
 .entry-actions .entry-edit { margin-left: auto; }
-.entry-actions .entry-more { position: relative; margin-left: auto; }
+.entry-owner-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.entry-visibility { display: grid; place-items: center; width: 17px; height: 17px; color: var(--ui-muted); }
+.entry-visibility svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.entry-actions .entry-more { position: relative; margin-left: 0; }
 .entry-more-menu { position: absolute; z-index: 3; top: 31px; right: 0; display: grid; min-width: 104px; padding: 5px; border-radius: 5px; background: var(--ui-soft); }
 .entry-more-menu > button { width: 100%; padding: 7px 8px; justify-content: flex-start; font-size: 12px; font-weight: 500; }
 .entry-more-menu > span { padding: 6px 8px; white-space: nowrap; font-size: 12px; }

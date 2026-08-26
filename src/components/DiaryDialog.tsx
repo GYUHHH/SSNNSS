@@ -13,6 +13,9 @@ const today = () => new Date().toISOString().slice(0, 10)
 
 const MoreIcon = () => <svg viewBox="0 0 24 24" width="27" height="27" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="19" cy="12" r="1.7" /></svg>
 const ShareIcon = () => <svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21.5 3.5 2.5 10.2l7.6 2.9 2.9 7.6Z" /><path d="M10.1 13.1 21.5 3.5" /></svg>
+const EntryVisibilityIcon = ({ visibility }: { visibility: Visibility }) => visibility === 'public'
+  ? <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2.5" /><path d="M3.5 19c.4-4 2.2-6 5.5-6s5.1 2 5.5 6M14 14c3.6-.5 5.6 1.2 6.2 4.5" /></svg>
+  : <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
 const assetUrl = (source: string) => source.startsWith('/') ? `${import.meta.env.BASE_URL}${source.slice(1)}` : source
 
 function RecordPhotoPicker({ className, label, onAdd, onReplace }: { className?: string; label: string; onAdd: (image: string) => void; onReplace: (before: string, after: string) => void }) {
@@ -98,10 +101,9 @@ function EntryItem({ bookId, entry }: { bookId: string; entry: Entry }) {
       <button type="button" className={`${likes.liked ? 'liked' : ''}${pop ? ' pop' : ''}`} aria-label={t('좋아요')} onAnimationEnd={() => setPop(false)} onClick={like}><HeartIcon filled={likes.liked} />{likes.count > 0 && <span>{likes.count}</span>}</button>
       <button type="button" aria-label={t('댓글')} aria-expanded={commentsOpen} onClick={() => setCommentsOpen((open) => !open)}><CommentIcon />{(guestbook[entry.id] ?? []).length > 0 && <span>{(guestbook[entry.id] ?? []).length}</span>}</button>
       <button type="button" className={shared ? 'shared' : ''} aria-label={t('공유')} onClick={share}><ShareIcon /></button>
-      {!isVisiting() && <div ref={menu} className="entry-more"><button type="button" className="entry-edit" aria-label={t('기록 메뉴')} aria-expanded={menuOpen} onClick={() => { setMenuOpen((open) => !open); setConfirmingDelete(false) }}><MoreIcon /></button>{menuOpen && <div className="entry-more-menu">{confirmingDelete ? <><span>{t('삭제할까요?')}</span><div><button type="button" onClick={() => setConfirmingDelete(false)}>{t('취소')}</button><button type="button" className="danger" onClick={() => deleteEntry(bookId, entry.id)}>{t('삭제')}</button></div></> : <><button type="button" onClick={() => { setMenuOpen(false); setEditing(true) }}>{t('수정')}</button><button type="button" className="danger" onClick={() => setConfirmingDelete(true)}>{t('삭제')}</button></>}</div>}</div>}
+      {!isVisiting() && <div className="entry-owner-actions"><span className="entry-visibility" role="img" aria-label={t(entry.visibility === 'public' ? '공개 기록' : '비공개 기록')} title={t(entry.visibility === 'public' ? '공개 기록' : '비공개 기록')}><EntryVisibilityIcon visibility={entry.visibility} /></span><div ref={menu} className="entry-more"><button type="button" className="entry-edit" aria-label={t('기록 메뉴')} aria-expanded={menuOpen} onClick={() => { setMenuOpen((open) => !open); setConfirmingDelete(false) }}><MoreIcon /></button>{menuOpen && <div className="entry-more-menu">{confirmingDelete ? <><span>{t('삭제할까요?')}</span><div><button type="button" onClick={() => setConfirmingDelete(false)}>{t('취소')}</button><button type="button" className="danger" onClick={() => deleteEntry(bookId, entry.id)}>{t('삭제')}</button></div></> : <><button type="button" onClick={() => { setMenuOpen(false); setEditing(true) }}>{t('수정')}</button><button type="button" className="danger" onClick={() => setConfirmingDelete(true)}>{t('삭제')}</button></>}</div>}</div></div>}
     </div>
     {entry.content && <p>{entry.content}</p>}
-    {!isVisiting() && <small>{entry.visibility === 'public' ? t('공개 기록') : t('비공개 기록')}</small>}
     {commentsOpen && <EntryComments entry={entry} inputRef={commentInput} />}
     {editing && <EntryEditor bookId={bookId} entry={entry} onClose={() => setEditing(false)} />}
   </article>
