@@ -63,7 +63,7 @@ const placementGrid = (item: Pick<FurnitureItem, 'gridX' | 'gridY'>): GridPositi
 const isGridPlaced = (item: Pick<FurnitureItem, 'movable' | 'footprint'>) => item.movable && item.footprint.width > 0
 // visual effects are anchored to a grid cell but never reserve physical floor space
 const ignoresPlacementCollision = (item: Pick<FurnitureItem, 'type'>) => item.type === 'star-dust' || item.type === 'club-led'
-const isFloorCovering = (item: Pick<FurnitureItem, 'type' | 'surfaceId'>) => item.surfaceId === 'floor' && ['rug', 'carpet', 'mat', 'floor-mat'].includes(item.type)
+export const isFloorCovering = (item: Pick<FurnitureItem, 'type' | 'surfaceId' | 'customSpec'>) => item.surfaceId === 'floor' && (['rug', 'carpet', 'mat', 'floor-mat'].includes(item.type) || item.customSpec?.category === 'floor')
 // Wall media is a background layer, not physical wall space: it never occupies placement cells, so photos,
 // posters, videos, and ordinary wall furniture can layer freely. Only two non-media wall furnishings collide.
 const sharesWallBackground = (a: FurnitureItem, b: FurnitureItem) => a.category === 'wallItem' && b.category === 'wallItem' && (isWallMedia(a.type) || isWallMedia(b.type))
@@ -327,7 +327,7 @@ const hydrateFurniture = (saved: FurniturePlacement[] | null) => {
 const freeOnSurface = (context: FurnitureItem[], candidate: FurnitureItem): boolean => {
   const surface = resolveSurface(context, candidate.surfaceId); if (!surface) return false
   const resolution = resolutionFor(candidate)
-  const occupied = new Set((ignoresPlacementCollision(candidate) ? [] : context.filter((other) => other.id !== candidate.id && !other.removed && other.surfaceId === candidate.surfaceId && !ignoresPlacementCollision(other) && !sharesWallBackground(candidate, other)))
+  const occupied = new Set((isFloorCovering(candidate) || ignoresPlacementCollision(candidate) ? [] : context.filter((other) => other.id !== candidate.id && !other.removed && other.surfaceId === candidate.surfaceId && !isFloorCovering(other) && !ignoresPlacementCollision(other) && !sharesWallBackground(candidate, other)))
     .flatMap((other) => normalizedCells(cellsFor(placementGrid(other), other.footprint, other.rotation[1]), resolutionFor(other)))
     .map((cell) => `${cell.x}:${cell.y}`))
   return canPlaceItem(withResolution(surface, resolution), candidate, occupied, resolution)
@@ -480,7 +480,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
         if (!stored) throw new Error('UPLOAD_FAILED')
         const name = (input.prompt.trim() || t('커스텀 오브젝트')).slice(0, 40)
         const clampCell = (value: number) => Math.max(1, Math.min(10, Math.round(value)))
-        const footprint = input.size ? { width: clampCell(input.size.width), depth: clampCell(input.size.depth) } : { width: 2, depth: 2 }
+        const footprint = input.category === 'sculpture' ? { width: 1, depth: 1 } : input.size ? { width: clampCell(input.size.width), depth: clampCell(input.size.depth) } : { width: 2, depth: 2 }
         addCustomObject({ id, name, category: input.category, footprint, parts: [], glbUrl: stored, modelSize: generated.modelSize, modelScale: [1, 1, 1], ...(generated.topSurface && input.category === 'furniture' ? { topSurface: generated.topSurface } : {}), ...(input.finish ? { finish: input.finish } : {}) })
         setCustomJob({ stage: 'done', round: 0, unseen: true, name })
       } catch (reason) {
@@ -593,7 +593,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     if (isVisiting()) return
     if (mode !== 'normal') return
     const cell = worldToGrid(floorSurface, position, { width: 1, depth: 1 })
-    const occupied = new Set(furniture.filter((item) => item.category === 'floorFurniture' && item.type !== 'rug' && !item.removed && item.surfaceId === 'floor').flatMap((item) => baseFloorCells(item).map((other) => `${other.x}:${other.y}`)))
+    const occupied = new Set(furniture.filter((item) => item.category === 'floorFurniture' && !isFloorCovering(item) && !item.removed && item.surfaceId === 'floor').flatMap((item) => baseFloorCells(item).map((other) => `${other.x}:${other.y}`)))
     const inBounds = cell.gridX >= 0 && cell.gridX < GRID_COUNT && cell.gridY >= 0 && cell.gridY < GRID_COUNT
     if (!inBounds || occupied.has(`${cell.gridX}:${cell.gridY}`)) { showMoveNotice(); return }
     const [x, , z] = gridToWorld(floorSurface, cell, { width: 1, depth: 1 })

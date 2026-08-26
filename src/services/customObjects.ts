@@ -15,7 +15,8 @@ export const saveCustomObjects = (values: CustomObjectSpec[]) => writeStored(CUS
 
 export const customObjectTemplate = (spec: CustomObjectSpec) => {
   const wall = spec.category === 'wallDecoration'
-  const allowedSurfaces: Array<'wall' | 'floor'> = wall ? ['wall'] : ['floor']
+  const prop = spec.category === 'sculpture'
+  const allowedSurfaces: Array<'wall' | 'floor' | 'tabletop' | 'shelf' | 'seat'> = wall ? ['wall'] : prop ? ['floor', 'tabletop', 'shelf', 'seat'] : ['floor']
   return {
     type: customObjectType(spec.id), name: spec.name, category: wall ? 'wallItem' as const : 'floorFurniture' as const,
     movable: true, interactable: true, footprint: spec.footprint, size: [spec.footprint.width, spec.footprint.depth] as [number, number],

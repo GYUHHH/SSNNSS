@@ -2,7 +2,7 @@ import { Html, RoundedBox, useCursor } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Group, Vector3 } from 'three'
-import { baseFloorCells, useRoomStore, type CharacterTransform } from '../store'
+import { baseFloorCells, isFloorCovering, useRoomStore, type CharacterTransform } from '../store'
 import { characterPosition } from '../services/characterTracker'
 import { resolveInteraction, stateForInteraction } from '../services/interactionAnchors'
 import { cellsFor, findPath, floorSurface, gridToWorld, type GridPosition, worldToGrid } from '../services/roomGrid'
@@ -100,7 +100,7 @@ export default function Character({ appearance: customAppearance }: { appearance
       const nextRouteKey = `${selectedObject}:${destination.join(',')}`
       if (routeKey.current !== nextRouteKey) {
         routeKey.current = nextRouteKey
-        const occupied = new Set(furniture.filter((item) => item.category === 'floorFurniture' && item.type !== 'rug' && !item.removed && item.surfaceId === 'floor').flatMap((item) => baseFloorCells(item).map((cell) => `${cell.x}:${cell.y}`)))
+        const occupied = new Set(furniture.filter((item) => item.category === 'floorFurniture' && !isFloorCovering(item) && !item.removed && item.surfaceId === 'floor').flatMap((item) => baseFloorCells(item).map((cell) => `${cell.x}:${cell.y}`)))
         const startCell = worldToGrid(floorSurface, [actor.current.position.x, 0, actor.current.position.z], CELL)
         const desiredCell = worldToGrid(floorSurface, destination, CELL)
         const targetCells = interaction.target.category === 'floorFurniture' ? cellsFor(interaction.target, interaction.target.footprint, interaction.target.rotation[1]) : []
@@ -137,7 +137,7 @@ export default function Character({ appearance: customAppearance }: { appearance
       const nextRouteKey = `floor:${floorTarget[0]},${floorTarget[2]}`
       if (routeKey.current !== nextRouteKey) {
         routeKey.current = nextRouteKey
-        const occupied = new Set(furniture.filter((item) => item.category === 'floorFurniture' && item.type !== 'rug' && !item.removed && item.surfaceId === 'floor').flatMap((item) => baseFloorCells(item).map((cell) => `${cell.x}:${cell.y}`)))
+        const occupied = new Set(furniture.filter((item) => item.category === 'floorFurniture' && !isFloorCovering(item) && !item.removed && item.surfaceId === 'floor').flatMap((item) => baseFloorCells(item).map((cell) => `${cell.x}:${cell.y}`)))
         const startCell = worldToGrid(floorSurface, [actor.current.position.x, 0, actor.current.position.z], CELL)
         const goal = worldToGrid(floorSurface, floorTarget, CELL)
         const path = cellKey(goal) === cellKey(startCell) ? [] : findPath(occupied, startCell, goal)

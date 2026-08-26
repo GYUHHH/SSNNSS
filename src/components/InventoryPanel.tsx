@@ -158,7 +158,13 @@ function CustomJobStatus({ job }: { job: { stage: string; round: number; name?: 
   </div>
 }
 
-const CUSTOM_CATEGORY_LABELS: Record<CustomObjectCategory, string> = { furniture: '가구', wallDecoration: '벽장식', floor: '바닥', sculpture: '조형물' }
+const CUSTOM_CATEGORY_LABELS: Record<CustomObjectCategory, string> = { furniture: '가구', wallDecoration: '벽', floor: '바닥', sculpture: '소품' }
+const CUSTOM_CATEGORY_DESCRIPTIONS: Array<[CustomObjectCategory, string]> = [
+  ['furniture', '바닥에 배치되며 다른 가구와 겹칠 수 없습니다.'],
+  ['wallDecoration', '벽에 배치되며 다른 벽 오브젝트와 겹칠 수 없습니다.'],
+  ['floor', '러그처럼 바닥에 배치되며 그 위에 다른 오브젝트를 놓을 수 있습니다.'],
+  ['sculpture', '1×1칸을 차지하며 실제 크기는 0.35칸 기준으로 생성됩니다.'],
+]
 
 function CustomTab() {
   const { customObjects, startPreview, startCustomObjectEdit, availableCount, customJob, runCustomGeneration, markCustomSeen, removeCustomObject } = useRoomStore()
@@ -177,7 +183,16 @@ function CustomTab() {
   const [image, setImage] = useState<string | null>(null)
   const [editingImage, setEditingImage] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [categoryInfo, setCategoryInfo] = useState(false)
+  const root = useRef<HTMLDivElement>(null)
   const file = useRef<HTMLInputElement>(null)
+  useEffect(() => { root.current?.closest<HTMLElement>('.art-panel')?.scrollTo({ top: 0 }) }, [])
+  useEffect(() => {
+    if (!categoryInfo) return
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setCategoryInfo(false) }
+    window.addEventListener('keydown', close)
+    return () => window.removeEventListener('keydown', close)
+  }, [categoryInfo])
   const choosePhoto = () => { setSource('photo'); setPrompt(''); setError(''); file.current?.click() }
   const readPhoto = (value?: File) => {
     if (!value?.type.startsWith('image/')) return
@@ -189,6 +204,7 @@ function CustomTab() {
   const running = !!customJob && customJob.stage !== 'done' && customJob.stage !== 'error'
   // 가로x세로는 함께, 높이는 선택. 전부 비우면 모델이 알아서 정한다
   const parseSize = (): { width: number; depth: number; height?: number } | null | undefined => {
+    if (category === 'sculpture') return { width: 1, depth: 1 }
     const num = (value: string) => { const parsed = Number(value.trim()); return Number.isInteger(parsed) && parsed >= 1 && parsed <= 12 ? parsed : null }
     if (!sizeW.trim() && !sizeD.trim() && !sizeH.trim()) return undefined
     const width = num(sizeW)
@@ -208,16 +224,16 @@ function CustomTab() {
     setSource(null); setPrompt(''); setImage(null); setSizeW(''); setSizeD(''); setSizeH('')
   }
   const objects = customObjects.filter((object) => availableCount(customObjectType(object.id)) > 0)
-  return <div className="custom-tab">
+  return <div ref={root} className="custom-tab">
     <input ref={file} hidden type="file" accept="image/*" onChange={(event) => { readPhoto(event.target.files?.[0]); event.currentTarget.value = '' }} />
-    {credits?.enabled && <div className="custom-credits"><span>{credits.freeLeft ? t('무료 1회 남음') : tp('생성권 {n}회', { n: credits.balance })}</span>{credits.buyUrl && <a href={credits.buyUrl} target="_blank" rel="noreferrer">{t('충전')}</a>}</div>}
+    {credits?.enabled && <div className="custom-credits"><span>{credits.freeLeft && <>{t('무료 1회 남음')} · </>}{tp('생성권 {n}회', { n: credits.balance })}</span>{credits.buyUrl && <a href={credits.buyUrl} target="_blank" rel="noreferrer">{t('충전')}</a>}</div>}
     {customJob && <CustomJobStatus job={customJob} />}
     {!source && <div className="custom-source"><button type="button" onClick={() => { setSource('text'); setError('') }}>{t('텍스트 넣기')}</button><button type="button" onClick={choosePhoto}>{t('사진 넣기')}</button></div>}
     {source && <form className="custom-form" onSubmit={submit}>
       <div className="custom-form-head"><strong>{t(source === 'text' ? '텍스트 넣기' : '사진 넣기')}</strong><button type="button" onClick={() => { setSource(null); setPrompt(''); setImage(null); setEditingImage(null); setError('') }}>×</button></div>
-      <label>{t('오브젝트 종류')}<select value={category} onChange={(event) => setCategory(event.target.value as CustomObjectCategory)}>{CUSTOM_OBJECT_CATEGORIES.map((value) => <option key={value} value={value}>{t(CUSTOM_CATEGORY_LABELS[value])}</option>)}</select></label>
+      <label><span className="custom-category-label">{t('오브젝트 종류')}<button type="button" aria-label={t('오브젝트 종류 안내')} onClick={(event) => { event.preventDefault(); setCategoryInfo(true) }}>i</button></span><select value={category} onChange={(event) => setCategory(event.target.value as CustomObjectCategory)}>{CUSTOM_OBJECT_CATEGORIES.map((value) => <option key={value} value={value}>{t(CUSTOM_CATEGORY_LABELS[value])}</option>)}</select></label>
       <label>{t('품질')}<select value={quality} onChange={(event) => setQuality(event.target.value as 'standard' | 'high')}><option value="standard">{t('일반 (1 credit)')}</option><option value="high">{t('고품질 (2 credit)')}</option></select></label>
-      <label>{t('크기 (선택)')}<div className="custom-size"><input type="number" min={1} max={12} value={sizeW} onChange={(event) => setSizeW(event.target.value)} placeholder={t('가로')} aria-label={t('가로')} /><span>×</span><input type="number" min={1} max={12} value={sizeD} onChange={(event) => setSizeD(event.target.value)} placeholder={t('세로')} aria-label={t('세로')} /><span>×</span><input type="number" min={1} max={12} value={sizeH} onChange={(event) => setSizeH(event.target.value)} placeholder={t('높이(선택)')} aria-label={t('높이(선택)')} /></div></label>
+      <label>{t('크기 (선택)')}{category === 'sculpture' ? <span className="custom-prop-size">{t('1×1칸 · 0.35칸 크기')}</span> : <div className="custom-size"><input type="number" min={1} max={12} value={sizeW} onChange={(event) => setSizeW(event.target.value)} placeholder={t('가로')} aria-label={t('가로')} /><span>×</span><input type="number" min={1} max={12} value={sizeD} onChange={(event) => setSizeD(event.target.value)} placeholder={t('세로')} aria-label={t('세로')} /><span>×</span><input type="number" min={1} max={12} value={sizeH} onChange={(event) => setSizeH(event.target.value)} placeholder={t('높이(선택)')} aria-label={t('높이(선택)')} /></div>}</label>
       {source === 'photo' && (image ? <div className="custom-photo"><img src={image} alt="" /><button type="button" aria-label={t('사진 삭제')} onClick={() => { setImage(null); file.current?.click() }}>×</button></div> : <button className="custom-photo-pick" type="button" onClick={choosePhoto}>{t('사진 넣기')}</button>)}
       {source === 'text' && <textarea maxLength={200} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={t('원하는 디자인')} />}
       {error && <p className="custom-error">{error}</p>}
@@ -233,6 +249,12 @@ function CustomTab() {
       </div>
     })}</div>}
     {editingImage && <PhotoCropEditor source={editingImage} onApply={(value) => { setImage(value); setEditingImage(null) }} onClose={() => setEditingImage(null)} />}
+    {categoryInfo && <div className="overlay custom-category-overlay" onPointerDown={(event) => { if (event.target === event.currentTarget) setCategoryInfo(false) }}>
+      <section className="custom-category-dialog" role="dialog" aria-modal="true" aria-label={t('오브젝트 종류 안내')}>
+        <header><strong>{t('오브젝트 종류')}</strong><button type="button" aria-label={t('닫기')} onClick={() => setCategoryInfo(false)}>×</button></header>
+        <dl>{CUSTOM_CATEGORY_DESCRIPTIONS.map(([value, description]) => <div key={value}><dt>{t(CUSTOM_CATEGORY_LABELS[value])}</dt><dd>{t(description)}</dd></div>)}</dl>
+      </section>
+    </div>}
   </div>
 }
 

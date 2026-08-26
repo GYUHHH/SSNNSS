@@ -1,5 +1,5 @@
 import { Vector3 } from 'three'
-import { baseFloorCells, POSED_TYPES, type CharacterState, type FurnitureItem } from '../store'
+import { baseFloorCells, isFloorCovering, POSED_TYPES, type CharacterState, type FurnitureItem } from '../store'
 import { cellsFor, floorSurface, GRID_COUNT, GRID_SIZE, gridToWorld, isOwnedSurfaceId, ownerIdOf, surfacesForOwner, worldToGrid, type GridPosition } from './roomGrid'
 
 export type InteractionType = 'sit' | 'lie' | 'work' | 'read' | 'interact'
@@ -85,7 +85,7 @@ const CELL = { width: 1, depth: 1 }
 // target pushed it outside the floor grid, snap it to the nearest free in-bounds cell around the target so the
 // character never walks (or gets slid during 'aligning') into geometry or out of the room
 const freeApproach = (world: LocalInteractionAnchor, target: FurnitureItem, furniture: FurnitureItem[], origin?: [number, number, number]): LocalInteractionAnchor => {
-  const occupied = new Set(furniture.filter((item) => item.category === 'floorFurniture' && item.type !== 'rug' && !item.removed && item.surfaceId === 'floor').flatMap((item) => baseFloorCells(item).map((cell) => `${cell.x}:${cell.y}`)))
+  const occupied = new Set(furniture.filter((item) => item.category === 'floorFurniture' && !isFloorCovering(item) && !item.removed && item.surfaceId === 'floor').flatMap((item) => baseFloorCells(item).map((cell) => `${cell.x}:${cell.y}`)))
   const inBounds = (cell: GridPosition) => cell.gridX >= 0 && cell.gridX < GRID_COUNT && cell.gridY >= 0 && cell.gridY < GRID_COUNT
   const desired = worldToGrid(floorSurface, world.position, CELL)
   const nearest = origin ? worldToGrid(floorSurface, origin, CELL) : desired

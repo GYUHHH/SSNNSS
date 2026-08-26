@@ -94,7 +94,12 @@ const FAL_IMAGE_MODEL = 'fal-ai/hunyuan-3d/v3.1/rapid/image-to-3d'
 const FAL_TEXT_MODEL = 'fal-ai/hunyuan-3d/v3.1/rapid/text-to-3d'
 // fal 큐의 상태·결과 조회는 하위 경로가 아니라 앱 루트 경로로 받는다.
 const FAL_QUEUE_APP = 'fal-ai/hunyuan-3d'
-const CATEGORY_PROMPT: Record<CustomObjectCategory, string> = { furniture: 'furniture', wallDecoration: 'wall decoration', floor: 'floor object', sculpture: 'sculpture' }
+const CATEGORY_PROMPT: Record<CustomObjectCategory, string> = {
+  furniture: 'floor-standing furniture with a stable base',
+  wallDecoration: 'thin wall-mounted object with a flat back',
+  floor: 'thin flat floor covering like a rug',
+  sculpture: 'small compact room prop',
+}
 
 async function glbSubmit(request: Request, env: Env) {
   if (!env.FAL_KEY) return json({ error: 'FAL_KEY_NOT_SET' }, 503)
