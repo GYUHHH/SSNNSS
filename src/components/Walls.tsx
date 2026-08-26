@@ -18,8 +18,8 @@ type WallEvents = { onPointerDown: (event: ThreeEvent<PointerEvent>) => void; on
 function WallImage({ source, wall, events }: { source: string; wall: PlacementSurface; events: WallEvents }) {
   const texture = useMemo(() => { const value = new TextureLoader().load(source); value.colorSpace = SRGBColorSpace; return value }, [source])
   useEffect(() => () => texture.dispose(), [texture])
-  return <mesh position={[wall.position[0] + wall.normal[0] * .001, wall.position[1] + wall.normal[1] * .001, wall.position[2] + wall.normal[2] * .001]} rotation={wall.rotation} {...events}>
-    <planeGeometry args={[wall.width, wall.height]} /><meshStandardMaterial map={texture} roughness={.9} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1} />
+  return <mesh position={[wall.position[0] + wall.normal[0] * .0005, wall.position[1] + wall.normal[1] * .0005, wall.position[2] + wall.normal[2] * .0005]} rotation={wall.rotation} {...events}>
+    <planeGeometry args={[wall.width, wall.height]} /><meshStandardMaterial map={texture} roughness={.9} />
   </mesh>
 }
 
