@@ -15,6 +15,8 @@ function ItemIcon({ item }: { item: { type: string; styleId?: string; customSpec
   return src ? <img className="inventory-icon thumb" src={src} alt="" /> : <i className={`inventory-icon ${item.type}`} />
 }
 
+const CoinIcon = () => <svg className="credit-coin" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" /><circle cx="8" cy="8" r="4.5" fill="none" /></svg>
+
 const categories: InventoryCategory[] = ['전체', '가구', '조명', '식물', '벽장식', '소품']
 // The wall and floor pickers get a tab of their own rather than sitting under every item list. Kept out of
 // InventoryCategory because that type is what filters the catalogue, and this tab shows no items at all.
@@ -227,7 +229,7 @@ function CustomTab() {
   const objects = customObjects.filter((object) => availableCount(customObjectType(object.id)) > 0)
   return <div ref={root} className="custom-tab">
     <input ref={file} hidden type="file" accept="image/*" onChange={(event) => { readPhoto(event.target.files?.[0]); event.currentTarget.value = '' }} />
-    {credits?.enabled && <div className="custom-credits"><span>{credits.freeLeft && <>{t('무료 1회 남음')} · </>}{tp('생성권 {n}회', { n: credits.balance })}</span>{credits.buyUrl && <a href={credits.buyUrl} target="_blank" rel="noreferrer">{t('충전')}</a>}</div>}
+    {credits?.enabled && <div className="custom-credits"><span>{credits.freeLeft && <>{t('무료 1회 남음')} · </>}<span className="credit-balance"><CoinIcon />Credits {credits.balance}</span></span>{credits.buyUrl && <a href={credits.buyUrl} target="_blank" rel="noreferrer">{t('충전')}</a>}</div>}
     {customJob && <CustomJobStatus job={customJob} />}
     {!source && <div className="custom-source"><button type="button" onClick={() => { setSource('text'); setError('') }}>{t('텍스트 넣기')}</button><button type="button" onClick={choosePhoto}>{t('사진 넣기')}</button></div>}
     {source && <form className="custom-form" onSubmit={submit}>
