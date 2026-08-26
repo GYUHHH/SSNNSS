@@ -88,8 +88,10 @@ export const surfacesForOwner = (item: SurfaceHost): PlacementSurface[] => {
     const fitY = Math.min(fitX, fitZ)
     const width = top.size[0] * fitX * scale[0]
     const depth = top.size[1] * fitZ * scale[2]
-    const columns = Math.floor(width / (GRID_SIZE / 2) + 1e-4)
-    const rows = Math.floor(depth / (GRID_SIZE / 2) + 1e-4)
+    // 실측 윗면은 베벨·모서리 때문에 늘 모델 폭보다 조금 작다 — floor로 자르면 1칸짜리 축이 무조건 0.5칸 손해라
+    // 반올림하고, 대신 자기 차지 칸(footprint*2)을 넘지 못하게 막는다
+    const columns = Math.min(item.footprint.width * 2, Math.round(width / (GRID_SIZE / 2)))
+    const rows = Math.min(item.footprint.depth * 2, Math.round(depth / (GRID_SIZE / 2)))
     if (columns > 0 && rows > 0) {
       const localX = top.center[0] * fitX * scale[0]
       const localZ = top.center[1] * fitZ * scale[2]
