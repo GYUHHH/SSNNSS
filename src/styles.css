@@ -86,7 +86,7 @@ input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-
 .me-tag { position: fixed; z-index: 0; top: 26px; right: 14px; color: var(--ui-muted); font-size: 12px; pointer-events: none; }
 .build-tag { position: fixed; top: 8px; right: 10px; z-index: 0; font-size: 11px; color: #b3b3af; pointer-events: none; }
 .legal-links { position: fixed; left: 14px; bottom: 14px; z-index: 6; display: flex; gap: 12px; }
-.legal-links a { color: var(--ui-muted); font-size: 11px; text-decoration: none; }
+.legal-links a { color: #6b6b68; font-size: 12px; text-decoration: none; }
 .legal-links a:hover { color: var(--ui-text); text-decoration: underline; }
 /* the two reactions that rise out of a visitor's object click */
 .reaction-picker-dismiss { position: fixed; inset: 0; z-index: 39; background: transparent; }
