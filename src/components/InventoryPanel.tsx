@@ -11,7 +11,7 @@ import { PhotoCropEditor } from './PhotoCropEditor'
 
 function ItemIcon({ item }: { item: { type: string; styleId?: string; customSpec?: FurnitureItem['customSpec'] } }) {
   const [src, setSrc] = useState<string | null>(null)
-  useEffect(() => { let live = true; const wallId = (item as FurnitureItem).allowedSurfaces?.includes('wall') ? 'leftWall' as const : undefined; thumbnailFor({ ...item, wallId } as FurnitureItem).then((url) => { if (live) setSrc(url) }); return () => { live = false } }, [item.type, item.styleId, item.customSpec?.id])
+  useEffect(() => { let live = true; setSrc(null); const wallId = (item as FurnitureItem).allowedSurfaces?.includes('wall') ? 'leftWall' as const : undefined; thumbnailFor({ ...item, wallId } as FurnitureItem).then((url) => { if (live && url) setSrc(url) }); return () => { live = false } }, [item.type, item.styleId, item.customSpec?.id, item.customSpec?.glbUrl])
   return src ? <img className="inventory-icon thumb" src={src} alt="" /> : <i className={`inventory-icon ${item.type}`} />
 }
 

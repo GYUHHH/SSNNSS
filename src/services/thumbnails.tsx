@@ -57,7 +57,9 @@ export function thumbnailFor(item: FurnitureItem): Promise<string> {
   if (hit) return Promise.resolve(hit)
   const job = chain.then(() => Promise.race([new Promise<string>((resolve) => {
     ensureRoot()
-    root!.render(<Shot item={item} done={(url) => { cache.set(key, url); resolve(url) }} />)
+    // 품목이 바뀔 때 Shot의 GLB 준비 상태도 새로 시작해야 한다. key가 없으면 이전 품목의
+    // ready=true가 남아 새 커스텀 GLB가 붙기 전에 빈 캔버스를 썸네일로 저장한다.
+    root!.render(<Shot key={key} item={item} done={(url) => { cache.set(key, url); resolve(url) }} />)
   }), new Promise<string>((resolve) => setTimeout(() => resolve(''), item.customSpec?.glbUrl ? 20000 : 4000))]))
   chain = job.catch(() => undefined)
   return job
