@@ -110,15 +110,16 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
       if (readOnly || padOverruled(event)) return
       event.stopPropagation()
       if (editing) { selectFurniture(id); beginMove(id); return }
+      if (isVisiting()) return
       longPressed.current = false
       const target = event.target as unknown as { setPointerCapture: (pointerId: number) => void; hasPointerCapture: (pointerId: number) => boolean; releasePointerCapture: (pointerId: number) => void }
       target.setPointerCapture(event.pointerId); press.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId, target }
-      timer.current = setTimeout(() => { const held = press.current; if (!held) return; if (held.target.hasPointerCapture(held.pointerId)) held.target.releasePointerCapture(held.pointerId); longPressed.current = true; timer.current = null; if (isVisiting()) openReactionPicker({ id, x: held.x, y: held.y }); else enterEditFurniture(id) }, 500)
+      timer.current = setTimeout(() => { const held = press.current; if (!held) return; if (held.target.hasPointerCapture(held.pointerId)) held.target.releasePointerCapture(held.pointerId); longPressed.current = true; timer.current = null; enterEditFurniture(id) }, 500)
     }}
     onPointerMove={editing ? undefined : (event) => { if (!press.current) return; if (Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 9 && timer.current) cancelPress() }}
     onPointerUp={editing ? undefined : (event) => { const target = event.target as unknown as { hasPointerCapture: (pointerId: number) => boolean; releasePointerCapture: (pointerId: number) => void }; cancelPress(); if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId) }}
     onPointerCancel={editing ? undefined : cancelPress}
-    onClick={(event) => { if (readOnly || padOverruled(event)) return; event.stopPropagation(); if (editing) return; if (longPressed.current) { longPressed.current = false; return }; if (openObject(id)) return; selectObject(id) }}>
+    onClick={(event) => { if (readOnly || padOverruled(event)) return; event.stopPropagation(); if (editing) return; if (isVisiting()) { openReactionPicker({ id, x: event.clientX, y: event.clientY }); return }; if (longPressed.current) { longPressed.current = false; return }; if (openObject(id)) return; selectObject(id) }}>
     <group ref={content}>{children}</group>
     {/* the forgiving hit area. Never drawn, but three's raycaster tests layers rather than `visible`, so it is
         still a target — which is the whole point. Sized from the contents by fitPad above. */}

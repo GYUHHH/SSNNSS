@@ -155,13 +155,11 @@ function WallVideo({ frameId }: { frameId: string }) {
   const holdTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const held = useRef(false)
   const cancelHold = () => { clearTimeout(holdTimer.current); holdTimer.current = undefined }
-  const startHold = (event: React.PointerEvent) => {
+  const startHold = () => {
     held.current = false
-    const { clientX, clientY } = event
-    // the same hold every other piece answers to: a visitor gets the reaction picker, the owner goes into edit.
-    // The owner's branch was simply missing, which made the screen the one part of a video frame that refused
-    // the hold-to-edit gesture in their own room.
-    holdTimer.current = setTimeout(() => { held.current = true; if (isVisiting()) openReactionPicker({ id: frameId, x: clientX, y: clientY }); else enterEditFurniture(frameId) }, 500)
+    // Visitors use an ordinary click for reactions. The hold remains owner-only so the screen still enters edit
+    // exactly like the frame around it.
+    if (!isVisiting()) holdTimer.current = setTimeout(() => { held.current = true; enterEditFurniture(frameId) }, 500)
   }
   // Track changes may briefly wait for new aspect metadata, but the iframe must stay mounted: recreating it
   // starts muted again and drops the sound choice that was already active for this frame.
@@ -182,9 +180,9 @@ function WallVideo({ frameId }: { frameId: string }) {
           {/* the two shields carry the open-the-panel click and together cover everything but YouTube's own
               skip-ad corner, which is left live so the visitor can press it themselves */}
           {mode !== 'edit' && ['top', 'rest'].map((part) => <div key={part} className={`wall-video-shield ${part}`}
-            onPointerDown={(event) => { event.stopPropagation(); startHold(event) }}
+            onPointerDown={(event) => { event.stopPropagation(); startHold() }}
             onPointerUp={cancelHold} onPointerLeave={cancelHold} onPointerCancel={cancelHold}
-            onClick={() => { if (held.current) { held.current = false; return } if (openObject(frameId)) return; openVideoPanel(frameId) }} />)}
+            onClick={(event) => { if (held.current) { held.current = false; return } if (isVisiting()) { openReactionPicker({ id: frameId, x: event.clientX, y: event.clientY }); return } if (openObject(frameId)) return; openVideoPanel(frameId) }} />)}
         </div></Html>
       </group>
     </group>

@@ -84,10 +84,9 @@ input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-
    them. Still positioned, so they read over the room itself — the room is not a positioned layer. */
 .me-tag { position: fixed; z-index: 0; top: 26px; right: 14px; color: var(--ui-muted); font-size: 12px; pointer-events: none; }
 .build-tag { position: fixed; top: 8px; right: 10px; z-index: 0; font-size: 11px; color: #b3b3af; pointer-events: none; }
-/* the two reactions that rise out of a long press: pop in, then lean toward the pointer when it comes close */
-/* fill-mode is backwards, never both: with both, the finished animation keeps owning `transform` and the
-   magnetic offset written inline would never take effect. Size and colour ride the same inline transform. */
-.reaction-pick { position: fixed; z-index: 40; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; color: #3a3a38; background: #fff; box-shadow: 0 6px 18px rgb(0 0 0 / 22%); pointer-events: none; animation: reaction-pop .26s cubic-bezier(.2, 1.5, .4, 1) backwards; transition: transform .16s cubic-bezier(.2, 1.4, .4, 1), color .16s ease; }
+/* the two reactions that rise out of a visitor's object click */
+.reaction-picker-dismiss { position: fixed; inset: 0; z-index: 39; background: transparent; }
+.reaction-pick { position: fixed; z-index: 40; display: grid; place-items: center; width: 46px; height: 46px; padding: 0; border: 0; border-radius: 50%; color: #3a3a38; background: #fff; box-shadow: 0 6px 18px rgb(0 0 0 / 22%); transform: translate(-50%, -50%); animation: reaction-pop .26s cubic-bezier(.2, 1.5, .4, 1) backwards; transition: transform .16s cubic-bezier(.2, 1.4, .4, 1), color .16s ease; }
 .reaction-pick.on { color: var(--ui-red); }
 @keyframes reaction-pop { 0% { opacity: 0; transform: translate(-50%, calc(-50% + 14px)) scale(0) } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1) } }
 .like-burst { position: fixed; z-index: 40; transform: translate(-50%, -50%); color: #e0455e; font-size: 24px; font-weight: 700; pointer-events: none; animation: like-rise .95s ease-out forwards; text-shadow: 0 1px 6px rgb(0 0 0 / 20%); }
