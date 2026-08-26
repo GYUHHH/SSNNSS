@@ -97,15 +97,19 @@ function RoomColorEditor() {
   const floor = floorStyleOf(floorStyle)
   return <div className="room-colors">
     <section className="room-style-section"><strong>{t('벽')}</strong>
-      {([['leftWall', '왼쪽 벽', '왼쪽 벽 이미지'], ['rightWall', '오른쪽 벽', '오른쪽 벽 이미지']] as const).map(([wallId, label, imageLabel]) => <div key={wallId} className="room-style-surface"><span>{t(label)}</span>
-        <div className="room-color-row"><span>{t('색상')}</span><ColorField value={colorOf(wallStyle[wallId], DEFAULT_WALL_COLOR[wallId])} onPick={(hex) => setWallStyle(wallId, hex)} /></div>
-        <SurfaceImagePicker label={imageLabel} image={wallStyle[wallId === 'leftWall' ? 'leftWallImage' : 'rightWallImage']} onChange={(image) => setWallImage(wallId, image)} />
+      {([['leftWall', '왼쪽 벽'], ['rightWall', '오른쪽 벽']] as const).map(([wallId, label]) => <div key={wallId} className="room-style-surface"><span>{t(label)}</span>
+        <div className="room-color-pair">
+          <div className="room-color-row"><span>{t('색상')}</span><ColorField value={colorOf(wallStyle[wallId], DEFAULT_WALL_COLOR[wallId])} onPick={(hex) => setWallStyle(wallId, hex)} /></div>
+          <SurfaceImagePicker label="이미지" image={wallStyle[wallId === 'leftWall' ? 'leftWallImage' : 'rightWallImage']} onChange={(image) => setWallImage(wallId, image)} />
+        </div>
       </div>)}
     </section>
     <section className="room-style-section"><strong>{t('바닥')}</strong>
-      <div className="room-color-row"><span>{t('바닥 재질')}</span><div className="style-swatches">{floorStyles.map((style) => <FloorMaterialSwatch key={style.id} style={style} active={floor.id === style.id} onPick={() => setFloorStyle(style.id)} />)}</div></div>
-      <div className="room-color-row"><span>{t('바닥 색상')}</span><ColorField value={floor.color} onPick={(hex) => setFloorStyle(`${floor.id}${hex}`)} /></div>
-      <SurfaceImagePicker label="바닥 이미지" image={floorImage} onChange={setFloorImage} />
+      <div className="room-color-row"><span>{t('재질')}</span><div className="style-swatches">{floorStyles.map((style) => <FloorMaterialSwatch key={style.id} style={style} active={floor.id === style.id} onPick={() => setFloorStyle(style.id)} />)}</div></div>
+      <div className="room-color-pair">
+        <div className="room-color-row"><span>{t('색상')}</span><ColorField value={floor.color} onPick={(hex) => setFloorStyle(`${floor.id}${hex}`)} /></div>
+        <SurfaceImagePicker label="이미지" image={floorImage} onChange={setFloorImage} />
+      </div>
     </section>
   </div>
 }
