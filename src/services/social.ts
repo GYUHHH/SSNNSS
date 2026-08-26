@@ -199,9 +199,10 @@ const ownHandle = () => ownerHandle
 export const currentRoomHandle = () => (isVisiting() ? visitHandle : ownHandle())
 // the writer's OWN id, even while visiting someone else's room (reads the local profile directly)
 export const myHandle = () => plainRoot ? null : ownHandle()
+const PROFILE_KEY = 'my-room-profile-v1'
 const profilePhoto = (bundle: Record<string, string>, handle?: string | null) => {
   try {
-    const profile = JSON.parse(bundle['my-room-profile-v1'] ?? '{}')
+    const profile = JSON.parse(bundle[PROFILE_KEY] ?? '{}')
     if (profile?.photoOwner && handle && profile.photoOwner !== handle) return DEFAULT_PROFILE_PHOTO
     return normalizeProfilePhoto(typeof profile?.photo === 'string' ? profile.photo : null)
   } catch { return DEFAULT_PROFILE_PHOTO }
@@ -400,11 +401,13 @@ export async function fetchGuestbook(): Promise<RemoteGuestComment[] | null> {
     const handles = [...new Set(rows.map((row) => row?.name).filter((name): name is string => /^[a-z0-9_]{3,20}$/.test(name)))]
     if (!handles.length) return rows
     try {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=in.(${handles.join(',')})&select=handle,data`, { headers })
+      // 필요한 건 프로필 한 조각인데 방 번들 전체를 받아오면 사람당 수십 KB가 오간다.
+      // PostgREST가 jsonb 키 하나만 뽑아줄 수 있어서 그 키만 받는다 — 저장 형식이 문자열이라 ->> 로 그대로 온다.
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=in.(${handles.join(',')})&select=handle,profile:data->>${PROFILE_KEY}`, { headers })
       const rooms = await response.json()
       if (!response.ok || !Array.isArray(rooms)) return rows
       const photos = new Map<string, string>()
-      for (const room of rooms) if (typeof room?.handle === 'string' && room?.data && typeof room.data === 'object') photos.set(room.handle, profilePhoto(room.data, room.handle))
+      for (const room of rooms) if (typeof room?.handle === 'string' && typeof room?.profile === 'string') photos.set(room.handle, profilePhoto({ [PROFILE_KEY]: room.profile }, room.handle))
       return rows.map((row) => ({ ...row, photo: photos.get(row.name) }))
     } catch { return rows }
   } catch { return null }
