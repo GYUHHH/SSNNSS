@@ -69,11 +69,21 @@ const shiftAwareEvents: NonNullable<Parameters<typeof Canvas>[0]['events']> = (s
 // values over in a single frame — so the lights live here behind refs, the JSX only ever carries the values from
 // mount, and every change eases toward its target instead. The matching background glide is CSS on .canvas-host.
 function CrossfadingLights({ preset }: { preset: typeof LIGHTING[keyof typeof LIGHTING] }) {
+  const { gl } = useThree()
+  const { currentHandle } = useRoomStore()
   const ambient = useRef<AmbientLight>(null)
   const dir = useRef<DirectionalLight>(null)
   const initial = useRef(preset).current
   const goal = useRef({ ambient: initial.ambient, dir: initial.dir, ambientColor: new Color(initial.ambientColor), dirColor: new Color(initial.dirColor) })
+  const wasZoomedIn = useRef<boolean | null>(null)
+  const shadowRefreshAt = useRef(performance.now() + 300)
   useEffect(() => { goal.current = { ambient: preset.ambient, dir: preset.dir, ambientColor: new Color(preset.ambientColor), dirColor: new Color(preset.dirColor) } }, [preset])
+  useEffect(() => {
+    gl.shadowMap.autoUpdate = false
+    shadowRefreshAt.current = performance.now() + 300
+    return () => { gl.shadowMap.autoUpdate = true }
+  }, [gl])
+  useEffect(() => { shadowRefreshAt.current = performance.now() + 300 }, [currentHandle])
   useFrame(({ camera, size }, delta) => {
     const step = Math.min(delta, 1 / 30)
     const blend = 1 - Math.exp(-6 * step)
@@ -84,13 +94,19 @@ function CrossfadingLights({ preset }: { preset: typeof LIGHTING[keyof typeof LI
     // castShadow는 완전히 사라진 뒤에만 꺼서 그림자 패스 비용도 같이 없앤다.
     if (dir.current) {
       const zoomedIn = camera.zoom > entryZoom(size.width, size.height)
-      dir.current.shadow.intensity = MathUtils.damp(dir.current.shadow.intensity, zoomedIn ? 1 : 0, 6, step)
+      dir.current.shadow.intensity = MathUtils.damp(dir.current.shadow.intensity, zoomedIn ? .28 : 0, 6, step)
       dir.current.castShadow = dir.current.shadow.intensity > .01
+      if (zoomedIn && wasZoomedIn.current === false) shadowRefreshAt.current = performance.now() + 120
+      wasZoomedIn.current = zoomedIn
+      if (zoomedIn && performance.now() >= shadowRefreshAt.current) {
+        gl.shadowMap.needsUpdate = true
+        shadowRefreshAt.current = Infinity
+      }
     }
   })
   return <>
     <ambientLight ref={ambient} intensity={initial.ambient} color={initial.ambientColor} />
-    <directionalLight ref={dir} castShadow position={[4, 6.5, 2]} intensity={initial.dir} color={initial.dirColor} shadow-mapSize-width={1024} shadow-mapSize-height={1024} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
+    <directionalLight ref={dir} castShadow position={[3, 8, 3]} intensity={initial.dir} color={initial.dirColor} shadow-mapSize-width={512} shadow-mapSize-height={512} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
   </>
 }
 
