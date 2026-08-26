@@ -1,4 +1,5 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { frameFamily, type FurnitureItem, initialFurniture, inventoryItems, type InventoryCategory, useRoomStore } from '../store'
 import { thumbnailFor, thumbnailForFloorStyle } from '../services/thumbnails'
 import { colorOf, customizableTypes, DEFAULT_WALL_COLOR, floorStyleOf, floorStyles, type FloorStyle } from '../services/styles'
@@ -249,12 +250,12 @@ function CustomTab() {
       </div>
     })}</div>}
     {editingImage && <PhotoCropEditor source={editingImage} onApply={(value) => { setImage(value); setEditingImage(null) }} onClose={() => setEditingImage(null)} />}
-    {categoryInfo && <div className="overlay custom-category-overlay" onPointerDown={(event) => { if (event.target === event.currentTarget) setCategoryInfo(false) }}>
+    {categoryInfo && createPortal(<div className="overlay custom-category-overlay" onPointerDown={(event) => { if (event.target === event.currentTarget) setCategoryInfo(false) }}>
       <section className="custom-category-dialog" role="dialog" aria-modal="true" aria-label={t('오브젝트 종류 안내')}>
         <header><strong>{t('오브젝트 종류')}</strong><button type="button" aria-label={t('닫기')} onClick={() => setCategoryInfo(false)}>×</button></header>
         <dl>{CUSTOM_CATEGORY_DESCRIPTIONS.map(([value, description]) => <div key={value}><dt>{t(CUSTOM_CATEGORY_LABELS[value])}</dt><dd>{t(description)}</dd></div>)}</dl>
       </section>
-    </div>}
+    </div>, document.body)}
   </div>
 }
 
