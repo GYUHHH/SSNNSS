@@ -556,6 +556,11 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 .profile-visits i { margin: 0 6px; color: #c3b6a6; font-style: normal; }
 .profile-friends { margin: 0; color: #54544f; font-size: 14px; }
 .profile-friends b { font-size: 17px; color: #3f3a33; margin-left: 4px; }
+.capture-preview-overlay { position: fixed; z-index: 2; inset: 0; display: grid; place-items: center; padding: 16px; background: rgb(38 30 24 / 40%); }
+.capture-preview { display: grid; gap: 10px; width: min(680px, 94vw); max-height: 92dvh; padding: 10px; border-radius: 8px; background: #fff; }
+.capture-preview img { display: block; width: 100%; max-height: calc(92dvh - 64px); object-fit: contain; }
+.capture-preview-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.capture-preview-actions button { min-width: 72px; padding: 9px 14px; border: 0; border-radius: 6px; background: var(--ui-blue); color: #fff; font-weight: 600; cursor: pointer; }
 
 /* bookshelf management stays hidden until the bottom-right pencil is opened. */
 .bookshelf-panel { padding-bottom: 62px; }

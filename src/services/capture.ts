@@ -77,20 +77,23 @@ export async function captureRoom(): Promise<HTMLCanvasElement | null> {
     }
     context.restore()
   }
+  // The room backdrop is CSS on .canvas-host, not WebGL, so it must be composited explicitly. Using the
+  // computed colour captures the exact day/evening/night colour currently visible during its transition.
+  const host = glCanvas.closest<HTMLElement>('.canvas-host')
+  context.fillStyle = host ? getComputedStyle(host).backgroundColor : '#f4f4f2'
+  context.fillRect(0, 0, copy.width, copy.height)
   context.globalCompositeOperation = 'source-over'
   return copy
 }
 
-const captureFile = async () => {
+export const captureRoomFile = async () => {
   const canvas = await captureRoom()
   if (!canvas) return null
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', .9))
   return blob ? new File([blob], 'my-room.jpg', { type: 'image/jpeg' }) : null
 }
 
-export async function saveRoomCapture(): Promise<'saved' | null> {
-  const file = await captureFile()
-  if (!file) return null
+export function saveCaptureFile(file: File): 'saved' {
   const anchor = document.createElement('a')
   anchor.href = URL.createObjectURL(file)
   anchor.download = file.name
@@ -99,10 +102,13 @@ export async function saveRoomCapture(): Promise<'saved' | null> {
   return 'saved'
 }
 
+export async function saveRoomCapture(): Promise<'saved' | null> {
+  const file = await captureRoomFile()
+  return file ? saveCaptureFile(file) : null
+}
+
 // mobile gets the native share sheet (image + invite link); desktop saves the image and copies the link
-export async function shareRoom(): Promise<'shared' | 'saved' | null> {
-  const file = await captureFile()
-  if (!file) return null
+export async function shareCaptureFile(file: File): Promise<'shared' | 'saved' | null> {
   const link = (await myInviteLink()) ?? `${location.origin}/${myHandle() ?? ''}`
   if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
     try {
@@ -117,4 +123,9 @@ export async function shareRoom(): Promise<'shared' | 'saved' | null> {
   setTimeout(() => URL.revokeObjectURL(anchor.href), 5000)
   await navigator.clipboard.writeText(link).catch(() => { /* clipboard unavailable */ })
   return 'saved'
+}
+
+export async function shareRoom(): Promise<'shared' | 'saved' | null> {
+  const file = await captureRoomFile()
+  return file ? shareCaptureFile(file) : null
 }

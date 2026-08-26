@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRoomStore } from '../store'
 import { currentRoomHandle, currentUserEmail, isVisiting, myHandle, onAuthChange, signOut } from '../services/social'
 import { fetchFollowers, onFollowsChange } from '../services/follows'
-import { saveRoomCapture, shareRoom } from '../services/capture'
+import { captureRoomFile, saveCaptureFile, shareCaptureFile, shareRoom } from '../services/capture'
 import { PhotoCropEditor } from './PhotoCropEditor'
 import { t } from '../services/i18n'
 
@@ -19,11 +19,14 @@ export default function ProfileCard() {
   const [editingPhoto, setEditingPhoto] = useState<string | null>(null)
   const [followers, setFollowers] = useState(0)
   const [actionHint, setActionHint] = useState<string | null>(null)
+  const [capturePreview, setCapturePreview] = useState<File | null>(null)
+  const captureUrl = useMemo(() => capturePreview ? URL.createObjectURL(capturePreview) : null, [capturePreview])
   useEffect(() => {
     void currentUserEmail().then((email) => setSignedIn(!!email))
     return onAuthChange((email) => setSignedIn(!!email))
   }, [])
   useEffect(() => () => window.clearTimeout(actionHintTimerRef.current), [])
+  useEffect(() => () => { if (captureUrl) URL.revokeObjectURL(captureUrl) }, [captureUrl])
   // followers of the room being looked at, refreshed whenever a follow lands
   useEffect(() => {
     const handle = currentRoomHandle()
@@ -42,12 +45,17 @@ export default function ProfileCard() {
     window.clearTimeout(actionHintTimerRef.current)
     actionHintTimerRef.current = window.setTimeout(() => setActionHint(null), 1100)
   }
+  const openCapturePreview = async () => {
+    showActionHint(t('캡처 중'))
+    const file = await captureRoomFile()
+    if (file) setCapturePreview(file)
+  }
   return <div className="profile-overlay" onMouseDown={(event) => event.currentTarget === event.target && closeProfile()}>
     <section className="profile-card" aria-label={t('프로필')}>
       {/* a device can hold its id without an open session (the token expires) — it still needs a way out */}
       {(signedIn || myHandle()) && !isVisiting() && <div className="profile-actions">
         {actionHint && <span className="profile-action-hint" role="status">{actionHint}</span>}
-        <button type="button" aria-label={t('방 캡처')} onClick={() => { showActionHint(t('캡처 중')); void saveRoomCapture().then((result) => { if (result) showActionHint(t('캡처 저장됨')) }) }}><CaptureIcon /></button>
+        <button type="button" aria-label={t('방 캡처')} onClick={() => void openCapturePreview()}><CaptureIcon /></button>
         <button type="button" aria-label={t('방 공유')} onClick={() => { showActionHint(t('방 공유')); void shareRoom() }}><ShareIcon /></button>
         <button className="profile-signout" type="button" aria-label={t('로그아웃')} onClick={() => { void signOut().then(() => location.replace(import.meta.env.BASE_URL)) }}><SignOutIcon /></button>
       </div>}
@@ -66,5 +74,14 @@ export default function ProfileCard() {
       <input ref={inputRef} type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) pick(file); event.target.value = '' }} />
     </section>
     {editingPhoto && <PhotoCropEditor source={editingPhoto} aspect={1} output={[512, 512]} onClose={closeEditor} onApply={(photo) => { setProfilePhoto(photo); closeEditor() }} />}
+    {capturePreview && captureUrl && <div className="capture-preview-overlay" onPointerDown={(event) => event.currentTarget === event.target && setCapturePreview(null)}>
+      <section className="capture-preview" aria-label={t('방 캡처')}>
+        <img src={captureUrl} alt={t('방 캡처')} />
+        <div className="capture-preview-actions">
+          <button type="button" onClick={() => { saveCaptureFile(capturePreview); setCapturePreview(null) }}>{t('저장')}</button>
+          <button type="button" onClick={() => void shareCaptureFile(capturePreview).then((result) => { if (result) setCapturePreview(null) })}>{t('공유')}</button>
+        </div>
+      </section>
+    </div>}
   </div>
 }
