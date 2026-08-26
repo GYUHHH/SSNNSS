@@ -85,7 +85,7 @@ input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-
    them. Still positioned, so they read over the room itself — the room is not a positioned layer. */
 .me-tag { position: fixed; z-index: 0; top: 26px; right: 14px; color: var(--ui-muted); font-size: 12px; pointer-events: none; }
 .build-tag { position: fixed; top: 8px; right: 10px; z-index: 0; font-size: 11px; color: #b3b3af; pointer-events: none; }
-.legal-links { position: fixed; left: 14px; right: 14px; bottom: 14px; z-index: 6; display: flex; justify-content: space-between; gap: 12px; pointer-events: none; }
+.legal-links { position: fixed; left: 14px; right: 14px; bottom: 14px; z-index: 0; display: flex; justify-content: space-between; gap: 12px; pointer-events: none; }
 .legal-links > span { display: flex; gap: 12px; }
 .legal-links a { color: #6b6b68; font-size: 12px; text-decoration: none; pointer-events: auto; }
 .legal-links a:hover { color: var(--ui-text); text-decoration: underline; }
