@@ -1,0 +1,72 @@
+Subject: Re: Additional information for our application
+
+Hi Lasya,
+
+Thanks for reviewing our application. Here are the details you asked for.
+
+
+1. WHAT WE SELL
+
+'Den' is a web app where each user decorates a small 3D isometric
+room and shares it with friends. Inside the app, users can generate their own
+custom 3D furniture from a text prompt or from a photo.
+
+The only paid item is a credit pack that powers those AI generations:
+
+- Credits are a consumable in-app balance. They are not a subscription and
+  not a physical good.
+- Spending a credit runs one 3D generation on the user's behalf (we use
+  fal.ai's Hunyuan3D model) and delivers the finished model directly into
+  that user's own room, within about a minute.
+- Generated models are for personal use inside the user's own room only.
+  They are not downloadable, not transferable between accounts, and not
+  resellable. Nothing is minted, tokenized, or tradeable.
+- Every new account gets 1 free generation, so buyers know exactly what they
+  are paying for before their first purchase.
+- Our cost per generation is the third-party model API; the credit price
+  covers that plus hosting.
+
+
+2. PRICING
+
+  Item                        Price       Type
+  --------------------------------------------------------
+  Credit pack - 5 credits     $3.99 USD   One-time purchase
+
+How credits are spent inside the app:
+
+  - Standard quality generation ........ 1 credit
+  - High quality (PBR / glossy) ........ 2 credits
+
+There are no subscriptions, no recurring charges, and no auto-renewal.
+Buyers can purchase multiple packs by increasing the quantity at checkout.
+Credits are added to the account balance through your order_created webhook.
+
+
+3. WHO IT IS FOR
+
+Consumers - mainly younger users who enjoy customizing and sharing a
+personal space online. It is a hobby and social product, not a B2B tool.
+
+
+4. DEMO VIDEO
+
+https://youtu.be/P-_Kp7ZfRTU
+
+
+5. SOCIAL ACCOUNTS
+
+https://www.instagram.com/whatsinmyden?igsi=MTZjYWlsZDl5MHh0bg%3D%3D&utm_source=qr
+
+
+6. BUSINESS DETAILS
+
+  Website: dens.world
+  Legal name: GYUHYUN PARK
+  Country: South Korea
+
+Happy to provide a test account with credits if you would like to try the
+flow yourself.
+
+Best regards,
+GyuHyun Park

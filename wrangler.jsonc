@@ -14,8 +14,7 @@
     "not_found_handling": "single-page-application"
   },
   "vars": {
-    "FUNGIES_CREDITS_PER_ORDER": "5",
-    "FUNGIES_FIRST_OFFER_ID": "696dc93e-bf57-4254-8ea1-b6c5eca387cc",
+    "CREEM_CREDITS_PER_ORDER": "5",
     "LS_CREDITS_PER_ORDER": "5",
     "LS_BUY_URL": "https://itsden.lemonsqueezy.com/checkout/buy/965944b8-a3d8-4c6f-92c5-5547c1357522"
   },
