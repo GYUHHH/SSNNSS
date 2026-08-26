@@ -9,7 +9,7 @@ export type MusicTrack = { id: string; title: string; artist: string; url?: stri
 
 const REGISTRY_KEY = 'my-room-music-v1'
 const BUILTIN: Record<string, string> = { lany: `${publicBase}music/a-star-we-never-named.mp3` }
-const SEED: MusicTrack[] = [{ id: 'lany', title: 'A Star We Never Named', artist: 'LANY' }]
+const SEED: MusicTrack[] = [{ id: 'lany', title: 'A Star We Never Named', artist: '' }]
 
 export const loadTracks = (): MusicTrack[] => {
   try { const saved = JSON.parse(readStored(REGISTRY_KEY) ?? 'null'); if (Array.isArray(saved) && saved.length) return saved } catch { /* storage may be unavailable */ }

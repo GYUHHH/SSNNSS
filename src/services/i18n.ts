@@ -46,6 +46,7 @@ const EN: Record<string, string> = {
   "핑크 미니 소파": "Pink Mini Sofa",
   "무료 1회 남음": "1 free generation left",
   "생성권이 없어요": "Out of credits",
+  "만들 수 없는 내용이에요": "That content can't be generated",
   "충전": "Buy more",
   "생성권 {n}회": "{n} credits",
   "기록장": "Journal",

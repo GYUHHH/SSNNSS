@@ -490,7 +490,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
         setCustomJob({ stage: 'done', round: 0, unseen: true, name })
       } catch (reason) {
         const message = reason instanceof Error ? reason.message : String(reason)
-        setCustomJob({ stage: 'error', round: 0, unseen: true, error: message === 'NO_CREDITS' ? t('생성권이 없어요') : message })
+        setCustomJob({ stage: 'error', round: 0, unseen: true, error: message === 'NO_CREDITS' ? t('생성권이 없어요') : message === 'BLOCKED_PROMPT' ? t('만들 수 없는 내용이에요') : message })
       }
     })()
   }
