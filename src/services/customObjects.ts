@@ -28,11 +28,24 @@ export type CustomSize = { width: number; depth: number; height?: number }
 
 export type CreditStatus = { enabled: boolean; balance: number; freeLeft: boolean; buyUrl: string | null; checkout: boolean }
 
+const CREDITS_CACHE_KEY = 'my-room-credits-v1'
+const CREDITS_CACHE_TTL = 60 * 60 * 1000
+
+// 응답을 기다리는 동안 지난번 잔액을 먼저 보여준다(1시간 만료). 도착하면 바로 덮어쓴다.
+export const cachedCredits = (): CreditStatus | null => {
+  try {
+    const cached = JSON.parse(readStored(CREDITS_CACHE_KEY) ?? 'null') as { at?: number; value?: CreditStatus } | null
+    return cached?.value && typeof cached.at === 'number' && Date.now() - cached.at < CREDITS_CACHE_TTL ? cached.value : null
+  } catch { return null }
+}
+
 export async function fetchCredits(): Promise<CreditStatus> {
   const response = await fetch('/api/custom-objects/credits', { method: 'POST', headers: await authHeaders() })
   const body = await response.json().catch(() => null) as Partial<CreditStatus> | null
   if (!response.ok || !body) return { enabled: false, balance: 0, freeLeft: false, buyUrl: null, checkout: false }
-  return { enabled: !!body.enabled, balance: body.balance ?? 0, freeLeft: !!body.freeLeft, buyUrl: body.buyUrl ?? null, checkout: !!body.checkout }
+  const value: CreditStatus = { enabled: !!body.enabled, balance: body.balance ?? 0, freeLeft: !!body.freeLeft, buyUrl: body.buyUrl ?? null, checkout: !!body.checkout }
+  writeStored(CREDITS_CACHE_KEY, JSON.stringify({ at: Date.now(), value }))
+  return value
 }
 
 export async function createCreditCheckout(): Promise<string> {

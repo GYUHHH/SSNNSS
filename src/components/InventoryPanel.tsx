@@ -6,7 +6,7 @@ import { colorOf, customizableTypes, DEFAULT_WALL_COLOR, floorStyleOf, floorStyl
 import { DEFAULT_APPEARANCE as CHARACTER_DEFAULTS } from './Character'
 import { t, tp } from '../services/i18n'
 import { CUSTOM_OBJECT_CATEGORIES, customObjectType, type CustomObjectCategory } from '../customObjectSpec'
-import { createCreditCheckout, customObjectTemplate, fetchCredits, type CreditStatus } from '../services/customObjects'
+import { cachedCredits, createCreditCheckout, customObjectTemplate, fetchCredits, type CreditStatus } from '../services/customObjects'
 import { PhotoCropEditor } from './PhotoCropEditor'
 
 function ItemIcon({ item }: { item: { type: string; styleId?: string; customSpec?: FurnitureItem['customSpec'] } }) {
@@ -177,7 +177,7 @@ function CustomTab() {
   const { customObjects, startPreview, startCustomObjectEdit, availableCount, customJob, runCustomGeneration, markCustomSeen, removeCustomObject } = useRoomStore()
   const [removing, setRemoving] = useState<string | null>(null)
   // 생성권 잔액: 결제가 구성된 경우에만 표시·차단. 생성이 끝날 때마다 새로 읽는다.
-  const [credits, setCredits] = useState<CreditStatus | null>(null)
+  const [credits, setCredits] = useState<CreditStatus | null>(cachedCredits)
   const [openingCheckout, setOpeningCheckout] = useState(false)
   useEffect(() => { let live = true; void fetchCredits().then((value) => { if (live) setCredits(value) }); return () => { live = false } }, [customJob?.stage])
   // 탭을 열어본 순간 완료/실패 빨간점은 해소된 것으로 본다
