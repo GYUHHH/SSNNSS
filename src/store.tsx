@@ -478,7 +478,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
         }
         if (!model) throw new Error('MODEL_TIMEOUT')
         setCustomJob({ stage: 'verify', round: 0, unseen: false })
-        const generated = await generatedModelBlob(model, input.finish)
+        const generated = await generatedModelBlob(model, input.finish, input.category)
         setCustomJob({ stage: 'verify', round: 1, unseen: false })
         const id = `g${Date.now()}`
         const stored = await uploadMedia(`glbobj/${id}`, generated.blob)

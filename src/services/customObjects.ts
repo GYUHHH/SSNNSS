@@ -149,6 +149,70 @@ async function optimizeGlb(buffer: ArrayBuffer, sourceTriangles: number, targetT
   return (await io.writeBinary(document)).buffer
 }
 
+// 생성 모델은 다리 길이가 제각각이라 제일 긴 발 하나만 닿고 나머지가 뜬다 — GlbFurniture가 최저 정점을
+// 바닥에 맞추기 때문이다(미끄럼틀은 접지점 3개 중 1개만 닿아 나머지가 칸의 1/4만큼 매달렸다). 바닥 근처
+// 기둥들의 높이를 모아 그 아래를 평평하게 눌러 전부 닿게 한다. 자르는 게 아니라 누르는 것이라 면이
+// 떨어져 나가거나 위상이 깨지지 않는다.
+const GROUND_BAND = .08
+// 눌러야 할 높이(월드 Y). 손댈 이유가 없으면 null.
+// cellMins: XZ 격자 칸마다의 최저 Y. floor/height: 모델 바운즈의 바닥과 높이.
+export const baseCutLevel = (cellMins: number[], floor: number, height: number): number | null => {
+  if (!(height > 0)) return null
+  const feet = cellMins.filter((y) => y - floor <= height * GROUND_BAND).sort((left, right) => left - right)
+  // 바닥 근처 칸이 다수면 원래 밑면이 넓거나 둥근 것(빈백·러그) — 누르면 납작해지므로 건드리지 않는다
+  if (!feet.length || feet.length >= cellMins.length * .4) return null
+  // 최대값은 발의 비스듬한 옆면까지 물어 과하게 눌린다. 75퍼센타일이 실측에서 실제 발 높이에 가장 가까웠다
+  const cut = Math.min(feet[Math.floor((feet.length - 1) * .75)], floor + height * GROUND_BAND)
+  return cut - floor < height * .005 ? null : cut
+}
+
+const levelBase = (object: Object3D, bounds: import('three').Box3, three: typeof import('three')) => {
+  const size = bounds.getSize(new three.Vector3())
+  if (!(size.y > 0)) return
+  object.updateMatrixWorld(true)
+  const grid = 32
+  const cells = new Float64Array(grid * grid).fill(Infinity)
+  const point = new three.Vector3()
+  const axis = (value: number, min: number, span: number) => Math.min(grid - 1, Math.max(0, Math.floor((value - min) / Math.max(span, 1e-9) * grid)))
+  const meshes: Mesh[] = []
+  object.traverse((node) => { const mesh = node as Mesh; if (mesh.isMesh && mesh.geometry.getAttribute('position')) meshes.push(mesh) })
+  for (const mesh of meshes) {
+    const position = mesh.geometry.getAttribute('position')
+    for (let index = 0; index < position.count; index += 1) {
+      point.fromBufferAttribute(position, index).applyMatrix4(mesh.matrixWorld)
+      const at = axis(point.z, bounds.min.z, size.z) * grid + axis(point.x, bounds.min.x, size.x)
+      if (point.y < cells[at]) cells[at] = point.y
+    }
+  }
+  const cut = baseCutLevel([...cells].filter(Number.isFinite), bounds.min.y, size.y)
+  if (cut === null) return
+  const inverse = new three.Matrix4()
+  for (const mesh of meshes) {
+    const position = mesh.geometry.getAttribute('position')
+    inverse.copy(mesh.matrixWorld).invert()
+    let moved = false
+    for (let index = 0; index < position.count; index += 1) {
+      point.fromBufferAttribute(position, index).applyMatrix4(mesh.matrixWorld)
+      if (point.y >= cut) continue
+      point.y = cut
+      point.applyMatrix4(inverse)
+      position.setXYZ(index, point.x, point.y, point.z)
+      moved = true
+    }
+    if (moved) { position.needsUpdate = true; mesh.geometry.computeVertexNormals(); mesh.geometry.computeBoundingBox() }
+  }
+}
+
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
+  // 미끄럼틀 실측: 지면 칸 대부분은 높고, 발은 소수 — 사다리 발 높이까지 눌러 셋 다 닿게 한다
+  const slide = [0, .06, .06, ...Array.from({ length: 20 }, () => .5)]
+  console.assert(baseCutLevel(slide, 0, 1) === .06, 'uneven feet must be levelled to the foot height')
+  // 둥근 밑면 실측: 지면 칸 대부분이 바닥 근처 — 누르면 납작해지므로 손대지 않는다
+  console.assert(baseCutLevel([0, .01, .02, .03, .04, .05], 0, 1) === null, 'a wide or rounded base must be left alone')
+  // 이미 평평한 밑면은 누를 것이 없다
+  console.assert(baseCutLevel([0, 0, 0, ...Array.from({ length: 20 }, () => .5)], 0, 1) === null, 'a flat base must not be touched')
+}
+
 function modelMetadata(object: Object3D, bounds: import('three').Box3, three: typeof import('three')): { modelSize: [number, number, number]; topSurface?: CustomTopSurface } {
   const size = bounds.getSize(new three.Vector3())
   const tolerance = Math.max(size.y * .02, 1e-4)
@@ -194,7 +258,7 @@ export async function inspectCustomModel(url: string) {
   return modelMetadata(object, bounds, three)
 }
 
-export async function generatedModelBlob(model: GeneratedModel, finish?: 'gloss'): Promise<{ blob: Blob; modelSize: [number, number, number]; topSurface?: CustomTopSurface }> {
+export async function generatedModelBlob(model: GeneratedModel, finish?: 'gloss', category?: CustomObjectCategory): Promise<{ blob: Blob; modelSize: [number, number, number]; topSurface?: CustomTopSurface }> {
   const [{ OBJLoader }, { GLTFLoader }, { GLTFExporter }, { mergeVertices }, { MeshoptDecoder }, three] = await Promise.all([
     import('three/addons/loaders/OBJLoader.js'),
     import('three/addons/loaders/GLTFLoader.js'),
@@ -263,7 +327,9 @@ export async function generatedModelBlob(model: GeneratedModel, finish?: 'gloss'
   for (const [texture, maxEdge] of textureLimits) await shrinkTexture(texture, maxEdge, bitmaps)
 
   const source = validateObject(object, three, MAX_SOURCE_TRIANGLES)
-  const bounds = source.bounds
+  // 벽 장식은 바닥에 서지 않는다 — 밑면을 누르면 둥근 아래쪽만 잘려 보인다
+  if (category !== 'wallDecoration') levelBase(object, source.bounds, three)
+  const bounds = validateObject(object, three, MAX_SOURCE_TRIANGLES).bounds
   const center = bounds.getCenter(new three.Vector3())
   object.position.add(new three.Vector3(-center.x, -bounds.min.y, -center.z))
   object.updateMatrixWorld(true)
