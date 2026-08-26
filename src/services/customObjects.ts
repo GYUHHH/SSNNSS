@@ -24,13 +24,6 @@ export const customObjectTemplate = (spec: CustomObjectSpec) => {
   }
 }
 
-// 삭제한 커스텀의 GLB를 버킷에서도 걷어낸다. 실패해도 삭제 자체는 진행 — 파일 하나 남는 건 되돌릴 수 있다
-export const deleteGlbObject = (glbUrl?: string) => {
-  const id = glbUrl?.split('/glbobj/')[1]
-  if (!id) return
-  void authHeaders().then((headers) => fetch(`/api/glb-objects/file?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers })).catch(() => {})
-}
-
 export type CustomSize = { width: number; depth: number; height?: number }
 
 export async function fetchCredits(): Promise<{ enabled: boolean; balance: number; freeLeft: boolean; buyUrl: string | null }> {

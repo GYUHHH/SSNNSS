@@ -4,7 +4,7 @@ import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from 'r
 import { createPortal } from 'react-dom'
 import { type Book, type Entry, type EntryDraft, type Visibility, useRoomStore } from '../store'
 import { HeartIcon, CommentIcon } from './ReactionIcons'
-import { currentRoomHandle, isVisiting, myVisitorId, requireHandle, roomPath, toggleLike, uploadDataUrl } from '../services/social'
+import { deleteMedia, currentRoomHandle, isVisiting, myVisitorId, requireHandle, roomPath, toggleLike, uploadDataUrl } from '../services/social'
 import { PhotoCropEditor } from './PhotoCropEditor'
 import CommentAvatar, { CommentName } from './CommentAvatar'
 import { t, tp } from '../services/i18n'
@@ -128,7 +128,7 @@ function EntryEditor({ bookId, entry, onClose }: { bookId: string; entry: Entry;
         <button type="submit">{t('저장')}</button>
       </div>
     </form>
-    {editing !== null && images[editing] && <PhotoCropEditor source={assetUrl(images[editing])} onClose={() => setEditing(null)} onApply={(edited) => { const index = editing; setImages((current) => current.map((image, itemIndex) => itemIndex === index ? edited : image)); setEditing(null); void uploadDataUrl('records', edited).then((url) => { if (url) setImages((current) => current.map((image, itemIndex) => itemIndex === index && image === edited ? url : image)) }) }} />}
+    {editing !== null && images[editing] && <PhotoCropEditor source={assetUrl(images[editing])} onClose={() => setEditing(null)} onApply={(edited) => { const index = editing; deleteMedia(images[index]); setImages((current) => current.map((image, itemIndex) => itemIndex === index ? edited : image)); setEditing(null); void uploadDataUrl('records', edited).then((url) => { if (url) setImages((current) => current.map((image, itemIndex) => itemIndex === index && image === edited ? url : image)) }) }} />}
   </div>, document.body)
 }
 
@@ -160,7 +160,7 @@ function EntryForm({ book, onSave }: { book: Book; onSave: (entry: EntryDraft) =
     <label>{t('내용')}<textarea ref={autosize} rows={1} value={content} onChange={(event) => { setContent(event.target.value); autosize(event.currentTarget) }} /></label>
     <fieldset><legend>{t('공개 설정')}</legend><label><input type="radio" checked={visibility === 'public'} onChange={() => setVisibility('public')} /> {t('공개')}</label><label><input type="radio" checked={visibility === 'private'} onChange={() => setVisibility('private')} /> {t('비공개')}</label></fieldset>
     <button className="save-entry" type="submit">{t('저장')}</button>
-    {editing !== null && images[editing] && <PhotoCropEditor source={assetUrl(images[editing])} onClose={() => setEditing(null)} onApply={(edited) => { const index = editing; setImages((current) => current.map((image, itemIndex) => itemIndex === index ? edited : image)); setEditing(null); void uploadDataUrl('records', edited).then((url) => { if (url) setImages((current) => current.map((image, itemIndex) => itemIndex === index && image === edited ? url : image)) }) }} />}
+    {editing !== null && images[editing] && <PhotoCropEditor source={assetUrl(images[editing])} onClose={() => setEditing(null)} onApply={(edited) => { const index = editing; deleteMedia(images[index]); setImages((current) => current.map((image, itemIndex) => itemIndex === index ? edited : image)); setEditing(null); void uploadDataUrl('records', edited).then((url) => { if (url) setImages((current) => current.map((image, itemIndex) => itemIndex === index && image === edited ? url : image)) }) }} />}
   </form>
 }
 

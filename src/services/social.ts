@@ -334,13 +334,17 @@ const persistSeen = () => writeStored(SEEN_KEY, JSON.stringify(seenReactions))
 export const markReactionSeen = (id: string, count: number) => { seenReactions[id] = count; persistSeen() }
 
 // uploaded media (music files, video clips) go to the public storage bucket so visitors can stream them
-export async function uploadMedia(path: string, file: Blob): Promise<string | null> {
+export async function uploadMedia(rawPath: string, file: Blob): Promise<string | null> {
   // a visitor's upload would land in the room owner's bucket — nothing they do may write there
   if (isVisiting()) return null
   try {
     // every image goes through here — diary photos, drawings, anything a future caller adds — so shrinking at this
     // one point covers the lot instead of each call site remembering to. Non-images pass straight through.
     const body = await compressImage(file)
+    // 소유자를 경로에 새긴다: prefix/<handle>/<name>. 삭제 API가 이 한 조각만 보고 권한을 판단할 수 있어
+    // 방 데이터를 뒤질 필요도, 저장 순서를 맞출 필요도 없다 — 남의 파일은 애초에 경로가 안 맞는다.
+    const owner = myHandle()
+    const path = owner && /^[\w-]{1,40}$/.test(owner) ? rawPath.replace('/', `/${owner}/`) : rawPath
     const response = await fetch(`${SUPABASE_URL}/storage/v1/object/media/${path}`, {
       method: 'POST',
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': body.type || 'application/octet-stream' },
@@ -349,6 +353,14 @@ export async function uploadMedia(path: string, file: Blob): Promise<string | nu
     if (!response.ok) return null
     return `${SUPABASE_URL}/storage/v1/object/public/media/${path}`
   } catch { return null }
+}
+
+// 갈아끼운 옛 파일을 버킷에서도 걷어낸다 — 지금까지는 새로 올리기만 해서 버킷 절반이 쓰지 않는 파일이었다.
+// 버킷 주소가 아닌 값(data:/blob:/외부 링크)은 조용히 무시한다.
+export const deleteMedia = (url?: string | null) => {
+  const path = typeof url === 'string' ? url.split('/object/public/media/')[1] : ''
+  if (!path || isVisiting()) return
+  void authHeaders().then((headers) => fetch(`/api/media/file?path=${encodeURIComponent(path)}`, { method: 'DELETE', headers })).catch(() => {})
 }
 
 // A photo pasted straight into storage as a data URL eats the whole 5MB localStorage budget in one go, and

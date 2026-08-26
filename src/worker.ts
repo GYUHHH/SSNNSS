@@ -149,22 +149,31 @@ async function glbPoll(request: Request, env: Env) {
   return json({ error: 'MODEL_RESULT_FAILED' }, 502)
 }
 
-// 커스텀을 지우면 GLB 파일도 같이 지운다 — 스펙만 지우던 동안 버킷에 쓰지 않는 모델이 계속 쌓였다.
-// 파일 경로에 소유자가 없으므로 "요청자의 방이 아직 참조하는 파일인가"가 유일한 소유 증거다: 클라이언트가
-// 스펙을 저장하기 전에 부르므로 서버의 방 데이터에는 그 참조가 아직 남아 있다.
-async function glbDelete(request: Request, env: Env) {
+// 갈아끼우거나 지운 미디어를 버킷에서도 걷어낸다 — 새로 올리기만 하던 동안 버킷 절반이 고아 파일이었다.
+// 권한은 경로 하나로 끝난다: 업로드가 `prefix/<handle>/<name>`으로 새기므로 남의 파일은 경로가 안 맞는다.
+// 방 데이터를 뒤지지 않으니 저장 순서와도 무관하다 — schedulePublish는 즉시 저장이라 참조 검사로는 늦는다.
+const MEDIA_PREFIXES = new Set(['records', 'clips', 'art', 'profile', 'floorImage', 'leftWallImage', 'rightWallImage', 'glbobj'])
+async function mediaDelete(request: Request, env: Env) {
   if (!env.SUPABASE_SERVICE_KEY) return json({ error: 'SERVICE_KEY_NOT_SET' }, 503)
   const handle = await signedInHandle(request)
   if (!handle) return json({ error: 'LOGIN_REQUIRED' }, 401)
-  const id = new URL(request.url).searchParams.get('id') ?? ''
-  if (!/^[\w-]{1,64}$/.test(id)) return json({ error: 'INVALID_REQUEST' }, 400)
-  const room = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${encodeURIComponent(handle)}&select=data&limit=1`, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } })
-  const rows = await room.json().catch(() => null) as Array<{ data?: Record<string, string> }> | null
-  // customObjects.ts의 CUSTOM_OBJECTS_KEY — 클라이언트 모듈을 워커로 끌어오지 않으려고 문자열로 둔다
-  if (!Array.isArray(rows) || !String(rows[0]?.data?.['my-room-custom-objects-v1'] ?? '').includes(`/glbobj/${id}`)) return json({ error: 'NOT_OWNED' }, 403)
-  const removed = await fetch(`${SUPABASE_URL}/storage/v1/object/media/glbobj/${id}`, { method: 'DELETE', headers: { apikey: env.SUPABASE_SERVICE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}` } })
-  if (!removed.ok) { console.log('glb-delete-failed', removed.status); return json({ error: 'DELETE_FAILED' }, 502) }
+  const query = new URL(request.url).searchParams
+  // 소유자 조각이 없던 시절의 GLB는 id만 온다 — 그때는 방 데이터가 아직 그 파일을 참조하는지로 확인한다
+  const legacyId = query.get('id')
+  const path = query.get('path') ?? (legacyId ? `glbobj/${legacyId}` : '')
+  const parts = path.split('/')
+  if (!MEDIA_PREFIXES.has(parts[0]) || !parts.every((part) => /^[\w.-]{1,80}$/.test(part))) return json({ error: 'INVALID_REQUEST' }, 400)
+  if (parts.length === 3 ? parts[1] !== handle : parts.length !== 2) return json({ error: 'NOT_OWNED' }, 403)
+  if (parts.length === 2 && !await roomReferences(handle, path)) return json({ error: 'NOT_OWNED' }, 403)
+  const removed = await fetch(`${SUPABASE_URL}/storage/v1/object/media/${path}`, { method: 'DELETE', headers: { apikey: env.SUPABASE_SERVICE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}` } })
+  if (!removed.ok) { console.log('media-delete-failed', removed.status); return json({ error: 'DELETE_FAILED' }, 502) }
   return json({ done: true })
+}
+
+const roomReferences = async (handle: string, path: string) => {
+  const room = await fetch(`${SUPABASE_URL}/rest/v1/rooms?handle=eq.${encodeURIComponent(handle)}&select=data&limit=1`, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } })
+  const rows = await room.json().catch(() => null)
+  return Array.isArray(rows) && JSON.stringify(rows[0]?.data ?? null).includes(`/media/${path}`)
 }
 
 export default {
@@ -173,7 +182,7 @@ export default {
     if (path === '/api/ls-webhook') return request.method === 'POST' ? lsWebhook(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
     if (path === '/api/youtube-thumbnail') return request.method === 'GET' ? youtubeThumbnail(request) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
     if (path === '/api/glb-objects') return request.method === 'POST' ? glbSubmit(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
-    if (path === '/api/glb-objects/file') return request.method === 'DELETE' ? glbDelete(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
+    if (path === '/api/media/file' || path === '/api/glb-objects/file') return request.method === 'DELETE' ? mediaDelete(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
     if (path === '/api/glb-objects/poll') return request.method === 'GET' ? glbPoll(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
     if (path === '/api/custom-objects/credits') return request.method === 'POST' ? credits(request, env) : json({ error: 'METHOD_NOT_ALLOWED' }, 405)
     return env.ASSETS.fetch(request)

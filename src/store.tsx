@@ -6,7 +6,7 @@ import { publicBase } from './services/publicBase'
 import { loadOrders } from './services/playlistOrder'
 import { deleteVideo, listVideoIds, loadClipUrls, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, setClipMuted, syncPendingClips, encodeTarget, youTubeTarget } from './services/mediaStore'
 import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic, syncPendingTracks } from './services/music'
-import { DEFAULT_PROFILE_PHOTO, purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isReadingBundle, isVisiting, myHandle, myProfilePhoto, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, removeStored, subscribeRealtime, uploadMedia, writeStored, type RemoteGuestComment } from './services/social'
+import { DEFAULT_PROFILE_PHOTO, deleteMedia, purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isReadingBundle, isVisiting, myHandle, myProfilePhoto, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, removeStored, subscribeRealtime, uploadMedia, writeStored, type RemoteGuestComment } from './services/social'
 import { cancelSoundRequest, clearFrameResume, muteFrame, requestSound, snapshotActiveFrames } from './services/ytResume'
 import { t, tp } from './services/i18n'
 import { floorStyleOf } from './services/styles'
@@ -16,7 +16,7 @@ import { customObjectType, type CustomObjectCategory, type CustomObjectSpec } fr
 // AI 커스텀 생성 잡: Rapid 생성 → 로컬 최적화·검증.
 // 진행 UI·빨간점 알림이 이 하나를 본다. unseen은 완료/실패를 아직 사용자가 확인 안 했다는 뜻.
 export type CustomJob = { stage: 'draft' | 'verify' | 'done' | 'error'; round: number; unseen: boolean; name?: string; error?: string }
-import { customObjectTemplate, deleteGlbObject, generatedModelBlob, inspectCustomModel, loadCustomObjects, pollGlbObject, saveCustomObjects, submitGlbObject, type GeneratedModel } from './services/customObjects'
+import { customObjectTemplate, generatedModelBlob, inspectCustomModel, loadCustomObjects, pollGlbObject, saveCustomObjects, submitGlbObject, type GeneratedModel } from './services/customObjects'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id, photo: row.photo })
 
@@ -451,8 +451,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   // 삭제는 스펙과 함께 방에 배치된 인스턴스도 걷어낸다 — 스펙 없는 배치물은 다음 로드에서 조용히 사라지지만,
   // 지금 화면에서도 즉시 사라져야 삭제가 삭제로 보인다
   const removeCustomObject = (id: string) => {
-    // 스펙을 저장하기 전에 부른다 — 서버는 방 데이터에 남은 참조로 소유를 확인한다
-    deleteGlbObject(customObjects.find((value) => value.id === id)?.glbUrl)
+    // 소유자 조각이 없던 옛 GLB는 방 데이터의 참조로 확인하므로 스펙을 저장하기 전에 부른다
+    deleteMedia(customObjects.find((value) => value.id === id)?.glbUrl)
     commit(furniture.filter((item) => item.type !== `custom:${id}`))
     setCustomObjects((current) => {
       const next = current.filter((value) => value.id !== id)
@@ -843,17 +843,21 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     commit([...furniture, { ...template, id: `inventory-book-${id}`, position: [0, 0, 0], rotation: [0, 0, 0], surfaceId: 'floor', gridX: 0, gridY: 0, gridZ: 0, removed: true, updatedAt: createdAt } as FurnitureItem])
     return id
   }
-  const deleteBook = (id: string) => { const gone = (books.find((book) => book.id === id)?.entries ?? []).map((entry) => entry.id); void purgeReactions(gone); dropReactions(gone); setBooks((items) => items.filter((book) => book.id !== id)); commit(furniture.filter((item) => item.id !== `inventory-book-${id}`)); if (openBookId === id) setOpenBookId(null) }
+  const deleteBook = (id: string) => { (books.find((book) => book.id === id)?.entries ?? []).forEach((entry) => entry.images?.forEach(deleteMedia)); const gone = (books.find((book) => book.id === id)?.entries ?? []).map((entry) => entry.id); void purgeReactions(gone); dropReactions(gone); setBooks((items) => items.filter((book) => book.id !== id)); commit(furniture.filter((item) => item.id !== `inventory-book-${id}`)); if (openBookId === id) setOpenBookId(null) }
   const updateBook = (id: string, patch: Partial<Pick<Book, 'title' | 'coverColor' | 'visibility' | 'shelf'>>) => setBooks((items) => items.map((book) => book.id === id ? { ...book, ...patch, updatedAt: new Date().toISOString() } : book))
   const addEntry: RoomStore['addEntry'] = (bookId, entry) => { const createdAt = new Date().toISOString(); setBooks((items) => items.map((book) => book.id === bookId ? { ...book, updatedAt: createdAt, entries: [...book.entries, { ...entry, id: `entry-${Date.now()}`, bookId, createdAt, updatedAt: createdAt, comments: [] }] } : book)) }
-  const updateEntry = (bookId: string, entryId: string, patch: Partial<Pick<Entry, 'content' | 'images' | 'visibility'>>) => setBooks((items) => items.map((book) => book.id === bookId ? { ...book, updatedAt: new Date().toISOString(), entries: book.entries.map((entry) => entry.id === entryId ? { ...entry, ...patch, updatedAt: new Date().toISOString() } : entry) } : book))
+  const updateEntry = (bookId: string, entryId: string, patch: Partial<Pick<Entry, 'content' | 'images' | 'visibility'>>) => {
+    // 일기에서 빼낸 사진은 이 시점 이후 아무도 참조하지 않는다 — 버킷에서도 같이 걷어낸다
+    if (patch.images) books.find((book) => book.id === bookId)?.entries.find((entry) => entry.id === entryId)?.images?.forEach((image) => { if (!patch.images!.includes(image)) deleteMedia(image) })
+    return setBooks((items) => items.map((book) => book.id === bookId ? { ...book, updatedAt: new Date().toISOString(), entries: book.entries.map((entry) => entry.id === entryId ? { ...entry, ...patch, updatedAt: new Date().toISOString() } : entry) } : book))
+  }
   // reactions live under the deleted thing's id, so they are dropped from view at the same moment
   const dropReactions = (ids: string[]) => {
     setGuestbook((prev) => { const next = { ...prev }; for (const id of ids) delete next[id]; return next })
     setOthersLikes((prev) => { const next = { ...prev }; for (const id of ids) delete next[id]; return next })
     setLikeTotals((prev) => { const next = { ...prev }; for (const id of ids) delete next[id]; return next })
   }
-  const deleteEntry = (bookId: string, entryId: string) => { void purgeReactions([entryId]); dropReactions([entryId]); return setBooks((items) => items.map((book) => book.id === bookId ? { ...book, updatedAt: new Date().toISOString(), entries: book.entries.filter((entry) => entry.id !== entryId) } : book)) }
+  const deleteEntry = (bookId: string, entryId: string) => { books.find((book) => book.id === bookId)?.entries.find((entry) => entry.id === entryId)?.images?.forEach(deleteMedia); void purgeReactions([entryId]); dropReactions([entryId]); return setBooks((items) => items.map((book) => book.id === bookId ? { ...book, updatedAt: new Date().toISOString(), entries: book.entries.filter((entry) => entry.id !== entryId) } : book)) }
   const openStyleTarget = (target: StyleTarget) => setStyleTarget(target)
   const setWallStyle = (wallId: WallId, presetId: string) => setWallStyleState((current) => { const next = { ...current, [wallId]: presetId }; saveSlotStyle(activeRoomId, { ...next, floor: floorStyle, floorImage }); return next })
   const setFloorStyle = (presetId: string) => setFloorStyleState((current) => {
@@ -866,6 +870,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     const roomId = activeRoomId
     const save = (value: string | undefined) => saveSlotStyle(roomId, { ...(slotStyle(roomId) ?? {}), [key]: value })
     const next = image ?? undefined
+    deleteMedia(slotStyle(roomId)?.[key])
     save(next); if (key === 'floorImage') setFloorImageState(next); setWallStyleState((current) => ({ ...current, [key]: next }))
     if (image?.startsWith('data:')) void uploadDataUrl(key, image).then((url) => {
       if (!url) return
@@ -896,6 +901,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const storePhoto = (photo: string | undefined) => setProfile((current) => { const next = { ...current, photo: photo || DEFAULT_PROFILE_PHOTO }; saveProfile(next); return next })
   const setProfilePhoto = (photo: string | null) => {
     if (isVisiting()) return
+    deleteMedia(profile.photo)
     storePhoto(photo ?? undefined)
     if (photo?.startsWith('data:')) void uploadDataUrl('profile', photo).then((url) => { if (url) storePhoto(url) })
   }
@@ -912,6 +918,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }
   const setVideoClip = (id: string, file: File | null) => {
     if (isVisiting()) return
+    deleteMedia(loadClipUrls()[id])
     if (!file) { deleteVideo(id); saveClipUrl(id, null); setVideoFrames(({ [id]: _removed, ...rest }) => rest); return }
     setVideoFrames((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }))
     putVideo(id, file).then(() => setVideoFrames((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 })))
@@ -1167,6 +1174,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const setTimeOfDay = (time: TimeOfDay) => { setTimeOfDayState(time); if (!isVisiting()) writeStored('my-room-time-v1', time) }
   const setArtwork = (id: string, dataURL: string | null) => {
     if (isVisiting()) return
+    deleteMedia(artworks[id])
     setArtworks((prev) => { const next = { ...prev }; if (dataURL) next[id] = dataURL; else delete next[id]; return next })
     // same swap as the profile photo. `artworks` also holds plain text (a banner's caption), so only a data URL
     // is ever uploaded, and the entry is only replaced if it is still the one that was sent.
