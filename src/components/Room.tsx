@@ -32,6 +32,7 @@ const LIGHTING = {
   evening: { bg: '#e9d3bc', ambient: 0.95, ambientColor: '#ffc894', dir: 2.4, dirColor: '#ff9a5e' },
   night: { bg: '#232939', ambient: 0.5, ambientColor: '#8b97b8', dir: 0.7, dirColor: '#aab4d4' },
 } as const
+const SHADOW_LIGHT_BRIGHTNESS = .8
 type TimeOfDay = keyof typeof LIGHTING
 const TIME_LAYER: Record<TimeOfDay, number> = { day: 1, evening: 2, night: 3 }
 // Draw the hovered room once more after the cluster so neighbouring walls and props can never cover it.
@@ -73,10 +74,10 @@ function CrossfadingLights({ preset }: { preset: typeof LIGHTING[keyof typeof LI
   const ambient = useRef<AmbientLight>(null)
   const dir = useRef<DirectionalLight>(null)
   const initial = useRef(preset).current
-  const goal = useRef({ ambient: initial.ambient, dir: initial.dir, ambientColor: new Color(initial.ambientColor), dirColor: new Color(initial.dirColor) })
+  const goal = useRef({ ambient: initial.ambient, dir: initial.dir * SHADOW_LIGHT_BRIGHTNESS, ambientColor: new Color(initial.ambientColor), dirColor: new Color(initial.dirColor) })
   const wasZoomedIn = useRef<boolean | null>(null)
   const shadowRefreshAt = useRef(performance.now() + 300)
-  useEffect(() => { goal.current = { ambient: preset.ambient, dir: preset.dir, ambientColor: new Color(preset.ambientColor), dirColor: new Color(preset.dirColor) } }, [preset])
+  useEffect(() => { goal.current = { ambient: preset.ambient, dir: preset.dir * SHADOW_LIGHT_BRIGHTNESS, ambientColor: new Color(preset.ambientColor), dirColor: new Color(preset.dirColor) } }, [preset])
   useEffect(() => {
     gl.shadowMap.autoUpdate = false
     shadowRefreshAt.current = performance.now() + 300
@@ -105,7 +106,7 @@ function CrossfadingLights({ preset }: { preset: typeof LIGHTING[keyof typeof LI
   })
   return <>
     <ambientLight ref={ambient} intensity={initial.ambient} color={initial.ambientColor} />
-    <directionalLight ref={dir} castShadow position={[5, 12, 0]} intensity={initial.dir} color={initial.dirColor} shadow-mapSize-width={512} shadow-mapSize-height={512} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
+    <directionalLight ref={dir} castShadow position={[5, 12, 0]} intensity={initial.dir * SHADOW_LIGHT_BRIGHTNESS} color={initial.dirColor} shadow-mapSize-width={512} shadow-mapSize-height={512} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
   </>
 }
 
