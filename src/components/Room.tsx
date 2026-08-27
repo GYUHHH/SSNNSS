@@ -105,7 +105,7 @@ function CrossfadingLights({ preset }: { preset: typeof LIGHTING[keyof typeof LI
   })
   return <>
     <ambientLight ref={ambient} intensity={initial.ambient} color={initial.ambientColor} />
-    <directionalLight ref={dir} castShadow position={[4, 12, 4]} intensity={initial.dir} color={initial.dirColor} shadow-mapSize-width={512} shadow-mapSize-height={512} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
+    <directionalLight ref={dir} castShadow position={[5, 12, 0]} intensity={initial.dir} color={initial.dirColor} shadow-mapSize-width={512} shadow-mapSize-height={512} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
   </>
 }
 
