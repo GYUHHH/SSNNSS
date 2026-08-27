@@ -132,6 +132,9 @@ function HoverLayerLight({ time }: { time: TimeOfDay }) {
   return <directionalLight ref={dir} position={[4, 6.5, 2]} intensity={preset.dir} color={preset.dirColor} />
 }
 
+// 전체보기에서 쓰는 픽셀 비율 상한
+const EXPLORE_DPR = 1
+
 // Idle power saver, second attempt — this one cannot touch animation speed. The loop still runs at the display's
 // full rate: every useFrame callback, every clock and delta is exactly as before (the previous attempt drove the
 // clock by hand and anything reading elapsed time ran wild). Only the final DRAW is skipped on alternate frames
@@ -140,6 +143,10 @@ function HoverLayerLight({ time }: { time: TimeOfDay }) {
 // is just "don't call render this frame".
 function RenderGovernor() {
   const { characterState } = useRoomStore()
+  // 전체보기는 방을 작게 그리면서 시간대 레이어까지 여러 번 그린다 — 그 구간만 픽셀 비율을 낮춰 필레이트를 아낀다.
+  // 진입선 바로 위아래에서 휠을 흔들면 드로잉 버퍼가 매 프레임 재할당되므로 복귀선은 8% 위에 둔다.
+  const baseDpr = useThree((state) => state.viewport.dpr)
+  const lowDpr = useRef(false)
   const activeUntil = useRef(0)
   const skip = useRef(false)
   const lastCamera = useRef({ x: NaN, y: NaN, z: NaN, qx: NaN, qy: NaN, qz: NaN, qw: NaN, zoom: NaN })
@@ -167,8 +174,13 @@ function RenderGovernor() {
       skip.current = !skip.current
       if (skip.current) return
     } else skip.current = false
-    const originalDpr = gl.getPixelRatio()
     const captureScale = captureRenderScale()
+    const entryLine = entryZoom(size.width, size.height)
+    // 대기 중인 방 캡처가 있는 프레임은 원래 해상도로 — 썸네일이 절반 해상도로 찍히면 안 된다
+    lowDpr.current = captureScale <= 1 && camera.zoom <= (lowDpr.current ? entryLine * 1.08 : entryLine)
+    const wantedDpr = lowDpr.current ? Math.min(baseDpr, EXPLORE_DPR) : baseDpr
+    if (gl.getPixelRatio() !== wantedDpr) gl.setPixelRatio(wantedDpr)
+    const originalDpr = gl.getPixelRatio()
     const captureDpr = Math.min(originalDpr * captureScale, 4096 / Math.max(size.width, size.height), gl.capabilities.maxTextureSize / Math.max(size.width, size.height))
     if (captureDpr > originalDpr) gl.setPixelRatio(captureDpr)
     const originalAutoClear = gl.autoClear

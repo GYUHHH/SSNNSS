@@ -8,25 +8,27 @@ import { PICKER_HOLD_EVENT } from './ReactionPicker'
 const DESKTOP_DETAIL_MIN_ZOOM = 42
 const MOBILE_DETAIL_MIN_ZOOM = 30
 // Fit the complete seven-room ring to whichever side of the viewport is tighter.
-// 천장은 entryZoom(46) 아래로 유지 — 넘어가면 전체보기 바닥이 방 진입선 위로 올라가 버린다
-const EXPLORE_MAX_ZOOM = 42
+// 천장은 entryZoom(데스크톱 52) 아래로 유지 — 넘어가면 전체보기 바닥이 방 진입선 위로 올라가 버린다
+const EXPLORE_MAX_ZOOM = 48
 // 1보다 크면 덜 축소된다 = 한 화면에 보이는 방이 줄어든다. 이 숫자만 만지면 됨.
-const EXPLORE_ZOOM_SCALE = 1.2
+const EXPLORE_ZOOM_SCALE = 1.4
+// 모바일은 화면이 좁아 같은 축소율이면 방이 더 작게 읽힌다 — 바닥을 이만큼 더 올린다
+const MOBILE_ZOOM_LIFT = 10
 const MAX_ZOOM = 220
 
 export const isCompactScreen = (width: number, height: number) => width < 720 || (height < 520 && window.matchMedia('(pointer: coarse)').matches)
 // the floor the explorer bottoms out at — the neighbour fade bands are anchored to it so raising one moves the other
 export const exploreMinZoom = (width: number, height: number) => {
   const fit = Math.min(EXPLORE_MAX_ZOOM, (width / 33) * EXPLORE_ZOOM_SCALE, (height / 29) * EXPLORE_ZOOM_SCALE)
-  // mobile reads too small fully zoomed out, so the floor sits 6 higher there — capped safely under the entry
+  // mobile reads too small fully zoomed out, so the floor sits MOBILE_ZOOM_LIFT higher there — capped safely under the entry
   // line (and never below the plain fit) so crossing into a room keeps firing exactly as before
-  return isCompactScreen(width, height) ? Math.min(fit + 6, Math.max(fit, entryZoom(width, height) - 2)) : fit
+  return isCompactScreen(width, height) ? Math.min(fit + MOBILE_ZOOM_LIFT, Math.max(fit, entryZoom(width, height) - 2)) : fit
 }
 // Where zooming in stops being a look and counts as choosing the room in the middle. The flag that locks the
 // explorer flips on the very first wheel tick, far too twitchy to drop someone into a room, so the line sits a
-// little above the floor — desktop 46, mobile 22. The neighbour fade is spent by exactly here, so the ring is
+// little above the floor — desktop 52, mobile 26. The neighbour fade is spent by exactly here, so the ring is
 // already gone at the moment of entry.
-export const entryZoom = (width: number, height: number) => isCompactScreen(width, height) ? 22 : 46
+export const entryZoom = (width: number, height: number) => isCompactScreen(width, height) ? 26 : 52
 
 // the dock's discover toggle asks the camera to pull all the way out to the explorer
 const EXPLORER_ZOOM_EVENT = 'explorer-zoom-out'
