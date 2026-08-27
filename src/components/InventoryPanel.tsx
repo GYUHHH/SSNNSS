@@ -6,6 +6,7 @@ import { colorOf, customizableTypes, DEFAULT_WALL_COLOR, floorStyleOf, floorStyl
 import { DEFAULT_APPEARANCE as CHARACTER_DEFAULTS } from './Character'
 import { t, tp } from '../services/i18n'
 import { CUSTOM_OBJECT_CATEGORIES, customObjectType, type CustomObjectCategory, type CustomPose } from '../customObjectSpec'
+import { myHandle } from '../services/social'
 import { cachedCredits, createCreditCheckout, customObjectTemplate, fetchCredits, type CreditStatus } from '../services/customObjects'
 import { PhotoCropEditor } from './PhotoCropEditor'
 
@@ -173,6 +174,10 @@ const CUSTOM_CATEGORY_DESCRIPTIONS: Array<[CustomObjectCategory, string]> = [
   ['sculpture', '1×1칸을 차지하며 실제 크기는 0.35칸 기준으로 생성됩니다.'],
 ]
 
+const LOST_REQUEST = '01a042d8-adca-7a12-b6ba-9ff1a6aff774'
+const LOST_OWNER = 'peterjm007'
+const LOST_FLAG = 'my-room-lost-recover-v1'
+
 function CustomTab() {
   const { customObjects, recoverCustomObjects, startPreview, startCustomObjectEdit, availableCount, customJob, resumeCustomGeneration, runCustomGeneration, markCustomSeen, removeCustomObject } = useRoomStore()
   const [removing, setRemoving] = useState<string | null>(null)
@@ -181,6 +186,12 @@ function CustomTab() {
   const [openingCheckout, setOpeningCheckout] = useState(false)
   useEffect(() => { let live = true; void fetchCredits().then((value) => { if (live) setCredits(value) }); return () => { live = false } }, [customJob?.stage])
   useEffect(() => { recoverCustomObjects() }, [])
+  // 일회성: BUILD 770 이전에 요청 번호를 잃은 생성 한 건. 되살아나면 이 블록은 지운다
+  useEffect(() => {
+    if (myHandle() !== LOST_OWNER) return
+    try { if (localStorage.getItem(LOST_FLAG)) return; localStorage.setItem(LOST_FLAG, '1') } catch { return }
+    resumeCustomGeneration(LOST_REQUEST)
+  }, [])
   // 탭을 열어본 순간 완료/실패 빨간점은 해소된 것으로 본다
   useEffect(() => { markCustomSeen() }, [customJob?.stage])
   const [source, setSource] = useState<'text' | 'photo' | null>(null)
@@ -209,8 +220,6 @@ function CustomTab() {
     reader.onload = () => setEditingImage(typeof reader.result === 'string' ? reader.result : null)
     reader.readAsDataURL(value)
   }
-  // 앱이 요청 번호를 잃었을 때(생성 중 페이지 이탈) fal에 남은 결과를 번호로 다시 받아온다
-  const [resumeId, setResumeId] = useState('')
   const [quality, setQuality] = useState<'standard' | 'high'>('standard')
   // 캐릭터가 이 가구에 취할 동작. 실제 자리는 생성된 모델에서 재므로 여기선 무엇을 할지만 고른다
   const [pose, setPose] = useState<'' | CustomPose>('')
@@ -260,7 +269,6 @@ function CustomTab() {
       {error && <p className="custom-error">{error}</p>}
       <button className={`custom-generate${canGenerate ? ' ready' : ''}`} type="submit" disabled={!canGenerate}>{t(running ? '생성 중' : '생성')}</button>
     </form>}
-    {!source && <div className="custom-resume"><input value={resumeId} maxLength={60} placeholder={t('요청 번호로 되살리기')} aria-label={t('요청 번호로 되살리기')} onChange={(event) => setResumeId(event.target.value)} /><button type="button" disabled={!resumeId.trim() || running} onClick={() => { resumeCustomGeneration(resumeId); setResumeId('') }}>{t('되살리기')}</button></div>}
     {!source && <div className="inventory-items custom-items">{objects.map((object) => {
       const entry = customObjectTemplate(object) as FurnitureItem
       return <div key={object.id} className="custom-item-wrap">

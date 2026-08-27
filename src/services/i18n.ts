@@ -120,8 +120,6 @@ const EN: Record<string, string> = {
   "없음": "None",
   "앉기": "Sit",
   "눕기": "Lie down",
-  "요청 번호로 되살리기": "Restore by request ID",
-  "되살리기": "Restore",
   "공유": "Share",
   "굵은 붓": "Thick Brush",
   "그림": "Drawing",

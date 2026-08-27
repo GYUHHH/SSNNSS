@@ -744,11 +744,6 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 .dock-stack.closing > :nth-child(8) { animation-delay: .245s; }
 @keyframes dock-sink { to { opacity: 0; transform: translateY(20px) scale(.8); } }
 
-.custom-resume { display: flex; gap: 6px; }
-.custom-resume input { flex: 1; min-width: 0; padding: 7px 9px; border: 1px solid #d6d6d2; border-radius: 5px; font-size: 12px; }
-.custom-resume button { padding: 7px 10px; border: 1px solid #d6d6d2; border-radius: 5px; background: #ffffff; color: #3a3a38; cursor: pointer; font-size: 12px; }
-.custom-resume button:disabled { color: #b0b0aa; cursor: default; }
-
 /* 보관함 책 탭 */
 .books-tab { display: grid; gap: 8px; align-content: start; }
 .books-tools { display: flex; gap: 6px; }
