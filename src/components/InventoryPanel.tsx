@@ -276,20 +276,28 @@ function CustomTab() {
   </div>
 }
 
+// 생성한 오브젝트가 들어갈 카테고리 탭 — AI 커스텀 탭에도 그대로 남는다
+const CUSTOM_TAB_OF: Record<CustomObjectCategory, InventoryCategory> = { furniture: '가구', wallDecoration: '벽장식', floor: '바닥', sculpture: '소품' }
+
 export default function InventoryPanel() {
   const [tab, setTab] = useState<typeof tabs[number]>('전체')
-  const { startPreview, preview, previewValid, placePreview, availableCount, customJob } = useRoomStore()
+  const { startPreview, preview, previewValid, placePreview, availableCount, customJob, customObjects } = useRoomStore()
   const showingColors = tab === COLOR_TAB
   const showingCharacter = tab === CHARACTER_TAB
   const showingBooks = tab === BOOKS_TAB
   const showingCustom = tab === CUSTOM_TAB
   const showingParticles = tab === PARTICLE_TAB
   // only what you still own and have not put down somewhere — placing one takes it off this list
+  // 생성물도 카탈로그와 같은 목록에 섞어 보여 준다 — 만든 뒤 굳이 커스텀 탭을 찾아갈 일이 없게
+  const customStock = showingColors || showingCharacter || showingBooks || showingCustom || showingParticles ? [] : customObjects
+    .filter((spec) => availableCount(customObjectType(spec.id)) > 0 && (tab === '전체' || CUSTOM_TAB_OF[spec.category] === tab))
+    .map((spec) => customObjectTemplate(spec) as InventoryEntry)
   const stock = showingColors || showingCharacter || showingBooks || showingCustom ? [] : CATALOG.filter((entry) => availableCount(entry.type) > 0 && (tab === '전체' || (showingParticles ? entry.type === 'star-dust' || entry.type === 'club-led' : (entry.type === 'speech-bubble' ? '소품' : categoryFor(entry.type)) === tab as InventoryCategory)))
   return <section className={preview ? 'inventory-panel previewing' : 'inventory-panel'} aria-label={t('보관함')}>
     <nav>{tabs.map((entry) => <button key={entry} className={tab === entry ? 'active' : ''} type="button" onClick={() => setTab(entry)}>{t(entry)}{entry === CUSTOM_TAB && customJob?.unseen && <i className="alert-dot" />}</button>)}</nav>
     {showingCustom ? <CustomTab /> : showingBooks ? <BooksTab /> : showingCharacter ? <CharacterLookEditor /> : showingColors ? <RoomColorEditor /> : <div className="inventory-items">
-      {stock.length === 0 && <p className="inventory-empty">{t('남은 가구가 없어요. 방에 놓인 가구를 정리하면 다시 꺼낼 수 있어요.')}</p>}
+      {stock.length === 0 && customStock.length === 0 && <p className="inventory-empty">{t('남은 가구가 없어요. 방에 놓인 가구를 정리하면 다시 꺼낼 수 있어요.')}</p>}
+      {customStock.map((entry) => <button key={entry.type} type="button" onClick={() => startPreview(entry.type)}><ItemIcon item={entry as FurnitureItem} /><span>{entry.name}<small>{entry.size[0]} × {entry.size[1]}</small></span></button>)}
       {stock.map((entry) => <button key={`${entry.type}:${entry.styleId ?? ''}`} type="button" onClick={() => startPreview(entry.type, entry.styleId)}><ItemIcon item={entry as FurnitureItem} /><span>{t(entry.name)}<small>{RESIZABLE_FRAME_TYPES.has(frameFamily(entry.type)) ? `× ${availableCount(entry.type)}` : entry.footprint.width ? `${entry.size[0]} × ${entry.size[1]}` : t('벽')}</small></span></button>)}
     </div>}
     {preview && <footer><span className={previewValid ? 'valid' : 'invalid'}>{previewValid ? t('배치 가능한 위치') : t('이 위치에는 배치할 수 없어요')}</span><button type="button" disabled={!previewValid} onClick={placePreview}>{t('배치')}</button></footer>}
