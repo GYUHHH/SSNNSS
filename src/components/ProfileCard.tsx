@@ -56,7 +56,7 @@ export default function ProfileCard() {
       {(signedIn || myHandle()) && !isVisiting() && <div className="profile-actions">
         {actionHint && <span className="profile-action-hint" role="status">{actionHint}</span>}
         <button type="button" aria-label={t('방 캡처')} onClick={() => void openCapturePreview()}><CaptureIcon /></button>
-        <button type="button" aria-label={t('방 공유')} onClick={() => { showActionHint(t('방 공유')); void shareRoom() }}><ShareIcon /></button>
+        <button type="button" aria-label={t('방 공유')} onClick={() => { showActionHint(t('초대 링크 복사')); void shareRoom() }}><ShareIcon /></button>
         <button className="profile-signout" type="button" aria-label={t('로그아웃')} onClick={() => { void signOut().then(() => location.replace(import.meta.env.BASE_URL)) }}><SignOutIcon /></button>
       </div>}
       <div className="profile-main">
