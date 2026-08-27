@@ -462,6 +462,17 @@ function BoucleStool({ preview }: { preview: boolean }) {
 }
 
 // 큐브 선반: 2열 3단 흰 판재 오픈 셸프. 뒷판 없음.
+// 원형 러그: 얇은 원판 두 겹. 겹치는 층은 높이를 띄워 z-파이팅을 피하고, 밑면은 바닥 위(y=0)에서 시작한다
+function RoundRug({ preview }: { preview: boolean }) {
+  const opacity = preview ? .5 : 1
+  const weave = (color: string) => <meshStandardMaterial color={color} roughness={.95} transparent={preview} opacity={opacity} />
+  return <>
+    <mesh receiveShadow position={[0, .025, 0]}><cylinderGeometry args={[1, 1, .05, 48]} />{weave('#bfb9ae')}</mesh>
+    <mesh receiveShadow position={[0, .056, 0]}><cylinderGeometry args={[.74, .74, .012, 48]} />{weave('#e4e0d6')}</mesh>
+    <mesh receiveShadow position={[0, .07, 0]}><cylinderGeometry args={[.4, .4, .012, 48]} />{weave('#c9b7a3')}</mesh>
+  </>
+}
+
 function CubeShelf({ preview }: { preview: boolean }) {
   const opacity = preview ? .5 : 1
   const board = () => <meshStandardMaterial color="#f2f2f0" roughness={.75} transparent={preview} opacity={opacity} />
@@ -829,6 +840,7 @@ export function ItemVisual({ item, preview = false }: { item: FurnitureItem; pre
   if (item.type === 'pennant') return <PennantFlag preview={preview} />
   if (item.type === 'boucle-stool') return <BoucleStool preview={preview} />
   if (item.type === 'cube-shelf') return <CubeShelf preview={preview} />
+  if (item.type === 'round-rug') return <RoundRug preview={preview} />
   if (item.type === 'papasan-chair') return <PapasanChair preview={preview} />
   if (item.type === 'sage-office-chair') return <SageOfficeChair preview={preview} tint={material.color} />
   if (item.type === 'glass-table') return <GlassTable preview={preview} />

@@ -63,7 +63,7 @@ const placementGrid = (item: Pick<FurnitureItem, 'gridX' | 'gridY'>): GridPositi
 const isGridPlaced = (item: Pick<FurnitureItem, 'movable' | 'footprint'>) => item.movable && item.footprint.width > 0
 // visual effects are anchored to a grid cell but never reserve physical floor space
 const ignoresPlacementCollision = (item: Pick<FurnitureItem, 'type'>) => item.type === 'star-dust' || item.type === 'club-led'
-export const isFloorCovering = (item: Pick<FurnitureItem, 'type' | 'surfaceId' | 'customSpec'>) => item.surfaceId === 'floor' && (['rug', 'carpet', 'mat', 'floor-mat'].includes(item.type) || item.customSpec?.category === 'floor')
+export const isFloorCovering = (item: Pick<FurnitureItem, 'type' | 'surfaceId' | 'customSpec'>) => item.surfaceId === 'floor' && (['rug', 'carpet', 'mat', 'floor-mat', 'round-rug'].includes(item.type) || item.customSpec?.category === 'floor')
 // Wall media is a background layer, not physical wall space: it never occupies placement cells, so photos,
 // posters, videos, and ordinary wall furniture can layer freely. Only two non-media wall furnishings collide.
 const sharesWallBackground = (a: FurnitureItem, b: FurnitureItem) => a.category === 'wallItem' && b.category === 'wallItem' && (isWallMedia(a.type) || isWallMedia(b.type))
@@ -146,6 +146,7 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
   { type: 'pennant', name: '페넌트 깃발', category: 'wallItem', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'boucle-stool', name: '부클레 스툴', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'cube-shelf', name: '큐브 선반', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
+  { type: 'round-rug', name: '원형 러그', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 3, depth: 3 }, size: [3, 3], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'papasan-chair', name: '파파산 체어', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 2 }, size: [2, 2], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'glass-mushroom-lamp', name: '유리 버섯 램프', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
   { type: 'string-lights', name: '스트링 라이트', category: 'wallItem', movable: true, interactable: true, footprint: { width: 3, depth: 1 }, size: [3, 1], scale: 1, allowedSurfaces: ['wall'] },
@@ -408,8 +409,9 @@ export type TimeOfDay = 'day' | 'evening' | 'night'
 export const POSED_TYPES = new Set(['bed', 'hotel-bed', 'sofa', 'chair', 'desk', 'bookshelf', 'rocking-chair', 'beanbag', 'cup', 'plant', 'cabinet', 'side-table', 'coffee-table', 'wardrobe', 'hanger', 'rug', 'bin', 'glass-shelf', 'boucle-stool', 'papasan-chair', 'cube-shelf', 'pink-slide', 'color-drawers', 'cloud-sofa', 'dome-sofa', 'deco-shelf', 'frutiger-desk', 'aqua-table', 'hanging-bubble-chair', 'pink-mini-sofa', 'pink-vanity', 'hyper-sculpture', 'play-slide'])
 // 커스텀 가구는 타입 이름이 매번 달라 목록에 담을 수 없다. 생성 가구는 카탈로그 가구와 똑같이 다가간다 —
 // 동작을 고른 것은 앉거나 눕고, 고르지 않은 것("없음")은 앞에 가서 선다
-export const isPosedItem = (item?: { type: string; customSpec?: CustomObjectSpec } | null) =>
-  !!item && (POSED_TYPES.has(item.type) || !!item.customSpec?.pose || item.customSpec?.category === 'furniture')
+// 바닥 깔개(러그 등)는 밟고 지나가는 것이지 다가갈 대상이 아니다 — 클릭해도 캐릭터는 움직이지 않는다
+export const isPosedItem = (item?: Pick<FurnitureItem, 'type' | 'surfaceId' | 'customSpec'> | null) =>
+  !!item && !isFloorCovering(item) && (POSED_TYPES.has(item.type) || !!item.customSpec?.pose || item.customSpec?.category === 'furniture')
 export type GuestComment = { id: string; name: string; text: string; createdAt: string; visitor?: string; verified?: boolean; photo?: string }
 const toPlacement = ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, allowedSurfaces, styleId, heightOffset, removed, updatedAt }: FurnitureItem): FurniturePlacement => ({ id, type, rotation, scale, surfaceId, gridX, gridY, gridZ, wallId, footprint, resolution: resolutionFor({ allowedSurfaces }), styleId, heightOffset, removed, updatedAt })
 // every catalogue piece exists exactly once for now; a future account would supply real per-user counts

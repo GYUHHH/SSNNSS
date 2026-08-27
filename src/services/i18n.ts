@@ -158,6 +158,7 @@ const EN: Record<string, string> = {
   "라벤더 소파": "Lavender Sofa",
   "라이트 그레이": "Light Gray",
   "러그": "Rug",
+  "원형 러그": "Round rug",
   "레코드 플레이어": "Record Player",
   "로그아웃": "Sign out",
   "로그인": "Log in",
