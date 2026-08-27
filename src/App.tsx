@@ -23,11 +23,23 @@ import { thumbnailFor } from './services/thumbnails'
 import { lang, t } from './services/i18n'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 776
+const BUILD = 777
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, customJob, customEditing, startCustomObjectEdit, applyCustomObjectEdit, cancelCustomObjectEdit } = useRoomStore()
   const [confirmingReset, setConfirmingReset] = useState(false)
+  // P: 방만 남기고 UI를 전부 감춘다 — 영상 찍을 때 쓴다. 글자를 입력하는 중에는 반응하지 않는다
+  const [cinema, setCinema] = useState(false)
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.code !== 'KeyP' || event.metaKey || event.ctrlKey || event.altKey) return
+      const target = event.target as HTMLElement | null
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
+      setCinema((on) => !on)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   const [confirmingRoom, setConfirmingRoom] = useState<string | null>(null)
   const [inventoryOpen, setInventoryOpen] = useState(false)
   const [dragPointer, setDragPointer] = useState<{ x: number; y: number; overStorage: boolean } | null>(null)
@@ -136,7 +148,7 @@ function Interface() {
     setTimeout(() => { suppressSheetClick.current = false }, 0)
     event.stopPropagation()
   }
-  return <main className={`app${panelOpen ? ' art-open' : ''}`}>
+  return <main className={`app${panelOpen ? ' art-open' : ''}${cinema ? ' cinema' : ''}`}>
     <div className="scene" onContextMenu={(event) => event.preventDefault()} onPointerDownCapture={(event) => { if (customEditing && (event.target as HTMLElement).closest('.canvas-host')) cancelCustomObjectEdit() }}><Room /></div>
     <span className="build-tag" aria-hidden="true">{BUILD}</span>
     {myHandle() && <span className="me-tag">{myHandle()}</span>}

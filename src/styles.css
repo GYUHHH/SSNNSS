@@ -711,6 +711,9 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
   .art-panel.over-toolbar { bottom: calc(58px + env(safe-area-inset-bottom)); }
 }
 
+/* P 키: 방만 남기고 나머지를 통째로 숨긴다 (영상 촬영용) */
+.app.cinema > *:not(.scene) { display: none !important; }
+
 /* 점세개 펼침: 위로 순차 등장하는 세로 버튼 스택 */
 .dock-stack { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 10px; }
 .dock-stack > * { animation: dock-rise .26s cubic-bezier(.2, .9, .3, 1) backwards; }
