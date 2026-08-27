@@ -131,8 +131,8 @@ function HoverLayerLight({ time }: { time: TimeOfDay }) {
   return <directionalLight ref={dir} position={[4, 6.5, 2]} intensity={preset.dir} color={preset.dirColor} />
 }
 
-// 전체보기에서 쓰는 픽셀 비율 상한
-const EXPLORE_DPR = 1
+// 전체보기에서 쓰는 픽셀 비율 상한 — 작은 화면에서 글자가 뭉개지지 않게 터치 기기만 조금 높인다.
+const EXPLORE_DPR = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches ? 1.25 : 1
 
 // Idle power saver, second attempt — this one cannot touch animation speed. The loop still runs at the display's
 // full rate: every useFrame callback, every clock and delta is exactly as before (the previous attempt drove the
