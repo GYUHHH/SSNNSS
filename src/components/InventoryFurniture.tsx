@@ -19,6 +19,7 @@ import { ROOM_HTML_Z_INDEX_RANGE } from '../services/renderOrder'
 import { lang, t } from '../services/i18n'
 import GeneratedObject from './GeneratedObject'
 import GlbFurniture, { GLB_TYPES } from './GlbFurniture'
+import { usePreviewFrame } from './usePreviewFrame'
 
 export function InventoryFurniture() {
   const { furniture } = useRoomStore()
@@ -1148,19 +1149,6 @@ function drawNight(canvas: HTMLCanvasElement, t: number) {
   ctx.beginPath(); ctx.moveTo(0, h); ctx.lineTo(0, h * .84); ctx.quadraticCurveTo(w * .3, h * .74, w * .55, h * .87); ctx.quadraticCurveTo(w * .8, h * .97, w, h * .86); ctx.lineTo(w, h); ctx.closePath(); ctx.fill()
 }
 
-// Explorer rooms keep their visual motion, but canvas textures only redraw at 12fps there. That restores a real
-// preview without bringing back the expensive per-room 60fps texture uploads.
-const usePreviewFrameSkip = () => {
-  const readOnly = !!useOptionalRoomStore()?.readOnly
-  const last = useRef(-Infinity)
-  return (time: number) => {
-    if (!readOnly) return false
-    if (time - last.current < 1 / 12) return true
-    last.current = time
-    return false
-  }
-}
-
 function NightSkyArt() {
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas'); canvas.width = 192; canvas.height = 288
@@ -1168,24 +1156,26 @@ function NightSkyArt() {
     const t = new CanvasTexture(canvas); t.colorSpace = SRGBColorSpace
     return t
   }, [])
-  const skip = usePreviewFrameSkip()
-  useFrame(({ clock }) => { if (skip(clock.elapsedTime)) return; drawNight(texture.image as HTMLCanvasElement, clock.elapsedTime); texture.needsUpdate = true })
+  const frame = usePreviewFrame()
+  useFrame(({ clock }, delta) => { if (!frame(clock.elapsedTime, delta)) return; drawNight(texture.image as HTMLCanvasElement, clock.elapsedTime); texture.needsUpdate = true })
   return <meshStandardMaterial map={texture} roughness={.9} />
 }
 
 // shared flicker for fireplace/candle light
 function FlickerLight({ position, color, base, amp, distance }: { position: [number, number, number]; color: string; base: number; amp: number; distance: number }) {
   const ref = useRef<PointLight>(null)
-  useFrame(({ clock }) => { const t = clock.elapsedTime; if (ref.current) ref.current.intensity = base + Math.sin(t * 11) * amp + Math.sin(t * 23 + 1) * amp * .5 })
+  const frame = usePreviewFrame()
+  useFrame(({ clock }, delta) => { if (!frame(clock.elapsedTime, delta)) return; const t = clock.elapsedTime; if (ref.current) ref.current.intensity = base + Math.sin(t * 11) * amp + Math.sin(t * 23 + 1) * amp * .5 })
   return <pointLight ref={ref} color={color} intensity={base} distance={distance} position={position} />
 }
 
 function ClubLights({ preview }: { preview: boolean }) {
   const field = useRef<Group>(null)
-  const skip = usePreviewFrameSkip()
+  const frame = usePreviewFrame()
   useFrame(({ clock }, delta) => {
-    if (preview || skip(clock.elapsedTime) || !field.current) return
-    field.current.rotation.y += delta * .28
+    const step = frame(clock.elapsedTime, delta)
+    if (preview || !step || !field.current) return
+    field.current.rotation.y += step * .28
     field.current.scale.setScalar(.92 + Math.abs(Math.sin(clock.elapsedTime * 3.5)) * .16)
   })
   return <>
@@ -1196,7 +1186,8 @@ function ClubLights({ preview }: { preview: boolean }) {
 
 function TankFish({ color, y, phase, speed }: { color: string; y: number; phase: number; speed: number }) {
   const ref = useRef<Group>(null)
-  useFrame(({ clock }) => { const t = clock.elapsedTime * speed + phase; if (ref.current) { ref.current.position.x = Math.sin(t) * .18; ref.current.rotation.y = Math.cos(t) > 0 ? 0 : Math.PI } })
+  const frame = usePreviewFrame()
+  useFrame(({ clock }, delta) => { if (!frame(clock.elapsedTime, delta)) return; const t = clock.elapsedTime * speed + phase; if (ref.current) { ref.current.position.x = Math.sin(t) * .18; ref.current.rotation.y = Math.cos(t) > 0 ? 0 : Math.PI } })
   return <group ref={ref} position={[0, y, 0]}>
     <mesh><sphereGeometry args={[.035, 8, 6]} /><meshStandardMaterial color={color} /></mesh>
     <mesh position={[-.045, 0, 0]} rotation={[0, 0, -Math.PI / 2]}><coneGeometry args={[.022, .04, 6]} /><meshStandardMaterial color={color} /></mesh>
@@ -1236,8 +1227,8 @@ function FireArt() {
     const t = new CanvasTexture(canvas); t.colorSpace = SRGBColorSpace
     return t
   }, [])
-  const skip = usePreviewFrameSkip()
-  useFrame(({ clock }) => { if (skip(clock.elapsedTime)) return; drawFire(texture.image as HTMLCanvasElement, clock.elapsedTime); texture.needsUpdate = true })
+  const frame = usePreviewFrame()
+  useFrame(({ clock }, delta) => { if (!frame(clock.elapsedTime, delta)) return; drawFire(texture.image as HTMLCanvasElement, clock.elapsedTime); texture.needsUpdate = true })
   return <mesh position={[0, .4, .33]}><planeGeometry args={[.6, .5]} /><meshBasicMaterial map={texture} transparent depthWrite={false} /></mesh>
 }
 
@@ -1270,8 +1261,8 @@ function WindowView() {
     const t = new CanvasTexture(canvas); t.colorSpace = SRGBColorSpace
     return t
   }, [])
-  const skip = usePreviewFrameSkip()
-  useFrame(({ clock }) => { if (skip(clock.elapsedTime)) return; drawSkyView(texture.image as HTMLCanvasElement, clock.elapsedTime, timeOfDay); texture.needsUpdate = true })
+  const frame = usePreviewFrame()
+  useFrame(({ clock }, delta) => { if (!frame(clock.elapsedTime, delta)) return; drawSkyView(texture.image as HTMLCanvasElement, clock.elapsedTime, timeOfDay); texture.needsUpdate = true })
   return <mesh position={[0, 0, .062]}><planeGeometry args={[1.86, 1.22]} /><meshBasicMaterial map={texture} /></mesh>
 }
 
@@ -1299,8 +1290,8 @@ function BannerArt({ id }: { id: string }) {
     const t = new CanvasTexture(canvas); t.colorSpace = SRGBColorSpace
     return t
   }, [])
-  const skip = usePreviewFrameSkip()
-  useFrame(({ clock }) => { if (skip(clock.elapsedTime)) return; drawBanner(texture.image as HTMLCanvasElement, clock.elapsedTime, text); texture.needsUpdate = true })
+  const frame = usePreviewFrame()
+  useFrame(({ clock }, delta) => { if (!frame(clock.elapsedTime, delta)) return; drawBanner(texture.image as HTMLCanvasElement, clock.elapsedTime, text); texture.needsUpdate = true })
   return <mesh position={[0, 0, .03]}><planeGeometry args={[1.98, .54]} /><meshBasicMaterial map={texture} /></mesh>
 }
 
@@ -1311,7 +1302,9 @@ function StringLightsArt({ lit, preview, tint, opacity }: { lit: boolean; previe
   const sag = (x: number) => -.16 * (1 - (x / .95) ** 2) - .04
   const colors = ['#ffb84d', '#ec8377', '#7fb377', '#ffb84d', '#7f9cd0', '#ec8377', '#ffb84d']
   // every bulb carries its own small light, pulsing in the same rhythm as its glow
-  useFrame(({ clock }) => {
+  const frame = usePreviewFrame()
+  useFrame(({ clock }, delta) => {
+    if (!frame(clock.elapsedTime, delta)) return
     const pulse = (index: number) => .5 + Math.sin(clock.elapsedTime * 2.4 + index * 1.1) * .28
     bulbs.current.forEach((bulbMat, index) => { if (bulbMat) bulbMat.emissiveIntensity = lit ? pulse(index) : 0 })
     glows.current.forEach((glow, index) => { if (glow) glow.intensity = lit ? pulse(index) * .45 : 0 })
@@ -1326,14 +1319,16 @@ function StringLightsArt({ lit, preview, tint, opacity }: { lit: boolean; previe
 function TreeLights({ lit }: { lit: boolean }) {
   const bulbs = useRef<(MeshStandardMaterial | null)[]>([])
   const spots: [number, number, number, string][] = [[-.3, .48, .42, '#f2a8a0'], [.28, .58, .38, '#a8c8a2'], [-.2, .78, .34, '#ffd27a'], [.22, .88, .3, '#a8b8d8'], [-.14, 1.05, .24, '#f2a8a0'], [.12, 1.14, .2, '#ffd27a']]
-  useFrame(({ clock }) => { const t = clock.elapsedTime; bulbs.current.forEach((bulbMat, index) => { if (bulbMat) bulbMat.emissiveIntensity = lit ? (Math.sin(t * 3 + index * 2.1) > 0 ? 1.1 : .15) : 0 }) })
+  const frame = usePreviewFrame()
+  useFrame(({ clock }, delta) => { if (!frame(clock.elapsedTime, delta)) return; const t = clock.elapsedTime; bulbs.current.forEach((bulbMat, index) => { if (bulbMat) bulbMat.emissiveIntensity = lit ? (Math.sin(t * 3 + index * 2.1) > 0 ? 1.1 : .15) : 0 }) })
   return <>{spots.map(([x, y, z, color], index) => <mesh key={index} position={[x, y, z]}><sphereGeometry args={[.032, 8, 6]} /><meshStandardMaterial ref={(ref) => { bulbs.current[index] = ref }} color={color} emissive={color} emissiveIntensity={0} /></mesh>)}</>
 }
 
 function RecordDisc() {
   const disc = useRef<Group>(null)
   const playing = !!useOptionalRoomStore()?.musicTrack
-  useFrame((_, delta) => { if (disc.current && playing) disc.current.rotation.y += delta * 3.2 })
+  const frame = usePreviewFrame()
+  useFrame(({ clock }, delta) => { const step = frame(clock.elapsedTime, delta); if (disc.current && playing && step) disc.current.rotation.y += step * 3.2 })
   // a plain black disc looks motionless however fast it turns — the light label wedge and rim ticks are what
   // actually sell the spin from the room's fixed camera
   return <group ref={disc} position={[-.14, .238, 0]}>
@@ -1350,7 +1345,8 @@ function CdDisc() {
   const disc = useRef<Group>(null)
   const playing = !!useOptionalRoomStore()?.musicTrack
   // wall-mounted, so the CD turns about its facing axis (local z)
-  useFrame((_, delta) => { if (disc.current && playing) disc.current.rotation.z -= delta * 4 })
+  const frame = usePreviewFrame()
+  useFrame(({ clock }, delta) => { const step = frame(clock.elapsedTime, delta); if (disc.current && playing && step) disc.current.rotation.z -= step * 4 })
   return <group ref={disc} position={[0, .1, .13]}>
     <mesh><circleGeometry args={[.44, 32]} /><meshStandardMaterial color="#dfe4e8" metalness={.75} roughness={.22} side={2} /></mesh>
     {[0, 1, 2, 3, 4, 5].map((index) => <mesh key={index} position={[Math.cos(index * 1.047) * .3, Math.sin(index * 1.047) * .3, .002]} rotation={[0, 0, index * 1.047]}><planeGeometry args={[.22, .07]} /><meshStandardMaterial color={['#9fd0e8', '#c9a8e0', '#f2c98e', '#a8d8b8', '#f0a8b0', '#bcd6e8'][index]} metalness={.5} roughness={.3} /></mesh>)}
@@ -1363,20 +1359,23 @@ function CdDisc() {
 // pivots near the runners so the whole chair sways gently
 function RockingGroup({ children }: { children: ReactNode }) {
   const group = useRef<Group>(null)
-  useFrame(({ clock }) => { if (group.current) group.current.rotation.x = Math.sin(clock.elapsedTime * 1.1) * .028 })
+  const frame = usePreviewFrame()
+  useFrame(({ clock }, delta) => { if (!frame(clock.elapsedTime, delta)) return; if (group.current) group.current.rotation.x = Math.sin(clock.elapsedTime * 1.1) * .028 })
   return <group ref={group} position={[0, .06, 0]}><group position={[0, -.06, 0]}>{children}</group></group>
 }
 
 function FridgeDoor({ open, children }: { open: boolean; children: ReactNode }) {
   const hinge = useRef<Group>(null)
+  const frame = usePreviewFrame()
   useLayoutEffect(() => { if (hinge.current) hinge.current.rotation.y = open ? -1.5 : 0 }, [])
-  useFrame((_, delta) => { if (hinge.current) hinge.current.rotation.y += ((open ? -1.5 : 0) - hinge.current.rotation.y) * Math.min(1, delta * 6) })
+  useFrame(({ clock }, delta) => { const step = frame(clock.elapsedTime, delta); if (hinge.current && step) hinge.current.rotation.y += ((open ? -1.5 : 0) - hinge.current.rotation.y) * Math.min(1, step * 6) })
   return <group ref={hinge} position={[-.26, .44, .27]}>{children}</group>
 }
 
 function StarField() {
   const field = useRef<Group>(null)
-  useFrame((_, delta) => { if (field.current) field.current.rotation.y += delta * .12 })
+  const frame = usePreviewFrame()
+  useFrame(({ clock }, delta) => { const step = frame(clock.elapsedTime, delta); if (field.current && step) field.current.rotation.y += step * .12 })
   const dots = Array.from({ length: 22 }, (_, index) => {
     const azimuth = index * 2.39996; const height = .3 + ((index * 37) % 23) / 23 * 1.4; const radius = 1.1 + ((index * 17) % 13) / 13 * .7
     return [Math.cos(azimuth) * radius, height, Math.sin(azimuth) * radius] as [number, number, number]
@@ -1386,15 +1385,16 @@ function StarField() {
 
 function StarDust({ preview }: { preview: boolean }) {
   const cloud = useRef<Group>(null)
-  const skip = usePreviewFrameSkip()
+  const frame = usePreviewFrame()
   const points = useMemo(() => Float32Array.from(Array.from({ length: 42 }, (_, index) => {
     const angle = index * 2.39996
     const radius = .12 + ((index * 17) % 23) / 23 * .62
     return [Math.cos(angle) * radius, .12 + ((index * 29) % 31) / 31 * 1.25, Math.sin(angle) * radius]
   }).flat()), [])
   useFrame(({ clock }, delta) => {
-    if (preview || skip(clock.elapsedTime) || !cloud.current) return
-    cloud.current.rotation.y += delta * .16
+    const step = frame(clock.elapsedTime, delta)
+    if (preview || !step || !cloud.current) return
+    cloud.current.rotation.y += step * .16
     cloud.current.position.y = Math.sin(clock.elapsedTime * .8) * .035
   })
   return <group ref={cloud}>
@@ -1448,11 +1448,10 @@ function VideoScreen({ id, width, height, posterId, thumbnailCrop }: { id: strin
   const clip = store?.videoClips[id]
   const [texture, setTexture] = useState<Texture | null>(null)
   const preview = useRef<{ element: HTMLVideoElement; canvas: HTMLCanvasElement; texture: CanvasTexture } | null>(null)
-  const previewDrawAt = useRef(-Infinity)
-  useFrame(({ clock }) => {
+  const frame = usePreviewFrame()
+  useFrame(({ clock }, delta) => {
     const current = preview.current
-    if (!current || clock.elapsedTime - previewDrawAt.current < 1 / 12 || current.element.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return
-    previewDrawAt.current = clock.elapsedTime
+    if (!frame(clock.elapsedTime, delta) || !current || current.element.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return
     current.canvas.getContext('2d')?.drawImage(current.element, 0, 0, current.canvas.width, current.canvas.height)
     current.texture.needsUpdate = true
   })
@@ -1573,12 +1572,15 @@ function ProfileBoardFace() {
   const night = store?.timeOfDay === 'night'
   const nightMix = useRef(night ? 1 : 0)
   const labels = useRef<Array<{ color: string } | null>>([])
+  const frame = usePreviewFrame()
   const photo = profile?.photo
   const defaultPhoto = isDefaultProfilePhoto(photo)
-  useFrame((_, delta) => {
+  useFrame(({ clock }, delta) => {
+    const step = frame(clock.elapsedTime, delta)
+    if (!step) return
     const goal = night ? 1 : 0
     if (Math.abs(nightMix.current - goal) < .004) return
-    nightMix.current = MathUtils.damp(nightMix.current, goal, 6, Math.min(delta, 1 / 30))
+    nightMix.current = MathUtils.damp(nightMix.current, goal, 6, Math.min(step, 1 / 12))
     if (Math.abs(nightMix.current - goal) < .004) nightMix.current = goal
     const tone = mixColor('#403f3d', '#f3eee4', nightMix.current)
     labels.current.forEach((label) => { if (label) label.color = tone })

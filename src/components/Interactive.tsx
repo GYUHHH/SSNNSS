@@ -88,6 +88,8 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
 
   useFrame((_, delta) => {
     if (!group.current) return
+    // Read-only explorer furniture cannot hover or edit, and its room owns one shared hitbox.
+    if (readOnly) return
     if (editing) {
       group.current.position.set(...position)
       group.current.rotation.set(...rotation)

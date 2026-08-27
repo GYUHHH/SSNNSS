@@ -7,7 +7,7 @@ import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDir
 import { snapshotActiveFrames } from '../services/ytResume'
 import { type ExplorerMode, explorerMode, fetchFollowing, onExplorerMode, onFollowsChange, rememberModeRoom, sortByActivity } from '../services/follows'
 import { captureRenderScale, flushCapture } from '../services/capture'
-import { setRoomFrameRendered } from '../services/renderSync'
+import { explorerAnimationsAreMoving, keepExplorerAnimationsSmooth, setRoomFrameRendered } from '../services/renderSync'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
 import CameraController, { DEFAULT_CAMERA_POSITION, entryZoom, exploreMinZoom } from './CameraController'
@@ -44,7 +44,6 @@ let hoverLayerMask = 0
 let activeTimeLayerMask = 0
 // The idle governor must not deliberately throw away every other draw while the explorer camera or room opacity
 // is still moving. This is only a short hold renewed by real motion; once everything settles, idle saving resumes.
-let explorerMotionUntil = 0
 
 // compileAsync is expensive when several newly-mounted rooms start it together. Keep the existing two warm-up
 // passes, but let only one room compile at a time so explorer entry does not inherit a burst of concurrent work.
@@ -167,10 +166,10 @@ function RenderGovernor() {
       || Math.abs(camera.zoom - previous.zoom) > .001
       || Math.abs(camera.position.x - previous.x) + Math.abs(camera.position.y - previous.y) + Math.abs(camera.position.z - previous.z) > .001
       || 1 - Math.abs(camera.quaternion.x * previous.qx + camera.quaternion.y * previous.qy + camera.quaternion.z * previous.qz + camera.quaternion.w * previous.qw) > .000001
-    if (cameraMoving) explorerMotionUntil = now + 120
+    if (cameraMoving) keepExplorerAnimationsSmooth()
     lastCamera.current = { x: camera.position.x, y: camera.position.y, z: camera.position.z, qx: camera.quaternion.x, qy: camera.quaternion.y, qz: camera.quaternion.z, qw: camera.quaternion.w, zoom: camera.zoom }
     const characterMoving = characterState === 'walking' || characterState === 'aligning'
-    if (!characterMoving && now >= activeUntil.current && now >= explorerMotionUntil) {
+    if (!characterMoving && now >= activeUntil.current && !explorerAnimationsAreMoving()) {
       skip.current = !skip.current
       if (skip.current) return
     } else skip.current = false
@@ -328,6 +327,7 @@ if (import.meta.env.DEV) {
 // click that selects it has nothing to land on, so read-only rooms hold their handlers back instead (see Floor,
 // Interactive, Furniture and Character: each one bails before stopPropagation when the store is readOnly).
 const NO_RAYCAST = () => {}
+const ALWAYS_INERT = () => true
 type Faded = Material & { wasTransparent?: boolean; color?: Color }
 function Inert({ off, children }: { off: (zoom: number, width: number, height: number) => boolean; children: ReactNode }) {
   const group = useRef<Group>(null)
@@ -440,7 +440,6 @@ function RoomContainer({ slot, distance, centred, shown, fresh, open, swapping, 
       setBundle(found)
     })
   }, [slot.handle])
-  const fadedOut = () => opacity.current < .65
   // Shaders are compiled the first time a mesh is actually DRAWN, and until the zoom-out reveals it a neighbour
   // is never drawn — so the reveal itself paid for several rooms' worth of program compilation at once, and the
   // gather from the entry line to the floor stuttered through it. Compiling in the background as soon as the
@@ -518,7 +517,7 @@ function RoomContainer({ slot, distance, centred, shown, fresh, open, swapping, 
     // hanging over an entered room before winking out. Once entry has fired, the ring clears at full pace.
     const leavingRate = camera.zoom > entryZoom(size.width, size.height) ? 12 : 5
     opacity.current = MathUtils.damp(opacity.current, wanted, wanted < opacity.current ? leavingRate : 12, Math.min(delta, 1 / 30))
-    if (Math.abs(opacity.current - wanted) > .001) explorerMotionUntil = performance.now() + 120
+    if (Math.abs(opacity.current - wanted) > .001) keepExplorerAnimationsSmooth()
     // Materials keep arriving after the layout effect ran — a suspended font resolves, and a photo or thumbnail
     // texture finishing its load SWAPS IN a whole new material. A newcomer the loop below doesn't know about is
     // drawn at its natural full opacity, which against a half-faded room reads as the photo popping in — and on
@@ -588,11 +587,13 @@ function RoomContainer({ slot, distance, centred, shown, fresh, open, swapping, 
           shows the DEFAULT room, and a stranger's cell flashing the starter layout before flipping to the real
           one read as broken. With bundles prefetched at directory load the gap is rarely even visible. */}
       {bundle === null ? null : <>
-      {/* three's raycaster tests layers only, never `visible`, so a faded-out neighbour still swallows the ray.
-          That is what stopped a click on empty space from counting as a miss — and in edit mode, where every
-          neighbour is faded to nothing, it stopped the click that finishes editing. Inert while faded, hittable
-          once it has faded in, which is exactly when the click below is allowed to select the room anyway. */}
-      <Inert off={fadedOut}><NeighbourRoomProvider bundle={bundle} handle={slot.handle}><NeighbourRoom /></NeighbourRoomProvider></Inert>
+      {/* Interior meshes never join explorer hit testing. The single floor-sized target below owns room selection. */}
+      <Inert off={ALWAYS_INERT}><NeighbourRoomProvider bundle={bundle} handle={slot.handle}><NeighbourRoom /></NeighbourRoomProvider></Inert>
+      {/* Explorer rooms need one target, not hundreds of furniture meshes. The event bubbles to RoomContainer. */}
+      <mesh position={[0, .03, 0]}>
+        <boxGeometry args={[ROOM_SIZE, .04, ROOM_SIZE]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
+      </mesh>
       </>}
     </Suspense>
   </group>

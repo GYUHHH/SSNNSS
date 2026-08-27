@@ -1,13 +1,17 @@
 import { useFrame } from '@react-three/fiber'
 import { type ReactNode, useLayoutEffect, useRef } from 'react'
 import type { Group } from 'three'
+import { usePreviewFrame } from './usePreviewFrame'
 
 // doors, lids and drawers all move the same way: ease toward the open pose and back again.
 // `pivot` is the hinge point in the item's own coordinates — children keep theirs.
 export function Swing({ open, angle, axis = 'y', pivot, children }: { open: boolean; angle: number; axis?: 'x' | 'y'; pivot: [number, number, number]; children: ReactNode }) {
   const hinge = useRef<Group>(null)
+  const frame = usePreviewFrame()
   useLayoutEffect(() => { if (hinge.current) hinge.current.rotation[axis] = open ? angle : 0 }, [])
-  useFrame((_, delta) => {
+  useFrame(({ clock }, delta) => {
+    delta = frame(clock.elapsedTime, delta)
+    if (!delta) return
     if (!hinge.current) return
     const current = hinge.current.rotation[axis]
     hinge.current.rotation[axis] = current + ((open ? angle : 0) - current) * Math.min(1, delta * 7)
@@ -17,8 +21,11 @@ export function Swing({ open, angle, axis = 'y', pivot, children }: { open: bool
 
 export function Slide({ open, offset, children }: { open: boolean; offset: [number, number, number]; children: ReactNode }) {
   const group = useRef<Group>(null)
+  const frame = usePreviewFrame()
   useLayoutEffect(() => { if (group.current && open) group.current.position.set(...offset) }, [])
-  useFrame((_, delta) => {
+  useFrame(({ clock }, delta) => {
+    delta = frame(clock.elapsedTime, delta)
+    if (!delta) return
     if (!group.current) return
     const step = Math.min(1, delta * 7)
     group.current.position.x += ((open ? offset[0] : 0) - group.current.position.x) * step

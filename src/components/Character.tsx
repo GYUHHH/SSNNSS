@@ -8,6 +8,7 @@ import { resolveInteraction, stateForInteraction } from '../services/interaction
 import { cellsFor, findPath, floorSurface, gridToWorld, type GridPosition, worldToGrid } from '../services/roomGrid'
 import { ROOM_HTML_Z_INDEX_RANGE, ROOM_OBJECT_ORDER } from '../services/renderOrder'
 import { t } from '../services/i18n'
+import { usePreviewFrame } from './usePreviewFrame'
 
 const CELL = { width: 1, depth: 1 }
 
@@ -55,6 +56,7 @@ export default function Character({ appearance: customAppearance }: { appearance
   const route = useRef<Vector3[]>([]); const routeIndex = useRef(0); const routeKey = useRef<string | null>(null)
   const interactionStart = useRef<{ key: string | null; position: [number, number, number] }>({ key: null, position: [start.x, 0, start.z] })
   const clock = useRef(0)
+  const previewFrame = usePreviewFrame()
   useCursor(hovered)
   // A room change applies one complete snapshot before paint. The same actor can stay mounted without carrying
   // any position, direction or route from the room left behind.
@@ -84,7 +86,9 @@ export default function Character({ appearance: customAppearance }: { appearance
   // seat's physical top, so the butt rests on it instead of hovering
   const pose = resting ? { y: 0, rotation: [-Math.PI / 2, 0, 0] as [number, number, number], legBend: 0 } : floorSitting ? { y: -0.47, rotation: [0, 0, 0] as [number, number, number], legBend: -Math.PI / 2 } : seated ? { y: -0.56, rotation: [0, 0, 0] as [number, number, number], legBend: -Math.PI / 2 } : { y: 0, rotation: [0, 0, 0] as [number, number, number], legBend: 0 }
 
-  useFrame((_, delta) => {
+  useFrame(({ clock: sceneClock }, delta) => {
+    delta = previewFrame(sceneClock.elapsedTime, delta)
+    if (!delta) return
     if (!actor.current) return
     if (characterWritable) {
       characterPosition[0] = actor.current.position.x; characterPosition[2] = actor.current.position.z
