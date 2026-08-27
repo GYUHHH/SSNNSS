@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MathUtils, MOUSE, OrthographicCamera, TOUCH, Vector3 } from 'three'
 import { useRoomStore } from '../store'
+import { keepExplorerAnimationsSmooth } from '../services/renderSync'
 import { PICKER_HOLD_EVENT } from './ReactionPicker'
 
 const DESKTOP_DETAIL_MIN_ZOOM = 42
@@ -305,6 +306,7 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
     mouseButtons={{ LEFT: atMinZoom ? MOUSE.PAN : MOUSE.ROTATE, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.PAN }}
     touches={{ ONE: atMinZoom ? TOUCH.PAN : TOUCH.ROTATE, TWO: TOUCH.DOLLY_PAN }}
     enableDamping
+    onChange={() => keepExplorerAnimationsSmooth(350)}
     // Panning the explorer coasts noticeably further than a rotate does — it is a map being dragged, not a model
     // being turned, and the same stiffness that keeps rotation precise makes the drag feel like it hits a wall.
     dampingFactor={atMinZoom ? 0.06 : 0.08}
