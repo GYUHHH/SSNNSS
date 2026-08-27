@@ -174,7 +174,7 @@ const CUSTOM_CATEGORY_DESCRIPTIONS: Array<[CustomObjectCategory, string]> = [
 ]
 
 function CustomTab() {
-  const { customObjects, recoverCustomObjects, startPreview, startCustomObjectEdit, availableCount, customJob, runCustomGeneration, markCustomSeen, removeCustomObject } = useRoomStore()
+  const { customObjects, recoverCustomObjects, startPreview, startCustomObjectEdit, availableCount, customJob, resumeCustomGeneration, runCustomGeneration, markCustomSeen, removeCustomObject } = useRoomStore()
   const [removing, setRemoving] = useState<string | null>(null)
   // 생성권 잔액: 결제가 구성된 경우에만 표시·차단. 생성이 끝날 때마다 새로 읽는다.
   const [credits, setCredits] = useState<CreditStatus | null>(cachedCredits)
@@ -209,6 +209,8 @@ function CustomTab() {
     reader.onload = () => setEditingImage(typeof reader.result === 'string' ? reader.result : null)
     reader.readAsDataURL(value)
   }
+  // 앱이 요청 번호를 잃었을 때(생성 중 페이지 이탈) fal에 남은 결과를 번호로 다시 받아온다
+  const [resumeId, setResumeId] = useState('')
   const [quality, setQuality] = useState<'standard' | 'high'>('standard')
   // 캐릭터가 이 가구에 취할 동작. 실제 자리는 생성된 모델에서 재므로 여기선 무엇을 할지만 고른다
   const [pose, setPose] = useState<'' | CustomPose>('')
@@ -258,6 +260,7 @@ function CustomTab() {
       {error && <p className="custom-error">{error}</p>}
       <button className={`custom-generate${canGenerate ? ' ready' : ''}`} type="submit" disabled={!canGenerate}>{t(running ? '생성 중' : '생성')}</button>
     </form>}
+    {!source && <div className="custom-resume"><input value={resumeId} maxLength={60} placeholder={t('요청 번호로 되살리기')} aria-label={t('요청 번호로 되살리기')} onChange={(event) => setResumeId(event.target.value)} /><button type="button" disabled={!resumeId.trim() || running} onClick={() => { resumeCustomGeneration(resumeId); setResumeId('') }}>{t('되살리기')}</button></div>}
     {!source && <div className="inventory-items custom-items">{objects.map((object) => {
       const entry = customObjectTemplate(object) as FurnitureItem
       return <div key={object.id} className="custom-item-wrap">
