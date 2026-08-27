@@ -235,40 +235,94 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
   console.assert(baseCutLevel([0, 0, 0, ...Array.from({ length: 20 }, () => .5)], 0, 1) === null, 'a flat base must not be touched')
 }
 
-function modelMetadata(object: Object3D, bounds: import('three').Box3, three: typeof import('three')): { modelSize: [number, number, number]; topSurface?: CustomTopSurface } {
+// 모델에서 "물건을 올릴 수 있는 평평한 면"을 전부 찾는다. 위를 보는 삼각형을 높이 밴드로 모은 뒤:
+// ① 베벨 단차처럼 붙어 있는 밴드는 하나로 합치고 ② 오브젝트 밑판은 버리고 ③ 위쪽에 머리 공간이 없는 면은
+// 버린다. ③이 닫힌 서랍 안쪽·소파 등받이 위 같은 가짜 후보를 걸러내고, 뚫린 칸의 바닥은 살려 둔다.
+const MERGE_GAP = .03      // 모델 높이 대비: 이보다 가까운 밴드는 같은 면의 단차
+const FLOOR_MARGIN = .05   // 모델 높이 대비: 이보다 낮으면 오브젝트 밑판
+const MIN_HEADROOM = .12   // 모델 높이 대비: 위쪽으로 이만큼은 비어 있어야 물건을 놓는다
+const MIN_SPAN = .15       // 모델 가로 대비: 두 변 모두 이보다 좁으면 물건을 못 놓는 턱이다
+const MAX_SURFACES = 4
+
+type Band = { height: number; area: number; minX: number; maxX: number; minZ: number; maxZ: number }
+
+function modelMetadata(object: Object3D, bounds: import('three').Box3, three: typeof import('three')): { modelSize: [number, number, number]; topSurfaces: CustomTopSurface[] } {
   const size = bounds.getSize(new three.Vector3())
+  const modelSize: [number, number, number] = [size.x, size.y, size.z]
   const tolerance = Math.max(size.y * .02, 1e-4)
   const bands = new Map<number, { area: number; y: number; minX: number; maxX: number; minZ: number; maxZ: number }>()
   const a = new three.Vector3(); const b = new three.Vector3(); const c = new three.Vector3(); const edge = new three.Vector3(); const normal = new three.Vector3()
   object.updateWorldMatrix(true, true)
-  object.traverse((node) => {
-    const mesh = node as Mesh
-    if (!mesh.isMesh) return
-    const position = mesh.geometry.getAttribute('position'); if (!position) return
-    const index = mesh.geometry.index
-    const vertex = (target: import('three').Vector3, at: number) => target.fromBufferAttribute(position, index ? index.getX(at) : at).applyMatrix4(mesh.matrixWorld)
-    const count = index?.count ?? position.count
-    for (let at = 0; at + 2 < count; at += 3) {
-      vertex(a, at); vertex(b, at + 1); vertex(c, at + 2)
-      normal.subVectors(b, a).cross(edge.subVectors(c, a))
-      const length = normal.length(); if (!length || normal.y / length < .85) continue
-      const area = Math.abs((b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x)) / 2
-      if (area <= 1e-8) continue
-      const y = (a.y + b.y + c.y) / 3
-      const key = Math.round(y / tolerance)
-      const band = bands.get(key) ?? { area: 0, y: 0, minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity }
-      band.area += area; band.y += y * area
-      band.minX = Math.min(band.minX, a.x, b.x, c.x); band.maxX = Math.max(band.maxX, a.x, b.x, c.x)
-      band.minZ = Math.min(band.minZ, a.z, b.z, c.z); band.maxZ = Math.max(band.maxZ, a.z, b.z, c.z)
-      bands.set(key, band)
-    }
+  const eachTriangle = (visit: (a: import('three').Vector3, b: import('three').Vector3, c: import('three').Vector3) => void) => {
+    object.traverse((node) => {
+      const mesh = node as Mesh
+      if (!mesh.isMesh) return
+      const position = mesh.geometry.getAttribute('position'); if (!position) return
+      const index = mesh.geometry.index
+      const vertex = (target: import('three').Vector3, at: number) => target.fromBufferAttribute(position, index ? index.getX(at) : at).applyMatrix4(mesh.matrixWorld)
+      const count = index?.count ?? position.count
+      for (let at = 0; at + 2 < count; at += 3) { vertex(a, at); vertex(b, at + 1); vertex(c, at + 2); visit(a, b, c) }
+    })
+  }
+  eachTriangle((first, second, third) => {
+    normal.subVectors(second, first).cross(edge.subVectors(third, first))
+    const length = normal.length(); if (!length || normal.y / length < .85) return
+    const area = Math.abs((second.x - first.x) * (third.z - first.z) - (second.z - first.z) * (third.x - first.x)) / 2
+    if (area <= 1e-8) return
+    const y = (first.y + second.y + third.y) / 3
+    const key = Math.round(y / tolerance)
+    const band = bands.get(key) ?? { area: 0, y: 0, minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity }
+    band.area += area; band.y += y * area
+    band.minX = Math.min(band.minX, first.x, second.x, third.x); band.maxX = Math.max(band.maxX, first.x, second.x, third.x)
+    band.minZ = Math.min(band.minZ, first.z, second.z, third.z); band.maxZ = Math.max(band.maxZ, first.z, second.z, third.z)
+    bands.set(key, band)
   })
   const minimumArea = size.x * size.z * .08
-  const top = [...bands.values()].filter((band) => band.area >= minimumArea).sort((left, right) => right.y / right.area - left.y / left.area)[0]
-  return {
-    modelSize: [size.x, size.y, size.z],
-    ...(top ? { topSurface: { height: top.y / top.area, center: [(top.minX + top.maxX) / 2, (top.minZ + top.maxZ) / 2], size: [top.maxX - top.minX, top.maxZ - top.minZ] } } : {}),
+  const found = [...bands.values()].filter((band) => band.area >= minimumArea)
+    .map((band) => ({ height: band.y / band.area, area: band.area, minX: band.minX, maxX: band.maxX, minZ: band.minZ, maxZ: band.maxZ }))
+    .sort((left, right) => right.height - left.height)
+  // ① 붙어 있는 밴드 병합 — 베벨 단차 하나가 상판 서너 개로 잡히는 것을 막는다
+  const merged: Band[] = []
+  for (const band of found) {
+    const last = merged[merged.length - 1]
+    if (last && last.height - band.height <= size.y * MERGE_GAP) {
+      last.minX = Math.min(last.minX, band.minX); last.maxX = Math.max(last.maxX, band.maxX)
+      last.minZ = Math.min(last.minZ, band.minZ); last.maxZ = Math.max(last.maxZ, band.maxZ)
+      last.area += band.area
+      continue
+    }
+    merged.push({ ...band })
   }
+  // ② 오브젝트 밑판(바닥에 붙은 면)과, 물건을 못 놓을 만큼 좁은 턱은 후보가 아니다
+  const span = Math.max(size.x, size.z)
+  const candidates = merged.filter((band) => band.height > bounds.min.y + size.y * FLOOR_MARGIN)
+    .filter((band) => Math.min(band.maxX - band.minX, band.maxZ - band.minZ) >= span * MIN_SPAN)
+  if (!candidates.length) return { modelSize, topSurfaces: [] }
+  // ③ 머리 공간: 각 후보 중앙 60% 위로 가장 가까운 지오메트리까지의 거리
+  const headroom = candidates.map(() => Infinity)
+  const probes = candidates.map((band) => {
+    const width = (band.maxX - band.minX) * .3; const depth = (band.maxZ - band.minZ) * .3
+    const centreX = (band.minX + band.maxX) / 2; const centreZ = (band.minZ + band.maxZ) / 2
+    return { minX: centreX - width, maxX: centreX + width, minZ: centreZ - depth, maxZ: centreZ + depth }
+  })
+  eachTriangle((first, second, third) => {
+    const lowest = Math.min(first.y, second.y, third.y)
+    const minX = Math.min(first.x, second.x, third.x); const maxX = Math.max(first.x, second.x, third.x)
+    const minZ = Math.min(first.z, second.z, third.z); const maxZ = Math.max(first.z, second.z, third.z)
+    for (let index = 0; index < candidates.length; index += 1) {
+      if (lowest <= candidates[index].height + tolerance * 2) continue
+      const probe = probes[index]
+      if (maxX < probe.minX || minX > probe.maxX || maxZ < probe.minZ || minZ > probe.maxZ) continue
+      headroom[index] = Math.min(headroom[index], lowest - candidates[index].height)
+    }
+  })
+  // 맨 위 면은 늘 남긴다(위가 뚫려 있으니 검사할 것도 없고, 면을 하나만 쓰던 종전 동작이 그대로 보존된다).
+  // 그 아래 면은 머리 공간을 통과할 때만 — 뚫린 칸은 살고, 닫힌 서랍 안쪽이나 등받이 위는 걸러진다
+  const topSurfaces = candidates
+    .filter((_, index) => index === 0 || headroom[index] >= size.y * MIN_HEADROOM)
+    .slice(0, MAX_SURFACES)
+    .map((band) => ({ height: band.height, center: [(band.minX + band.maxX) / 2, (band.minZ + band.maxZ) / 2] as [number, number], size: [band.maxX - band.minX, band.maxZ - band.minZ] as [number, number] }))
+  return { modelSize, topSurfaces }
 }
 
 export async function inspectCustomModel(url: string) {
@@ -280,7 +334,7 @@ export async function inspectCustomModel(url: string) {
   return modelMetadata(object, bounds, three)
 }
 
-export async function generatedModelBlob(model: GeneratedModel, finish?: 'gloss', category?: CustomObjectCategory): Promise<{ blob: Blob; modelSize: [number, number, number]; topSurface?: CustomTopSurface }> {
+export async function generatedModelBlob(model: GeneratedModel, finish?: 'gloss', category?: CustomObjectCategory): Promise<{ blob: Blob; modelSize: [number, number, number]; topSurfaces: CustomTopSurface[] }> {
   const [{ OBJLoader }, { GLTFLoader }, { GLTFExporter }, { mergeVertices }, { MeshoptDecoder }, three] = await Promise.all([
     import('three/addons/loaders/OBJLoader.js'),
     import('three/addons/loaders/GLTFLoader.js'),

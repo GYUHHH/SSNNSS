@@ -386,7 +386,7 @@ type RoomStore = {
   mode: RoomMode; furniture: FurnitureItem[]; selectedFurnitureId: FurnitureId | null; selectedPlacementValid: boolean; movingFurnitureId: FurnitureId | null; preview: FurnitureItem | null; previewValid: boolean; previewDragging: boolean
   wallStyle: RoomStyle; floorStyle: string | undefined; floorImage: string | undefined; styleTarget: StyleTarget | null; debugAnchors: boolean; moveNotice: boolean; floorTarget: [number, number, number] | null; musicTrack: string | null; setMusicTrack: (id: string | null) => void; musicVolume: number; setMusicVolume: (value: number) => void
   customObjects: CustomObjectSpec[]; addCustomObject: (spec: CustomObjectSpec) => void; renameCustomObject: (id: string, name: string) => void; removeCustomObject: (id: string) => void
-  customEditing: CustomObjectSpec | null; startCustomObjectEdit: (id: string) => void; updateCustomObjectEdit: (patch: Partial<Pick<CustomObjectSpec, 'name' | 'footprint' | 'modelScale' | 'topSurface'>>) => void; applyCustomObjectEdit: () => void; cancelCustomObjectEdit: () => void
+  customEditing: CustomObjectSpec | null; startCustomObjectEdit: (id: string) => void; updateCustomObjectEdit: (patch: Partial<Pick<CustomObjectSpec, 'name' | 'footprint' | 'modelScale'>>) => void; applyCustomObjectEdit: () => void; cancelCustomObjectEdit: () => void
   customJob: CustomJob | null; runCustomGeneration: (input: { category: CustomObjectCategory; prompt: string; image?: string; size?: { width: number; depth: number; height?: number }; finish?: 'gloss' }) => void; markCustomSeen: () => void
   selectObject: (object: Exclude<SelectedObject, null>) => void; clearSelection: () => void; finishCharacterAction: (state: Exclude<CharacterState, 'walking'>, transform?: CharacterTransform) => void; moveCharacterTo: (position: [number, number, number]) => void; settleFloorMove: (reached: boolean, transform?: CharacterTransform) => void; openBook: (id: string) => void; closeBook: () => void; addBook: (title: string, visibility: Visibility) => string; deleteBook: (id: string) => void; updateBook: (id: string, patch: Partial<Pick<Book, 'title' | 'coverColor' | 'visibility' | 'shelf'>>) => void; addEntry: (bookId: string, entry: EntryDraft) => void; deleteEntry: (bookId: string, entryId: string) => void; updateEntry: (bookId: string, entryId: string, patch: Partial<Pick<Entry, 'content' | 'images' | 'visibility'>>) => void; toggleDebugAnchors: () => void
   toggleEditMode: () => void; enterEditFurniture: (id: FurnitureId) => void; selectFurniture: (id: FurnitureId) => void; beginMove: (id: FurnitureId) => void; moveFurniture: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; placeFurnitureAt: (id: FurnitureId, position: [number, number, number], surfaceId?: SurfaceId) => void; endMove: () => void; beginResize: (id: FurnitureId) => void; resizeFurniture: (id: FurnitureId, corner: ResizeCorner, position: [number, number, number]) => void; endResize: (id: FurnitureId) => void; rotateFurniture: () => void; adjustFurnitureHeight: (id: FurnitureId, direction: -1 | 1) => void; removeFurniture: (id?: FurnitureId) => void; undoLayout: () => void; resetLayout: () => void; startPreview: (type: string, styleId?: string, restoreId?: string) => void; beginPreviewDrag: () => void; movePreview: (position: [number, number, number], surfaceId?: SurfaceId) => void; endPreviewDrag: () => void; placePreview: () => void; cancelPreview: () => void
@@ -486,7 +486,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
         const name = (input.prompt.trim() || t('커스텀 오브젝트')).slice(0, 40)
         const clampCell = (value: number) => Math.max(1, Math.min(10, Math.round(value)))
         const footprint = input.category === 'sculpture' ? { width: 1, depth: 1 } : input.size ? { width: clampCell(input.size.width), depth: clampCell(input.size.depth) } : { width: 2, depth: 2 }
-        addCustomObject({ id, name, category: input.category, footprint, parts: [], glbUrl: stored, modelSize: generated.modelSize, modelScale: [1, 1, 1], ...(generated.topSurface && input.category === 'furniture' ? { topSurface: generated.topSurface } : {}), ...(input.finish ? { finish: input.finish } : {}) })
+        addCustomObject({ id, name, category: input.category, footprint, parts: [], glbUrl: stored, modelSize: generated.modelSize, modelScale: [1, 1, 1], ...(generated.topSurfaces.length && input.category === 'furniture' ? { topSurfaces: generated.topSurfaces } : {}), ...(input.finish ? { finish: input.finish } : {}) })
         setCustomJob({ stage: 'done', round: 0, unseen: true, name })
       } catch (reason) {
         const message = reason instanceof Error ? reason.message : String(reason)
@@ -802,12 +802,12 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     if (!spec.modelSize && spec.glbUrl) void inspectCustomModel(spec.glbUrl).then((metadata) => {
       if (customEditId.current !== id) return
       const current = customEditDraft.current ?? spec
-      const next = { ...current, ...metadata, modelScale: current.modelScale ?? [1, 1, 1] as [number, number, number], ...(current.category !== 'furniture' ? { topSurface: undefined } : {}) }
+      const next = { ...current, ...metadata, modelScale: current.modelScale ?? [1, 1, 1] as [number, number, number], ...(current.category !== 'furniture' ? { topSurfaces: undefined } : {}) }
       customEditDraft.current = next
       setCustomEditing(next); paintCustomSpec(next)
     }).catch(() => { /* the size editor still works with the GLB's live bounds */ })
   }
-  const updateCustomObjectEdit = (patch: Partial<Pick<CustomObjectSpec, 'name' | 'footprint' | 'modelScale' | 'topSurface'>>) => {
+  const updateCustomObjectEdit = (patch: Partial<Pick<CustomObjectSpec, 'name' | 'footprint' | 'modelScale'>>) => {
     if (!customEditing) return
     const next = { ...customEditing, ...patch }
     customEditDraft.current = next

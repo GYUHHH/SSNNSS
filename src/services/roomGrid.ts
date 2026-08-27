@@ -124,13 +124,16 @@ export const surfacesForOwner = (item: SurfaceHost): PlacementSurface[] => {
     return {
       id: `${item.id}:${suffix}`, ownerId: item.id, type: kind, orientation: 'horizontal',
       width: columns * GRID_SIZE / 2, height: rows * GRID_SIZE / 2, gridColumns: columns, gridRows: rows,
-      position: [item.position[0] + cos * localX + sin * localZ, item.position[1] + (top.height * fitY * scale[1]) + (top.offset ?? 0), item.position[2] - sin * localX + cos * localZ],
+      position: [item.position[0] + cos * localX + sin * localZ, item.position[1] + top.height * fitY * scale[1], item.position[2] - sin * localX + cos * localZ],
       rotation: [Math.PI / 2, 0, -yaw], normal: [0, 1, 0],
     }
   }
-  if (custom?.category === 'furniture' && custom.topSurface && custom.topSurface.enabled !== false && custom.modelSize) {
-    const surface = modelSurface(custom.modelSize, custom.topSurface, 'top', 'tabletop')
-    if (surface) return [surface]
+  // topSurface(단수)는 면을 하나만 저장하던 시절의 오브젝트 — 첫 칸의 suffix가 'top'이라 이미 놓인 물건도 그대로 붙어 있는다
+  const customTops = custom?.topSurfaces ?? (custom?.topSurface ? [custom.topSurface] : [])
+  if (custom?.category === 'furniture' && custom.modelSize && customTops.length) {
+    const model = custom.modelSize
+    const surfaces = customTops.map((top, index) => modelSurface(model, top, index ? `tier${index}` : 'top', index ? 'shelf' : 'tabletop')).filter((surface) => !!surface)
+    if (surfaces.length) return surfaces
   }
   // 커스텀(AI 생성)이 아니면 카탈로그 GLB 실측표로 폴백한다
   const preset = custom ? undefined : GLB_TOPS[item.type]

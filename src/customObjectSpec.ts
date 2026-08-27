@@ -19,8 +19,6 @@ export type CustomTopSurface = {
   height: number
   center: [number, number]
   size: [number, number]
-  enabled?: boolean
-  offset?: number
 }
 export type CustomObjectSpec = {
   id: string
@@ -35,7 +33,9 @@ export type CustomObjectSpec = {
   // 생성 모델의 원본 외곽과, 격자 맞춤 뒤 사용자가 조절하는 모델 자체 X/Y/Z 크기
   modelSize?: [number, number, number]
   modelScale?: [number, number, number]
-  // 생성 시 한 번 감지한 평평한 윗면. 크기 변경 뒤에는 이 로컬 값을 함께 스케일한다.
+  // 생성 시 감지한, 물건을 올릴 수 있는 평평한 면들(높은 것부터). 크기 변경 뒤에는 이 로컬 값을 함께 스케일한다.
+  topSurfaces?: CustomTopSurface[]
+  // 면을 하나만 저장하던 시절의 오브젝트 — 읽기만 한다
   topSurface?: CustomTopSurface
 }
 
@@ -56,7 +56,9 @@ export const isCustomObjectSpec = (value: unknown): value is CustomObjectSpec =>
   if (spec.finish !== undefined && spec.finish !== 'gloss') return false
   if (spec.modelSize !== undefined && !modelTuple3(spec.modelSize)) return false
   if (spec.modelScale !== undefined && (!positiveTuple3(spec.modelScale) || spec.modelScale.some((part) => part < .25 || part > 2))) return false
-  if (spec.topSurface !== undefined && (!Number.isFinite(spec.topSurface.height) || !finitePair(spec.topSurface.center) || !positivePair(spec.topSurface.size) || (spec.topSurface.enabled !== undefined && typeof spec.topSurface.enabled !== 'boolean') || (spec.topSurface.offset !== undefined && (!Number.isFinite(spec.topSurface.offset) || Math.abs(spec.topSurface.offset) > 2)))) return false
+  const topOk = (top: unknown) => { const value = top as Partial<CustomTopSurface>; return !!value && Number.isFinite(value.height) && finitePair(value.center) && positivePair(value.size) }
+  if (spec.topSurface !== undefined && !topOk(spec.topSurface)) return false
+  if (spec.topSurfaces !== undefined && (!Array.isArray(spec.topSurfaces) || spec.topSurfaces.length > 4 || !spec.topSurfaces.every(topOk))) return false
   if (!Array.isArray(spec.parts) || spec.parts.length > 32 || (spec.parts.length < 1 && typeof spec.glbUrl !== 'string')) return false
   const profileOk = (part: Partial<CustomObjectPart>) => {
     if (part.primitive !== 'extrudeProfile' && part.primitive !== 'latheProfile') return true
