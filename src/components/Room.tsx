@@ -6,7 +6,7 @@ import { NeighbourRoomProvider, useRoomStore } from '../store'
 import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDirectory, isSignedIn, myHandle, subscribeRoomBundles } from '../services/social'
 import { snapshotActiveFrames } from '../services/ytResume'
 import { type ExplorerMode, explorerMode, fetchFollowing, onExplorerMode, onFollowsChange, rememberModeRoom, sortByActivity } from '../services/follows'
-import { flushCapture } from '../services/capture'
+import { captureRenderScale, flushCapture } from '../services/capture'
 import { setRoomFrameRendered } from '../services/renderSync'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
@@ -167,6 +167,10 @@ function RenderGovernor() {
       skip.current = !skip.current
       if (skip.current) return
     } else skip.current = false
+    const originalDpr = gl.getPixelRatio()
+    const captureScale = captureRenderScale()
+    const captureDpr = Math.min(originalDpr * captureScale, 4096 / Math.max(size.width, size.height), gl.capabilities.maxTextureSize / Math.max(size.width, size.height))
+    if (captureDpr > originalDpr) gl.setPixelRatio(captureDpr)
     const originalAutoClear = gl.autoClear
     camera.layers.set(0)
     gl.autoClear = true
@@ -188,6 +192,7 @@ function RenderGovernor() {
     camera.layers.mask = EXPLORER_LAYER_MASK
     // a pending room capture copies the pixels NOW, while this frame's drawing buffer is still intact
     flushCapture(gl.domElement)
+    if (captureDpr > originalDpr) gl.setPixelRatio(originalDpr)
     setRoomFrameRendered(true)
   }, 1)
   return null

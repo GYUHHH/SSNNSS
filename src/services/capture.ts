@@ -8,20 +8,21 @@ import { t } from './i18n'
 // cleared after compositing), so the render loop calls flushCapture right after it draws and the pixels are
 // copied synchronously in that same frame. YouTube screens are DOM iframes and never reach the canvas, so
 // their spots are filled with the video's thumbnail afterwards.
-let pending: ((copy: HTMLCanvasElement) => void) | null = null
+let pending: { resolve: (copy: HTMLCanvasElement) => void; scale: number } | null = null
+export const captureRenderScale = () => pending?.scale ?? 1
 export const flushCapture = (canvas: HTMLCanvasElement) => {
   if (!pending) return
   const copy = document.createElement('canvas')
   copy.width = canvas.width
   copy.height = canvas.height
   const context = copy.getContext('2d')
-  const resolve = pending
+  const resolve = pending.resolve
   pending = null
   if (!context) return
   context.drawImage(canvas, 0, 0)
   resolve(copy)
 }
-const nextRenderedFrame = () => new Promise<HTMLCanvasElement>((resolve) => { pending = resolve })
+const nextRenderedFrame = (scale = 1) => new Promise<HTMLCanvasElement>((resolve) => { pending = { resolve, scale } })
 
 const loadImage = (src: string) => new Promise<HTMLImageElement | null>((resolve) => {
   const img = new Image()
@@ -34,7 +35,7 @@ const loadImage = (src: string) => new Promise<HTMLImageElement | null>((resolve
 export async function captureRoom(): Promise<HTMLCanvasElement | null> {
   const glCanvas = document.querySelector('.canvas-host canvas') as HTMLCanvasElement | null
   if (!glCanvas) return null
-  const copy = await nextRenderedFrame()
+  const copy = await nextRenderedFrame(2)
   const canvasRect = glCanvas.getBoundingClientRect()
   if (!canvasRect.width || !canvasRect.height) return copy
   const scaleX = copy.width / canvasRect.width
@@ -89,7 +90,7 @@ export async function captureRoom(): Promise<HTMLCanvasElement | null> {
 export const captureRoomFile = async () => {
   const canvas = await captureRoom()
   if (!canvas) return null
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', .9))
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', .95))
   return blob ? new File([blob], 'my-room.jpg', { type: 'image/jpeg' }) : null
 }
 
