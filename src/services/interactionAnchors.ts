@@ -21,6 +21,14 @@ const topHeight = (item: FurnitureItem) => {
 }
 const defaultApproach = (item: FurnitureItem): LocalInteractionAnchor => ({ position: [0, 0, item.footprint.depth * GRID_SIZE / 2 + .45], rotation: 0 })
 
+// 실측: cloud-sofa 좌석 .225 × 3.62, dome-sofa .201 × 2.8, pink-mini-sofa .3 × .83, hanging-bubble-chair .314 × 1.85
+const GLB_SEATS: Record<string, { lift: number; forward: number }> = {
+  'cloud-sofa': { lift: .81, forward: .2 },
+  'dome-sofa': { lift: .56, forward: .05 },
+  'pink-mini-sofa': { lift: .25, forward: .12 },
+  'hanging-bubble-chair': { lift: .58, forward: 0 },
+}
+
 export function interactionAnchorsFor(item: FurnitureItem, typeOverride?: InteractionType): InteractionAnchors {
   // lying rotates the body -90° about X at the anchor, so: +.15 in y rests the body's BACK on the mattress
   // (torso half-depth), and z=.9 shifts the whole body south so the head (body length ~1.77 toward -z after
@@ -63,6 +71,16 @@ export function interactionAnchorsFor(item: FurnitureItem, typeOverride?: Intera
     type: 'sit',
     approach: { position: [0, 0, .75], rotation: 0 },
     action: { position: [0, item.type === 'boucle-stool' ? .38 : item.type === 'papasan-chair' ? .82 : .62, item.type === 'boucle-stool' ? 0 : .08], rotation: 0 },
+  }
+  // GLB 좌석. lift = 실측 좌석면(모델 단위) × 격자 맞춤 배율 min(칸가로/모델X, 칸깊이/모델Z) — GLB 가구는 그
+  // 배율로 높이가 정해지므로 상판 표와 같은 숫자에서 나온다. forward는 좌석 중앙에서 살짝 앞.
+  // 방향은 손댈 것이 없다: rotation 0이 가구 앞면(+z)을 보는 것이고, localAnchorToWorld가 가구가 돌아간 각도를
+  // 위치와 시선 양쪽에 그대로 얹는다 — 소파를 어느 벽으로 돌려놔도 등받이를 등지고 앉는다.
+  const glbSeat = GLB_SEATS[item.type]
+  if (glbSeat) return {
+    type: 'sit',
+    approach: { position: [0, 0, item.footprint.depth * GRID_SIZE / 2 + .45], rotation: 0 },
+    action: { position: [0, glbSeat.lift, glbSeat.forward], rotation: 0 },
   }
   if (item.type === 'chair' || item.type === 'sage-office-chair') return {
     type: typeOverride ?? 'sit',
