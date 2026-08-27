@@ -58,18 +58,25 @@ const OWNED_SURFACES: Record<string, OwnedSurfaceConfig[]> = {
 // 위 OWNED_SURFACES(프리미티브 가구)와는 서로 참조가 없다: 나중에 프리미티브 가구를 통째로 지워도 이 표는 산다.
 // 절대 이 타입들을 OWNED_SURFACES에 넣지 말 것 — SURFACED_TYPES에 들어가는 순간 FittedMesh의 높이 맞춤이
 // 바뀌어 가구 자체의 크기가 변한다.
-const GLB_TOPS: Record<string, { modelSize: [number, number, number]; topSurface: CustomTopSurface }> = {
-  'aqua-table': { modelSize: [1.099, .383, .623], topSurface: { height: .344, center: [0, 0], size: [1.077, .6] } },
-  'bracket-shelf': { modelSize: [1.149, .236, .699], topSurface: { height: .236, center: [0, -.001], size: [1.148, .697] } },
-  'deco-shelf': { modelSize: [.794, .958, .335], topSurface: { height: .958, center: [.001, .002], size: [.682, .325] } },
-  'color-drawers': { modelSize: [.891, 1.002, .34], topSurface: { height: 1.001, center: [0, -.014], size: [.83, .276] } },
-  // 검출기는 가장 높은 면을 고르느라 뒷판 위 모서리(1.198)를 집었다 — 실제 상판은 73%를 덮는 이쪽이다
-  'frutiger-desk': { modelSize: [1.574, 1.204, .524], topSurface: { height: .778, center: [-.001, -.007], size: [1.51, .503] } },
-  'pink-vanity': { modelSize: [.652, .989, .303], topSurface: { height: .495, center: [0, -.001], size: [.65, .301] } },
-  'cloud-sofa': { modelSize: [1.002, .414, .387], topSurface: { height: .225, center: [0, .025], size: [.828, .278] } },
-  'dome-sofa': { modelSize: [1, .74, .996], topSurface: { height: .201, center: [.003, -.022], size: [.91, .709] } },
-  'pink-mini-sofa': { modelSize: [.845, .788, .8], topSurface: { height: .3, center: [0, .114], size: [.745, .552] } },
-  'hanging-bubble-chair': { modelSize: [.755, .982, .614], topSurface: { height: .314, center: [.04, -.054], size: [.38, .4] } },
+type ModelSurface = CustomTopSurface & { suffix: string; kind: SurfaceKind }
+const GLB_TOPS: Record<string, { modelSize: [number, number, number]; surfaces: ModelSurface[] }> = {
+  'aqua-table': { modelSize: [1.099, .383, .623], surfaces: [{ suffix: 'top', kind: 'tabletop', height: .344, center: [0, 0], size: [1.077, .6] }] },
+  'bracket-shelf': { modelSize: [1.149, .236, .699], surfaces: [{ suffix: 'top', kind: 'tabletop', height: .236, center: [0, -.001], size: [1.148, .697] }] },
+  'deco-shelf': { modelSize: [.794, .958, .335], surfaces: [{ suffix: 'top', kind: 'tabletop', height: .958, center: [.001, .002], size: [.682, .325] }] },
+  // 윗면 + 뚫린 칸 두 줄(닫힌 서랍 줄은 제외). 칸 천장이 낮아 높은 물건은 위로 나온다
+  'color-drawers': { modelSize: [.891, 1.002, .34], surfaces: [
+    { suffix: 'top', kind: 'tabletop', height: 1.001, center: [0, -.014], size: [.83, .276] },
+    { suffix: 'cubby1', kind: 'shelf', height: .73, center: [.005, .022], size: [.764, .211] },
+    { suffix: 'cubby2', kind: 'shelf', height: .267, center: [-.003, .019], size: [.778, .216] },
+  ] },
+  // 검출기는 가장 높은 면인 뒷판 위 모서리(1.198)를 골랐다 — 실제 상판은 .778이다. 뒷판 구조물이 z −.261~−.061을
+  // 차지하므로 그 앞쪽 빈 자리(깊이 .3)만 상판으로 준다
+  'frutiger-desk': { modelSize: [1.574, 1.204, .524], surfaces: [{ suffix: 'top', kind: 'tabletop', height: .778, center: [-.001, .095], size: [1.51, .3] }] },
+  'pink-vanity': { modelSize: [.652, .989, .303], surfaces: [{ suffix: 'top', kind: 'tabletop', height: .495, center: [0, -.001], size: [.65, .301] }] },
+  'cloud-sofa': { modelSize: [1.002, .414, .387], surfaces: [{ suffix: 'top', kind: 'tabletop', height: .225, center: [0, .025], size: [.828, .278] }] },
+  'dome-sofa': { modelSize: [1, .74, .996], surfaces: [{ suffix: 'top', kind: 'tabletop', height: .201, center: [.003, -.022], size: [.91, .709] }] },
+  'pink-mini-sofa': { modelSize: [.845, .788, .8], surfaces: [{ suffix: 'top', kind: 'tabletop', height: .3, center: [0, .114], size: [.745, .552] }] },
+  'hanging-bubble-chair': { modelSize: [.755, .982, .614], surfaces: [{ suffix: 'top', kind: 'tabletop', height: .314, center: [.04, -.054], size: [.38, .4] }] },
 }
 
 // 위에 물건이 올라가는 가구: 상판/좌석 높이(heightOffset)가 이 모델들의 계약값이라, 맞춤 스케일이
@@ -98,11 +105,8 @@ export const surfacesForOwner = (item: SurfaceHost): PlacementSurface[] => {
     }]
   }
   const custom = item.customSpec
-  // 커스텀(AI 생성)이 아니면 카탈로그 GLB 실측표로 폴백한다 — 아래 계산식은 두 경우 완전히 동일하다
-  const preset = custom ? undefined : GLB_TOPS[item.type]
-  const top = custom?.topSurface ?? preset?.topSurface
-  const model = custom?.modelSize ?? preset?.modelSize
-  if ((preset || custom?.category === 'furniture') && top && top.enabled !== false && model) {
+  // 모델 좌표로 잰 면 하나를 방 좌표의 배치 표면으로 옮긴다 — AI 생성 오브젝트와 카탈로그 GLB가 같은 식을 쓴다
+  const modelSurface = (model: [number, number, number], top: CustomTopSurface, suffix: string, kind: SurfaceKind): PlacementSurface | null => {
     const scale = clampModelScale(custom?.modelScale)
     const fitX = item.footprint.width * GRID_SIZE / model[0]
     const fitZ = item.footprint.depth * GRID_SIZE / model[2]
@@ -113,17 +117,26 @@ export const surfacesForOwner = (item: SurfaceHost): PlacementSurface[] => {
     // 반올림하고, 대신 자기 차지 칸(footprint*2)을 넘지 못하게 막는다
     const columns = Math.min(item.footprint.width * 2, Math.round(width / (GRID_SIZE / 2)))
     const rows = Math.min(item.footprint.depth * 2, Math.round(depth / (GRID_SIZE / 2)))
-    if (columns > 0 && rows > 0) {
-      const localX = top.center[0] * fitX * scale[0]
-      const localZ = top.center[1] * fitZ * scale[2]
-      const yaw = item.rotation[1]; const cos = Math.cos(yaw); const sin = Math.sin(yaw)
-      return [{
-        id: `${item.id}:top`, ownerId: item.id, type: 'tabletop', orientation: 'horizontal',
-        width: columns * GRID_SIZE / 2, height: rows * GRID_SIZE / 2, gridColumns: columns, gridRows: rows,
-        position: [item.position[0] + cos * localX + sin * localZ, item.position[1] + (top.height * fitY * scale[1]) + (top.offset ?? 0), item.position[2] - sin * localX + cos * localZ],
-        rotation: [Math.PI / 2, 0, -yaw], normal: [0, 1, 0],
-      }]
+    if (columns <= 0 || rows <= 0) return null
+    const localX = top.center[0] * fitX * scale[0]
+    const localZ = top.center[1] * fitZ * scale[2]
+    const yaw = item.rotation[1]; const cos = Math.cos(yaw); const sin = Math.sin(yaw)
+    return {
+      id: `${item.id}:${suffix}`, ownerId: item.id, type: kind, orientation: 'horizontal',
+      width: columns * GRID_SIZE / 2, height: rows * GRID_SIZE / 2, gridColumns: columns, gridRows: rows,
+      position: [item.position[0] + cos * localX + sin * localZ, item.position[1] + (top.height * fitY * scale[1]) + (top.offset ?? 0), item.position[2] - sin * localX + cos * localZ],
+      rotation: [Math.PI / 2, 0, -yaw], normal: [0, 1, 0],
     }
+  }
+  if (custom?.category === 'furniture' && custom.topSurface && custom.topSurface.enabled !== false && custom.modelSize) {
+    const surface = modelSurface(custom.modelSize, custom.topSurface, 'top', 'tabletop')
+    if (surface) return [surface]
+  }
+  // 커스텀(AI 생성)이 아니면 카탈로그 GLB 실측표로 폴백한다
+  const preset = custom ? undefined : GLB_TOPS[item.type]
+  if (preset) {
+    const surfaces = preset.surfaces.map((entry) => modelSurface(preset.modelSize, entry, entry.suffix, entry.kind)).filter((surface) => !!surface)
+    if (surfaces.length) return surfaces
   }
   const configs = OWNED_SURFACES[item.type]
   if (!configs) return []
