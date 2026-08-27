@@ -395,6 +395,7 @@ function RoomContainer({ slot, distance, centred, shown, fresh, open, swapping, 
   const group = useRef<Group>(null)
   const opacity = useRef(0)
   const materials = useRef<Faded[]>([])
+  const materialsSettled = useRef(false)
   const glow = useRef(0)
   const press = useRef<{ x: number; y: number; pointerId: number } | null>(null)
   const openedAt = useRef(0)
@@ -431,6 +432,7 @@ function RoomContainer({ slot, distance, centred, shown, fresh, open, swapping, 
   // rather than waiting for opacity to rise on its first visible frame. The shared promise cache makes a later
   // refresh reuse this request, and leaving the margin is enough to unmount the whole room again.
   useEffect(() => {
+    nextFetch.current = performance.now() + 15_000 + Math.random() * 5_000
     if (!isEnterable(slot.handle)) return
     void fetchRoomBundle(slot.handle).then((found) => {
       if (!found || !mounted.current) return
@@ -455,6 +457,7 @@ function RoomContainer({ slot, distance, centred, shown, fresh, open, swapping, 
   }, [bundle, camera, gl, scene])
   const collect = () => {
     materials.current = []
+    materialsSettled.current = false
     let paintOrder = 0
     const fading = opacity.current < .995
     group.current?.traverse((object) => {
@@ -542,37 +545,44 @@ function RoomContainer({ slot, distance, centred, shown, fresh, open, swapping, 
     // on — a few thousandths apart — and when the decal won that toss the panel behind it failed the depth test
     // and the wall showed through it. The profile board's stats read as wall-coloured because of it.
     const full = opacity.current > .995
-    materials.current.forEach((material) => {
-      // Entrance: a material starts counting only once it can actually show pixels (its map has image data, or
-      // it has no map), then eases in over 300ms. Without this, a photo texture that finishes downloading during
-      // or just after the reveal POPS in at full strength while everything else faded — the "일부 요소가 뚝
-      // 하고 나타난다" report. Applies at full view too, which is when slow downloads usually land.
-      const map = (material as { map?: { image?: unknown } }).map
-      // Discovered at FULL view with its image already showing → it has been on screen since before this sweep
-      // found it, so it enters as already-settled: restarting its entrance made a visible element fade OUT and
-      // back in (the reported dip). The ramp only applies to pixels that were never visible yet.
-      if (material.userData.readyAt === undefined && (!map || map.image)) material.userData.readyAt = full ? now - 300 : now
-      const entrance = material.userData.readyAt === undefined ? 0 : Math.min(1, (now - material.userData.readyAt) / 300)
-      const settled = full && entrance >= 1
-      material.transparent = settled ? material.wasTransparent ?? false : true
-      // trim bars ride the cube of the fade: still smooth, but they only surface once the room is nearly whole,
-      // instead of floating over the ghosted room as three hard dark bars for the entire glide
-      material.opacity = settled ? 1 : (material.userData.lateFade ? opacity.current ** 7 : opacity.current) * entrance
-      if (!material.color) return
-    })
+    if (!full || !materialsSettled.current) {
+      let allSettled = full
+      materials.current.forEach((material) => {
+        // Entrance: a material starts counting only once it can actually show pixels (its map has image data, or
+        // it has no map), then eases in over 300ms. Without this, a photo texture that finishes downloading during
+        // or just after the reveal POPS in at full strength while everything else faded — the "일부 요소가 뚝
+        // 하고 나타난다" report. Applies at full view too, which is when slow downloads usually land.
+        const map = (material as { map?: { image?: unknown } }).map
+        // Discovered at FULL view with its image already showing → it has been on screen since before this sweep
+        // found it, so it enters as already-settled: restarting its entrance made a visible element fade OUT and
+        // back in (the reported dip). The ramp only applies to pixels that were never visible yet.
+        if (material.userData.readyAt === undefined && (!map || map.image)) material.userData.readyAt = full ? now - 300 : now
+        const entrance = material.userData.readyAt === undefined ? 0 : Math.min(1, (now - material.userData.readyAt) / 300)
+        const settled = full && entrance >= 1
+        material.transparent = settled ? material.wasTransparent ?? false : true
+        // trim bars ride the cube of the fade: still smooth, but they only surface once the room is nearly whole,
+        // instead of floating over the ghosted room as three hard dark bars for the entire glide
+        material.opacity = settled ? 1 : (material.userData.lateFade ? opacity.current ** 7 : opacity.current) * entrance
+        if (!settled) allSettled = false
+      })
+      materialsSettled.current = allSettled
+    }
     // Fetched when the zoom-out first reveals it, and refreshed every so often for as long as it stays on
     // screen — a one-shot fetch froze the neighbour at its first snapshot, so an owner moving their character
     // never showed up out here until a full reload. Unchanged payloads are dropped before setState, so the
     // steady case re-renders nothing.
-    if (opacity.current > .02 && isEnterable(slot.handle) && performance.now() > nextFetch.current) {
-      nextFetch.current = performance.now() + 15_000
-      void fetchRoomBundle(slot.handle).then((found) => {
-        if (!found || !mounted.current) return
-        const raw = JSON.stringify(found)
-        if (raw === lastRaw.current) return
-        lastRaw.current = raw
-        setBundle(found)
-      })
+    if (opacity.current > .02 && isEnterable(slot.handle) && now > nextFetch.current) {
+      if (explorerAnimationsAreMoving()) nextFetch.current = now + 1_000 + Math.random() * 2_000
+      else {
+        nextFetch.current = now + 15_000 + Math.random() * 5_000
+        void fetchRoomBundle(slot.handle).then((found) => {
+          if (!found || !mounted.current) return
+          const raw = JSON.stringify(found)
+          if (raw === lastRaw.current) return
+          lastRaw.current = raw
+          setBundle(found)
+        })
+      }
     }
   })
   return <group ref={group} position={slot.position} visible={false}
