@@ -13,6 +13,7 @@ type Env = {
   CREEM_FIRST_PRODUCT_ID?: string
   CREEM_CREDITS_PER_ORDER?: string
   CREEM_TEST_MODE?: string
+  OPENAI_API_KEY?: string
   FAL_KEY?: string
 }
 const SUPABASE_URL = 'https://pxjavljsalibpnxdrxel.supabase.co'
@@ -170,6 +171,23 @@ async function creemAllows(prompt: string, env: Env) {
   } catch { console.log('moderation-error'); return false }
 }
 
+// 사진은 Creem의 텍스트 전용 검사로 볼 수 없어서 OpenAI의 무료 이미지 모더레이션을 거친다.
+// 키 누락·타임아웃·응답 오류는 모두 차단한다. 검사가 끝나기 전에는 크레딧도 차감하지 않는다.
+async function imageAllows(image: string, env: Env) {
+  if (!env.OPENAI_API_KEY) { console.log('image-moderation-key-missing'); return false }
+  try {
+    const response = await fetch('https://api.openai.com/v1/moderations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.OPENAI_API_KEY}` },
+      body: JSON.stringify({ model: 'omni-moderation-latest', input: [{ type: 'image_url', image_url: { url: image } }] }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!response.ok) { console.log('image-moderation-failed', response.status); return false }
+    const body = await response.json().catch(() => null) as { results?: Array<{ flagged?: boolean }> } | null
+    return body?.results?.[0]?.flagged === false
+  } catch { console.log('image-moderation-error'); return false }
+}
+
 // ponytail: 단어 목록 한 벌, 우회는 막지 못한다 — 신고가 들어오기 시작하면 분류 모델로 올린다
 const BLOCKED_PROMPT = /\b(nude|naked|nsfw|porn|porno|sex|sexual|sexy|erotic|hentai|genital|nipple|penis|vagina|lingerie|fetish|bdsm|gore|corpse|behead|dismember|nazi|swastika)\b|누드|야한|음란|성인용|섹스|시체|참수/i
 
@@ -187,6 +205,7 @@ async function glbSubmit(request: Request, env: Env) {
   // 성인·폭력 프롬프트는 크레딧 차감 전에 끊는다 — 생성 모델 자체 필터에만 기대지 않는다
   if (BLOCKED_PROMPT.test(prompt)) return json({ error: 'BLOCKED_PROMPT' }, 400)
   if (prompt && !await creemAllows(prompt, env)) return json({ error: 'BLOCKED_PROMPT' }, 400)
+  if (image && !await imageAllows(image, env)) return json({ error: 'BLOCKED_PROMPT' }, 400)
   if (!await spendCredit(request, env, gloss ? 2 : 1)) return json({ error: 'NO_CREDITS' }, 402)
   const model = image ? FAL_IMAGE_MODEL : FAL_TEXT_MODEL
   const input = image
