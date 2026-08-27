@@ -6,7 +6,6 @@ import { colorOf, customizableTypes, DEFAULT_WALL_COLOR, floorStyleOf, floorStyl
 import { DEFAULT_APPEARANCE as CHARACTER_DEFAULTS } from './Character'
 import { t, tp } from '../services/i18n'
 import { CUSTOM_OBJECT_CATEGORIES, customObjectType, type CustomObjectCategory, type CustomPose } from '../customObjectSpec'
-import { myHandle } from '../services/social'
 import { cachedCredits, createCreditCheckout, customObjectTemplate, fetchCredits, type CreditStatus } from '../services/customObjects'
 import { PhotoCropEditor } from './PhotoCropEditor'
 
@@ -174,24 +173,14 @@ const CUSTOM_CATEGORY_DESCRIPTIONS: Array<[CustomObjectCategory, string]> = [
   ['sculpture', '1×1칸을 차지하며 실제 크기는 0.35칸 기준으로 생성됩니다.'],
 ]
 
-const LOST_REQUEST = '01a042d8-adca-7a12-b6ba-9ff1a6aff774'
-const LOST_OWNER = 'peterjm007'
-const LOST_FLAG = 'my-room-lost-recover-v1'
-
 function CustomTab() {
-  const { customObjects, recoverCustomObjects, startPreview, startCustomObjectEdit, availableCount, customJob, resumeCustomGeneration, runCustomGeneration, markCustomSeen, removeCustomObject } = useRoomStore()
+  const { customObjects, recoverCustomObjects, startPreview, startCustomObjectEdit, availableCount, customJob, runCustomGeneration, markCustomSeen, removeCustomObject } = useRoomStore()
   const [removing, setRemoving] = useState<string | null>(null)
   // 생성권 잔액: 결제가 구성된 경우에만 표시·차단. 생성이 끝날 때마다 새로 읽는다.
   const [credits, setCredits] = useState<CreditStatus | null>(cachedCredits)
   const [openingCheckout, setOpeningCheckout] = useState(false)
   useEffect(() => { let live = true; void fetchCredits().then((value) => { if (live) setCredits(value) }); return () => { live = false } }, [customJob?.stage])
   useEffect(() => { recoverCustomObjects() }, [])
-  // 일회성: BUILD 770 이전에 요청 번호를 잃은 생성 한 건. 되살아나면 이 블록은 지운다
-  useEffect(() => {
-    if (myHandle() !== LOST_OWNER) return
-    try { if (localStorage.getItem(LOST_FLAG)) return; localStorage.setItem(LOST_FLAG, '1') } catch { return }
-    resumeCustomGeneration(LOST_REQUEST)
-  }, [])
   // 탭을 열어본 순간 완료/실패 빨간점은 해소된 것으로 본다
   useEffect(() => { markCustomSeen() }, [customJob?.stage])
   const [source, setSource] = useState<'text' | 'photo' | null>(null)
