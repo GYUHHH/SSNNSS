@@ -99,10 +99,12 @@ export type SurfaceHost = { id: string; type: string; position: [number, number,
 // 윗면까지의 높이. 벽 아이템은 바닥 가구와 스케일 규칙이 아예 달라서 GLB_TOPS를 쓸 수 없고 여기로 온다.
 // GLB 벽 아이템은 GlbFurniture가 X·Y 중앙을 앵커에 맞추고, FittedMesh 벽 분기가 Y를 칸 높이(0.7)에 꽉 채우도록
 // 늘린다 — 그래서 판 윗면은 항상 앵커 +0.35이고, 깊이는 스케일 1이라 모델 깊이의 절반만큼 벽에서 나온다.
-const WALL_SHELVES: Record<string, { out: number; lift: number }> = {
-  'wall-shelf': { out: .36, lift: -.23 },
+// kind는 무엇을 올릴 수 있는지를 가른다: 'tabletop'을 허용하는 아이템이 'shelf'를 허용하는 아이템의 상위집합이라
+// (캔들·LED램프·별프로젝터·어항이 tabletop 전용) 넓고 평평한 판은 tabletop으로 둔다.
+const WALL_SHELVES: Record<string, { out: number; lift: number; kind: SurfaceKind }> = {
+  'wall-shelf': { out: .36, lift: -.23, kind: 'shelf' },
   // 실측 modelSize [1.149, .236, .699] — 윗면이 곧 모델 최상단이라 lift는 칸 높이의 절반
-  'bracket-shelf': { out: .35, lift: .35 },
+  'bracket-shelf': { out: .35, lift: .35, kind: 'tabletop' },
 }
 
 export const surfacesForOwner = (item: SurfaceHost): PlacementSurface[] => {
@@ -111,7 +113,7 @@ export const surfacesForOwner = (item: SurfaceHost): PlacementSurface[] => {
     const wall = wallSurfaces[item.wallId]
     const rotation = new Euler().setFromQuaternion(new Quaternion().setFromEuler(new Euler(...wall.rotation)).multiply(new Quaternion().setFromEuler(new Euler(Math.PI / 2, 0, 0))))
     return [{
-      id: `${item.id}:top`, ownerId: item.id, type: 'shelf', orientation: 'horizontal',
+      id: `${item.id}:top`, ownerId: item.id, type: wallShelf.kind, orientation: 'horizontal',
       width: item.footprint.width * GRID_SIZE, height: GRID_SIZE, gridColumns: item.footprint.width * 2, gridRows: 2,
       position: [item.position[0] + wall.normal[0] * wallShelf.out, item.position[1] + wallShelf.lift, item.position[2] + wall.normal[2] * wallShelf.out],
       rotation: [rotation.x, rotation.y, rotation.z], normal: [0, 1, 0],
