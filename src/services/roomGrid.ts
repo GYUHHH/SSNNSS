@@ -59,9 +59,11 @@ const OWNED_SURFACES: Record<string, OwnedSurfaceConfig[]> = {
 // 절대 이 타입들을 OWNED_SURFACES에 넣지 말 것 — SURFACED_TYPES에 들어가는 순간 FittedMesh의 높이 맞춤이
 // 바뀌어 가구 자체의 크기가 변한다.
 type ModelSurface = CustomTopSurface & { suffix: string; kind: SurfaceKind }
+// 벽에 걸리는 GLB는 여기 넣으면 안 된다: FittedMesh의 벽 분기는 Y를 칸 높이에 맞춰 늘리고 Z는 1로 두는데,
+// 아래 계산은 바닥 가구용(균일 맞춤)이라 상판이 실제 판보다 훨씬 낮게 잡힌다 — 올린 물건이 판에 파묻혔다.
+// bracket-shelf(실측 modelSize [1.149,.236,.699], top .236)는 그래서 뺐다. 벽 선반은 wall-shelf 분기가 따로 있다.
 const GLB_TOPS: Record<string, { modelSize: [number, number, number]; surfaces: ModelSurface[] }> = {
   'aqua-table': { modelSize: [1.099, .383, .623], surfaces: [{ suffix: 'top', kind: 'tabletop', height: .344, center: [0, 0], size: [1.077, .6] }] },
-  'bracket-shelf': { modelSize: [1.149, .236, .699], surfaces: [{ suffix: 'top', kind: 'tabletop', height: .236, center: [0, -.001], size: [1.148, .697] }] },
   'deco-shelf': { modelSize: [.794, .958, .335], surfaces: [{ suffix: 'top', kind: 'tabletop', height: .958, center: [.001, .002], size: [.682, .325] }] },
   // 윗면 + 뚫린 칸 두 줄(닫힌 서랍 줄은 제외). 칸 천장이 낮아 높은 물건은 위로 나온다
   'color-drawers': { modelSize: [.891, 1.002, .34], surfaces: [
@@ -135,8 +137,8 @@ export const surfacesForOwner = (item: SurfaceHost): PlacementSurface[] => {
     const surfaces = customTops.map((top, index) => modelSurface(model, top, index ? `tier${index}` : 'top', index ? 'shelf' : 'tabletop')).filter((surface) => !!surface)
     if (surfaces.length) return surfaces
   }
-  // 커스텀(AI 생성)이 아니면 카탈로그 GLB 실측표로 폴백한다
-  const preset = custom ? undefined : GLB_TOPS[item.type]
+  // 커스텀(AI 생성)이 아니면 카탈로그 GLB 실측표로 폴백한다. 벽에 걸린 것은 스케일 규칙이 달라 제외한다
+  const preset = custom || item.wallId ? undefined : GLB_TOPS[item.type]
   if (preset) {
     const surfaces = preset.surfaces.map((entry) => modelSurface(preset.modelSize, entry, entry.suffix, entry.kind)).filter((surface) => !!surface)
     if (surfaces.length) return surfaces
