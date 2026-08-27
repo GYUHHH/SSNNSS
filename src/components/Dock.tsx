@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { MAX_ROOMS, useRoomStore } from '../store'
 import { enterRoom, isVisiting, myHandle, searchRooms } from '../services/social'
-import { chooseExplorerMode, explorerMode, isFollowingRoom, modeRoom, onExplorerMode, onFollowsChange, rememberModeRoom, setFollowing } from '../services/follows'
+import { explorerMode, isFollowingRoom, modeRoom, onExplorerMode, onFollowsChange, rememberModeRoom, setExplorerMode, setFollowing, settleExplorerMode } from '../services/follows'
 import { snapshotActiveFrames } from '../services/ytResume'
 import SoundHub from './SoundHub'
 import { requestExplorerZoom } from './CameraController'
@@ -71,6 +71,9 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
   const [explore, setExplore] = useState(explorerMode())
   useEffect(() => onExplorerMode(setExplore), [])
   const { currentHandle } = useRoomStore()
+  // 내 핸들은 로그인 복원이 끝나야 생기고 그 도착을 알리는 신호는 따로 없다 — 렌더마다 확인하고,
+  // 한 번 굳고 나면 즉시 빠져나온다
+  useEffect(settleExplorerMode)
   // Discover keeps its browsing pin. The person view always returns to my room instead of walking another
   // person's follow graph.
   const switching = useRef(false)
@@ -80,7 +83,7 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
     const here = currentHandle
     if (here) rememberModeRoom(explore, here)
     setExplore(next)
-    chooseExplorerMode(next)
+    setExplorerMode(next)
     const target = next === 'home' ? myHandle() : modeRoom(next)
     if (!target || target === here) {
       if (here) rememberModeRoom(next, here)

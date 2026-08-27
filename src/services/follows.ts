@@ -1,4 +1,4 @@
-import { SUPABASE_URL, anonHeaders, authHeaders, isSignedIn, myHandle, onAuthChange } from './social'
+import { SUPABASE_URL, anonHeaders, authHeaders, myHandle } from './social'
 
 // Follow graph + the explorer's home/discover split. Every call degrades gracefully while the `follows`
 // table does not exist yet on the server: reads resolve to empty, writes report failure, nothing throws.
@@ -43,15 +43,19 @@ export async function setFollowing(followee: string, follow: boolean): Promise<b
 // Module-level rather than store state because the writer (Dock, DOM root) and the reader (explorer, canvas
 // root) live on different React roots — same channel pattern as the reaction picker.
 export type ExplorerMode = 'home' | 'discover'
-// 비로그인 방문자에겐 팔로우 링이 없다 — 공개 디렉터리(지구본)가 기본
-let mode: ExplorerMode = isSignedIn() ? 'home' : 'discover'
+// 로그인 복원은 이 모듈이 평가된 뒤에 끝나므로 기본값을 여기서 굳히면 안 된다 — 직접 고르기 전까지는 읽는
+// 시점에 판단한다. 비로그인 방문자에겐 팔로우 링이 없어 공개 디렉터리(지구본)가 기본이고, 내 핸들이 확인되면
+// 사람 뷰가 기본이다.
+let chosen: ExplorerMode | null = null
 const modeListeners = new Set<(next: ExplorerMode) => void>()
-export const explorerMode = () => mode
-export const setExplorerMode = (next: ExplorerMode) => { if (mode !== next) { mode = next; modeListeners.forEach((listener) => listener(next)) } }
-// 로그인 복원은 이 모듈이 로드된 뒤에 끝난다 — 아직 직접 고른 적이 없으면 로그인이 확인되는 순간 사람 뷰가 기본이다
-let chosen = false
-export const chooseExplorerMode = (next: ExplorerMode) => { chosen = true; setExplorerMode(next) }
-onAuthChange(() => { if (!chosen && isSignedIn()) setExplorerMode('home') })
+export const explorerMode = (): ExplorerMode => chosen ?? (myHandle() ? 'home' : 'discover')
+export const setExplorerMode = (next: ExplorerMode) => { const before = explorerMode(); chosen = next; if (before !== next) modeListeners.forEach((listener) => listener(next)) }
+// 핸들이 늦게 도착하면 이미 'discover'를 복사해 간 화면들이 남는다 — 그때 한 번 굳히고 모두에게 알린다
+export const settleExplorerMode = () => {
+  if (chosen !== null || !myHandle()) return
+  chosen = 'home'
+  modeListeners.forEach((listener) => listener('home'))
+}
 export const onExplorerMode = (listener: (next: ExplorerMode) => void) => { modeListeners.add(listener); return () => { modeListeners.delete(listener) } }
 
 // Discover remembers where it was browsed. Home never keeps a visited-room pin: opening the person view always
