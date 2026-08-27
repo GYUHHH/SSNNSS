@@ -174,12 +174,13 @@ const CUSTOM_CATEGORY_DESCRIPTIONS: Array<[CustomObjectCategory, string]> = [
 ]
 
 function CustomTab() {
-  const { customObjects, startPreview, startCustomObjectEdit, availableCount, customJob, runCustomGeneration, markCustomSeen, removeCustomObject } = useRoomStore()
+  const { customObjects, recoverCustomObjects, startPreview, startCustomObjectEdit, availableCount, customJob, runCustomGeneration, markCustomSeen, removeCustomObject } = useRoomStore()
   const [removing, setRemoving] = useState<string | null>(null)
   // 생성권 잔액: 결제가 구성된 경우에만 표시·차단. 생성이 끝날 때마다 새로 읽는다.
   const [credits, setCredits] = useState<CreditStatus | null>(cachedCredits)
   const [openingCheckout, setOpeningCheckout] = useState(false)
   useEffect(() => { let live = true; void fetchCredits().then((value) => { if (live) setCredits(value) }); return () => { live = false } }, [customJob?.stage])
+  useEffect(() => { recoverCustomObjects() }, [])
   // 탭을 열어본 순간 완료/실패 빨간점은 해소된 것으로 본다
   useEffect(() => { markCustomSeen() }, [customJob?.stage])
   const [source, setSource] = useState<'text' | 'photo' | null>(null)

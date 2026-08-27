@@ -1,5 +1,5 @@
 import { clampModelScale, customObjectType, isCustomObjectSpec, type CustomObjectCategory, type CustomObjectSpec, type CustomTopSurface } from '../customObjectSpec'
-import { authHeaders, isVisiting, onRoomNavigation, readStored, writeStored } from './social'
+import { authHeaders, isVisiting, myHandle, onRoomNavigation, readStored, SUPABASE_URL, writeStored } from './social'
 import type { Material, Mesh, Object3D, Texture } from 'three'
 
 export const CUSTOM_OBJECTS_KEY = 'my-room-custom-objects-v1'
@@ -363,6 +363,34 @@ export async function inspectCustomModel(url: string) {
   const object = (await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parseAsync(await response.arrayBuffer(), '')).scene
   const { bounds } = validateObject(object, three)
   return modelMetadata(object, bounds, three)
+}
+
+// 목록에서만 사라진 모델 되살리기. 생성이 끝나는 순간 다른 방을 보고 있으면 저장이 버려지던 시절이 있어(BUILD 770
+// 이전) 버킷에는 파일이 남아 있는데 목록에는 없는 오브젝트가 생겼다. 내 폴더를 훑어 그런 파일을 다시 등록한다.
+export async function recoverLostObjects(known: CustomObjectSpec[]): Promise<CustomObjectSpec[]> {
+  const handle = myHandle()
+  if (!handle || isVisiting()) return []
+  const prefix = `glbobj/${handle}/`
+  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/list/media`, {
+    method: 'POST',
+    headers: { ...await authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prefix, limit: 100, sortBy: { column: 'created_at', order: 'desc' } }),
+  })
+  if (!response.ok) return []
+  const files = await response.json().catch(() => null) as Array<{ name?: string }> | null
+  if (!Array.isArray(files)) return []
+  const seen = new Set(known.map((spec) => spec.id))
+  const found: CustomObjectSpec[] = []
+  for (const file of files) {
+    const id = file?.name
+    if (typeof id !== 'string' || !id || seen.has(id)) continue
+    const glbUrl = `${SUPABASE_URL}/storage/v1/object/public/media/${prefix}${id}`
+    try {
+      const metadata = await inspectCustomModel(glbUrl)
+      found.push({ id, name: '되살린 오브젝트', category: 'furniture', footprint: { width: 2, depth: 2 }, parts: [], glbUrl, modelScale: [1, 1, 1], ...metadata })
+    } catch { /* 읽을 수 없는 파일은 건너뛴다 */ }
+  }
+  return found
 }
 
 export async function generatedModelBlob(model: GeneratedModel, finish?: 'gloss', category?: CustomObjectCategory): Promise<{ blob: Blob; modelSize: [number, number, number]; topSurfaces: CustomTopSurface[] }> {
