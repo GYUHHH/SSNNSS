@@ -495,7 +495,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
         const name = (input.prompt.trim() || t('커스텀 오브젝트')).slice(0, 40)
         const clampCell = (value: number) => Math.max(1, Math.min(10, Math.round(value)))
         const footprint = input.category === 'sculpture' ? { width: 1, depth: 1 } : input.size ? { width: clampCell(input.size.width), depth: clampCell(input.size.depth) } : { width: 2, depth: 2 }
-        addCustomObject({ id, name, category: input.category, footprint, parts: [], glbUrl: stored, modelSize: generated.modelSize, modelScale: [1, 1, 1], ...(generated.topSurfaces.length && input.category === 'furniture' ? { topSurfaces: generated.topSurfaces } : {}), ...(input.finish ? { finish: input.finish } : {}) })
+        addCustomObject({ id, name, category: input.category, footprint, parts: [], glbUrl: stored, modelSize: generated.modelSize, modelScale: [1, 1, 1], ...(generated.topSurfaces.length && (input.category === 'furniture' || input.category === 'wallDecoration') ? { topSurfaces: generated.topSurfaces } : {}), ...(input.finish ? { finish: input.finish } : {}) })
         setCustomJob({ stage: 'done', round: 0, unseen: true, name })
       } catch (reason) {
         const message = reason instanceof Error ? reason.message : String(reason)
@@ -808,10 +808,11 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     setMode('edit'); setMovingFurnitureId(null); setDragOrigin(null)
     if (placed) { setPreview(null); setSelectedFurnitureId(placed.id) }
     else startPreview(customObjectType(id))
-    if (!spec.modelSize && spec.glbUrl) void inspectCustomModel(spec.glbUrl).then((metadata) => {
+    const supportsTop = spec.category === 'furniture' || spec.category === 'wallDecoration'
+    if ((!spec.modelSize || (supportsTop && !(spec.topSurfaces?.length || spec.topSurface))) && spec.glbUrl) void inspectCustomModel(spec.glbUrl).then((metadata) => {
       if (customEditId.current !== id) return
       const current = customEditDraft.current ?? spec
-      const next = { ...current, ...metadata, modelScale: current.modelScale ?? [1, 1, 1] as [number, number, number], ...(current.category !== 'furniture' ? { topSurfaces: undefined } : {}) }
+      const next = { ...current, ...metadata, modelScale: current.modelScale ?? [1, 1, 1] as [number, number, number], ...(!['furniture', 'wallDecoration'].includes(current.category) ? { topSurfaces: undefined } : {}) }
       customEditDraft.current = next
       setCustomEditing(next); paintCustomSpec(next)
     }).catch(() => { /* the size editor still works with the GLB's live bounds */ })

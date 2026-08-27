@@ -33,7 +33,7 @@ export type CustomObjectSpec = {
   // 생성 모델의 원본 외곽과, 격자 맞춤 뒤 사용자가 조절하는 모델 자체 X/Y/Z 크기
   modelSize?: [number, number, number]
   modelScale?: [number, number, number]
-  // 생성 시 감지한, 물건을 올릴 수 있는 평평한 면들(높은 것부터). 크기 변경 뒤에는 이 로컬 값을 함께 스케일한다.
+  // 생성 시 감지한, 물건을 올릴 수 있는 평평한 면들(높은 것부터). 가구와 벽 선반형 생성물 모두 사용한다.
   topSurfaces?: CustomTopSurface[]
   // 면을 하나만 저장하던 시절의 오브젝트 — 읽기만 한다
   topSurface?: CustomTopSurface

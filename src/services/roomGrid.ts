@@ -145,6 +145,30 @@ export const surfacesForOwner = (item: SurfaceHost): PlacementSurface[] => {
   }
   // topSurface(단수)는 면을 하나만 저장하던 시절의 오브젝트 — 첫 칸의 suffix가 'top'이라 이미 놓인 물건도 그대로 붙어 있는다
   const customTops = custom?.topSurfaces ?? (custom?.topSurface ? [custom.topSurface] : [])
+  // AI 벽 가구도 생성 때 검출한 평평한 윗면을 쓴다. 벽 GLB는 X/Y만 벽 칸에 맞추고 Z는 원본 깊이를
+  // 유지하므로, 바닥 가구용 modelSurface를 재사용하면 높이가 낮아져 소품이 모델 안에 파묻힌다.
+  if (custom?.category === 'wallDecoration' && item.wallId && custom.modelSize && customTops.length) {
+    // 벽면 안에서 90° 돌리면 원래 윗면이 수직/아랫면이 되므로, 수평인 기본 방향에서만 상판을 제공한다.
+    const quarter = ((Math.round(item.rotation[1] / (Math.PI / 2)) % 4) + 4) % 4
+    if (quarter) return []
+    const wall = wallSurfaces[item.wallId]; const model = custom.modelSize; const scale = clampModelScale(custom.modelScale)
+    const fitX = item.footprint.width * GRID_SIZE / model[0]; const fitY = item.footprint.depth * GRID_SIZE / model[1]
+    const horizontal = new Vector3(1, 0, 0).applyEuler(new Euler(...wall.rotation))
+    const rotation = new Euler().setFromQuaternion(new Quaternion().setFromEuler(new Euler(...wall.rotation)).multiply(new Quaternion().setFromEuler(new Euler(Math.PI / 2, 0, 0))))
+    return customTops.map((top, index) => {
+      const columns = Math.min(item.footprint.width * 2, Math.max(1, Math.round(top.size[0] * fitX * scale[0] / (GRID_SIZE / 2))))
+      const rows = Math.max(1, Math.round(top.size[1] * scale[2] / (GRID_SIZE / 2)))
+      const position = new Vector3(...item.position)
+        .addScaledVector(horizontal, top.center[0] * fitX * scale[0])
+        .addScaledVector(new Vector3(...wall.normal), (top.center[1] + model[2] / 2) * scale[2] + .004)
+      position.y += (top.height - model[1] / 2) * fitY * scale[1]
+      return {
+        id: `${item.id}:${index ? `tier${index}` : 'top'}`, ownerId: item.id, type: index ? 'shelf' : 'tabletop', orientation: 'horizontal' as const,
+        width: columns * GRID_SIZE / 2, height: rows * GRID_SIZE / 2, gridColumns: columns, gridRows: rows,
+        position: position.toArray() as [number, number, number], rotation: [rotation.x, rotation.y, rotation.z] as [number, number, number], normal: [0, 1, 0] as [number, number, number],
+      }
+    })
+  }
   if (custom?.category === 'furniture' && custom.modelSize && customTops.length) {
     const model = custom.modelSize
     const surfaces = customTops.map((top, index) => modelSurface(model, top, index ? `tier${index}` : 'top', index ? 'shelf' : 'tabletop')).filter((surface) => !!surface)
@@ -173,6 +197,8 @@ if (import.meta.env.DEV) {
   // 카탈로그 GLB는 customSpec 없이 GLB_TOPS 폴백으로 같은 계산을 타야 한다
   const glbTop = surfacesForOwner({ id: 'glb-check', type: 'aqua-table', position: [0, 0, 0], rotation: [0, 0, 0], footprint: { width: 2, depth: 1 } })[0]
   console.assert(glbTop && Math.abs(glbTop.position[1] - .344 * (1 * GRID_SIZE / .623)) < 1e-3 && glbTop.gridColumns === 4 && glbTop.gridRows === 2, 'catalog GLB furniture must host a top surface from GLB_TOPS')
+  const customWallTop = surfacesForOwner({ id: 'wall-check', type: 'custom:wall-check', wallId: 'rightWall', position: [0, 3.5, -3.5], rotation: [0, 0, 0], footprint: { width: 2, depth: 2 }, customSpec: { id: 'wall-check', name: 'wall check', category: 'wallDecoration', footprint: { width: 2, depth: 2 }, parts: [], glbUrl: 'https://example.com/wall.glb', modelSize: [2, 2, 1], topSurfaces: [{ height: 2, center: [0, 0], size: [2, 1] }] } })[0]
+  console.assert(customWallTop && Math.abs(customWallTop.position[1] - 4.2) < 1e-3 && customWallTop.position[2] > -3 && customWallTop.gridColumns === 4, 'custom wall top must use the wall GLB scale and sit above the visible model')
 }
 export const isOwnedSurfaceId = (id: SurfaceId) => id.includes(':')
 export const ownerIdOf = (surfaceId: SurfaceId) => surfaceId.split(':')[0]
