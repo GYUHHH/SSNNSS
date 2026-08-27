@@ -11,7 +11,7 @@ type FloorEvents = { onPointerDown: (event: ThreeEvent<PointerEvent>) => void; o
 function FloorImage({ source, roughness, events }: { source: string; roughness: number; events: FloorEvents }) {
   const texture = useMemo(() => { const value = new TextureLoader().load(source); value.colorSpace = SRGBColorSpace; return value }, [source])
   useEffect(() => () => texture.dispose(), [texture])
-  return <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, .001, 0]} {...events}><planeGeometry args={[floorSurface.width, floorSurface.height]} /><meshStandardMaterial map={texture} roughness={roughness} /></mesh>
+  return <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, .001, 0]} {...events}><planeGeometry args={[floorSurface.width, floorSurface.height]} /><meshStandardMaterial map={texture} roughness={roughness} /></mesh>
 }
 
 export default function Floor() {
