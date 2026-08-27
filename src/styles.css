@@ -812,6 +812,8 @@ button.custom-job-widget::after { content: ''; width: 8px; height: 8px; border-r
 .custom-footprint-edit > span:first-child { flex: 1; }
 .custom-footprint-edit input { width: 48px; padding: 6px; border: 0; border-radius: 3px; background: #f2f2f0; text-align: center; font: inherit; }
 .custom-axis { display: grid; grid-template-columns: 62px 1fr 42px; align-items: center; gap: 7px; font-size: 12px; }
+.custom-pose { display: grid; grid-template-columns: 62px 1fr; align-items: center; gap: 7px; font-size: 12px; }
+.custom-pose select { padding: 5px 6px; border: 1px solid #d6d6d2; border-radius: 5px; font-size: 12px; }
 .custom-axis input { width: 100%; accent-color: #333; }
 .custom-axis output { text-align: right; color: #777; font-size: 11px; }
 .custom-lock { display: flex; align-items: center; gap: 7px; font-size: 12px; }
