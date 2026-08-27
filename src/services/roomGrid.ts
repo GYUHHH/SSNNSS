@@ -95,14 +95,25 @@ export type SurfaceHost = { id: string; type: string; position: [number, number,
 // The bookshelf grows with its tiers: 2 by default, one more whenever a book sits on the current top tier.
 // Its cap (and anything placed on top) follows the tier count.
 
+// 벽에 걸려 물건을 올릴 수 있는 선반. out = 벽면에서 나온 거리(판 깊이의 중앙), lift = 아이템 앵커에서 판
+// 윗면까지의 높이. 벽 아이템은 바닥 가구와 스케일 규칙이 아예 달라서 GLB_TOPS를 쓸 수 없고 여기로 온다.
+// GLB 벽 아이템은 GlbFurniture가 X·Y 중앙을 앵커에 맞추고, FittedMesh 벽 분기가 Y를 칸 높이(0.7)에 꽉 채우도록
+// 늘린다 — 그래서 판 윗면은 항상 앵커 +0.35이고, 깊이는 스케일 1이라 모델 깊이의 절반만큼 벽에서 나온다.
+const WALL_SHELVES: Record<string, { out: number; lift: number }> = {
+  'wall-shelf': { out: .36, lift: -.23 },
+  // 실측 modelSize [1.149, .236, .699] — 윗면이 곧 모델 최상단이라 lift는 칸 높이의 절반
+  'bracket-shelf': { out: .35, lift: .35 },
+}
+
 export const surfacesForOwner = (item: SurfaceHost): PlacementSurface[] => {
-  if (item.type === 'wall-shelf' && item.wallId) {
+  const wallShelf = item.wallId ? WALL_SHELVES[item.type] : undefined
+  if (wallShelf && item.wallId) {
     const wall = wallSurfaces[item.wallId]
     const rotation = new Euler().setFromQuaternion(new Quaternion().setFromEuler(new Euler(...wall.rotation)).multiply(new Quaternion().setFromEuler(new Euler(Math.PI / 2, 0, 0))))
     return [{
       id: `${item.id}:top`, ownerId: item.id, type: 'shelf', orientation: 'horizontal',
       width: item.footprint.width * GRID_SIZE, height: GRID_SIZE, gridColumns: item.footprint.width * 2, gridRows: 2,
-      position: [item.position[0] + wall.normal[0] * .36, item.position[1] - .23, item.position[2] + wall.normal[2] * .36],
+      position: [item.position[0] + wall.normal[0] * wallShelf.out, item.position[1] + wallShelf.lift, item.position[2] + wall.normal[2] * wallShelf.out],
       rotation: [rotation.x, rotation.y, rotation.z], normal: [0, 1, 0],
     }]
   }
