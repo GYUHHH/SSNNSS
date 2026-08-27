@@ -61,7 +61,8 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
   const closeMore = () => { setRoomsOpen(false); setInfoOpen(false); setMoreState((state) => state === 'open' ? 'closing' : state) }
   useEffect(() => {
     if (moreState !== 'closing') return
-    const timer = setTimeout(() => setMoreState('closed'), 260)
+    // 마지막 항목의 지연(.035s × 항목수) + 애니메이션 길이(.16s)보다 길어야 중간에 잘리지 않는다
+    const timer = setTimeout(() => setMoreState('closed'), 330)
     return () => clearTimeout(timer)
   }, [moreState])
   const [searchOpen, setSearchOpen] = useState(false)
