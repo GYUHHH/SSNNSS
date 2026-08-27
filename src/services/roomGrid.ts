@@ -1,5 +1,5 @@
 import { Euler, Quaternion, Vector3 } from 'three'
-import { clampModelScale, type CustomObjectSpec } from '../customObjectSpec'
+import { clampModelScale, type CustomObjectSpec, type CustomTopSurface } from '../customObjectSpec'
 
 export const GRID_COUNT = 10
 export const GRID_SIZE = .7
@@ -53,6 +53,25 @@ const OWNED_SURFACES: Record<string, OwnedSurfaceConfig[]> = {
   'mini-fridge': [{ suffix: 'top', kind: 'tabletop', heightOffset: 0.86 }],
   'rocking-chair': [{ suffix: 'seat', kind: 'seat', heightOffset: 0.49 }],
 }
+// GLB 카탈로그 가구의 상판. 값은 모델 로컬 단위(바닥 y=0 기준)로 실측한 것이고, AI 생성 오브젝트가 쓰는
+// customSpec.topSurface와 완전히 같은 의미다 — 그래서 아래 surfacesForOwner의 커스텀 분기를 그대로 탄다.
+// 위 OWNED_SURFACES(프리미티브 가구)와는 서로 참조가 없다: 나중에 프리미티브 가구를 통째로 지워도 이 표는 산다.
+// 절대 이 타입들을 OWNED_SURFACES에 넣지 말 것 — SURFACED_TYPES에 들어가는 순간 FittedMesh의 높이 맞춤이
+// 바뀌어 가구 자체의 크기가 변한다.
+const GLB_TOPS: Record<string, { modelSize: [number, number, number]; topSurface: CustomTopSurface }> = {
+  'aqua-table': { modelSize: [1.099, .383, .623], topSurface: { height: .344, center: [0, 0], size: [1.077, .6] } },
+  'bracket-shelf': { modelSize: [1.149, .236, .699], topSurface: { height: .236, center: [0, -.001], size: [1.148, .697] } },
+  'deco-shelf': { modelSize: [.794, .958, .335], topSurface: { height: .958, center: [.001, .002], size: [.682, .325] } },
+  'color-drawers': { modelSize: [.891, 1.002, .34], topSurface: { height: 1.001, center: [0, -.014], size: [.83, .276] } },
+  // 검출기는 가장 높은 면을 고르느라 뒷판 위 모서리(1.198)를 집었다 — 실제 상판은 73%를 덮는 이쪽이다
+  'frutiger-desk': { modelSize: [1.574, 1.204, .524], topSurface: { height: .778, center: [-.001, -.007], size: [1.51, .503] } },
+  'pink-vanity': { modelSize: [.652, .989, .303], topSurface: { height: .495, center: [0, -.001], size: [.65, .301] } },
+  'cloud-sofa': { modelSize: [1.002, .414, .387], topSurface: { height: .225, center: [0, .025], size: [.828, .278] } },
+  'dome-sofa': { modelSize: [1, .74, .996], topSurface: { height: .201, center: [.003, -.022], size: [.91, .709] } },
+  'pink-mini-sofa': { modelSize: [.845, .788, .8], topSurface: { height: .3, center: [0, .114], size: [.745, .552] } },
+  'hanging-bubble-chair': { modelSize: [.755, .982, .614], topSurface: { height: .314, center: [.04, -.054], size: [.38, .4] } },
+}
+
 // 위에 물건이 올라가는 가구: 상판/좌석 높이(heightOffset)가 이 모델들의 계약값이라, 맞춤 스케일이
 // 높이를 건드리면 안 된다 — FittedMesh가 이 셋만 기존 X/Z 맞춤을 유지한다
 export const SURFACED_TYPES = new Set([...Object.keys(OWNED_SURFACES), 'wall-shelf'])
@@ -79,10 +98,12 @@ export const surfacesForOwner = (item: SurfaceHost): PlacementSurface[] => {
     }]
   }
   const custom = item.customSpec
-  const top = custom?.topSurface
-  const model = custom?.modelSize
-  if (custom?.category === 'furniture' && top && top.enabled !== false && model) {
-    const scale = clampModelScale(custom.modelScale)
+  // 커스텀(AI 생성)이 아니면 카탈로그 GLB 실측표로 폴백한다 — 아래 계산식은 두 경우 완전히 동일하다
+  const preset = custom ? undefined : GLB_TOPS[item.type]
+  const top = custom?.topSurface ?? preset?.topSurface
+  const model = custom?.modelSize ?? preset?.modelSize
+  if ((preset || custom?.category === 'furniture') && top && top.enabled !== false && model) {
+    const scale = clampModelScale(custom?.modelScale)
     const fitX = item.footprint.width * GRID_SIZE / model[0]
     const fitZ = item.footprint.depth * GRID_SIZE / model[2]
     const fitY = Math.min(fitX, fitZ)
@@ -118,6 +139,9 @@ export const surfacesForOwner = (item: SurfaceHost): PlacementSurface[] => {
 if (import.meta.env.DEV) {
   const customTop = surfacesForOwner({ id: 'custom-check', type: 'custom:check', position: [1, 0, 2], rotation: [0, Math.PI / 2, 0], footprint: { width: 2, depth: 2 }, customSpec: { id: 'check', name: 'check', category: 'furniture', footprint: { width: 2, depth: 2 }, parts: [], glbUrl: 'https://example.com/check.glb', modelSize: [2, 2, 2], modelScale: [1, .5, 1], topSurface: { height: 1, center: [0, 0], size: [2, 2] } } })[0]
   console.assert(customTop?.position[1] === .35 && customTop.gridColumns === 4 && customTop.gridRows === 4, 'custom top surface must follow model scale and keep the shared sub-grid')
+  // 카탈로그 GLB는 customSpec 없이 GLB_TOPS 폴백으로 같은 계산을 타야 한다
+  const glbTop = surfacesForOwner({ id: 'glb-check', type: 'aqua-table', position: [0, 0, 0], rotation: [0, 0, 0], footprint: { width: 2, depth: 1 } })[0]
+  console.assert(glbTop && Math.abs(glbTop.position[1] - .344 * (1 * GRID_SIZE / .623)) < 1e-3 && glbTop.gridColumns === 4 && glbTop.gridRows === 2, 'catalog GLB furniture must host a top surface from GLB_TOPS')
 }
 export const isOwnedSurfaceId = (id: SurfaceId) => id.includes(':')
 export const ownerIdOf = (surfaceId: SurfaceId) => surfaceId.split(':')[0]
