@@ -15,6 +15,8 @@ export type CustomObjectPart = {
   // extrudeProfile/latheProfile 전용: 유닛 사각(-0.5..0.5) 안의 2D 단면 점들
   profile?: Array<[number, number]>
 }
+export const CUSTOM_POSES = ['sit', 'lie'] as const
+export type CustomPose = typeof CUSTOM_POSES[number]
 export type CustomTopSurface = {
   height: number
   center: [number, number]
@@ -37,6 +39,8 @@ export type CustomObjectSpec = {
   topSurfaces?: CustomTopSurface[]
   // 면을 하나만 저장하던 시절의 오브젝트 — 읽기만 한다
   topSurface?: CustomTopSurface
+  // 캐릭터가 이 가구에 취하는 동작. 생성할 때 사용자가 고르고, 실제 자리(높이·앞뒤)는 topSurfaces에서 잰다
+  pose?: CustomPose
 }
 
 const tuple3 = (value: unknown): value is [number, number, number] => Array.isArray(value) && value.length === 3 && value.every((part) => typeof part === 'number' && Number.isFinite(part))
@@ -59,6 +63,7 @@ export const isCustomObjectSpec = (value: unknown): value is CustomObjectSpec =>
   const topOk = (top: unknown) => { const value = top as Partial<CustomTopSurface>; return !!value && Number.isFinite(value.height) && finitePair(value.center) && positivePair(value.size) }
   if (spec.topSurface !== undefined && !topOk(spec.topSurface)) return false
   if (spec.topSurfaces !== undefined && (!Array.isArray(spec.topSurfaces) || spec.topSurfaces.length > 4 || !spec.topSurfaces.every(topOk))) return false
+  if (spec.pose !== undefined && !CUSTOM_POSES.includes(spec.pose)) return false
   if (!Array.isArray(spec.parts) || spec.parts.length > 32 || (spec.parts.length < 1 && typeof spec.glbUrl !== 'string')) return false
   const profileOk = (part: Partial<CustomObjectPart>) => {
     if (part.primitive !== 'extrudeProfile' && part.primitive !== 'latheProfile') return true

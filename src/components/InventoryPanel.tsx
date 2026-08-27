@@ -5,7 +5,7 @@ import { thumbnailFor, thumbnailForFloorStyle } from '../services/thumbnails'
 import { colorOf, customizableTypes, DEFAULT_WALL_COLOR, floorStyleOf, floorStyles, type FloorStyle } from '../services/styles'
 import { DEFAULT_APPEARANCE as CHARACTER_DEFAULTS } from './Character'
 import { t, tp } from '../services/i18n'
-import { CUSTOM_OBJECT_CATEGORIES, customObjectType, type CustomObjectCategory } from '../customObjectSpec'
+import { CUSTOM_OBJECT_CATEGORIES, customObjectType, type CustomObjectCategory, type CustomPose } from '../customObjectSpec'
 import { cachedCredits, createCreditCheckout, customObjectTemplate, fetchCredits, type CreditStatus } from '../services/customObjects'
 import { PhotoCropEditor } from './PhotoCropEditor'
 
@@ -209,6 +209,8 @@ function CustomTab() {
     reader.readAsDataURL(value)
   }
   const [quality, setQuality] = useState<'standard' | 'high'>('standard')
+  // 캐릭터가 이 가구에 취할 동작. 실제 자리는 생성된 모델에서 재므로 여기선 무엇을 할지만 고른다
+  const [pose, setPose] = useState<'' | CustomPose>('')
   const openCheckout = async () => {
     if (openingCheckout) return
     setOpeningCheckout(true)
@@ -235,8 +237,8 @@ function CustomTab() {
     const size = parseSize()
     if (size === null) { setError(t('크기는 1~12 사이 숫자로 (가로·세로는 함께)')); return }
     setError('')
-    runCustomGeneration({ category, prompt: source === 'text' ? prompt.trim() : '', image: image ?? undefined, size, finish: quality === 'high' ? 'gloss' : undefined })
-    setSource(null); setPrompt(''); setImage(null); setSizeW(''); setSizeD(''); setSizeH('')
+    runCustomGeneration({ category, prompt: source === 'text' ? prompt.trim() : '', image: image ?? undefined, size, finish: quality === 'high' ? 'gloss' : undefined, pose: pose || undefined })
+    setSource(null); setPrompt(''); setImage(null); setSizeW(''); setSizeD(''); setSizeH(''); setPose('')
   }
   const objects = customObjects.filter((object) => availableCount(customObjectType(object.id)) > 0)
   return <div ref={root} className="custom-tab">
@@ -248,6 +250,7 @@ function CustomTab() {
       <div className="custom-form-head"><strong>{t(source === 'text' ? '텍스트 넣기' : '사진 넣기')}</strong><button type="button" onClick={() => { setSource(null); setPrompt(''); setImage(null); setEditingImage(null); setError('') }}>×</button></div>
       <label><span className="custom-category-label">{t('오브젝트 종류')}<button type="button" aria-label={t('오브젝트 종류 안내')} onClick={(event) => { event.preventDefault(); setCategoryInfo(true) }}>i</button></span><select value={category} onChange={(event) => setCategory(event.target.value as CustomObjectCategory)}>{CUSTOM_OBJECT_CATEGORIES.map((value) => <option key={value} value={value}>{t(CUSTOM_CATEGORY_LABELS[value])}</option>)}</select></label>
       <label>{t('품질')}<select value={quality} onChange={(event) => setQuality(event.target.value as 'standard' | 'high')}><option value="standard">{t('일반 (1 credit)')}</option><option value="high">{t('고품질 (2 credit)')}</option></select></label>
+      {category === 'furniture' && <label>{t('캐릭터 동작')}<select value={pose} onChange={(event) => setPose(event.target.value as '' | CustomPose)}><option value="">{t('없음')}</option><option value="sit">{t('앉기')}</option><option value="lie">{t('눕기')}</option></select></label>}
       <label>{t('크기 (선택)')}{category === 'sculpture' ? <span className="custom-prop-size">{t('1×1칸 · 0.35칸 크기')}</span> : <div className="custom-size"><input type="number" min={1} max={12} value={sizeW} onChange={(event) => setSizeW(event.target.value)} placeholder={t('가로')} aria-label={t('가로')} /><span>×</span><input type="number" min={1} max={12} value={sizeD} onChange={(event) => setSizeD(event.target.value)} placeholder={t('세로')} aria-label={t('세로')} /><span>×</span><input type="number" min={1} max={12} value={sizeH} onChange={(event) => setSizeH(event.target.value)} placeholder={t('높이(선택)')} aria-label={t('높이(선택)')} /></div>}</label>
       {source === 'photo' && (image ? <div className="custom-photo"><img src={image} alt="" /><button type="button" aria-label={t('사진 삭제')} onClick={() => { setImage(null); file.current?.click() }}>×</button></div> : <button className="custom-photo-pick" type="button" onClick={choosePhoto}>{t('사진 넣기')}</button>)}
       {source === 'text' && <textarea maxLength={200} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={t('원하는 디자인')} />}
