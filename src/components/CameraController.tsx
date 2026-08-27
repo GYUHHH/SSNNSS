@@ -310,7 +310,7 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
     // Panning the explorer coasts noticeably further than a rotate does — it is a map being dragged, not a model
     // being turned, and the same stiffness that keeps rotation precise makes the drag feel like it hits a wall.
     dampingFactor={atMinZoom ? 0.06 : 0.08}
-    rotateSpeed={0.55}
+    rotateSpeed={compactScreen ? 0.85 : 0.55}
     minAzimuthAngle={0}
     maxAzimuthAngle={Math.PI / 2}
     minPolarAngle={0}
