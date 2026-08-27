@@ -16,7 +16,7 @@ import { customObjectType, type CustomObjectCategory, type CustomObjectSpec, typ
 // AI 커스텀 생성 잡: Rapid 생성 → 로컬 최적화·검증.
 // 진행 UI·빨간점 알림이 이 하나를 본다. unseen은 완료/실패를 아직 사용자가 확인 안 했다는 뜻.
 export type CustomJob = { stage: 'draft' | 'verify' | 'done' | 'error'; round: number; unseen: boolean; name?: string; error?: string }
-import { customObjectTemplate, generatedModelBlob, inspectCustomModel, loadCustomObjects, pollGlbObject, saveCustomObjects, submitGlbObject, type GeneratedModel } from './services/customObjects'
+import { customObjectTemplate, forgetJob, generatedModelBlob, inspectCustomModel, loadCustomObjects, pendingJob, pollGlbObject, rememberJob, saveCustomObjects, submitGlbObject, type GeneratedModel } from './services/customObjects'
 
 const remoteToComment = (row: RemoteGuestComment): GuestComment => ({ id: row.id, name: row.name, text: row.text, createdAt: row.created_at, visitor: row.visitor, verified: !!row.user_id, photo: row.photo })
 
@@ -476,38 +476,61 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }
   const [customJob, setCustomJob] = useState<CustomJob | null>(null)
   const markCustomSeen = () => setCustomJob((job) => job && job.unseen ? { ...job, unseen: false } : job)
-  const runCustomGeneration = (input: { category: CustomObjectCategory; prompt: string; image?: string; size?: { width: number; depth: number; height?: number }; finish?: 'gloss'; pose?: CustomPose }) => {
+  type GenerationInput = { category: CustomObjectCategory; prompt: string; image?: string; size?: { width: number; depth: number; height?: number }; finish?: 'gloss'; pose?: CustomPose }
+  // 제출 이후의 전부: 결과를 기다리고, 받아서 다듬고, 내 목록에 넣는다. 새로고침 뒤 이어받을 때도 이 함수로 들어온다
+  const awaitGeneration = async (requestId: string, input: GenerationInput) => {
+    try {
+      let model: GeneratedModel | undefined
+      for (let attempt = 0; attempt < 100 && !model; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 3000))
+        const state = await pollGlbObject(requestId)
+        if (state.done) model = state.model
+        else setCustomJob({ stage: 'draft', round: attempt + 2, unseen: false })
+      }
+      if (!model) throw new Error('MODEL_TIMEOUT')
+      setCustomJob({ stage: 'verify', round: 0, unseen: false })
+      const generated = await generatedModelBlob(model, input.finish, input.category)
+      setCustomJob({ stage: 'verify', round: 1, unseen: false })
+      const id = `g${Date.now()}`
+      const stored = await uploadMedia(`glbobj/${id}`, generated.blob)
+      if (!stored) throw new Error('UPLOAD_FAILED')
+      const name = (input.prompt.trim() || t('커스텀 오브젝트')).slice(0, 40)
+      const clampCell = (value: number) => Math.max(1, Math.min(10, Math.round(value)))
+      const footprint = input.category === 'sculpture' ? { width: 1, depth: 1 } : input.size ? { width: clampCell(input.size.width), depth: clampCell(input.size.depth) } : { width: 2, depth: 2 }
+      addCustomObject({ id, name, category: input.category, footprint, parts: [], glbUrl: stored, modelSize: generated.modelSize, modelScale: [1, 1, 1], ...(generated.topSurfaces.length && (input.category === 'furniture' || input.category === 'wallDecoration') ? { topSurfaces: generated.topSurfaces } : {}), ...(input.finish ? { finish: input.finish } : {}), ...(input.pose && input.category === 'furniture' ? { pose: input.pose } : {}) })
+      forgetJob()
+      setCustomJob({ stage: 'done', round: 0, unseen: true, name })
+    } catch (reason) {
+      forgetJob()
+      const message = reason instanceof Error ? reason.message : String(reason)
+      setCustomJob({ stage: 'error', round: 0, unseen: true, error: message === 'NO_CREDITS' ? t('생성권이 없어요') : message === 'BLOCKED_PROMPT' ? t('만들 수 없는 내용이에요') : message })
+    }
+  }
+  const runCustomGeneration = (input: GenerationInput) => {
     if (customJob && customJob.stage !== 'done' && customJob.stage !== 'error') return // 동시에 한 건만
     void (async () => {
+      let requestId: string
       try {
         setCustomJob({ stage: 'draft', round: 0, unseen: false })
-        const requestId = await submitGlbObject({ category: input.category, prompt: input.prompt, image: input.image, finish: input.finish })
-        setCustomJob({ stage: 'draft', round: 1, unseen: false })
-        let model: GeneratedModel | undefined
-        for (let attempt = 0; attempt < 100 && !model; attempt += 1) {
-          await new Promise((resolve) => setTimeout(resolve, 3000))
-          const state = await pollGlbObject(requestId)
-          if (state.done) model = state.model
-          else setCustomJob({ stage: 'draft', round: attempt + 2, unseen: false })
-        }
-        if (!model) throw new Error('MODEL_TIMEOUT')
-        setCustomJob({ stage: 'verify', round: 0, unseen: false })
-        const generated = await generatedModelBlob(model, input.finish, input.category)
-        setCustomJob({ stage: 'verify', round: 1, unseen: false })
-        const id = `g${Date.now()}`
-        const stored = await uploadMedia(`glbobj/${id}`, generated.blob)
-        if (!stored) throw new Error('UPLOAD_FAILED')
-        const name = (input.prompt.trim() || t('커스텀 오브젝트')).slice(0, 40)
-        const clampCell = (value: number) => Math.max(1, Math.min(10, Math.round(value)))
-        const footprint = input.category === 'sculpture' ? { width: 1, depth: 1 } : input.size ? { width: clampCell(input.size.width), depth: clampCell(input.size.depth) } : { width: 2, depth: 2 }
-        addCustomObject({ id, name, category: input.category, footprint, parts: [], glbUrl: stored, modelSize: generated.modelSize, modelScale: [1, 1, 1], ...(generated.topSurfaces.length && (input.category === 'furniture' || input.category === 'wallDecoration') ? { topSurfaces: generated.topSurfaces } : {}), ...(input.finish ? { finish: input.finish } : {}), ...(input.pose && input.category === 'furniture' ? { pose: input.pose } : {}) })
-        setCustomJob({ stage: 'done', round: 0, unseen: true, name })
+        requestId = await submitGlbObject({ category: input.category, prompt: input.prompt, image: input.image, finish: input.finish })
       } catch (reason) {
         const message = reason instanceof Error ? reason.message : String(reason)
         setCustomJob({ stage: 'error', round: 0, unseen: true, error: message === 'NO_CREDITS' ? t('생성권이 없어요') : message === 'BLOCKED_PROMPT' ? t('만들 수 없는 내용이에요') : message })
+        return
       }
+      // 사진 원본은 적어 두지 않는다 — 제출이 끝나면 다시 필요 없고 용량만 크다
+      rememberJob({ requestId, category: input.category, prompt: input.prompt, finish: input.finish, size: input.size })
+      setCustomJob({ stage: 'draft', round: 1, unseen: false })
+      await awaitGeneration(requestId, input)
     })()
   }
+  // 결제 페이지로 나갔다 오거나 새로고침한 경우: 진행 중이던 생성을 그대로 이어받는다
+  useEffect(() => {
+    const job = pendingJob()
+    if (!job) return
+    setCustomJob({ stage: 'draft', round: 1, unseen: false })
+    void awaitGeneration(job.requestId, { category: job.category, prompt: job.prompt, finish: job.finish, size: job.size })
+  }, [])
   const [mode, setMode] = useState<RoomMode>('normal'); const [furniture, setFurniture] = useState<FurnitureItem[]>(() => hydrateFurniture(typeof window === 'undefined' ? null : slotItems(rooms0.active))); const [selectedFurnitureId, setSelectedFurnitureId] = useState<FurnitureId | null>(null); const [history, setHistory] = useState<FurnitureItem[][]>([]); const [dragOrigin, setDragOrigin] = useState<FurnitureItem[] | null>(null); const [movingFurnitureId, setMovingFurnitureId] = useState<FurnitureId | null>(null); const [preview, setPreview] = useState<FurnitureItem | null>(null); const [previewValid, setPreviewValid] = useState(false); const [previewDragging, setPreviewDragging] = useState(false)
   const [customEditing, setCustomEditing] = useState<CustomObjectSpec | null>(null)
   const customEditOrigin = useRef<{ furniture: FurnitureItem[]; selected: FurnitureId | null } | null>(null)

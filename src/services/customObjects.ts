@@ -1,5 +1,5 @@
 import { clampModelScale, customObjectType, isCustomObjectSpec, type CustomObjectCategory, type CustomObjectSpec, type CustomTopSurface } from '../customObjectSpec'
-import { authHeaders, readStored, writeStored } from './social'
+import { authHeaders, isVisiting, onRoomNavigation, readStored, writeStored } from './social'
 import type { Material, Mesh, Object3D, Texture } from 'three'
 
 export const CUSTOM_OBJECTS_KEY = 'my-room-custom-objects-v1'
@@ -11,7 +11,19 @@ export const loadCustomObjects = (): CustomObjectSpec[] => {
   } catch { return [] }
 }
 
-export const saveCustomObjects = (values: CustomObjectSpec[]) => writeStored(CUSTOM_OBJECTS_KEY, JSON.stringify(values))
+// 남의 방을 보는 동안 writeStored는 조용히 버려진다 — 그 사이에 생성이 끝나면 만든 물건이 통째로 사라졌다.
+// 내 방으로 돌아올 때까지 들고 있다가 그때 쓴다.
+let pendingSave: string | null = null
+export const saveCustomObjects = (values: CustomObjectSpec[]) => {
+  const payload = JSON.stringify(values)
+  if (isVisiting()) { pendingSave = payload; return }
+  writeStored(CUSTOM_OBJECTS_KEY, payload)
+}
+onRoomNavigation(() => {
+  if (!pendingSave || isVisiting()) return
+  writeStored(CUSTOM_OBJECTS_KEY, pendingSave)
+  pendingSave = null
+})
 
 export const customObjectTemplate = (spec: CustomObjectSpec) => {
   const wall = spec.category === 'wallDecoration'
@@ -25,6 +37,25 @@ export const customObjectTemplate = (spec: CustomObjectSpec) => {
 }
 
 export type CustomSize = { width: number; depth: number; height?: number }
+
+// 생성은 몇 분씩 걸린다. 결제 페이지로 나갔다 오거나 새로고침하면 화면 상태가 통째로 날아가므로, 진행 중인
+// 작업을 브라우저에 적어 두고 돌아왔을 때 이어받는다. 방 번들이 아니라 이 기기의 저장소를 쓴다 — 진행 상태는
+// 방 데이터가 아니고, 다른 기기에서 이어받을 수도 없다.
+const JOB_KEY = 'my-room-custom-job-v1'
+const JOB_TTL = 30 * 60 * 1000
+export type PendingJob = { requestId: string; category: CustomObjectCategory; prompt: string; finish?: 'gloss'; size?: CustomSize; at: number }
+
+export const rememberJob = (job: Omit<PendingJob, 'at'>) => {
+  try { localStorage.setItem(JOB_KEY, JSON.stringify({ ...job, at: Date.now() })) } catch { /* 저장 못 해도 이번 세션은 계속 돈다 */ }
+}
+export const forgetJob = () => { try { localStorage.removeItem(JOB_KEY) } catch { /* 없으면 그만 */ } }
+export const pendingJob = (): PendingJob | null => {
+  try {
+    const job = JSON.parse(localStorage.getItem(JOB_KEY) ?? 'null') as PendingJob | null
+    if (!job || typeof job.requestId !== 'string' || typeof job.at !== 'number' || Date.now() - job.at > JOB_TTL) return null
+    return job
+  } catch { return null }
+}
 
 export type CreditStatus = { enabled: boolean; balance: number; freeLeft: boolean; buyUrl: string | null; checkout: boolean }
 
