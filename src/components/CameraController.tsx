@@ -8,13 +8,16 @@ import { PICKER_HOLD_EVENT } from './ReactionPicker'
 const DESKTOP_DETAIL_MIN_ZOOM = 42
 const MOBILE_DETAIL_MIN_ZOOM = 30
 // Fit the complete seven-room ring to whichever side of the viewport is tighter.
-const EXPLORE_MAX_ZOOM = 40
+// 천장은 entryZoom(46) 아래로 유지 — 넘어가면 전체보기 바닥이 방 진입선 위로 올라가 버린다
+const EXPLORE_MAX_ZOOM = 42
+// 1보다 크면 덜 축소된다 = 한 화면에 보이는 방이 줄어든다. 이 숫자만 만지면 됨.
+const EXPLORE_ZOOM_SCALE = 1.2
 const MAX_ZOOM = 220
 
 export const isCompactScreen = (width: number, height: number) => width < 720 || (height < 520 && window.matchMedia('(pointer: coarse)').matches)
 // the floor the explorer bottoms out at — the neighbour fade bands are anchored to it so raising one moves the other
 export const exploreMinZoom = (width: number, height: number) => {
-  const fit = Math.min(EXPLORE_MAX_ZOOM, width / 33, height / 29)
+  const fit = Math.min(EXPLORE_MAX_ZOOM, (width / 33) * EXPLORE_ZOOM_SCALE, (height / 29) * EXPLORE_ZOOM_SCALE)
   // mobile reads too small fully zoomed out, so the floor sits 6 higher there — capped safely under the entry
   // line (and never below the plain fit) so crossing into a room keeps firing exactly as before
   return isCompactScreen(width, height) ? Math.min(fit + 6, Math.max(fit, entryZoom(width, height) - 2)) : fit
