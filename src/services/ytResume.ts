@@ -222,7 +222,6 @@ const unloadCaptions = (frameId: string) => {
   command(frameId, 'unloadModule', ['cc'])
 }
 
-// a mute=1 embed can come up with its volume at 0, so unmuting alone stays silent — always restore volume too
 export const muteFrame = (frameId: string) => command(frameId, 'mute')
 export const playFrame = (frameId: string) => command(frameId, 'playVideo')
 
@@ -232,7 +231,6 @@ export const playFrame = (frameId: string) => command(frameId, 'playVideo')
 // frames make sound belongs to the UI, not to the player retry loop.
 export function requestSound(frameId: string, onBlocked: () => void, onSound?: () => void): () => void {
   let settled = false
-  let volumeRetried = false
   let lastAskedAt = -Infinity
   let lastMuted: boolean | undefined
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -240,7 +238,6 @@ export function requestSound(frameId: string, onBlocked: () => void, onSound?: (
     if (!activeIframes[frameId]) return
     lastAskedAt = performance.now()
     command(frameId, 'unMute')
-    command(frameId, 'setVolume', [70])
     command(frameId, 'playVideo')
   }
   const cleanup = () => {
@@ -253,11 +250,6 @@ export function requestSound(frameId: string, onBlocked: () => void, onSound?: (
       const info = (typeof event.data === 'string' ? JSON.parse(event.data) : event.data)?.info
       if (typeof info?.muted === 'boolean') lastMuted = info.muted
       if (info?.muted === false && info?.playerState === 1) {
-        if (typeof info?.volume === 'number' && info.volume === 0) {
-          // unmuted yet silent: the early volume command was lost pre-ready — reapply once, briefly delayed
-          if (!volumeRetried) { volumeRetried = true; setTimeout(() => { if (!settled) command(frameId, 'setVolume', [70]) }, 200) }
-          return
-        }
         settled = true; onSound?.(); cleanup(); return
       }
       if (info?.playerState === 2) {
