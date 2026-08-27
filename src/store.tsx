@@ -308,19 +308,28 @@ const hydrateFurniture = (saved: FurniturePlacement[] | null) => {
     return placeOnSurface(resolved, { ...base, ...value, id: base.id, footprint, rotation, surfaceId, position: [base.position[0], value.position?.[1] ?? base.position[1], base.position[2]], size: [footprint.width, footprint.depth] as [number, number] }, surfaceId, grid, rotation)
   }
   for (const base of initialFurniture) resolved.push(restore(base, saved.find((value) => value.id === base.id)))
-  const extras = saved.filter((value) => !initialFurniture.some((base) => base.id === value.id)).flatMap((value) => {
-    const template = templateForType(value.type)
-    if (!template) return []
-    const surfaceId = value.surfaceId ?? (template.category === 'wallItem' ? wallIdFor(value.wallId) : 'floor')
-    const surface = resolveSurface(resolved, surfaceId) ?? resolveSurface(resolved, 'floor')!
-    const resolution = resolutionFor(template)
-    const footprint = template.category !== 'wallItem' || isLegacySave(resolution, surface, value) || isDownscaledSave(resolution, surface, value) || !value.footprint?.width || !value.footprint?.depth ? template.footprint : value.footprint
-    const savedY = surface.type === 'floor' ? (value.surfaceId === 'floor' ? value.gridY : value.gridZ ?? value.gridY) : value.gridY
-    const grid = migratedGrid(resolution, surface, value, footprint, value.rotation[1], [0, 0, 0], savedY)
-    const item = { ...template, ...value, id: value.id, surfaceId, wallId: surface.type === 'wall' ? surface.id as WallId : undefined, footprint, gridX: grid.gridX, gridY: grid.gridY, gridZ: surface.type === 'floor' ? grid.gridY : 0, position: [0, value.position?.[1] ?? 0, 0] as [number, number, number], size: [footprint.width, footprint.depth] as [number, number] } as FurnitureItem
-    return [placeOnSurface(resolved, item, surfaceId, grid, value.rotation)]
-  })
-  return withBookItems([...resolved, ...extras])
+  // 보관함에서 꺼내 놓은 아이템들. initialFurniture와 달리 순서가 정해져 있지 않아, 남이 만든 표면(직접 놓은
+  // 책상·선반의 상판) 위에 있는 것은 주인이 먼저 복원돼야 자기 자리를 찾는다. 표면이 풀리는 것부터 처리하고,
+  // 한 바퀴에 하나도 못 풀면 남은 것은 그대로 진행한다(주인이 삭제된 잔재 — 바닥으로 떨어진다).
+  let pending = saved.filter((value) => !initialFurniture.some((base) => base.id === value.id))
+  while (pending.length) {
+    const ready = pending.filter((value) => !value.surfaceId || !isOwnedSurfaceId(value.surfaceId) || !!resolveSurface(resolved, value.surfaceId))
+    const batch = ready.length ? ready : pending
+    for (const value of batch) {
+      const template = templateForType(value.type)
+      if (!template) continue
+      const surfaceId = value.surfaceId ?? (template.category === 'wallItem' ? wallIdFor(value.wallId) : 'floor')
+      const surface = resolveSurface(resolved, surfaceId) ?? resolveSurface(resolved, 'floor')!
+      const resolution = resolutionFor(template)
+      const footprint = template.category !== 'wallItem' || isLegacySave(resolution, surface, value) || isDownscaledSave(resolution, surface, value) || !value.footprint?.width || !value.footprint?.depth ? template.footprint : value.footprint
+      const savedY = surface.type === 'floor' ? (value.surfaceId === 'floor' ? value.gridY : value.gridZ ?? value.gridY) : value.gridY
+      const grid = migratedGrid(resolution, surface, value, footprint, value.rotation[1], [0, 0, 0], savedY)
+      const item = { ...template, ...value, id: value.id, surfaceId, wallId: surface.type === 'wall' ? surface.id as WallId : undefined, footprint, gridX: grid.gridX, gridY: grid.gridY, gridZ: surface.type === 'floor' ? grid.gridY : 0, position: [0, value.position?.[1] ?? 0, 0] as [number, number, number], size: [footprint.width, footprint.depth] as [number, number] } as FurnitureItem
+      resolved.push(placeOnSurface(resolved, item, surfaceId, grid, value.rotation))
+    }
+    pending = pending.filter((value) => !batch.includes(value))
+  }
+  return withBookItems(resolved)
 }
 
 // 표면 위 빈 자리 검사 (마이그레이션 전용 — 캐릭터 칸 검사는 바닥에만 의미 있어 뺐다)
