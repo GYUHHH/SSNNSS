@@ -93,7 +93,7 @@ function CrossfadingLights({ preset }: { preset: typeof LIGHTING[keyof typeof LI
     // castShadow는 완전히 사라진 뒤에만 꺼서 그림자 패스 비용도 같이 없앤다.
     if (dir.current) {
       const zoomedIn = camera.zoom > entryZoom(size.width, size.height)
-      dir.current.shadow.intensity = MathUtils.damp(dir.current.shadow.intensity, zoomedIn ? .18 : 0, 6, step)
+      dir.current.shadow.intensity = MathUtils.damp(dir.current.shadow.intensity, zoomedIn ? .4 : 0, 6, step)
       dir.current.castShadow = dir.current.shadow.intensity > .01
       if (zoomedIn && wasZoomedIn.current === false) shadowRefreshAt.current = performance.now() + 120
       wasZoomedIn.current = zoomedIn
@@ -105,7 +105,7 @@ function CrossfadingLights({ preset }: { preset: typeof LIGHTING[keyof typeof LI
   })
   return <>
     <ambientLight ref={ambient} intensity={initial.ambient} color={initial.ambientColor} />
-    <directionalLight ref={dir} castShadow position={[1.5, 12, -.75]} intensity={initial.dir} color={initial.dirColor} shadow-mapSize-width={512} shadow-mapSize-height={512} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
+    <directionalLight ref={dir} castShadow position={[4, 12, 4]} intensity={initial.dir} color={initial.dirColor} shadow-mapSize-width={512} shadow-mapSize-height={512} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} />
   </>
 }
 
