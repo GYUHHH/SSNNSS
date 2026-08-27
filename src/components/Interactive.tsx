@@ -26,6 +26,11 @@ const padInverse = new Matrix4()
 const padSize = new Vector3()
 const padCentre = new Vector3()
 
+// 크기 조절 손잡이가 광선에 함께 걸렸으면 이동보다 우선한다 — 손잡이가 액자보다 뒤에 있어도(액자가 먼저
+// 광선에 걸려도) 근처를 눌렀다는 뜻이므로 이동을 시작하지 않고 손잡이에 넘긴다
+const nearResizeHandle = (event: { intersections: { object: Object3D }[] }) =>
+  event.intersections.some((hit) => hit.object.userData.resizeHandle === true)
+
 const isSolid = (object: Object3D) => {
   for (let node: Object3D | null = object; node; node = node.parent) if (node.userData.interactive) return true
   return false
@@ -111,7 +116,7 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
     onPointerOver={editing ? undefined : (event) => { if (readOnly || padOverruled(event)) return; event.stopPropagation(); hoverShared.group = hoverGroup; hoverShared.by = id; setHovered(true) }}
     onPointerOut={editing ? undefined : () => { if (hoverShared.by === id) { hoverShared.group = null; hoverShared.by = null } setHovered(false) }}
     onPointerDown={(event) => {
-      if (readOnly || padOverruled(event)) return
+      if (readOnly || padOverruled(event) || nearResizeHandle(event)) return
       event.stopPropagation()
       if (editing) { selectFurniture(id); beginMove(id); return }
       if (isVisiting()) return

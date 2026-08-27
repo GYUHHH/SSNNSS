@@ -136,7 +136,9 @@ function ResizeHandle({ id, corner, cursor, surface, position }: { id: Furniture
   return <group ref={group} position={position}>
     <mesh scale={5} renderOrder={10001}><circleGeometry args={[1, 20]} /><meshBasicMaterial color="#ffffff" depthTest={false} toneMapped={false} /></mesh>
     <mesh renderOrder={10002}><ringGeometry args={[4, 5, 20]} /><meshBasicMaterial color="#222222" depthTest={false} toneMapped={false} /></mesh>
-    <mesh scale={22} renderOrder={10003}
+    {/* 잡기 영역은 화면 픽셀 기준(부모가 worldPerPixel로 축소된다) — 액자가 크든 작든, 줌이 얼마든 반경 30px.
+        userData.resizeHandle을 보고 Interactive가 이동 시작을 양보한다 */}
+    <mesh scale={30} renderOrder={10003} userData={{ resizeHandle: true }}
       onPointerOver={(event) => { event.stopPropagation(); setHovered(true) }} onPointerOut={() => setHovered(false)}
       onPointerDown={(event) => { event.stopPropagation(); dragging.current = true; beginResize(id); (event.target as unknown as { setPointerCapture: (pointerId: number) => void }).setPointerCapture(event.pointerId) }}
       onPointerMove={(event) => { if (!dragging.current) return; event.stopPropagation(); const hit = event.ray.intersectPlane(plane, point); if (hit) resizeFurniture(id, corner, [hit.x, hit.y, hit.z]) }}
