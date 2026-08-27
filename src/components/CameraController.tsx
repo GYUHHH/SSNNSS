@@ -29,10 +29,10 @@ export const entryZoom = (width: number, height: number) => isCompactScreen(widt
 const EXPLORER_ZOOM_EVENT = 'explorer-zoom-out'
 export const requestExplorerZoom = (centreHome = false) => window.dispatchEvent(new CustomEvent(EXPLORER_ZOOM_EVENT, { detail: centreHome }))
 
-// Default room view: 45° around the room and 45° above the floor, at the existing radius of 15.
-export const DEFAULT_CAMERA_POSITION: [number, number, number] = [7.5, 3.5 + 15 / Math.SQRT2, 7.5]
+// Default room view: 45° around the room and 30° above the floor, at the existing radius of 15.
+export const DEFAULT_CAMERA_POSITION: [number, number, number] = [15 * Math.cos(Math.PI / 6) / Math.SQRT2, 3.5 + 15 * Math.sin(Math.PI / 6), 15 * Math.cos(Math.PI / 6) / Math.SQRT2]
 const DEFAULT_AZIMUTH = Math.PI / 4
-const DEFAULT_POLAR = Math.PI / 4
+const DEFAULT_POLAR = Math.PI / 3
 
 type FocusRoom = { position: [number, number, number]; token: number; shift?: [number, number, number] }
 type ControlsRef = { target: Vector3; update: () => void; getAzimuthalAngle: () => number; setAzimuthalAngle: (value: number) => void; getPolarAngle: () => number; setPolarAngle: (value: number) => void }
