@@ -1,4 +1,4 @@
-import { SUPABASE_URL, anonHeaders, authHeaders, isSignedIn, myHandle } from './social'
+import { SUPABASE_URL, anonHeaders, authHeaders, isSignedIn, myHandle, onAuthChange } from './social'
 
 // Follow graph + the explorer's home/discover split. Every call degrades gracefully while the `follows`
 // table does not exist yet on the server: reads resolve to empty, writes report failure, nothing throws.
@@ -48,6 +48,10 @@ let mode: ExplorerMode = isSignedIn() ? 'home' : 'discover'
 const modeListeners = new Set<(next: ExplorerMode) => void>()
 export const explorerMode = () => mode
 export const setExplorerMode = (next: ExplorerMode) => { if (mode !== next) { mode = next; modeListeners.forEach((listener) => listener(next)) } }
+// 로그인 복원은 이 모듈이 로드된 뒤에 끝난다 — 아직 직접 고른 적이 없으면 로그인이 확인되는 순간 사람 뷰가 기본이다
+let chosen = false
+export const chooseExplorerMode = (next: ExplorerMode) => { chosen = true; setExplorerMode(next) }
+onAuthChange(() => { if (!chosen && isSignedIn()) setExplorerMode('home') })
 export const onExplorerMode = (listener: (next: ExplorerMode) => void) => { modeListeners.add(listener); return () => { modeListeners.delete(listener) } }
 
 // Discover remembers where it was browsed. Home never keeps a visited-room pin: opening the person view always

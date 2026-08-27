@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { MAX_ROOMS, useRoomStore } from '../store'
 import { enterRoom, isVisiting, myHandle, searchRooms } from '../services/social'
-import { explorerMode, isFollowingRoom, modeRoom, onFollowsChange, rememberModeRoom, setExplorerMode, setFollowing } from '../services/follows'
+import { chooseExplorerMode, explorerMode, isFollowingRoom, modeRoom, onExplorerMode, onFollowsChange, rememberModeRoom, setFollowing } from '../services/follows'
 import { snapshotActiveFrames } from '../services/ytResume'
 import SoundHub from './SoundHub'
 import { requestExplorerZoom } from './CameraController'
@@ -68,6 +68,7 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
   const [shopOpen, setShopOpen] = useState(false)
   // home = only rooms I follow around mine, discover = the public directory; the explorer listens to this
   const [explore, setExplore] = useState(explorerMode())
+  useEffect(() => onExplorerMode(setExplore), [])
   const { currentHandle } = useRoomStore()
   // Discover keeps its browsing pin. The person view always returns to my room instead of walking another
   // person's follow graph.
@@ -78,7 +79,7 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
     const here = currentHandle
     if (here) rememberModeRoom(explore, here)
     setExplore(next)
-    setExplorerMode(next)
+    chooseExplorerMode(next)
     const target = next === 'home' ? myHandle() : modeRoom(next)
     if (!target || target === here) {
       if (here) rememberModeRoom(next, here)
