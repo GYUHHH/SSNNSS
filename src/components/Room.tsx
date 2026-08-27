@@ -10,7 +10,7 @@ import { captureRenderScale, flushCapture } from '../services/capture'
 import { setRoomFrameRendered } from '../services/renderSync'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
-import CameraController, { entryZoom, exploreMinZoom } from './CameraController'
+import CameraController, { DEFAULT_CAMERA_POSITION, entryZoom, exploreMinZoom } from './CameraController'
 import Character from './Character'
 import Chair from './Chair'
 import Computer from './Computer'
@@ -206,8 +206,8 @@ function Scene() {
   // Scene events re-route to this host (with client coords) because the canvas itself is pointer-transparent
   // so clicks over a video can fall through into the iframe. The room background moves to the host's CSS.
   const eventHost = useRef<HTMLDivElement>(null!)
-  return <div ref={eventHost} className="canvas-host" style={{ background: light.bg }}><Canvas shadows="soft" dpr={[1, 2]} gl={{ antialias: true }} eventSource={eventHost} events={shiftAwareEvents} onPointerMissed={(event) => { if (!(event.target as HTMLElement)?.closest?.('.canvas-host')) return; (mode === 'edit' ? toggleEditMode : clearSelection)() }} camera={{ position: [10, 8.5, 10] }}>
-    <OrthographicCamera makeDefault position={[10, 8.5, 10]} zoom={59} near={0.1} far={100} />
+  return <div ref={eventHost} className="canvas-host" style={{ background: light.bg }}><Canvas shadows="soft" dpr={[1, 2]} gl={{ antialias: true }} eventSource={eventHost} events={shiftAwareEvents} onPointerMissed={(event) => { if (!(event.target as HTMLElement)?.closest?.('.canvas-host')) return; (mode === 'edit' ? toggleEditMode : clearSelection)() }} camera={{ position: DEFAULT_CAMERA_POSITION }}>
+    <OrthographicCamera makeDefault position={DEFAULT_CAMERA_POSITION} zoom={59} near={0.1} far={100} />
     <RenderGovernor />
     <CrossfadingLights preset={light} />
     <TimeLayerLights time="day" /><TimeLayerLights time="evening" /><TimeLayerLights time="night" />
