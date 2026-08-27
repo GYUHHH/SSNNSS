@@ -45,7 +45,7 @@ export type FurnitureCategory = 'floorFurniture' | 'surfaceItem' | 'wallItem' | 
 export type FurnitureItem = FurniturePlacement & PlacementItem & { id: FurnitureId; name: string; position: [number, number, number]; gridZ: number; wallId?: WallId; footprint: Footprint; category: FurnitureCategory; movable: boolean; interactable: boolean; elevatable?: boolean; size: [number, number]; allowedSurfaces: SurfaceKind[]; customSpec?: CustomObjectSpec }
 export const isResizableWallItem = (item: Pick<FurnitureItem, 'type' | 'category'>) => item.category === 'wallItem' && (item.type === 'photo' || item.type === 'poster' || item.type === 'animated-poster' || item.type.startsWith('photo-frame') || item.type.startsWith('video-frame') || item.type.startsWith('wall-art'))
 export const frameFamily = (type: string) => type.startsWith('video-frame') ? 'video-frame-3' : type.startsWith('photo-frame') ? 'photo-frame' : type.startsWith('wall-art') ? 'wall-art' : type
-export type InventoryCategory = '전체' | '가구' | '조명' | '식물' | '벽장식' | '소품'
+export type InventoryCategory = '전체' | '가구' | '조명' | '식물' | '벽장식' | '바닥' | '소품'
 export type EntryComment = { id: string; name: string; text: string; createdAt: string }
 export type Entry = { id: string; bookId: string; title: string; content: string; images: string[]; date: string; visibility: Visibility; createdAt: string; updatedAt: string; comments: EntryComment[] }
 export type Book = { id: string; title: string; coverColor: string; description: string; visibility: Visibility; createdAt: string; updatedAt: string; entries: Entry[]; shelf?: number }
@@ -63,7 +63,7 @@ const placementGrid = (item: Pick<FurnitureItem, 'gridX' | 'gridY'>): GridPositi
 const isGridPlaced = (item: Pick<FurnitureItem, 'movable' | 'footprint'>) => item.movable && item.footprint.width > 0
 // visual effects are anchored to a grid cell but never reserve physical floor space
 const ignoresPlacementCollision = (item: Pick<FurnitureItem, 'type'>) => item.type === 'star-dust' || item.type === 'club-led'
-export const isFloorCovering = (item: Pick<FurnitureItem, 'type' | 'surfaceId' | 'customSpec'>) => item.surfaceId === 'floor' && (['rug', 'carpet', 'mat', 'floor-mat', 'round-rug'].includes(item.type) || item.customSpec?.category === 'floor')
+export const isFloorCovering = (item: Pick<FurnitureItem, 'type' | 'surfaceId' | 'customSpec'>) => item.surfaceId === 'floor' && (['rug', 'carpet', 'mat', 'floor-mat'].includes(item.type) || item.customSpec?.category === 'floor')
 // Wall media is a background layer, not physical wall space: it never occupies placement cells, so photos,
 // posters, videos, and ordinary wall furniture can layer freely. Only two non-media wall furnishings collide.
 const sharesWallBackground = (a: FurnitureItem, b: FurnitureItem) => a.category === 'wallItem' && b.category === 'wallItem' && (isWallMedia(a.type) || isWallMedia(b.type))
@@ -146,7 +146,6 @@ export const inventoryItems: Array<Omit<FurnitureItem, 'id' | 'position' | 'surf
   { type: 'pennant', name: '페넌트 깃발', category: 'wallItem', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['wall'] },
   { type: 'boucle-stool', name: '부클레 스툴', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'cube-shelf', name: '큐브 선반', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 1 }, size: [2, 1], scale: 1, allowedSurfaces: ['floor'] },
-  { type: 'round-rug', name: '원형 러그', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 3, depth: 3 }, size: [3, 3], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'papasan-chair', name: '파파산 체어', category: 'floorFurniture', movable: true, interactable: true, footprint: { width: 2, depth: 2 }, size: [2, 2], scale: 1, allowedSurfaces: ['floor'] },
   { type: 'glass-mushroom-lamp', name: '유리 버섯 램프', category: 'surfaceItem', movable: true, interactable: true, footprint: { width: 1, depth: 1 }, size: [1, 1], scale: 1, allowedSurfaces: ['floor', 'tabletop', 'shelf'] },
   { type: 'string-lights', name: '스트링 라이트', category: 'wallItem', movable: true, interactable: true, footprint: { width: 3, depth: 1 }, size: [3, 1], scale: 1, allowedSurfaces: ['wall'] },
