@@ -11,6 +11,7 @@ import { openReactionPicker } from './ReactionPicker'
 // computer and mug together instead of one piece popping out alone. Mutable module state on purpose: useFrame
 // reads it every frame, so no re-render is needed and pointer over/out ordering races are settled by `by`.
 const hoverShared = { group: null as string | null, by: null as string | null }
+const DIRECT_PANEL_TYPES = new Set(['diary-book', 'music-player', 'record-player', 'cd-player'])
 
 // lets UI outside the canvas (the sound list) hover a piece exactly like the pointer would
 export const setExternalHover = (id: string | null) => { hoverShared.group = id; hoverShared.by = id ? `external:${id}` : null }
@@ -61,6 +62,7 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
   const longPressed = useRef(false)
   const { readOnly, selectObject, enterEditFurniture, furniture, openObject, selectFurniture, beginMove } = useRoomStore()
   const item = furniture.find((value) => value.id === id)
+  const directPanel = DIRECT_PANEL_TYPES.has(item?.type ?? '')
   const hoverGroup = item && isOwnedSurfaceId(item.surfaceId) ? ownerIdOf(item.surfaceId) : id
   useCursor(hovered && !editing)
   const cancelPress = () => { if (timer.current) clearTimeout(timer.current); timer.current = null; press.current = null }
@@ -121,7 +123,7 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
     onPointerMove={editing ? undefined : (event) => { if (!press.current) return; if (Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 9 && timer.current) cancelPress() }}
     onPointerUp={editing ? undefined : (event) => { const target = event.target as unknown as { hasPointerCapture: (pointerId: number) => boolean; releasePointerCapture: (pointerId: number) => void }; cancelPress(); if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId) }}
     onPointerCancel={editing ? undefined : cancelPress}
-    onClick={(event) => { if (readOnly || padOverruled(event)) return; event.stopPropagation(); if (editing) return; if (isVisiting()) { openReactionPicker({ id, x: event.clientX, y: event.clientY }); return }; if (longPressed.current) { longPressed.current = false; return }; if (openObject(id)) return; selectObject(id) }}>
+    onClick={(event) => { if (readOnly || padOverruled(event)) return; event.stopPropagation(); if (editing) return; if (isVisiting() && !directPanel) { openReactionPicker({ id, x: event.clientX, y: event.clientY }); return }; if (longPressed.current) { longPressed.current = false; return }; if (!directPanel && openObject(id)) return; selectObject(id) }}>
     <group ref={content}>{children}</group>
     {/* the forgiving hit area. Never drawn, but three's raycaster tests layers rather than `visible`, so it is
         still a target — which is the whole point. Sized from the contents by fitPad above. */}
