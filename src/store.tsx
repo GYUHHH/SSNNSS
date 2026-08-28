@@ -728,7 +728,24 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   // held in pendingMove/dragOrigin and the item would pop back
   const removeFurniture = (targetId = selectedFurnitureId ?? undefined) => { if (!targetId) return; const group = (value: FurnitureItem) => value.id === targetId || (isOwnedSurfaceId(value.surfaceId) && ownerIdOf(value.surfaceId) === targetId); const gone = furniture.filter((value) => group(value) && !value.removed).map((value) => value.id); const next = furniture.map((value) => group(value) && !value.removed ? { ...value, removed: true, updatedAt: new Date().toISOString() } : value); void purgeReactions(gone); dropReactions(gone); pendingMove.current = null; setDragOrigin(null); setMovingFurnitureId(null); commit(next); setSelectedFurnitureId(null) }
   const undoLayout = () => { let index = history.length - 1; while (index >= 0 && same(history[index], furniture)) index -= 1; const previous = history[index]; if (!previous) return; setHistory((items) => items.slice(0, index)); setFurniture(previous); persist(previous); setSelectedFurnitureId(null) }
-  const resetLayout = () => { const next = initialFurniture.map((value) => ({ ...value })); commit(next); setSelectedFurnitureId(null) }
+  // 초기화는 가구 자리뿐 아니라 방의 겉모습 전부를 처음 상태로 되돌린다 — 벽·바닥 색과 사진, 액자에 넣은 사진,
+  // 캐릭터 색까지. 올려둔 이미지 파일도 같이 지운다. 책·방명록처럼 직접 쓴 글은 건드리지 않는다.
+  const resetLayout = () => {
+    if (isVisiting()) return
+    const next = initialFurniture.map((value) => ({ ...value }))
+    commit(next)
+    setSelectedFurnitureId(null)
+    setFloorImage(null)
+    setWallImage('leftWall', null)
+    setWallImage('rightWall', null)
+    saveSlotStyle(activeRoomId, {})
+    setWallStyleState({})
+    setFloorStyleState(undefined)
+    setFloorImageState(undefined)
+    for (const value of Object.values(artworks)) deleteMedia(value)
+    setArtworks({})
+    setCharacterLook(null)
+  }
   // `context` defaults to current state; pass a NEXT state to validate a transform before committing it —
   // rotateFurniture needs this so items on a rotated owner's surface resolve against the rotated grid
   const isAvailable = (candidate: FurnitureItem, context: FurnitureItem[] = furniture) => {

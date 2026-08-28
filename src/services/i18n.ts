@@ -165,7 +165,7 @@ const EN: Record<string, string> = {
   "머그컵": "Mug",
   "머리": "Hair",
   "머스터드": "Mustard",
-  "모든 가구를 처음 위치로 되돌릴까요?": "Move all furniture back to its original spots?",
+  "방을 처음 상태로 되돌릴까요? 가구 배치와 벽·바닥, 넣어둔 사진, 캐릭터 색이 모두 초기화됩니다.": "Reset this room to its original state? Furniture layout, walls and floor, any photos you added, and your character colours will all be reset.",
   "목록에서 삭제": "Remove from list",
   "무빙 포스터": "Moving Poster",
   "뮤직 플레이어": "Music Player",
