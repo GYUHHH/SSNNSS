@@ -255,7 +255,7 @@ function FirstPersonCamera() {
   const suppressClick = useRef(false)
   useEffect(() => {
     const element = (gl.domElement.closest('.canvas-host') ?? gl.domElement) as HTMLElement
-    const clampFov = (value: number) => MathUtils.clamp(value, 35, 95)
+    const clampFov = (value: number) => MathUtils.clamp(value, 35, 110)
     const touchDistance = (touches: TouchList) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY)
     const onDown = (event: PointerEvent) => {
       if (event.button !== 0 || touchCount.current > 1 || dragZoom.current || (event.target as HTMLElement).closest?.('button,input,textarea,select,a,iframe,[contenteditable="true"]')) return
