@@ -108,7 +108,8 @@ export function interactionAnchorsFor(item: FurnitureItem, typeOverride?: Intera
   if (item.type === 'chair' || item.type === 'sage-office-chair') return {
     type: typeOverride ?? 'sit',
     approach: { position: [0, 0, .7], rotation: 0 },
-    action: { position: [0, item.type === 'sage-office-chair' ? .76 : topHeight(item), .04], rotation: 0 },
+    // 이 의자는 1칸에 균일 맞춤되어 원본 좌석 윗면(.97)이 약 .47 높이가 된다.
+    action: { position: [0, item.type === 'sage-office-chair' ? .47 : topHeight(item), .04], rotation: 0 },
   }
   const approach = defaultApproach(item)
   return { type: typeOverride ?? (item.type === 'bookshelf' ? 'read' : 'interact'), approach, action: approach }

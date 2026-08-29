@@ -405,9 +405,9 @@ export type TimeOfDay = 'day' | 'evening' | 'night'
 // clicking these walks the character over and poses it (see interactionAnchorsFor); every other item — wall
 // decor, lights, toggles, plain props — must leave the character exactly as it is. Whitelist on purpose: new
 // furniture is inert until it earns a pose here.
-export const POSED_TYPES = new Set(['bed', 'hotel-bed', 'sofa', 'chair', 'desk', 'bookshelf', 'rocking-chair', 'beanbag', 'cup', 'plant', 'cabinet', 'side-table', 'coffee-table', 'wardrobe', 'hanger', 'rug', 'bin', 'glass-shelf', 'boucle-stool', 'papasan-chair', 'cube-shelf', 'pink-slide', 'color-drawers', 'cloud-sofa', 'dome-sofa', 'deco-shelf', 'frutiger-desk', 'aqua-table', 'hanging-bubble-chair', 'pink-mini-sofa', 'pink-vanity', 'hyper-sculpture', 'play-slide'])
+export const POSED_TYPES = new Set(['bed', 'hotel-bed', 'sofa', 'chair', 'sage-office-chair', 'desk', 'bookshelf', 'rocking-chair', 'beanbag', 'cup', 'plant', 'cabinet', 'side-table', 'coffee-table', 'wardrobe', 'hanger', 'rug', 'bin', 'glass-shelf', 'boucle-stool', 'papasan-chair', 'cube-shelf', 'pink-slide', 'color-drawers', 'cloud-sofa', 'dome-sofa', 'deco-shelf', 'frutiger-desk', 'aqua-table', 'hanging-bubble-chair', 'pink-mini-sofa', 'pink-vanity', 'hyper-sculpture', 'play-slide'])
 // 커스텀 가구는 타입 이름이 매번 달라 목록에 담을 수 없다. 생성 가구는 카탈로그 가구와 똑같이 다가간다 —
-// 동작을 고른 것은 앉거나 눕고, 고르지 않은 것("없음")은 앞에 가서 선다
+// 동작을 고르면 그대로 쓰고, 자동이면 검출된 윗면이 좌석 모양일 때 앉는다. 그 밖에는 앞에 가서 선다.
 // 바닥 깔개(러그 등)는 밟고 지나가는 것이지 다가갈 대상이 아니다 — 클릭해도 캐릭터는 움직이지 않는다
 export const isPosedItem = (item?: Pick<FurnitureItem, 'type' | 'surfaceId' | 'customSpec'> | null) =>
   !!item && !isFloorCovering(item) && (POSED_TYPES.has(item.type) || !!item.customSpec?.pose || item.customSpec?.category === 'furniture')
