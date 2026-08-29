@@ -23,13 +23,26 @@ import { thumbnailFor } from './services/thumbnails'
 import { lang, t } from './services/i18n'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 785
+const BUILD = 786
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, customJob, customEditing, startCustomObjectEdit, applyCustomObjectEdit, cancelCustomObjectEdit } = useRoomStore()
   const [confirmingReset, setConfirmingReset] = useState(false)
   const [confirmingRoom, setConfirmingRoom] = useState<string | null>(null)
   const [inventoryOpen, setInventoryOpen] = useState(false)
+  // 보관함은 이제 꾸미기 모드와 따로 열리므로, 바깥을 누르면 닫힌다. 물건을 꺼내 배치하는 중에는 그대로 둔다
+  // — 그때는 방을 눌러 자리를 잡는 중이고 배치 버튼이 창 안에 있다
+  useEffect(() => {
+    if (!inventoryOpen) return
+    const onOutside = (event: PointerEvent) => {
+      if (preview) return
+      const target = event.target as HTMLElement | null
+      if (target?.closest('.inventory-panel, .art-panel, .overlay, .dock, .edit-toolbar, .custom-size-editor')) return
+      setInventoryOpen(false)
+    }
+    window.addEventListener('pointerdown', onOutside)
+    return () => window.removeEventListener('pointerdown', onOutside)
+  }, [inventoryOpen, preview])
   const [dragPointer, setDragPointer] = useState<{ x: number; y: number; overStorage: boolean } | null>(null)
   const [dragThumbnail, setDragThumbnail] = useState<string | null>(null)
   const [mobile, setMobile] = useState(() => window.matchMedia('(max-width: 719px)').matches)
