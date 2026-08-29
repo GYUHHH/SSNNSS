@@ -245,8 +245,10 @@ function FirstPersonCamera() {
   const { gl } = useThree()
   const yaw = useRef(visiting ? visitorFacing.current : characterFacing.current)
   const pitch = useRef(0)
+  const yawVelocity = useRef(0)
+  const pitchVelocity = useRef(0)
   const fovTarget = useRef(65)
-  const drag = useRef<{ id: number; x: number; y: number; moved: boolean } | null>(null)
+  const drag = useRef<{ id: number; x: number; y: number; time: number; moved: boolean } | null>(null)
   const pinchDistance = useRef(0)
   const touchCount = useRef(0)
   const touchStart = useRef<{ x: number; y: number; time: number } | null>(null)
@@ -259,18 +261,23 @@ function FirstPersonCamera() {
     const touchDistance = (touches: TouchList) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY)
     const onDown = (event: PointerEvent) => {
       if (event.button !== 0 || touchCount.current > 1 || dragZoom.current || (event.target as HTMLElement).closest?.('button,input,textarea,select,a,iframe,[contenteditable="true"]')) return
-      drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false }
+      yawVelocity.current = 0; pitchVelocity.current = 0
+      drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, time: event.timeStamp, moved: false }
     }
     const onMove = (event: PointerEvent) => {
       const active = drag.current
       if (!active || active.id !== event.pointerId) return
       const dx = event.clientX - active.x; const dy = event.clientY - active.y
-      active.x = event.clientX; active.y = event.clientY
+      const elapsed = MathUtils.clamp((event.timeStamp - active.time) / 1000, .008, .05)
+      active.x = event.clientX; active.y = event.clientY; active.time = event.timeStamp
       if (!active.moved && Math.hypot(dx, dy) < 3) return
       if (!active.moved) { active.moved = true; element.setPointerCapture?.(event.pointerId) }
       // Screen drag maps directly to view direction: drag left to turn right, and vice versa.
-      yaw.current -= dx * .0085
-      pitch.current = MathUtils.clamp(pitch.current - dy * .0068, -Math.PI * .44, Math.PI * .44)
+      const yawDelta = -dx * .0085; const pitchDelta = -dy * .0068
+      yaw.current += yawDelta
+      pitch.current = MathUtils.clamp(pitch.current + pitchDelta, -Math.PI * .44, Math.PI * .44)
+      yawVelocity.current = MathUtils.clamp(yawDelta / elapsed, -3.5, 3.5)
+      pitchVelocity.current = MathUtils.clamp(pitchDelta / elapsed, -2.5, 2.5)
       if (visiting) visitorFacing.current = yaw.current
     }
     const onUp = (event: PointerEvent) => {
@@ -346,7 +353,14 @@ function FirstPersonCamera() {
     const facing = visiting ? visitorFacing.current : characterFacing.current
     const state = visiting ? visitorState.current : characterState
     const moving = state === 'walking' || state === 'aligning'
-    if (moving && !drag.current) yaw.current += Math.atan2(Math.sin(facing - yaw.current), Math.cos(facing - yaw.current)) * Math.min(1, delta * 8)
+    if (moving) { yawVelocity.current = 0; pitchVelocity.current = 0; if (!drag.current) yaw.current += Math.atan2(Math.sin(facing - yaw.current), Math.cos(facing - yaw.current)) * Math.min(1, delta * 8) }
+    else if (!drag.current) {
+      yaw.current += yawVelocity.current * delta
+      pitch.current = MathUtils.clamp(pitch.current + pitchVelocity.current * delta, -Math.PI * .44, Math.PI * .44)
+      yawVelocity.current = MathUtils.damp(yawVelocity.current, 0, 9, delta)
+      pitchVelocity.current = MathUtils.damp(pitchVelocity.current, 0, 9, delta)
+      if (visiting) visitorFacing.current = yaw.current
+    }
     active.position.set(position[0], position[1] + 1.35, position[2])
     // FPS rotation order keeps pitch local to the camera, so looking up/down never flips horizontal drag.
     active.rotation.order = 'YXZ'
