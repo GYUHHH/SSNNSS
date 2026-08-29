@@ -245,12 +245,20 @@ function FirstPersonCamera() {
   const { gl } = useThree()
   const yaw = useRef(visiting ? visitorFacing.current : characterFacing.current)
   const pitch = useRef(0)
+  const fovTarget = useRef(65)
   const drag = useRef<{ id: number; x: number; y: number; moved: boolean } | null>(null)
+  const pinchDistance = useRef(0)
+  const touchCount = useRef(0)
+  const touchStart = useRef<{ x: number; y: number; time: number } | null>(null)
+  const lastTap = useRef({ x: 0, y: 0, time: 0 })
+  const dragZoom = useRef<{ id: number; startY: number; startFov: number } | null>(null)
   const suppressClick = useRef(false)
   useEffect(() => {
     const element = (gl.domElement.closest('.canvas-host') ?? gl.domElement) as HTMLElement
+    const clampFov = (value: number) => MathUtils.clamp(value, 35, 95)
+    const touchDistance = (touches: TouchList) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY)
     const onDown = (event: PointerEvent) => {
-      if (event.button !== 0 || (event.target as HTMLElement).closest?.('button,input,textarea,select,a,iframe,[contenteditable="true"]')) return
+      if (event.button !== 0 || touchCount.current > 1 || dragZoom.current || (event.target as HTMLElement).closest?.('button,input,textarea,select,a,iframe,[contenteditable="true"]')) return
       drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false }
     }
     const onMove = (event: PointerEvent) => {
@@ -276,9 +284,60 @@ function FirstPersonCamera() {
       if (!suppressClick.current) return
       suppressClick.current = false; event.preventDefault(); event.stopImmediatePropagation()
     }
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      fovTarget.current = clampFov(fovTarget.current * Math.exp(event.deltaY * .0015))
+    }
+    const onTouchStart = (event: TouchEvent) => {
+      touchCount.current = event.touches.length
+      if (event.touches.length === 2) {
+        pinchDistance.current = touchDistance(event.touches)
+        drag.current = null; dragZoom.current = null; lastTap.current.time = 0
+        event.preventDefault()
+        return
+      }
+      if (event.touches.length !== 1) return
+      const touch = event.touches[0]; const now = performance.now()
+      touchStart.current = { x: touch.clientX, y: touch.clientY, time: now }
+      if (now - lastTap.current.time < 320 && Math.hypot(touch.clientX - lastTap.current.x, touch.clientY - lastTap.current.y) < 36) {
+        dragZoom.current = { id: touch.identifier, startY: touch.clientY, startFov: fovTarget.current }
+        drag.current = null; lastTap.current.time = 0
+        event.preventDefault(); event.stopPropagation()
+      }
+    }
+    const onTouchMove = (event: TouchEvent) => {
+      touchCount.current = event.touches.length
+      if (event.touches.length === 2) {
+        const next = touchDistance(event.touches)
+        if (pinchDistance.current) fovTarget.current = clampFov(fovTarget.current * pinchDistance.current / next)
+        pinchDistance.current = next; drag.current = null
+        event.preventDefault()
+        return
+      }
+      const zoom = dragZoom.current; const touch = event.touches[0]
+      if (!zoom || event.touches.length !== 1 || touch.identifier !== zoom.id) return
+      fovTarget.current = clampFov(zoom.startFov * Math.exp(-(touch.clientY - zoom.startY) * .009))
+      drag.current = null
+      event.preventDefault(); event.stopPropagation()
+    }
+    const onTouchEnd = (event: TouchEvent, cancelled = false) => {
+      touchCount.current = event.touches.length
+      const touch = event.changedTouches[0]
+      if (dragZoom.current && [...event.changedTouches].some((entry) => entry.identifier === dragZoom.current?.id)) {
+        dragZoom.current = null
+        event.preventDefault(); event.stopPropagation()
+      } else if (!cancelled && event.touches.length === 0 && touch && touchStart.current && performance.now() - touchStart.current.time < 350 && Math.hypot(touch.clientX - touchStart.current.x, touch.clientY - touchStart.current.y) < 12) {
+        lastTap.current = { x: touch.clientX, y: touch.clientY, time: performance.now() }
+      }
+      if (event.touches.length < 2) pinchDistance.current = 0
+      if (event.touches.length === 0) touchStart.current = null
+    }
+    const onTouchCancel = (event: TouchEvent) => onTouchEnd(event, true)
     element.addEventListener('pointerdown', onDown); element.addEventListener('pointermove', onMove); element.addEventListener('pointerup', onUp); element.addEventListener('pointercancel', onUp)
     element.addEventListener('click', onClick, true)
-    return () => { element.removeEventListener('pointerdown', onDown); element.removeEventListener('pointermove', onMove); element.removeEventListener('pointerup', onUp); element.removeEventListener('pointercancel', onUp); element.removeEventListener('click', onClick, true) }
+    element.addEventListener('wheel', onWheel, { passive: false })
+    element.addEventListener('touchstart', onTouchStart, { passive: false }); element.addEventListener('touchmove', onTouchMove, { passive: false }); element.addEventListener('touchend', onTouchEnd, { passive: false }); element.addEventListener('touchcancel', onTouchCancel, { passive: false })
+    return () => { element.removeEventListener('pointerdown', onDown); element.removeEventListener('pointermove', onMove); element.removeEventListener('pointerup', onUp); element.removeEventListener('pointercancel', onUp); element.removeEventListener('click', onClick, true); element.removeEventListener('wheel', onWheel); element.removeEventListener('touchstart', onTouchStart); element.removeEventListener('touchmove', onTouchMove); element.removeEventListener('touchend', onTouchEnd); element.removeEventListener('touchcancel', onTouchCancel) }
   }, [gl, visiting])
   useFrame((_, delta) => {
     const active = camera.current
@@ -292,6 +351,8 @@ function FirstPersonCamera() {
     // FPS rotation order keeps pitch local to the camera, so looking up/down never flips horizontal drag.
     active.rotation.order = 'YXZ'
     active.rotation.set(pitch.current, yaw.current + Math.PI, 0)
+    const nextFov = MathUtils.damp(active.fov, fovTarget.current, 7, delta)
+    if (Math.abs(nextFov - active.fov) >= .001) { active.fov = nextFov; active.updateProjectionMatrix() }
   })
   return <PerspectiveCamera ref={camera} makeDefault fov={65} near={.05} far={100} />
 }
