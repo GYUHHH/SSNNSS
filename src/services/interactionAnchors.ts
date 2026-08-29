@@ -76,11 +76,12 @@ export function interactionAnchorsFor(item: FurnitureItem, typeOverride?: Intera
   // 생성 가구: 사용자가 고른 동작 + 실측 면에서 자리를 계산한다. 검출된 면 중 가장 낮은 것이 앉는 자리다
   // (등받이 위나 팔걸이는 더 높게 잡히고, 바닥에 붙은 밑판은 검출 단계에서 이미 빠졌다).
   const custom = item.customSpec
-  if (custom?.modelSize && custom.topSurfaces?.length) {
+  const customTops = custom?.topSurfaces ?? (custom?.topSurface ? [custom.topSurface] : [])
+  if (custom?.modelSize && customTops.length) {
     const scale = clampModelScale(custom.modelScale)
     const fitX = item.footprint.width * GRID_SIZE / custom.modelSize[0]
     const fitZ = item.footprint.depth * GRID_SIZE / custom.modelSize[2]
-    const seat = custom.topSurfaces[custom.topSurfaces.length - 1]
+    const seat = customTops[customTops.length - 1]
     const lift = seat.height * Math.min(fitX, fitZ) * scale[1]
     const forward = seat.center[1] * fitZ * scale[2]
     const reach = item.footprint.depth * GRID_SIZE / 2 + .45
