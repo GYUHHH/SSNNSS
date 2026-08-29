@@ -2,8 +2,8 @@ import { OrthographicCamera, PerspectiveCamera } from '@react-three/drei'
 import { Canvas, events, useFrame, useThree } from '@react-three/fiber'
 import { type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { type AmbientLight, Color, type DirectionalLight, type Group, type Material, MathUtils, type Mesh, Vector3 } from 'three'
-import { NeighbourRoomProvider, useRoomStore } from '../store'
-import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDirectory, isSignedIn, isVisiting, myHandle, subscribeRoomBundles } from '../services/social'
+import { baseFloorCells, isFloorCovering, NeighbourRoomProvider, useRoomStore } from '../store'
+import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDirectory, isSignedIn, isVisiting, myHandle, subscribeRoomBundles, updateVisitorPresence } from '../services/social'
 import { snapshotActiveFrames } from '../services/ytResume'
 import { type ExplorerMode, explorerMode, fetchFollowing, onExplorerMode, onFollowsChange, rememberModeRoom, sortByActivity } from '../services/follows'
 import { captureRenderScale, flushCapture } from '../services/capture'
@@ -26,8 +26,9 @@ import Walls from './Walls'
 import WallVideoLayer from './WallVideoLayer'
 import ReactionBadges from './ReactionBadges'
 import { characterFacing, characterPosition } from '../services/characterTracker'
-import { presenceSessionId, selfVisitor, useVisitors } from '../services/presence'
+import { presenceSessionId, useVisitors, visitorFacing, visitorMoveTarget, visitorPosition } from '../services/presence'
 import { setFirstPerson, useFirstPerson } from '../services/viewMode'
+import { floorWalkRoute } from '../services/roomGrid'
 
 // per-time-of-day lighting: night keeps lights low so lit lamps visibly carry the room
 const LIGHTING = {
@@ -223,7 +224,7 @@ function Scene() {
   const eventHost = useRef<HTMLDivElement>(null!)
   const firstPerson = useFirstPerson()
   useEffect(() => { if (mode === 'edit') setFirstPerson(false) }, [mode])
-  return <div ref={eventHost} className="canvas-host" style={{ background: light.bg }}><Canvas shadows="soft" dpr={[1, 2]} gl={{ antialias: true }} eventSource={eventHost} events={shiftAwareEvents} onPointerMissed={(event) => { if (!(event.target as HTMLElement)?.closest?.('.canvas-host')) return; (mode === 'edit' ? toggleEditMode : clearSelection)() }} camera={{ position: DEFAULT_CAMERA_POSITION }}>
+  return <div ref={eventHost} className="canvas-host" style={{ background: light.bg, touchAction: firstPerson ? 'none' : undefined }}><Canvas shadows="soft" dpr={[1, 2]} gl={{ antialias: true }} eventSource={eventHost} events={shiftAwareEvents} onPointerMissed={(event) => { if (!(event.target as HTMLElement)?.closest?.('.canvas-host')) return; (mode === 'edit' ? toggleEditMode : clearSelection)() }} camera={{ position: DEFAULT_CAMERA_POSITION }}>
     <OrthographicCamera makeDefault={!firstPerson} position={DEFAULT_CAMERA_POSITION} zoom={59} near={0.1} far={100} />
     {firstPerson && <FirstPersonCamera />}
     <RenderGovernor />
@@ -239,16 +240,71 @@ function Scene() {
 function FirstPersonCamera() {
   const camera = useRef<import('three').PerspectiveCamera>(null)
   const visiting = isVisiting()
+  const { gl } = useThree()
+  const yaw = useRef(visiting ? visitorFacing.current : characterFacing.current)
+  const pitch = useRef(0)
+  const drag = useRef<{ id: number; x: number; y: number } | null>(null)
+  useEffect(() => {
+    const element = (gl.domElement.closest('.canvas-host') ?? gl.domElement) as HTMLElement
+    const onDown = (event: PointerEvent) => {
+      if (event.button !== 0 || (event.target as HTMLElement).closest?.('button,input,textarea,select,a,iframe,[contenteditable="true"]')) return
+      drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY }; element.setPointerCapture?.(event.pointerId)
+    }
+    const onMove = (event: PointerEvent) => {
+      const active = drag.current
+      if (!active || active.id !== event.pointerId) return
+      const dx = event.clientX - active.x; const dy = event.clientY - active.y
+      active.x = event.clientX; active.y = event.clientY
+      yaw.current = MathUtils.euclideanModulo(yaw.current + dx * .005 + Math.PI, Math.PI * 2) - Math.PI
+      pitch.current = MathUtils.clamp(pitch.current - dy * .004, -Math.PI / 2 + .08, Math.PI / 2 - .08)
+      if (visiting) visitorFacing.current = yaw.current
+    }
+    const onUp = (event: PointerEvent) => {
+      if (drag.current?.id !== event.pointerId) return
+      drag.current = null; element.releasePointerCapture?.(event.pointerId)
+      if (visiting) updateVisitorPresence(visitorPosition, visitorFacing.current, true)
+    }
+    element.addEventListener('pointerdown', onDown); element.addEventListener('pointermove', onMove); element.addEventListener('pointerup', onUp); element.addEventListener('pointercancel', onUp)
+    return () => { element.removeEventListener('pointerdown', onDown); element.removeEventListener('pointermove', onMove); element.removeEventListener('pointerup', onUp); element.removeEventListener('pointercancel', onUp) }
+  }, [gl, visiting])
   useFrame(() => {
     const active = camera.current
     if (!active) return
-    const visitor = visiting ? selfVisitor() : null
-    const position = visitor?.position ?? (visiting ? [-.35, 0, 2.45] as [number, number, number] : characterPosition)
-    const facing = visitor?.facing ?? (visiting ? Math.PI : characterFacing.current)
+    const position = visiting ? visitorPosition : characterPosition
+    const horizontal = Math.cos(pitch.current)
     active.position.set(position[0], position[1] + 1.35, position[2])
-    active.lookAt(position[0] + Math.sin(facing), position[1] + 1.35, position[2] + Math.cos(facing))
+    active.lookAt(position[0] + Math.sin(yaw.current) * horizontal, position[1] + 1.35 + Math.sin(pitch.current), position[2] + Math.cos(yaw.current) * horizontal)
   })
   return <PerspectiveCamera ref={camera} makeDefault fov={65} near={.05} far={100} />
+}
+
+function VisitorMover() {
+  const { furniture } = useRoomStore()
+  const route = useRef<Vector3[]>([]); const routeIndex = useRef(0); const routeKey = useRef(''); const sentAt = useRef(0)
+  useFrame((_, delta) => {
+    const target = visitorMoveTarget.current
+    if (!target) return
+    const key = `${target[0]}:${target[2]}`
+    if (routeKey.current !== key) {
+      routeKey.current = key
+      const occupied = new Set(furniture.filter((item) => item.category === 'floorFurniture' && !isFloorCovering(item) && !item.removed && item.surfaceId === 'floor').flatMap((item) => baseFloorCells(item).map((cell) => `${cell.x}:${cell.y}`)))
+      const path = floorWalkRoute(occupied, visitorPosition, target)
+      if (!path) { visitorMoveTarget.current = null; routeKey.current = ''; return }
+      route.current = path.map((point) => new Vector3(...point)); routeIndex.current = 0
+    }
+    const next = route.current[routeIndex.current]
+    if (!next) return
+    const current = new Vector3(...visitorPosition); const dx = next.x - current.x; const dz = next.z - current.z
+    if (Math.hypot(dx, dz) > .03) visitorFacing.current += Math.atan2(Math.sin(Math.atan2(dx, dz) - visitorFacing.current), Math.cos(Math.atan2(dx, dz) - visitorFacing.current)) * Math.min(1, delta * 7)
+    current.lerp(next, Math.min(1, delta * 6)); visitorPosition.splice(0, 3, current.x, 0, current.z)
+    const now = performance.now()
+    if (now - sentAt.current > 80) { sentAt.current = now; updateVisitorPresence(visitorPosition, visitorFacing.current) }
+    if (current.distanceTo(next) < .12) {
+      if (routeIndex.current < route.current.length - 1) routeIndex.current += 1
+      else { visitorPosition.splice(0, 3, next.x, 0, next.z); visitorMoveTarget.current = null; routeKey.current = ''; updateVisitorPresence(visitorPosition, visitorFacing.current, true) }
+    }
+  })
+  return null
 }
 
 const ROOM_SIZE = 7
@@ -379,6 +435,7 @@ function RoomRoot() {
   return <>
     <Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><InventoryPreview /><SurfaceDropZones /><Character hidden={firstPerson && !isVisiting()} />
     {visitors.map((visitor) => <Character key={visitor.sessionId} snapshot={visitor} hidden={firstPerson && visitor.sessionId === presenceSessionId} />)}
+    {isVisiting() && <VisitorMover />}
     <DebugAnchors /><WallVideoLayer /><ReactionBadges />
   </>
 }

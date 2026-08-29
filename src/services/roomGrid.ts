@@ -325,3 +325,24 @@ export const findPath = (occupied: Set<string>, start: GridPosition, goal: GridP
   }
   return []
 }
+
+// Shared floor-click route for the room owner and realtime visitors.
+export const floorWalkRoute = (occupied: Set<string>, start: [number, number, number], target: [number, number, number]): [number, number, number][] | null => {
+  const unit = { width: 1, depth: 1 }
+  const startCell = worldToGrid(floorSurface, start, unit)
+  const goal = worldToGrid(floorSurface, target, unit)
+  const path = startCell.gridX === goal.gridX && startCell.gridY === goal.gridY ? [] : findPath(occupied, startCell, goal)
+  if (!path.length && (startCell.gridX !== goal.gridX || startCell.gridY !== goal.gridY)) return null
+  const cells = path.filter((cell, index) => {
+    if (!index || index === path.length - 1) return true
+    const before = path[index - 1]; const after = path[index + 1]
+    return Math.sign(cell.gridX - before.gridX) !== Math.sign(after.gridX - cell.gridX) || Math.sign(cell.gridY - before.gridY) !== Math.sign(after.gridY - cell.gridY)
+  })
+  const route = cells.map((cell, index) => index === cells.length - 1 ? target : gridToWorld(floorSurface, cell, unit))
+  return route.length ? route : [target]
+}
+
+if (import.meta.env.DEV) {
+  const route = floorWalkRoute(new Set(['5:5']), gridToWorld(floorSurface, { gridX: 0, gridY: 0 }, { width: 1, depth: 1 }), gridToWorld(floorSurface, { gridX: 2, gridY: 2 }, { width: 1, depth: 1 }))
+  console.assert(!!route?.length && route.at(-1)?.[0] === gridToWorld(floorSurface, { gridX: 2, gridY: 2 }, { width: 1, depth: 1 })[0], 'floor walk route must finish at the clicked cell')
+}

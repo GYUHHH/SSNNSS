@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { compressImage } from './imageCompress'
-import { presenceSessionId, publishVisitors, visitorSpawn, type VisitorLook, type VisitorPresence } from './presence'
+import { presenceSessionId, publishVisitor, publishVisitors, resetVisitorTransform, visitorFacing, visitorPosition, type VisitorLook, type VisitorPresence } from './presence'
 
 // Supabase-backed social layer: plain fetch against PostgREST, plus the SDK's realtime channel for live updates.
 // - The owner's room state lives in the server bundle. An in-memory copy keeps synchronous loaders simple;
@@ -677,15 +677,20 @@ export async function initOwnSync() {
   }
 }
 
-// One event per SETTLED action — sat down, stood up, arrived somewhere — not a stream of the walk itself. The
-// walk used to ride a dozen frames a second over the channel, which a visitor saw as a figure sliding around with
-// no walk animation; a snap to where the character ended up reads better and costs one message per action instead
-// of per frame, which is also the version that survives fifty rooms. Broadcasts hop client-to-client with no
-// database write; the immediate room save is still what makes the spot survive a reload.
+// Owner poses remain one settled event. Visitor walking is a transient broadcast stream; only its final transform
+// is tracked by Presence so late joiners receive the current spot without writing movement into room data.
 export type CharacterSettle = { position: [number, number, number]; pose: { state: string; facing: number; y: number } }
 let liveChannel: ReturnType<ReturnType<typeof supabaseClient>['channel']> | null = null
+let liveVisitor: VisitorPresence | null = null
 export const broadcastCharacter = (settle: CharacterSettle) => {
   void liveChannel?.send({ type: 'broadcast', event: 'character', payload: settle })
+}
+export const updateVisitorPresence = (position: [number, number, number], facing: number, settled = false) => {
+  if (!liveChannel || !liveVisitor) return
+  liveVisitor = { ...liveVisitor, position: [...position], facing }
+  publishVisitor(liveVisitor)
+  void liveChannel.send({ type: 'broadcast', event: 'visitor-move', payload: liveVisitor })
+  if (settled) void liveChannel.track(liveVisitor)
 }
 
 export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void, onRoomData: () => void, onLikes?: () => void, onCharacter?: (settle: CharacterSettle) => void): () => void {
@@ -695,6 +700,7 @@ export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void,
   const client = supabaseClient()
   const channel = client.channel(`room-${room}`, { config: { presence: { key: presenceSessionId } } })
     .on('broadcast', { event: 'character' }, ({ payload }) => onCharacter?.(payload as CharacterSettle))
+    .on('broadcast', { event: 'visitor-move' }, ({ payload }) => publishVisitor(payload as VisitorPresence))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'guestbook', filter: `room=eq.${room}` }, onGuestbook)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'visits', filter: `room=eq.${room}` }, onVisits)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'likes', filter: `room=eq.${room}` }, () => onLikes?.())
@@ -703,13 +709,15 @@ export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void,
       publishVisitors(states.map(({ presence_ref: _presenceRef, ...visitor }) => visitor))
     })
   const visitor = isVisiting() ? myHandle() : null
+  if (visitor) resetVisitorTransform()
   if (isVisiting()) channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `handle=eq.${room}` }, onRoomData)
   channel.subscribe((status) => {
     if (status !== 'SUBSCRIBED' || !visitor) return
-    void channel.track({ sessionId: presenceSessionId, handle: visitor, appearance: myCharacterLook(), position: visitorSpawn(presenceSessionId), facing: Math.PI, state: 'idle' } satisfies VisitorPresence)
+    liveVisitor = { sessionId: presenceSessionId, handle: visitor, appearance: myCharacterLook(), position: [...visitorPosition], facing: visitorFacing.current, state: 'idle' }
+    void channel.track(liveVisitor)
   })
   liveChannel = channel
-  return () => { if (liveChannel === channel) liveChannel = null; publishVisitors([]); void channel.unsubscribe() }
+  return () => { if (liveChannel === channel) { liveChannel = null; liveVisitor = null }; publishVisitors([]); void channel.unsubscribe() }
 }
 
 // ⚠️ 확장 스위치. false(현재): DB 변경 감지(postgres_changes)가 방 데이터 전체(~40KB)를 구독자마다 통째로

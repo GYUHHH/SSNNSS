@@ -6,7 +6,7 @@ import { baseFloorCells, isFloorCovering, useRoomStore, type CharacterTransform 
 import { characterFacing, characterPosition } from '../services/characterTracker'
 import type { VisitorLook } from '../services/presence'
 import { resolveInteraction, stateForInteraction } from '../services/interactionAnchors'
-import { cellsFor, findPath, floorSurface, gridToWorld, type GridPosition, worldToGrid } from '../services/roomGrid'
+import { cellsFor, findPath, floorSurface, floorWalkRoute, gridToWorld, type GridPosition, worldToGrid } from '../services/roomGrid'
 import { ROOM_HTML_Z_INDEX_RANGE, ROOM_OBJECT_ORDER } from '../services/renderOrder'
 import { t } from '../services/i18n'
 import { usePreviewFrame } from './usePreviewFrame'
@@ -72,6 +72,7 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
   // Per room, not per module. Every room in the explorer renders one of these, so a single shared start would put
   // them all where THIS browser last left its own character. characterHome is that room's own saved spot.
   const start = useRef(new Vector3(characterHome[0], characterPose?.y ?? 0, characterHome[2])).current
+  const snapshotTarget = useRef(start.clone())
   const route = useRef<Vector3[]>([]); const routeIndex = useRef(0); const routeKey = useRef<string | null>(null)
   const interactionStart = useRef<{ key: string | null; position: [number, number, number] }>({ key: null, position: [start.x, 0, start.z] })
   const clock = useRef(0)
@@ -90,6 +91,7 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
   // Visitor and explorer characters are read-only snapshots. Owner realtime updates replace them as a whole.
   useLayoutEffect(() => {
     if (characterWritable || !actor.current) return
+    if (snapshot) { snapshotTarget.current.set(characterHome[0], characterPose?.y ?? 0, characterHome[2]); return }
     start.set(characterHome[0], characterPose?.y ?? 0, characterHome[2])
     actor.current.position.copy(start)
     actor.current.rotation.y = characterPose?.facing ?? Math.PI / 4
@@ -109,6 +111,10 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
     delta = previewFrame(sceneClock.elapsedTime, delta)
     if (!delta) return
     if (!actor.current) return
+    if (snapshot) {
+      actor.current.position.lerp(snapshotTarget.current, Math.min(1, delta * 10))
+      actor.current.rotation.y = turnToward(actor.current.rotation.y, snapshot.facing, Math.min(1, delta * 10))
+    }
     if (characterWritable) {
       characterPosition[0] = actor.current.position.x; characterPosition[1] = actor.current.position.y; characterPosition[2] = actor.current.position.z
       characterFacing.current = actor.current.rotation.y
@@ -162,13 +168,9 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
       if (routeKey.current !== nextRouteKey) {
         routeKey.current = nextRouteKey
         const occupied = new Set(furniture.filter((item) => item.category === 'floorFurniture' && !isFloorCovering(item) && !item.removed && item.surfaceId === 'floor').flatMap((item) => baseFloorCells(item).map((cell) => `${cell.x}:${cell.y}`)))
-        const startCell = worldToGrid(floorSurface, [actor.current.position.x, 0, actor.current.position.z], CELL)
-        const goal = worldToGrid(floorSurface, floorTarget, CELL)
-        const path = cellKey(goal) === cellKey(startCell) ? [] : findPath(occupied, startCell, goal)
-        if (!path.length && cellKey(goal) !== cellKey(startCell)) { settleFloorMove(false, currentTransform(actor.current)); return }
-        const cells = simplifyPath(path)
-        route.current = cells.map((cell, index) => index === cells.length - 1 ? new Vector3(...floorTarget) : new Vector3(...gridToWorld(floorSurface, cell, CELL)).setY(0))
-        if (!route.current.length) route.current = [new Vector3(...floorTarget)]
+        const path = floorWalkRoute(occupied, [actor.current.position.x, 0, actor.current.position.z], floorTarget)
+        if (!path) { settleFloorMove(false, currentTransform(actor.current)); return }
+        route.current = path.map((point) => new Vector3(...point))
         routeIndex.current = 0
       }
       const target = route.current[routeIndex.current]

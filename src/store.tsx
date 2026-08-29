@@ -12,6 +12,7 @@ import { t, tp } from './services/i18n'
 import { floorStyleOf } from './services/styles'
 import { isWallMedia } from './services/renderOrder'
 import { customObjectType, type CustomObjectCategory, type CustomObjectSpec, type CustomPose } from './customObjectSpec'
+import { requestVisitorMove } from './services/presence'
 
 // AI 커스텀 생성 잡: Rapid 생성 → 로컬 최적화·검증.
 // 진행 UI·빨간점 알림이 이 하나를 본다. unseen은 완료/실패를 아직 사용자가 확인 안 했다는 뜻.
@@ -644,9 +645,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const showMoveNotice = () => { if (noticeTimer.current) window.clearTimeout(noticeTimer.current); setMoveNotice(true); noticeTimer.current = window.setTimeout(() => { noticeTimer.current = 0; setMoveNotice(false) }, 1600) }
   // clicking an empty floor cell in NORMAL mode: walk (with the normal walking motion) to that cell's center,
   // ending any free action / interaction. Occupied or out-of-bounds cells show a brief notice instead.
-  // A room's character answers only to its owner: visitors never walk it, sit it down or pose it.
+  // A room's character answers only to its owner; a visitor click moves only that visitor's transient Presence avatar.
   const moveCharacterTo = (position: [number, number, number]) => {
-    if (isVisiting()) return
     if (mode !== 'normal') return
     const cell = worldToGrid(floorSurface, position, { width: 1, depth: 1 })
     const occupied = new Set(furniture.filter((item) => item.category === 'floorFurniture' && !isFloorCovering(item) && !item.removed && item.surfaceId === 'floor').flatMap((item) => baseFloorCells(item).map((other) => `${other.x}:${other.y}`)))
@@ -654,6 +654,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     if (!inBounds || occupied.has(`${cell.gridX}:${cell.gridY}`)) { showMoveNotice(); return }
     const [x, , z] = gridToWorld(floorSurface, cell, { width: 1, depth: 1 })
     setSelectedObject(null); setOpenBookId(null); setBookshelfOpen(false); setCupHeld(false)
+    if (isVisiting()) { requestVisitorMove([x, 0, z]); return }
     setFloorTarget([x, 0, z]); setCharacterState('walking')
   }
   // called by Character when the floor walk finishes (or turns out to be unreachable)
