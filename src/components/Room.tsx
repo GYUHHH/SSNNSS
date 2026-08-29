@@ -27,7 +27,7 @@ import WallVideoLayer from './WallVideoLayer'
 import ReactionBadges from './ReactionBadges'
 import { characterFacing, characterPosition } from '../services/characterTracker'
 import { cancelVisitorAction, presenceSessionId, useVisitors, visitorFacing, visitorInteractionTarget, visitorMoveTarget, visitorPosition, visitorState } from '../services/presence'
-import { onFirstPersonZoom, setFirstPerson, useFirstPerson } from '../services/viewMode'
+import { isFirstPerson, onFirstPersonZoom, setFirstPerson, useFirstPerson } from '../services/viewMode'
 import { floorWalkRoute } from '../services/roomGrid'
 import { resolveInteraction, stateForInteraction } from '../services/interactionAnchors'
 
@@ -65,6 +65,12 @@ const shiftAwareEvents: NonNullable<Parameters<typeof Canvas>[0]['events']> = (s
   compute(event, state) {
     const rect = state.gl.domElement.getBoundingClientRect()
     state.pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1)
+    // First-person drag only rotates the camera. Raycasting every furniture mesh for every finger/mouse move
+    // made dense directions hitch on mobile; pointer-up/click still restores the full interaction raycast.
+    if (isFirstPerson() && event.type === 'pointermove' && event.buttons) {
+      state.raycaster.layers.mask = 0
+      return
+    }
     state.raycaster.layers.mask = EXPLORER_LAYER_MASK
     state.raycaster.setFromCamera(state.pointer, state.camera)
   },
