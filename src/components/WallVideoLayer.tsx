@@ -7,8 +7,6 @@ import { loadAudioPrefs, resolutionFor, useRoomStore } from '../store'
 import { fitMeshToFootprint, resolveSurface, withResolution } from '../services/roomGrid'
 import { fitFrameScreen, useFrameVideoId, useVideoDisplayMeta } from '../services/mediaStore'
 import { VIDEO_FRAME_SIZES } from './InventoryFurniture'
-import { isVisiting } from '../services/social'
-import { openReactionPicker } from './ReactionPicker'
 import { embedSrc, trackIframe, watchPlaylistOrder, playFrame, framePlayerStates } from '../services/ytResume'
 import { clipIsPlaying, loadClipUrls, playClip } from '../services/mediaStore'
 import { t } from '../services/i18n'
@@ -99,7 +97,7 @@ export default function WallVideoLayer() {
 }
 
 function WallVideo({ frameId }: { frameId: string }) {
-  const { videoLinks, furniture, openVideoPanel, mode, openObject, enterEditFurniture } = useRoomStore()
+  const { videoLinks, furniture, mode } = useRoomStore()
   const item = furniture.find((entry) => entry.id === frameId)
   const videoId = videoLinks[frameId]
   // The wall player is the only iframe for this frame and stays mounted while its side panel is open.
@@ -151,15 +149,19 @@ function WallVideo({ frameId }: { frameId: string }) {
     if (transform !== previousTransform.current) { previousTransform.current = transform; element.current.style.transform = transform }
     element.current.style.visibility = !displayReady || topLeft.z < -1 || topLeft.z > 1 ? 'hidden' : 'visible'
   }, 2) // after RenderGovernor: the DOM video and its WebGL frame reach the browser in the same painted frame
-  // the shields cover the screen, so without this a hold would only register on the frame's edge
-  const holdTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const held = useRef(false)
-  const cancelHold = () => { clearTimeout(holdTimer.current); holdTimer.current = undefined }
-  const startHold = () => {
-    held.current = false
-    // Visitors use an ordinary click for reactions. The hold remains owner-only so the screen still enters edit
-    // exactly like the frame around it.
-    if (!isVisiting()) holdTimer.current = setTimeout(() => { held.current = true; enterEditFurniture(frameId) }, 500)
+  // A DOM iframe has no 3D depth: without routing its shield back through R3F, it steals clicks from chairs and
+  // props visibly standing in front of the screen. Forward the ordinary pointer sequence to the room event host;
+  // the scene raycaster then chooses the actually front-most object. YouTube's uncovered skip-ad corner remains
+  // a real iframe target.
+  const forwardToRoom = (event: { nativeEvent: MouseEvent | PointerEvent; stopPropagation: () => void }) => {
+    event.stopPropagation()
+    const host = document.querySelector('.canvas-host')
+    if (!(host instanceof HTMLElement)) return
+    const source = event.nativeEvent
+    const init = { bubbles: true, cancelable: true, clientX: source.clientX, clientY: source.clientY, button: source.button, buttons: source.buttons }
+    host.dispatchEvent(source instanceof PointerEvent
+      ? new PointerEvent(source.type, { ...init, pointerId: source.pointerId, pointerType: source.pointerType, isPrimary: source.isPrimary, pressure: source.pressure })
+      : new MouseEvent(source.type, init))
   }
   // Track changes may briefly wait for new aspect metadata, but the iframe must stay mounted: recreating it
   // starts muted again and drops the sound choice that was already active for this frame.
@@ -180,9 +182,8 @@ function WallVideo({ frameId }: { frameId: string }) {
           {/* the two shields carry the open-the-panel click and together cover everything but YouTube's own
               skip-ad corner, which is left live so the visitor can press it themselves */}
           {mode !== 'edit' && ['top', 'rest'].map((part) => <div key={part} className={`wall-video-shield ${part}`}
-            onPointerDown={(event) => { event.stopPropagation(); startHold() }}
-            onPointerUp={cancelHold} onPointerLeave={cancelHold} onPointerCancel={cancelHold}
-            onClick={(event) => { if (held.current) { held.current = false; return } if (isVisiting()) { openReactionPicker({ id: frameId, x: event.clientX, y: event.clientY }); return } if (openObject(frameId)) return; openVideoPanel(frameId) }} />)}
+            onPointerDown={forwardToRoom} onPointerMove={forwardToRoom} onPointerUp={forwardToRoom}
+            onPointerCancel={forwardToRoom} onClick={forwardToRoom} />)}
         </div></Html>
       </group>
     </group>
