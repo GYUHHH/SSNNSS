@@ -31,6 +31,7 @@ const PAD_X: Record<string, number> = {}
 // 금속·유리 광택 타입에만 환경맵(가상 스튜디오 반사)을 붙인다 — 씬 전체에 걸면 파스텔 톤이 흔들려서 선별 적용
 const GLOSS_TYPES = new Set(['hyper-sculpture'])
 let sharedEnvironment: Texture | null = null
+const NO_RAYCAST = () => {}
 const environmentFor = (gl: WebGLRenderer) => {
   if (!sharedEnvironment) {
     const generator = new PMREMGenerator(gl)
@@ -53,6 +54,9 @@ function GlbScene({ url, preview, flat, custom, wall, padX, gloss }: { url: stri
       const mesh = node as { isMesh?: boolean; castShadow?: boolean; material?: { transparent?: boolean; opacity?: number; flatShading?: boolean; clone?: () => NonNullable<typeof mesh.material> } }
       if (mesh.isMesh) {
         mesh.castShadow = true
+        // GLB는 수만 개 삼각형이어도 Interactive의 단순 Box hit area 하나로 선택할 수 있다.
+        // 시각 mesh까지 매 pointermove마다 raycast하면 1인칭 회전 중 고밀도 모델 앞에서 프레임이 끊긴다.
+        ;(node as Mesh).raycast = NO_RAYCAST
         // 재질은 인스턴스마다 반드시 클론: useGLTF 캐시의 공유 재질을 그대로 쓰면 탐색기 페이드/프리뷰가
         // 만진 opacity가 다른 화면의 같은 아이템에 그대로 새어 나간다 (방문자에게 반투명으로 보이던 버그)
         if (mesh.material?.clone) {
