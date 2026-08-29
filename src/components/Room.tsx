@@ -241,40 +241,57 @@ function Scene() {
 function FirstPersonCamera() {
   const camera = useRef<import('three').PerspectiveCamera>(null)
   const visiting = isVisiting()
+  const { characterState } = useRoomStore()
   const { gl } = useThree()
   const yaw = useRef(visiting ? visitorFacing.current : characterFacing.current)
   const pitch = useRef(0)
-  const drag = useRef<{ id: number; x: number; y: number } | null>(null)
+  const drag = useRef<{ id: number; x: number; y: number; moved: boolean } | null>(null)
+  const suppressClick = useRef(false)
   useEffect(() => {
     const element = (gl.domElement.closest('.canvas-host') ?? gl.domElement) as HTMLElement
     const onDown = (event: PointerEvent) => {
       if (event.button !== 0 || (event.target as HTMLElement).closest?.('button,input,textarea,select,a,iframe,[contenteditable="true"]')) return
-      drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY }; element.setPointerCapture?.(event.pointerId)
+      drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false }
     }
     const onMove = (event: PointerEvent) => {
       const active = drag.current
       if (!active || active.id !== event.pointerId) return
       const dx = event.clientX - active.x; const dy = event.clientY - active.y
       active.x = event.clientX; active.y = event.clientY
-      yaw.current = MathUtils.euclideanModulo(yaw.current + dx * .005 + Math.PI, Math.PI * 2) - Math.PI
-      pitch.current = MathUtils.clamp(pitch.current - dy * .004, -Math.PI / 2 + .08, Math.PI / 2 - .08)
+      if (!active.moved && Math.hypot(dx, dy) < 3) return
+      if (!active.moved) { active.moved = true; element.setPointerCapture?.(event.pointerId) }
+      // Keep yaw continuous while dragging. Wrapping at ±π made one long swipe jump sign mid-gesture.
+      yaw.current += dx * .005
+      pitch.current = MathUtils.clamp(pitch.current - dy * .004, -Math.PI * .44, Math.PI * .44)
       if (visiting) visitorFacing.current = yaw.current
     }
     const onUp = (event: PointerEvent) => {
       if (drag.current?.id !== event.pointerId) return
+      suppressClick.current = drag.current.moved
+      if (suppressClick.current) window.setTimeout(() => { suppressClick.current = false }, 0)
       drag.current = null; element.releasePointerCapture?.(event.pointerId)
       if (visiting) updateVisitorPresence(visitorPosition, visitorFacing.current, true)
     }
+    const onClick = (event: MouseEvent) => {
+      if (!suppressClick.current) return
+      suppressClick.current = false; event.preventDefault(); event.stopImmediatePropagation()
+    }
     element.addEventListener('pointerdown', onDown); element.addEventListener('pointermove', onMove); element.addEventListener('pointerup', onUp); element.addEventListener('pointercancel', onUp)
-    return () => { element.removeEventListener('pointerdown', onDown); element.removeEventListener('pointermove', onMove); element.removeEventListener('pointerup', onUp); element.removeEventListener('pointercancel', onUp) }
+    element.addEventListener('click', onClick, true)
+    return () => { element.removeEventListener('pointerdown', onDown); element.removeEventListener('pointermove', onMove); element.removeEventListener('pointerup', onUp); element.removeEventListener('pointercancel', onUp); element.removeEventListener('click', onClick, true) }
   }, [gl, visiting])
-  useFrame(() => {
+  useFrame((_, delta) => {
     const active = camera.current
     if (!active) return
     const position = visiting ? visitorPosition : characterPosition
-    const horizontal = Math.cos(pitch.current)
+    const facing = visiting ? visitorFacing.current : characterFacing.current
+    const state = visiting ? visitorState.current : characterState
+    const moving = state === 'walking' || state === 'aligning'
+    if (moving && !drag.current) yaw.current += Math.atan2(Math.sin(facing - yaw.current), Math.cos(facing - yaw.current)) * Math.min(1, delta * 8)
     active.position.set(position[0], position[1] + 1.35, position[2])
-    active.lookAt(position[0] + Math.sin(yaw.current) * horizontal, position[1] + 1.35 + Math.sin(pitch.current), position[2] + Math.cos(yaw.current) * horizontal)
+    // FPS rotation order keeps pitch local to the camera, so looking up/down never flips horizontal drag.
+    active.rotation.order = 'YXZ'
+    active.rotation.set(pitch.current, yaw.current + Math.PI, 0)
   })
   return <PerspectiveCamera ref={camera} makeDefault fov={65} near={.05} far={100} />
 }
@@ -981,7 +998,7 @@ function RoomWorld() {
   // the picked room, or the one already being viewed when nothing is picked — what the camera should be aiming at
   const aim = useMemo(() => (slots.find((slot) => slot.handle === centredHandle) ?? active)?.position ?? null, [slots, active, centredHandle])
   return <>
-    {slots.filter((slot) => mountedRoomSet.has(slot.handle)).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} shown={shownRoomSet.has(slot.handle)} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} swapping={swapping} blocked={bookPanelOpen} closePanel={clearSelection} />)}
+    {!firstPerson && slots.filter((slot) => mountedRoomSet.has(slot.handle)).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} shown={shownRoomSet.has(slot.handle)} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} swapping={swapping} blocked={bookPanelOpen} closePanel={clearSelection} />)}
     <group ref={activeGroup} position={active.position}>
       <Inert off={exploring}><RoomRoot /></Inert>
       <ExplorerRoomHitbox off={exploring} open={() => beginEntry(active)} blocked={bookPanelOpen} closePanel={clearSelection} />
