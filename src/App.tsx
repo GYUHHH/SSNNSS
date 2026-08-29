@@ -23,7 +23,7 @@ import { thumbnailFor } from './services/thumbnails'
 import { lang, t } from './services/i18n'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 784
+const BUILD = 785
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, customJob, customEditing, startCustomObjectEdit, applyCustomObjectEdit, cancelCustomObjectEdit } = useRoomStore()
@@ -170,7 +170,7 @@ function Interface() {
     <ReactionPicker />
     <ItemComments />
     <ProfileCard />
-    <aside ref={sheet} className={`${panelOpen ? 'art-panel open' : 'art-panel'}${sheetExpanded ? ' expanded' : ''}${inventorySheet ? ' over-toolbar' : ''}`} aria-hidden={!panelOpen}
+    <aside ref={sheet} className={`${panelOpen ? 'art-panel open' : 'art-panel'}${sheetExpanded ? ' expanded' : ''}${inventorySheet && mode === 'edit' ? ' over-toolbar' : ''}`} aria-hidden={!panelOpen}
       onClickCapture={(event) => { if (suppressSheetClick.current) { event.preventDefault(); event.stopPropagation() } }}
       onPointerDown={sheetDown} onPointerMove={sheetMove} onPointerUp={sheetUp} onPointerCancel={sheetUp}>
       <span className="sheet-handle" aria-hidden="true" />
