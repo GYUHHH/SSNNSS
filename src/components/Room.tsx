@@ -1,9 +1,9 @@
-import { OrthographicCamera } from '@react-three/drei'
+import { OrthographicCamera, PerspectiveCamera } from '@react-three/drei'
 import { Canvas, events, useFrame, useThree } from '@react-three/fiber'
 import { type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { type AmbientLight, Color, type DirectionalLight, type Group, type Material, MathUtils, type Mesh, Vector3 } from 'three'
 import { NeighbourRoomProvider, useRoomStore } from '../store'
-import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDirectory, isSignedIn, myHandle, subscribeRoomBundles } from '../services/social'
+import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDirectory, isSignedIn, isVisiting, myHandle, subscribeRoomBundles } from '../services/social'
 import { snapshotActiveFrames } from '../services/ytResume'
 import { type ExplorerMode, explorerMode, fetchFollowing, onExplorerMode, onFollowsChange, rememberModeRoom, sortByActivity } from '../services/follows'
 import { captureRenderScale, flushCapture } from '../services/capture'
@@ -25,6 +25,9 @@ import { SurfaceDropZones } from './SurfaceDropZone'
 import Walls from './Walls'
 import WallVideoLayer from './WallVideoLayer'
 import ReactionBadges from './ReactionBadges'
+import { characterFacing, characterPosition } from '../services/characterTracker'
+import { presenceSessionId, selfVisitor, useVisitors } from '../services/presence'
+import { setFirstPerson, useFirstPerson } from '../services/viewMode'
 
 // per-time-of-day lighting: night keeps lights low so lit lamps visibly carry the room
 const LIGHTING = {
@@ -218,8 +221,11 @@ function Scene() {
   // Scene events re-route to this host (with client coords) because the canvas itself is pointer-transparent
   // so clicks over a video can fall through into the iframe. The room background moves to the host's CSS.
   const eventHost = useRef<HTMLDivElement>(null!)
+  const firstPerson = useFirstPerson()
+  useEffect(() => { if (mode === 'edit') setFirstPerson(false) }, [mode])
   return <div ref={eventHost} className="canvas-host" style={{ background: light.bg }}><Canvas shadows="soft" dpr={[1, 2]} gl={{ antialias: true }} eventSource={eventHost} events={shiftAwareEvents} onPointerMissed={(event) => { if (!(event.target as HTMLElement)?.closest?.('.canvas-host')) return; (mode === 'edit' ? toggleEditMode : clearSelection)() }} camera={{ position: DEFAULT_CAMERA_POSITION }}>
-    <OrthographicCamera makeDefault position={DEFAULT_CAMERA_POSITION} zoom={59} near={0.1} far={100} />
+    <OrthographicCamera makeDefault={!firstPerson} position={DEFAULT_CAMERA_POSITION} zoom={59} near={0.1} far={100} />
+    {firstPerson && <FirstPersonCamera />}
     <RenderGovernor />
     <CrossfadingLights preset={light} />
     <TimeLayerLights time="day" /><TimeLayerLights time="evening" /><TimeLayerLights time="night" />
@@ -228,6 +234,21 @@ function Scene() {
       <RoomWorld />
     </Suspense>
   </Canvas></div>
+}
+
+function FirstPersonCamera() {
+  const camera = useRef<import('three').PerspectiveCamera>(null)
+  const visiting = isVisiting()
+  useFrame(() => {
+    const active = camera.current
+    if (!active) return
+    const visitor = visiting ? selfVisitor() : null
+    const position = visitor?.position ?? (visiting ? [-.35, 0, 2.45] as [number, number, number] : characterPosition)
+    const facing = visitor?.facing ?? (visiting ? Math.PI : characterFacing.current)
+    active.position.set(position[0], position[1] + 1.35, position[2])
+    active.lookAt(position[0] + Math.sin(facing), position[1] + 1.35, position[2] + Math.cos(facing))
+  })
+  return <PerspectiveCamera ref={camera} makeDefault fov={65} near={.05} far={100} />
 }
 
 const ROOM_SIZE = 7
@@ -353,8 +374,12 @@ function Inert({ off, children }: { off: (zoom: number, width: number, height: n
 }
 
 function RoomRoot() {
+  const visitors = useVisitors()
+  const firstPerson = useFirstPerson()
   return <>
-    <Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><InventoryPreview /><SurfaceDropZones /><Character /><DebugAnchors /><WallVideoLayer /><ReactionBadges />
+    <Floor /><Walls /><Bookshelf /><Desk /><Chair /><Computer /><Cup /><Sofa /><Bed /><Decor /><InventoryFurniture /><InventoryPreview /><SurfaceDropZones /><Character hidden={firstPerson && !isVisiting()} />
+    {visitors.map((visitor) => <Character key={visitor.sessionId} snapshot={visitor} hidden={firstPerson && visitor.sessionId === presenceSessionId} />)}
+    <DebugAnchors /><WallVideoLayer /><ReactionBadges />
   </>
 }
 
@@ -611,6 +636,7 @@ function RoomContainer({ slot, distance, centred, shown, fresh, open, swapping, 
 }
 
 function RoomWorld() {
+  const firstPerson = useFirstPerson()
   const { mode, timeOfDay, bookshelfOpen, openBookId, clearSelection } = useRoomStore()
   const bookPanelOpen = bookshelfOpen || !!openBookId
   // The cluster is centred on the signed-in user's OWN room — it is their neighbourhood, so their room is the hub
@@ -774,7 +800,7 @@ function RoomWorld() {
     }
   })
   // the room underneath the explorer is scenery until it is entered: fully zoomed out, a click selects a room
-  const exploring = (zoom: number, width: number, height: number) => mode === 'normal' && zoom <= exploreMinZoom(width, height) + .5
+  const exploring = (zoom: number, width: number, height: number) => !firstPerson && mode === 'normal' && zoom <= exploreMinZoom(width, height) + .5
   // The swap happens HERE, inside enterRoom's own listener pass, not after the await in open(). Doing it after
   // put the new room's data and the re-base in different render batches: for one frame the freshly-hydrated live
   // room was drawn at the OLD room's cell while the entered room's neighbour copy still stood in its own — the
@@ -817,6 +843,12 @@ function RoomWorld() {
     setFocusRoom({ position: slot.position, token: performance.now() })
   }
   useFrame(({ camera, pointer, size }) => {
+    if (firstPerson) {
+      if (cursorOn.current) { cursorOn.current = false; document.body.style.cursor = '' }
+      if (centred.current !== null) { centred.current = null; setCentredHandle(null) }
+      wasZoomedIn.current = true
+      return
+    }
     const floor = exploreMinZoom(size.width, size.height)
     const zoomedIn = mode !== 'normal' || camera.zoom > entryZoom(size.width, size.height)
     // The pick is decided at the zoom floor and then held. Recomputing it on the way in reads a screen that is
@@ -881,7 +913,7 @@ function RoomWorld() {
       <Inert off={exploring}><RoomRoot /></Inert>
       <ExplorerRoomHitbox off={exploring} open={() => beginEntry(active)} blocked={bookPanelOpen} closePanel={clearSelection} />
     </group>
-    <CameraController focusRoom={focusRoom} aim={aim} />
+    {!firstPerson && <CameraController focusRoom={focusRoom} aim={aim} />}
   </>
 }
 

@@ -7,6 +7,7 @@ import { snapshotActiveFrames } from '../services/ytResume'
 import SoundHub from './SoundHub'
 import { requestExplorerZoom } from './CameraController'
 import { lang, setLang, t, tp } from '../services/i18n'
+import { toggleFirstPerson, useFirstPerson } from '../services/viewMode'
 
 const icon = (children: React.ReactNode) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
 const HouseIcon = () => icon(<><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></>)
@@ -18,7 +19,7 @@ const PersonPlusIcon = () => icon(<><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0
 const PersonCheckIcon = () => icon(<><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><polyline points="17 11 19 13 23 9" /></>)
 const GlobeIcon = () => icon(<><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></>)
 const BoxIcon = () => icon(<><rect x="3" y="5" width="18" height="14" rx="1" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="10.5" y1="8.5" x2="13.5" y2="8.5" /><line x1="10.5" y1="15.5" x2="13.5" y2="15.5" /></>)
-const BackIcon = () => icon(<><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></>)
+const EyeIcon = () => icon(<><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" /><circle cx="12" cy="12" r="2.5" /></>)
 const ForwardIcon = () => icon(<><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></>)
 const SearchIcon = () => icon(<><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.3" y2="16.3" /></>)
 const DotsIcon = () => icon(<><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" /></>)
@@ -67,6 +68,7 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
   }, [moreState])
   const [searchOpen, setSearchOpen] = useState(false)
   const [shopOpen, setShopOpen] = useState(false)
+  const firstPerson = useFirstPerson()
   // home = only rooms I follow around mine, discover = the public directory; the explorer listens to this
   const [explore, setExplore] = useState(explorerMode())
   useEffect(() => onExplorerMode(setExplore), [])
@@ -121,7 +123,7 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
   // the dock owns its pointer events completely — nothing may leak through to the room behind it
   const block = (event: { stopPropagation: () => void }) => event.stopPropagation()
   return <div className="dock" onPointerDown={block} onPointerMove={block} onPointerUp={block} onPointerOver={block} onClick={block} onWheel={block} onTouchStart={block} onTouchMove={block}>
-    {normal && <button type="button" className="dock-button" aria-label={t('이전')} onClick={() => history.back()}><BackIcon /></button>}
+    {normal && <button type="button" className={firstPerson ? 'dock-button following' : 'dock-button'} aria-label={firstPerson ? t('1인칭 시점 끄기') : t('1인칭 시점')} onClick={toggleFirstPerson}><EyeIcon /></button>}
     {owner && <button type="button" className="dock-button" aria-label={t('검색')} onClick={() => setSearchOpen(true)}><SearchIcon /></button>}
     {visiting && normal && !!myHandle() && !!currentHandle && <button type="button" style={{ visibility: followed === null ? 'hidden' : 'visible' }} className={followed ? 'dock-button following' : 'dock-button'} aria-label={followed ? t('팔로우 해제') : t('팔로우')} onClick={() => { if (followed === null) return; setFollowed(!followed); void setFollowing(currentHandle, !followed).then((ok) => { if (!ok) setFollowed(followed) }) }}>{followed ? <PersonCheckIcon /> : <PersonPlusIcon />}</button>}
     {normal && !!myHandle() && <button type="button" className={explore === 'home' ? 'dock-button' : 'dock-button following'} aria-label={explore === 'home' ? t('팔로우') : t('탐색')} onClick={toggleExplorer}>{explore === 'home' ? <PersonIcon /> : <GlobeIcon />}</button>}

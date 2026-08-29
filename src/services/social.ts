@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { compressImage } from './imageCompress'
+import { presenceSessionId, publishVisitors, visitorSpawn, type VisitorLook, type VisitorPresence } from './presence'
 
 // Supabase-backed social layer: plain fetch against PostgREST, plus the SDK's realtime channel for live updates.
 // - The owner's room state lives in the server bundle. An in-memory copy keeps synchronous loaders simple;
@@ -208,6 +209,14 @@ const profilePhoto = (bundle: Record<string, string>, handle?: string | null) =>
   } catch { return DEFAULT_PROFILE_PHOTO }
 }
 export const myProfilePhoto = () => profilePhoto(ownerData, ownerHandle)
+export const myCharacterLook = (): VisitorLook => {
+  try {
+    const saved = JSON.parse(ownerData['my-room-character-look-v1'] ?? '{}') as VisitorLook
+    const look: VisitorLook = {}
+    for (const key of ['skinColor', 'hairColor', 'topColor', 'bottomColor', 'shoeColor'] as const) if (typeof saved?.[key] === 'string') look[key] = saved[key]
+    return look
+  } catch { return {} }
+}
 // Whether this browser has an account at all. myHandle() reports null at the plain root on purpose, and
 // isPlainRoot() only says which address is open — neither answers "is this person signed in", which is what the
 // entry buttons need: they must stay up while a signed-out visitor is looking at somebody else's room too.
@@ -682,15 +691,25 @@ export const broadcastCharacter = (settle: CharacterSettle) => {
 export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void, onRoomData: () => void, onLikes?: () => void, onCharacter?: (settle: CharacterSettle) => void): () => void {
   const room = currentRoomHandle()
   if (!room) return () => { /* nothing to unsubscribe */ }
-  const channel = supabaseClient().channel(`room-${room}`)
+  publishVisitors([])
+  const client = supabaseClient()
+  const channel = client.channel(`room-${room}`, { config: { presence: { key: presenceSessionId } } })
     .on('broadcast', { event: 'character' }, ({ payload }) => onCharacter?.(payload as CharacterSettle))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'guestbook', filter: `room=eq.${room}` }, onGuestbook)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'visits', filter: `room=eq.${room}` }, onVisits)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'likes', filter: `room=eq.${room}` }, () => onLikes?.())
+    .on('presence', { event: 'sync' }, () => {
+      const states = Object.values(channel.presenceState<VisitorPresence>()).flat().filter((value) => typeof value?.sessionId === 'string' && typeof value?.handle === 'string')
+      publishVisitors(states.map(({ presence_ref: _presenceRef, ...visitor }) => visitor))
+    })
+  const visitor = isVisiting() ? myHandle() : null
   if (isVisiting()) channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `handle=eq.${room}` }, onRoomData)
-  channel.subscribe()
+  channel.subscribe((status) => {
+    if (status !== 'SUBSCRIBED' || !visitor) return
+    void channel.track({ sessionId: presenceSessionId, handle: visitor, appearance: myCharacterLook(), position: visitorSpawn(presenceSessionId), facing: Math.PI, state: 'idle' } satisfies VisitorPresence)
+  })
   liveChannel = channel
-  return () => { if (liveChannel === channel) liveChannel = null; void channel.unsubscribe() }
+  return () => { if (liveChannel === channel) liveChannel = null; publishVisitors([]); void channel.unsubscribe() }
 }
 
 // ⚠️ 확장 스위치. false(현재): DB 변경 감지(postgres_changes)가 방 데이터 전체(~40KB)를 구독자마다 통째로

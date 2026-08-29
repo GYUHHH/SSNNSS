@@ -3,7 +3,8 @@ import { useFrame } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Group, Vector3 } from 'three'
 import { baseFloorCells, isFloorCovering, useRoomStore, type CharacterTransform } from '../store'
-import { characterPosition } from '../services/characterTracker'
+import { characterFacing, characterPosition } from '../services/characterTracker'
+import type { VisitorLook } from '../services/presence'
 import { resolveInteraction, stateForInteraction } from '../services/interactionAnchors'
 import { cellsFor, findPath, floorSurface, gridToWorld, type GridPosition, worldToGrid } from '../services/roomGrid'
 import { ROOM_HTML_Z_INDEX_RANGE, ROOM_OBJECT_ORDER } from '../services/renderOrder'
@@ -41,13 +42,31 @@ const currentTransform = (actor: Group): CharacterTransform => ({
   position: [actor.position.x, 0, actor.position.z], facing: actor.rotation.y, y: actor.position.y,
 })
 
-export default function Character({ appearance: customAppearance }: { appearance?: Partial<CharacterAppearance> } = {}) {
+type PresenceSnapshot = { sessionId: string; position: [number, number, number]; facing: number; state: 'idle'; appearance: VisitorLook }
+
+export default function Character({ appearance: customAppearance, snapshot, hidden = false }: { appearance?: Partial<CharacterAppearance>; snapshot?: PresenceSnapshot; hidden?: boolean } = {}) {
   const actor = useRef<Group>(null)
   const legLeft = useRef<Group>(null); const legRight = useRef<Group>(null)
   const armLeft = useRef<Group>(null); const armRight = useRef<Group>(null)
   const torso = useRef<Group>(null); const head = useRef<Group>(null)
   const [hovered, setHovered] = useState(false)
-  const { readOnly, characterHome, characterPose, characterWritable, characterLook, currentHandle, selectedObject, characterState, finishCharacterAction, cupHeld, selectObject, furniture, debugAnchors, moveNotice, floorTarget, settleFloorMove } = useRoomStore()
+  const store = useRoomStore()
+  const readOnly = snapshot ? true : store.readOnly
+  const characterHome = snapshot?.position ?? store.characterHome
+  const characterPose = snapshot ? { state: snapshot.state, facing: snapshot.facing, y: snapshot.position[1] } : store.characterPose
+  const characterWritable = snapshot ? false : store.characterWritable
+  const characterLook = snapshot?.appearance ?? store.characterLook
+  const currentHandle = snapshot ? `visitor:${snapshot.sessionId}` : store.currentHandle
+  const selectedObject = snapshot ? null : store.selectedObject
+  const characterState = snapshot?.state ?? store.characterState
+  const finishCharacterAction = store.finishCharacterAction
+  const cupHeld = snapshot ? false : store.cupHeld
+  const selectObject = store.selectObject
+  const furniture = snapshot ? [] : store.furniture
+  const debugAnchors = snapshot ? false : store.debugAnchors
+  const moveNotice = snapshot ? false : store.moveNotice
+  const floorTarget = snapshot ? null : store.floorTarget
+  const settleFloorMove = store.settleFloorMove
   // the saved look wins over the prop, and both win over the defaults — unset parts fall through to the model
   const appearance = { ...DEFAULT_APPEARANCE, ...customAppearance, ...characterLook }
   // Per room, not per module. Every room in the explorer renders one of these, so a single shared start would put
@@ -91,7 +110,8 @@ export default function Character({ appearance: customAppearance }: { appearance
     if (!delta) return
     if (!actor.current) return
     if (characterWritable) {
-      characterPosition[0] = actor.current.position.x; characterPosition[2] = actor.current.position.z
+      characterPosition[0] = actor.current.position.x; characterPosition[1] = actor.current.position.y; characterPosition[2] = actor.current.position.z
+      characterFacing.current = actor.current.rotation.y
     }
     // Explorer characters stay read-only, but their saved pose keeps its small idle motion as a live preview.
     clock.current += delta
@@ -183,7 +203,7 @@ export default function Character({ appearance: customAppearance }: { appearance
     if (torso.current) torso.current.scale.y = characterState === 'sleeping' ? 1 + Math.sin(clock.current * 2.2) * 0.02 : 1
   })
 
-  return <group ref={actor} name="CharacterRoot" renderOrder={ROOM_OBJECT_ORDER} scale={0.85} onPointerOver={(event) => { if (readOnly) return; event.stopPropagation(); setHovered(true) }} onPointerOut={() => setHovered(false)} onClick={(event) => { if (readOnly) return; event.stopPropagation(); selectObject('character') }}>
+  return <group ref={actor} name="CharacterRoot" visible={!hidden} renderOrder={ROOM_OBJECT_ORDER} scale={0.85} onPointerOver={(event) => { if (readOnly) return; event.stopPropagation(); setHovered(true) }} onPointerOut={() => setHovered(false)} onClick={(event) => { if (readOnly) return; event.stopPropagation(); selectObject('character') }}>
     <group position={[0, pose.y, 0]} rotation={pose.rotation} scale={hovered ? 1.03 : 1}>
       <group ref={torso} name="Body">
         <group name="BaseBody">
