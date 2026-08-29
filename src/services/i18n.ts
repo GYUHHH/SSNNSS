@@ -8,6 +8,8 @@ export const setLang = (next: 'ko' | 'en') => { localStorage.setItem('lang', nex
 const EN: Record<string, string> = {
   "1인칭 시점": "First-person view",
   "1인칭 시점 끄기": "Exit first-person view",
+  "시점 확대 축소": "View zoom controls",
+  "축소": "Zoom out",
   "효과": "Effects",
   "품질": "Quality",
   "일반": "Standard",

@@ -27,7 +27,7 @@ import WallVideoLayer from './WallVideoLayer'
 import ReactionBadges from './ReactionBadges'
 import { characterFacing, characterPosition } from '../services/characterTracker'
 import { cancelVisitorAction, presenceSessionId, useVisitors, visitorFacing, visitorInteractionTarget, visitorMoveTarget, visitorPosition, visitorState } from '../services/presence'
-import { setFirstPerson, useFirstPerson } from '../services/viewMode'
+import { onFirstPersonZoom, setFirstPerson, useFirstPerson } from '../services/viewMode'
 import { floorWalkRoute } from '../services/roomGrid'
 import { resolveInteraction, stateForInteraction } from '../services/interactionAnchors'
 
@@ -296,6 +296,9 @@ function FirstPersonCamera() {
       event.preventDefault()
       fovTarget.current = clampFov(fovTarget.current * Math.exp(event.deltaY * .0015))
     }
+    const stopZoomButtons = onFirstPersonZoom((direction) => {
+      fovTarget.current = clampFov(fovTarget.current + (direction === 'out' ? 8 : -8))
+    })
     const onTouchStart = (event: TouchEvent) => {
       touchCount.current = event.touches.length
       if (event.touches.length === 2) {
@@ -348,7 +351,7 @@ function FirstPersonCamera() {
     element.addEventListener('click', onClick, true)
     element.addEventListener('wheel', onWheel, { passive: false })
     element.addEventListener('touchstart', onTouchStart, { passive: false }); element.addEventListener('touchmove', onTouchMove, { passive: false }); element.addEventListener('touchend', onTouchEnd, { passive: false }); element.addEventListener('touchcancel', onTouchCancel, { passive: false })
-    return () => { element.removeEventListener('pointerdown', onDown); element.removeEventListener('pointermove', onMove); element.removeEventListener('pointerup', onUp); element.removeEventListener('pointercancel', onUp); element.removeEventListener('click', onClick, true); element.removeEventListener('wheel', onWheel); element.removeEventListener('touchstart', onTouchStart); element.removeEventListener('touchmove', onTouchMove); element.removeEventListener('touchend', onTouchEnd); element.removeEventListener('touchcancel', onTouchCancel) }
+    return () => { stopZoomButtons(); element.removeEventListener('pointerdown', onDown); element.removeEventListener('pointermove', onMove); element.removeEventListener('pointerup', onUp); element.removeEventListener('pointercancel', onUp); element.removeEventListener('click', onClick, true); element.removeEventListener('wheel', onWheel); element.removeEventListener('touchstart', onTouchStart); element.removeEventListener('touchmove', onTouchMove); element.removeEventListener('touchend', onTouchEnd); element.removeEventListener('touchcancel', onTouchCancel) }
   }, [gl, visiting])
   useFrame((_, delta) => {
     const active = camera.current

@@ -7,7 +7,7 @@ import { snapshotActiveFrames } from '../services/ytResume'
 import SoundHub from './SoundHub'
 import { requestExplorerZoom } from './CameraController'
 import { lang, setLang, t, tp } from '../services/i18n'
-import { toggleFirstPerson, useFirstPerson } from '../services/viewMode'
+import { requestFirstPersonZoom, toggleFirstPerson, useFirstPerson } from '../services/viewMode'
 
 const icon = (children: React.ReactNode) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
 const HouseIcon = () => icon(<><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></>)
@@ -123,6 +123,10 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
   // the dock owns its pointer events completely — nothing may leak through to the room behind it
   const block = (event: { stopPropagation: () => void }) => event.stopPropagation()
   return <div className="dock" onPointerDown={block} onPointerMove={block} onPointerUp={block} onPointerOver={block} onClick={block} onWheel={block} onTouchStart={block} onTouchMove={block}>
+    {firstPerson && <div className="first-person-zoom" aria-label={t('시점 확대 축소')}>
+      <button type="button" aria-label={t('축소')} onClick={() => requestFirstPersonZoom('out')}>−</button>
+      <button type="button" aria-label={t('확대')} onClick={() => requestFirstPersonZoom('in')}>+</button>
+    </div>}
     {normal && <button type="button" className={firstPerson ? 'dock-button following' : 'dock-button'} aria-label={firstPerson ? t('1인칭 시점 끄기') : t('1인칭 시점')} onClick={toggleFirstPerson}><EyeIcon /></button>}
     {owner && <button type="button" className="dock-button" aria-label={t('검색')} onClick={() => setSearchOpen(true)}><SearchIcon /></button>}
     {visiting && normal && !!myHandle() && !!currentHandle && <button type="button" style={{ visibility: followed === null ? 'hidden' : 'visible' }} className={followed ? 'dock-button following' : 'dock-button'} aria-label={followed ? t('팔로우 해제') : t('팔로우')} onClick={() => { if (followed === null) return; setFollowed(!followed); void setFollowing(currentHandle, !followed).then((ok) => { if (!ok) setFollowed(followed) }) }}>{followed ? <PersonCheckIcon /> : <PersonPlusIcon />}</button>}
