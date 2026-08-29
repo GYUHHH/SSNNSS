@@ -802,6 +802,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     }
     if (!next) next = fallback
     if (!next) return
+    // 보관함에서 물건을 꺼내는 순간이 꾸미기의 시작 — 보관함 창을 여는 것만으로는 모드가 바뀌지 않는다
+    setMode('edit')
     setPreview(next); setPreviewValid(isAvailable(next)); setPreviewDragging(false); setSelectedFurnitureId(null)
   }
   const beginPreviewDrag = () => setPreviewDragging(true)
