@@ -10,7 +10,7 @@ import { captureRenderScale, flushCapture } from '../services/capture'
 import { explorerAnimationsAreMoving, keepExplorerAnimationsSmooth, setRoomFrameRendered } from '../services/renderSync'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
-import CameraController, { DEFAULT_CAMERA_POSITION, entryZoom, exploreMinZoom } from './CameraController'
+import CameraController, { armZoomGestureClickGuard, consumeZoomGestureClick, DEFAULT_CAMERA_POSITION, entryZoom, exploreMinZoom } from './CameraController'
 import Character from './Character'
 import Chair from './Chair'
 import Computer from './Computer'
@@ -288,6 +288,7 @@ function FirstPersonCamera() {
       if (visiting) updateVisitorPresence(visitorPosition, visitorFacing.current, true)
     }
     const onClick = (event: MouseEvent) => {
+      if (consumeZoomGestureClick(event)) return
       if (!suppressClick.current) return
       suppressClick.current = false; event.preventDefault(); event.stopImmediatePropagation()
     }
@@ -298,6 +299,7 @@ function FirstPersonCamera() {
     const onTouchStart = (event: TouchEvent) => {
       touchCount.current = event.touches.length
       if (event.touches.length === 2) {
+        armZoomGestureClickGuard()
         pinchDistance.current = touchDistance(event.touches)
         drag.current = null; dragZoom.current = null; lastTap.current.time = 0
         event.preventDefault()
@@ -307,6 +309,7 @@ function FirstPersonCamera() {
       const touch = event.touches[0]; const now = performance.now()
       touchStart.current = { x: touch.clientX, y: touch.clientY, time: now }
       if (now - lastTap.current.time < 320 && Math.hypot(touch.clientX - lastTap.current.x, touch.clientY - lastTap.current.y) < 36) {
+        armZoomGestureClickGuard()
         dragZoom.current = { id: touch.identifier, startY: touch.clientY, startFov: fovTarget.current }
         drag.current = null; lastTap.current.time = 0
         event.preventDefault(); event.stopPropagation()
@@ -331,6 +334,7 @@ function FirstPersonCamera() {
       touchCount.current = event.touches.length
       const touch = event.changedTouches[0]
       if (dragZoom.current && [...event.changedTouches].some((entry) => entry.identifier === dragZoom.current?.id)) {
+        armZoomGestureClickGuard()
         dragZoom.current = null
         event.preventDefault(); event.stopPropagation()
       } else if (!cancelled && event.touches.length === 0 && touch && touchStart.current && performance.now() - touchStart.current.time < 350 && Math.hypot(touch.clientX - touchStart.current.x, touch.clientY - touchStart.current.y) < 12) {

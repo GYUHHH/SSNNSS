@@ -16,6 +16,12 @@ const EXPLORE_ZOOM_SCALE = 1.4
 // 모바일은 화면이 좁아 같은 축소율이면 방이 더 작게 읽힌다 — 바닥을 이만큼 더 올린다
 const MOBILE_ZOOM_LIFT = 10
 const MAX_ZOOM = 220
+let zoomGestureClickBlockedUntil = 0
+export const armZoomGestureClickGuard = () => { zoomGestureClickBlockedUntil = performance.now() + 450 }
+export const consumeZoomGestureClick = (event: MouseEvent) => {
+  if (performance.now() >= zoomGestureClickBlockedUntil) return false
+  event.preventDefault(); event.stopImmediatePropagation(); return true
+}
 
 export const isCompactScreen = (width: number, height: number) => width < 720 || (height < 520 && window.matchMedia('(pointer: coarse)').matches)
 // the floor the explorer bottoms out at — the neighbour fade bands are anchored to it so raising one moves the other
@@ -157,9 +163,11 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
     const element = (gl.domElement.closest('.canvas-host') ?? gl.domElement) as HTMLElement
     const distance = (touches: TouchList) => touches.length < 2 ? 0 : Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY)
     const onWheel = (event: WheelEvent) => { event.preventDefault(); if (pickerHoldRef.current) return; zoomTarget.current = MathUtils.clamp(zoomTarget.current * Math.exp(-event.deltaY * .0015), minZoom, MAX_ZOOM) }
+    const onClick = (event: MouseEvent) => { consumeZoomGestureClick(event) }
     const onTouchStart = (event: TouchEvent) => {
       if (pickerHoldRef.current) return
       if (event.touches.length === 2) {
+        armZoomGestureClickGuard()
         pinchDistance.current = distance(event.touches)
         lastTap.current.time = 0
         dragZoom.current = null
@@ -173,6 +181,7 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
       const secondTap = mode === 'normal' && compactScreen && now - lastTap.current.time < 320 && Math.hypot(touch.clientX - lastTap.current.x, touch.clientY - lastTap.current.y) < 36
       touchStart.current = { x: touch.clientX, y: touch.clientY, time: now }
       if (secondTap) {
+        armZoomGestureClickGuard()
         dragZoom.current = { identifier: touch.identifier, startY: touch.clientY, startZoom: zoomTarget.current, lastX: touch.clientX, lastY: touch.clientY }
         lastTap.current.time = 0
         setDragZooming(true)
@@ -199,6 +208,7 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
     const onTouchEnd = (event: TouchEvent, cancelled = false) => {
       const touch = event.changedTouches[0]
       if (dragZoom.current && [...event.changedTouches].some((entry) => entry.identifier === dragZoom.current?.identifier)) {
+        armZoomGestureClickGuard()
         event.preventDefault(); event.stopPropagation()
         dragZoom.current = null
         setDragZooming(false)
@@ -210,11 +220,12 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
     }
     const onTouchCancel = (event: TouchEvent) => onTouchEnd(event, true)
     element.addEventListener('wheel', onWheel, { passive: false })
+    element.addEventListener('click', onClick, true)
     element.addEventListener('touchstart', onTouchStart, { passive: false, capture: true })
     element.addEventListener('touchmove', onTouchMove, { passive: false, capture: true })
     element.addEventListener('touchend', onTouchEnd, { passive: false, capture: true })
     element.addEventListener('touchcancel', onTouchCancel, { passive: false, capture: true })
-    return () => { element.removeEventListener('wheel', onWheel); element.removeEventListener('touchstart', onTouchStart, true); element.removeEventListener('touchmove', onTouchMove, true); element.removeEventListener('touchend', onTouchEnd, true); element.removeEventListener('touchcancel', onTouchCancel, true) }
+    return () => { element.removeEventListener('wheel', onWheel); element.removeEventListener('click', onClick, true); element.removeEventListener('touchstart', onTouchStart, true); element.removeEventListener('touchmove', onTouchMove, true); element.removeEventListener('touchend', onTouchEnd, true); element.removeEventListener('touchcancel', onTouchCancel, true) }
   }, [compactScreen, gl, minZoom, mode])
 
   useFrame((_, delta) => {
