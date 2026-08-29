@@ -1,13 +1,14 @@
 import { useSyncExternalStore } from 'react'
 
 export type VisitorLook = { skinColor?: string; hairColor?: string; topColor?: string; bottomColor?: string; shoeColor?: string }
+export type VisitorState = 'idle' | 'walking' | 'aligning' | 'sitting' | 'laying' | 'sleeping' | 'reading' | 'working' | 'interacting' | 'sittingFloor' | 'wave'
 export type VisitorPresence = {
   sessionId: string
   handle: string
   appearance: VisitorLook
   position: [number, number, number]
   facing: number
-  state: 'idle'
+  state: VisitorState
 }
 
 const SESSION_KEY = 'dens-presence-session'
@@ -37,8 +38,18 @@ export const visitorSpawn = (sessionId: string): [number, number, number] => {
 
 export const visitorPosition: [number, number, number] = visitorSpawn(presenceSessionId)
 export const visitorFacing = { current: Math.PI }
+export const visitorState = { current: 'idle' as VisitorState }
 export const visitorMoveTarget = { current: null as [number, number, number] | null }
-export const requestVisitorMove = (position: [number, number, number]) => { visitorMoveTarget.current = position }
+export const visitorInteractionTarget = { current: null as string | null }
+export const requestVisitorMove = (position: [number, number, number]) => {
+  visitorInteractionTarget.current = null; visitorMoveTarget.current = position; visitorState.current = 'walking'
+}
+export const requestVisitorInteraction = (id: string) => {
+  visitorMoveTarget.current = null; visitorInteractionTarget.current = id; visitorState.current = 'walking'
+}
+export const cancelVisitorAction = () => {
+  visitorMoveTarget.current = null; visitorInteractionTarget.current = null; visitorState.current = 'idle'
+}
 export const resetVisitorTransform = () => {
-  visitorPosition.splice(0, 3, ...visitorSpawn(presenceSessionId)); visitorFacing.current = Math.PI; visitorMoveTarget.current = null
+  visitorPosition.splice(0, 3, ...visitorSpawn(presenceSessionId)); visitorFacing.current = Math.PI; cancelVisitorAction()
 }

@@ -26,9 +26,10 @@ import Walls from './Walls'
 import WallVideoLayer from './WallVideoLayer'
 import ReactionBadges from './ReactionBadges'
 import { characterFacing, characterPosition } from '../services/characterTracker'
-import { presenceSessionId, useVisitors, visitorFacing, visitorMoveTarget, visitorPosition } from '../services/presence'
+import { cancelVisitorAction, presenceSessionId, useVisitors, visitorFacing, visitorInteractionTarget, visitorMoveTarget, visitorPosition, visitorState } from '../services/presence'
 import { setFirstPerson, useFirstPerson } from '../services/viewMode'
 import { floorWalkRoute } from '../services/roomGrid'
+import { resolveInteraction, stateForInteraction } from '../services/interactionAnchors'
 
 // per-time-of-day lighting: night keeps lights low so lit lamps visibly carry the room
 const LIGHTING = {
@@ -279,17 +280,31 @@ function FirstPersonCamera() {
 }
 
 function VisitorMover() {
-  const { furniture } = useRoomStore()
+  const { furniture, settleFloorMove } = useRoomStore()
   const route = useRef<Vector3[]>([]); const routeIndex = useRef(0); const routeKey = useRef(''); const sentAt = useRef(0)
   useFrame((_, delta) => {
-    const target = visitorMoveTarget.current
+    const interactionId = visitorInteractionTarget.current
+    const interaction = interactionId ? resolveInteraction(interactionId, furniture, visitorPosition) : null
+    if (interactionId && !interaction) { cancelVisitorAction(); settleFloorMove(false); updateVisitorPresence(visitorPosition, visitorFacing.current, true); return }
+    const target = interaction ? interaction.approachWorld.position : visitorMoveTarget.current
+    if (visitorState.current === 'aligning' && interaction) {
+      const next = new Vector3(...interaction.actionWorld.position)
+      const current = new Vector3(...visitorPosition).lerp(next, Math.min(1, delta * 5))
+      visitorPosition.splice(0, 3, current.x, current.y, current.z)
+      visitorFacing.current += Math.atan2(Math.sin(interaction.actionWorld.rotation - visitorFacing.current), Math.cos(interaction.actionWorld.rotation - visitorFacing.current)) * Math.min(1, delta * 7)
+      const angle = Math.abs(Math.atan2(Math.sin(interaction.actionWorld.rotation - visitorFacing.current), Math.cos(interaction.actionWorld.rotation - visitorFacing.current)))
+      if (current.distanceTo(next) < .025 && angle < .025) {
+        visitorState.current = stateForInteraction(interaction.type); visitorInteractionTarget.current = null; routeKey.current = ''; updateVisitorPresence(visitorPosition, visitorFacing.current, true)
+      } else updateVisitorPresence(visitorPosition, visitorFacing.current)
+      return
+    }
     if (!target) return
-    const key = `${target[0]}:${target[2]}`
+    const key = `${interactionId ?? 'floor'}:${target[0]}:${target[2]}`
     if (routeKey.current !== key) {
       routeKey.current = key
       const occupied = new Set(furniture.filter((item) => item.category === 'floorFurniture' && !isFloorCovering(item) && !item.removed && item.surfaceId === 'floor').flatMap((item) => baseFloorCells(item).map((cell) => `${cell.x}:${cell.y}`)))
       const path = floorWalkRoute(occupied, visitorPosition, target)
-      if (!path) { visitorMoveTarget.current = null; routeKey.current = ''; return }
+      if (!path) { cancelVisitorAction(); routeKey.current = ''; settleFloorMove(false); updateVisitorPresence(visitorPosition, visitorFacing.current, true); return }
       route.current = path.map((point) => new Vector3(...point)); routeIndex.current = 0
     }
     const next = route.current[routeIndex.current]
@@ -301,7 +316,8 @@ function VisitorMover() {
     if (now - sentAt.current > 80) { sentAt.current = now; updateVisitorPresence(visitorPosition, visitorFacing.current) }
     if (current.distanceTo(next) < .12) {
       if (routeIndex.current < route.current.length - 1) routeIndex.current += 1
-      else { visitorPosition.splice(0, 3, next.x, 0, next.z); visitorMoveTarget.current = null; routeKey.current = ''; updateVisitorPresence(visitorPosition, visitorFacing.current, true) }
+      else if (interaction) { visitorPosition.splice(0, 3, next.x, 0, next.z); visitorState.current = 'aligning'; routeKey.current = ''; updateVisitorPresence(visitorPosition, visitorFacing.current) }
+      else { visitorPosition.splice(0, 3, next.x, 0, next.z); visitorMoveTarget.current = null; visitorState.current = 'idle'; routeKey.current = ''; updateVisitorPresence(visitorPosition, visitorFacing.current, true) }
     }
   })
   return null

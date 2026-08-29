@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { compressImage } from './imageCompress'
-import { presenceSessionId, publishVisitor, publishVisitors, resetVisitorTransform, visitorFacing, visitorPosition, type VisitorLook, type VisitorPresence } from './presence'
+import { presenceSessionId, publishVisitor, publishVisitors, resetVisitorTransform, visitorFacing, visitorPosition, visitorState, type VisitorLook, type VisitorPresence } from './presence'
 
 // Supabase-backed social layer: plain fetch against PostgREST, plus the SDK's realtime channel for live updates.
 // - The owner's room state lives in the server bundle. An in-memory copy keeps synchronous loaders simple;
@@ -687,7 +687,7 @@ export const broadcastCharacter = (settle: CharacterSettle) => {
 }
 export const updateVisitorPresence = (position: [number, number, number], facing: number, settled = false) => {
   if (!liveChannel || !liveVisitor) return
-  liveVisitor = { ...liveVisitor, position: [...position], facing }
+  liveVisitor = { ...liveVisitor, position: [...position], facing, state: visitorState.current }
   publishVisitor(liveVisitor)
   void liveChannel.send({ type: 'broadcast', event: 'visitor-move', payload: liveVisitor })
   if (settled) void liveChannel.track(liveVisitor)
@@ -713,7 +713,7 @@ export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void,
   if (isVisiting()) channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `handle=eq.${room}` }, onRoomData)
   channel.subscribe((status) => {
     if (status !== 'SUBSCRIBED' || !visitor) return
-    liveVisitor = { sessionId: presenceSessionId, handle: visitor, appearance: myCharacterLook(), position: [...visitorPosition], facing: visitorFacing.current, state: 'idle' }
+    liveVisitor = { sessionId: presenceSessionId, handle: visitor, appearance: myCharacterLook(), position: [...visitorPosition], facing: visitorFacing.current, state: visitorState.current }
     void channel.track(liveVisitor)
   })
   liveChannel = channel

@@ -2,7 +2,7 @@ import { useCursor } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { type ReactNode, useLayoutEffect, useRef, useState } from 'react'
 import { Box3, type Group, Matrix4, type Mesh, type Object3D, Vector3 } from 'three'
-import { type SelectedObject, useRoomStore } from '../store'
+import { isPosedItem, type SelectedObject, useRoomStore } from '../store'
 import { isOwnedSurfaceId, ownerIdOf } from '../services/roomGrid'
 import { isVisiting } from '../services/social'
 import { openReactionPicker } from './ReactionPicker'
@@ -128,7 +128,7 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
     onPointerMove={editing ? undefined : (event) => { if (!press.current) return; if (Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 9 && timer.current) cancelPress() }}
     onPointerUp={editing ? undefined : (event) => { const target = event.target as unknown as { hasPointerCapture: (pointerId: number) => boolean; releasePointerCapture: (pointerId: number) => void }; cancelPress(); if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId) }}
     onPointerCancel={editing ? undefined : cancelPress}
-    onClick={(event) => { if (readOnly || padOverruled(event)) return; event.stopPropagation(); if (editing) return; if (isVisiting() && !directPanel) { openReactionPicker({ id, x: event.clientX, y: event.clientY }); return }; if (longPressed.current) { longPressed.current = false; return }; if (!directPanel && openObject(id)) return; selectObject(id) }}>
+    onClick={(event) => { if (readOnly || padOverruled(event)) return; event.stopPropagation(); if (editing) return; if (isVisiting() && !directPanel && !isPosedItem(item)) { openReactionPicker({ id, x: event.clientX, y: event.clientY }); return }; if (longPressed.current) { longPressed.current = false; return }; if (!directPanel && openObject(id)) return; selectObject(id) }}>
     <group ref={content}>{children}</group>
     {/* the forgiving hit area. Never drawn, but three's raycaster tests layers rather than `visible`, so it is
         still a target — which is the whole point. Sized from the contents by fitPad above. */}

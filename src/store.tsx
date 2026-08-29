@@ -12,7 +12,7 @@ import { t, tp } from './services/i18n'
 import { floorStyleOf } from './services/styles'
 import { isWallMedia } from './services/renderOrder'
 import { customObjectType, type CustomObjectCategory, type CustomObjectSpec, type CustomPose } from './customObjectSpec'
-import { requestVisitorMove } from './services/presence'
+import { requestVisitorInteraction, requestVisitorMove } from './services/presence'
 
 // AI 커스텀 생성 잡: Rapid 생성 → 로컬 최적화·검증.
 // 진행 UI·빨간점 알림이 이 하나를 본다. unseen은 완료/실패를 아직 사용자가 확인 안 했다는 뜻.
@@ -641,7 +641,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     if (isVisiting() && type.startsWith('video-frame')) return
     if (type === 'profile-board') { closePanels(); setSelectedObject(object); setProfileOpen(true); return }
     if (type === 'notification-box') { if (!isVisiting()) { closePanels(); setSelectedObject(object) }; return }
-    if (type === 'character') { if (!isVisiting()) setCharacterState((state) => ({ idle: 'sittingFloor', sittingFloor: 'wave', wave: 'idle' } as Partial<Record<CharacterState, CharacterState>>)[state] ?? 'idle'); return } if ((type === 'bed' || type === 'hotel-bed') && selectedObject === object) return clearSelection(); closePanels(); setFloorTarget(null); setSelectedObject(object); const sidePanelOnly = type === 'guestbook' || type === 'photo' || type === 'poster' || type === 'easel-photo' || type === 'whiteboard' || type.startsWith('photo-frame') || type.startsWith('wall-art'); if (sidePanelOnly) return; if (type === 'computer') setComputerOn((on) => !on); if (['lamp', 'floor-lamp', 'fireplace', 'candle', 'tv', 'string-lights', 'wall-sconce-2', 'christmas-tree', 'star-projector', 'mini-fridge', 'led-lamp', 'mushroom-lamp', 'glass-mushroom-lamp', 'wardrobe', 'cabinet', 'bin'].includes(type)) setToggledOn((prev) => { const next = new Set(prev); if (next.has(object)) next.delete(object); else next.add(object); return next }); if (type === 'cup') setCupHeld(true); if (isPosedItem(target) && !isVisiting()) setCharacterState('walking') }
+    if (type === 'character') { if (!isVisiting()) setCharacterState((state) => ({ idle: 'sittingFloor', sittingFloor: 'wave', wave: 'idle' } as Partial<Record<CharacterState, CharacterState>>)[state] ?? 'idle'); return } if ((type === 'bed' || type === 'hotel-bed') && selectedObject === object) return clearSelection(); closePanels(); setFloorTarget(null); setSelectedObject(object); const sidePanelOnly = type === 'guestbook' || type === 'photo' || type === 'poster' || type === 'easel-photo' || type === 'whiteboard' || type.startsWith('photo-frame') || type.startsWith('wall-art'); if (sidePanelOnly) return; if (type === 'computer') setComputerOn((on) => !on); if (['lamp', 'floor-lamp', 'fireplace', 'candle', 'tv', 'string-lights', 'wall-sconce-2', 'christmas-tree', 'star-projector', 'mini-fridge', 'led-lamp', 'mushroom-lamp', 'glass-mushroom-lamp', 'wardrobe', 'cabinet', 'bin'].includes(type)) setToggledOn((prev) => { const next = new Set(prev); if (next.has(object)) next.delete(object); else next.add(object); return next }); if (type === 'cup') setCupHeld(true); if (isPosedItem(target)) { if (isVisiting()) requestVisitorInteraction(object); else setCharacterState('walking') } }
   const showMoveNotice = () => { if (noticeTimer.current) window.clearTimeout(noticeTimer.current); setMoveNotice(true); noticeTimer.current = window.setTimeout(() => { noticeTimer.current = 0; setMoveNotice(false) }, 1600) }
   // clicking an empty floor cell in NORMAL mode: walk (with the normal walking motion) to that cell's center,
   // ending any free action / interaction. Occupied or out-of-bounds cells show a brief notice instead.
@@ -658,7 +658,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     setFloorTarget([x, 0, z]); setCharacterState('walking')
   }
   // called by Character when the floor walk finishes (or turns out to be unreachable)
-  const settleFloorMove = (reached: boolean, transform?: CharacterTransform) => { setFloorTarget(null); finishCharacterAction('idle', transform); if (!reached) showMoveNotice() }
+  const settleFloorMove = (reached: boolean, transform?: CharacterTransform) => { if (isVisiting()) { if (!reached) showMoveNotice(); return }; setFloorTarget(null); finishCharacterAction('idle', transform); if (!reached) showMoveNotice() }
   const selectFurniture = (id: FurnitureId) => setSelectedFurnitureId(id)
   const enterEditFurniture = (id: FurnitureId) => { if (isVisiting()) return; const target = furniture.find((item) => item.id === id); setSelectedObject(null); setCupHeld(false); setBookshelfOpen(false); setOpenBookId(null); setPreview(null); setPreviewDragging(false); setSelectedFurnitureId(id); setDragOrigin(target?.movable ? furniture : null); setMovingFurnitureId(target?.movable ? id : null); setMode('edit') }
   const beginMove = (id: FurnitureId) => { pendingMove.current = null; setSelectedFurnitureId(id); setDragOrigin(furniture); setMovingFurnitureId(id) }

@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Group, Vector3 } from 'three'
 import { baseFloorCells, isFloorCovering, useRoomStore, type CharacterTransform } from '../store'
 import { characterFacing, characterPosition } from '../services/characterTracker'
-import type { VisitorLook } from '../services/presence'
+import type { VisitorLook, VisitorState } from '../services/presence'
 import { resolveInteraction, stateForInteraction } from '../services/interactionAnchors'
 import { cellsFor, findPath, floorSurface, floorWalkRoute, gridToWorld, type GridPosition, worldToGrid } from '../services/roomGrid'
 import { ROOM_HTML_Z_INDEX_RANGE, ROOM_OBJECT_ORDER } from '../services/renderOrder'
@@ -42,7 +42,7 @@ const currentTransform = (actor: Group): CharacterTransform => ({
   position: [actor.position.x, 0, actor.position.z], facing: actor.rotation.y, y: actor.position.y,
 })
 
-type PresenceSnapshot = { sessionId: string; position: [number, number, number]; facing: number; state: 'idle'; appearance: VisitorLook }
+type PresenceSnapshot = { sessionId: string; position: [number, number, number]; facing: number; state: VisitorState; appearance: VisitorLook }
 
 export default function Character({ appearance: customAppearance, snapshot, hidden = false }: { appearance?: Partial<CharacterAppearance>; snapshot?: PresenceSnapshot; hidden?: boolean } = {}) {
   const actor = useRef<Group>(null)
