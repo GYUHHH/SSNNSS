@@ -20,6 +20,7 @@ import { lang, t } from '../services/i18n'
 import GeneratedObject from './GeneratedObject'
 import GlbFurniture, { GLB_TYPES } from './GlbFurniture'
 import { usePreviewFrame } from './usePreviewFrame'
+import { pointerCanHover } from './Interactive'
 
 export function InventoryFurniture() {
   const { furniture } = useRoomStore()
@@ -655,18 +656,19 @@ function BlobSculpture({ preview }: { preview: boolean }) {
 function DiaryBookItem({ itemId, preview }: { itemId: string; preview: boolean }) {
   const { books, readOnly } = useRoomStore()
   const [hovered, setHovered] = useState(false)
-  useCursor(hovered && !preview)
+  const hoverEnabled = useRef(pointerCanHover()).current
+  useCursor(hoverEnabled && hovered && !preview)
   const book = books.find((value) => `inventory-book-${value.id}` === itemId)
   const title = book?.title ?? ''
   const titleFont = /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(title) ? PRETENDARD_WOFF : JONES_BOOK_OTF
   const opacity = preview ? .5 : 1
   const cover = book?.coverColor ?? '#718475'
-  const glow = hovered && !preview ? { emissive: cover, emissiveIntensity: .22 } : {}
+  const glow = hoverEnabled && hovered && !preview ? { emissive: cover, emissiveIntensity: .22 } : {}
   const coverMat = () => <meshStandardMaterial color={cover} roughness={.75} transparent={preview} opacity={opacity} {...glow} />
   // 방문자에게 비공개 책은 자리만 차지하고 보이지 않는다 (visibleBooks 필터를 그대로 탄다)
   if (!book && !preview) return <mesh visible={false} position={[0, .27, 0]}><boxGeometry args={[.58, .54, .26]} /><meshBasicMaterial /></mesh>
-  return <group position={[0, hovered && !preview ? .03 : 0, 0]}
-    onPointerOver={(event) => { if (readOnly || preview) return; event.stopPropagation(); setHovered(true) }}
+  return <group position={[0, hoverEnabled && hovered && !preview ? .03 : 0, 0]}
+    onPointerOver={(event) => { if (!hoverEnabled || readOnly || preview) return; event.stopPropagation(); setHovered(true) }}
     onPointerOut={() => setHovered(false)}>
     <mesh visible={false} position={[0, .27, 0]}><boxGeometry args={[.58, .54, .26]} /><meshBasicMaterial /></mesh>
     {/* 속지: 표지보다 살짝 낮고 안쪽 — 위에서 단면이 보인다 */}

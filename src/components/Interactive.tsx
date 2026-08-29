@@ -12,9 +12,10 @@ import { openReactionPicker } from './ReactionPicker'
 // reads it every frame, so no re-render is needed and pointer over/out ordering races are settled by `by`.
 const hoverShared = { group: null as string | null, by: null as string | null }
 const DIRECT_PANEL_TYPES = new Set(['diary-book', 'music-player', 'record-player', 'cd-player'])
+export const pointerCanHover = () => typeof matchMedia === 'function' && matchMedia('(hover: hover) and (pointer: fine)').matches
 
 // lets UI outside the canvas (the sound list) hover a piece exactly like the pointer would
-export const setExternalHover = (id: string | null) => { hoverShared.group = id; hoverShared.by = id ? `external:${id}` : null }
+export const setExternalHover = (id: string | null) => { const next = pointerCanHover() ? id : null; hoverShared.group = next; hoverShared.by = next ? `external:${next}` : null }
 
 // How much slack a piece gets around its own outline, in room units — a grid cell is 0.7, so this is a fifth of one,
 // roughly nine screen pixels at the zoom a room is entered at. The bigger win is not the margin though: the pad is a
@@ -65,11 +66,12 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
   const press = useRef<{ x: number; y: number; pointerId: number; target: { hasPointerCapture: (pointerId: number) => boolean; releasePointerCapture: (pointerId: number) => void } } | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressed = useRef(false)
+  const hoverEnabled = useRef(pointerCanHover()).current
   const { readOnly, selectObject, enterEditFurniture, furniture, openObject, selectFurniture, beginMove } = useRoomStore()
   const item = furniture.find((value) => value.id === id)
   const directPanel = DIRECT_PANEL_TYPES.has(item?.type ?? '')
   const hoverGroup = item && isOwnedSurfaceId(item.surfaceId) ? ownerIdOf(item.surfaceId) : id
-  useCursor(hovered && !editing)
+  useCursor(hoverEnabled && hovered && !editing)
   const cancelPress = () => { if (timer.current) clearTimeout(timer.current); timer.current = null; press.current = null }
   // Measure a few times while suspended content settles, then stop. Recomputing every object's Box3 forever made
   // them all hitch together every .4 seconds during character movement.
@@ -105,7 +107,7 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
     }
     refitIn.current -= delta
     if (refitsLeft.current > 0 && refitIn.current <= 0) { refitIn.current = .4; refitsLeft.current -= 1; fitPad() }
-    const groupHovered = hoverShared.group === hoverGroup
+    const groupHovered = hoverEnabled && hoverShared.group === hoverGroup
     const lift = groupHovered ? 0.07 : 0
     group.current.position.y += (position[1] + lift - group.current.position.y) * Math.min(1, delta * 12)
     const scale = baseScale * (groupHovered ? 1.03 : 1)
@@ -113,7 +115,7 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
   })
 
   return <group ref={group} position={position} rotation={rotation} scale={baseScale} userData={{ interactive: id }}
-    onPointerOver={editing ? undefined : (event) => { if (readOnly || padOverruled(event)) return; event.stopPropagation(); hoverShared.group = hoverGroup; hoverShared.by = id; setHovered(true) }}
+    onPointerOver={editing ? undefined : (event) => { if (!hoverEnabled || readOnly || padOverruled(event)) return; event.stopPropagation(); hoverShared.group = hoverGroup; hoverShared.by = id; setHovered(true) }}
     onPointerOut={editing ? undefined : () => { if (hoverShared.by === id) { hoverShared.group = null; hoverShared.by = null } setHovered(false) }}
     onPointerDown={(event) => {
       if (readOnly || padOverruled(event) || nearResizeHandle(event)) return

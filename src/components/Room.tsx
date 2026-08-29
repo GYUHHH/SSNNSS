@@ -839,7 +839,7 @@ function RoomWorld() {
   // the room chosen at the zoom floor, held until it has been entered
   const picked = useRef<RoomSlot | null>(null)
   // a mouse can hover, a finger cannot — read once, since a device does not grow one mid-session
-  const fine = useRef(typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches)
+  const fine = useRef(typeof matchMedia === 'function' && matchMedia('(hover: hover) and (pointer: fine)').matches)
   // whether the cursor is currently the pointer, so the style is only written when it flips
   const cursorOn = useRef(false)
   // starts true so the very first frame — which opens at the entry zoom already — is not read as a zoom-in

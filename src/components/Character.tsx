@@ -10,6 +10,7 @@ import { cellsFor, findPath, floorSurface, floorWalkRoute, gridToWorld, type Gri
 import { ROOM_HTML_Z_INDEX_RANGE, ROOM_OBJECT_ORDER } from '../services/renderOrder'
 import { t } from '../services/i18n'
 import { usePreviewFrame } from './usePreviewFrame'
+import { pointerCanHover } from './Interactive'
 
 const CELL = { width: 1, depth: 1 }
 
@@ -50,6 +51,7 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
   const armLeft = useRef<Group>(null); const armRight = useRef<Group>(null)
   const torso = useRef<Group>(null); const head = useRef<Group>(null)
   const [hovered, setHovered] = useState(false)
+  const hoverEnabled = useRef(pointerCanHover()).current
   const store = useRoomStore()
   const readOnly = snapshot ? true : store.readOnly
   const characterHome = snapshot?.position ?? store.characterHome
@@ -77,7 +79,7 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
   const interactionStart = useRef<{ key: string | null; position: [number, number, number] }>({ key: null, position: [start.x, 0, start.z] })
   const clock = useRef(0)
   const previewFrame = usePreviewFrame()
-  useCursor(hovered)
+  useCursor(hoverEnabled && hovered)
   // A room change applies one complete snapshot before paint. The same actor can stay mounted without carrying
   // any position, direction or route from the room left behind.
   useLayoutEffect(() => {
@@ -208,8 +210,8 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
     if (torso.current) torso.current.scale.y = characterState === 'sleeping' ? 1 + Math.sin(clock.current * 2.2) * 0.02 : 1
   })
 
-  return <group ref={actor} name="CharacterRoot" visible={!hidden} renderOrder={ROOM_OBJECT_ORDER} scale={0.85} onPointerOver={(event) => { if (readOnly) return; event.stopPropagation(); setHovered(true) }} onPointerOut={() => setHovered(false)} onClick={(event) => { if (readOnly) return; event.stopPropagation(); selectObject('character') }}>
-    <group position={[0, pose.y, 0]} rotation={pose.rotation} scale={hovered ? 1.03 : 1}>
+  return <group ref={actor} name="CharacterRoot" visible={!hidden} renderOrder={ROOM_OBJECT_ORDER} scale={0.85} onPointerOver={(event) => { if (!hoverEnabled || readOnly) return; event.stopPropagation(); setHovered(true) }} onPointerOut={() => setHovered(false)} onClick={(event) => { if (readOnly) return; event.stopPropagation(); selectObject('character') }}>
+    <group position={[0, pose.y, 0]} rotation={pose.rotation} scale={hoverEnabled && hovered ? 1.03 : 1}>
       <group ref={torso} name="Body">
         <group name="BaseBody">
           <mesh name="Neck" position={[0, 1.14, 0]}><cylinderGeometry args={[.085, .09, .14, 8]} /><meshStandardMaterial color={appearance.skinColor} roughness={.85} /></mesh>
