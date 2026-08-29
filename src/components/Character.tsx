@@ -125,7 +125,10 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
     if (interactionStart.current.key !== selectedObject) interactionStart.current = { key: selectedObject, position: [actor.current.position.x, 0, actor.current.position.z] }
     const interaction = resolveInteraction(selectedObject, furniture, interactionStart.current.position)
 
-    if (walking && interaction) {
+    // Only this room's writable owner character may run the movement state machine. Presence snapshots and the
+    // owner shown to a visitor are display-only; letting either reach finishCharacterAction() writes their
+    // transient position back into the room owner's character and makes the owner follow the visitor.
+    if (characterWritable && walking && interaction) {
       const destination = interaction.approachWorld.position
       const nextRouteKey = `${selectedObject}:${destination.join(',')}`
       if (routeKey.current !== nextRouteKey) {
@@ -162,7 +165,7 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
         if (routeIndex.current < route.current.length - 1) routeIndex.current += 1
         else finishCharacterAction('aligning', currentTransform(actor.current))
       }
-    } else if (walking && floorTarget) {
+    } else if (characterWritable && walking && floorTarget) {
       // floor-click walk: same waypoint motion as furniture walks, ending in idle at the clicked cell
       const nextRouteKey = `floor:${floorTarget[0]},${floorTarget[2]}`
       if (routeKey.current !== nextRouteKey) {
@@ -183,13 +186,13 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
         if (routeIndex.current < route.current.length - 1) routeIndex.current += 1
         else settleFloorMove(true, currentTransform(actor.current))
       }
-    } else if (characterState === 'aligning' && interaction) {
+    } else if (characterWritable && characterState === 'aligning' && interaction) {
       const target = new Vector3(...interaction.actionWorld.position)
       actor.current.position.lerp(target, Math.min(1, delta * 5))
       actor.current.rotation.y = turnToward(actor.current.rotation.y, interaction.actionWorld.rotation, Math.min(1, delta * 7))
       const angleLeft = Math.abs(Math.atan2(Math.sin(interaction.actionWorld.rotation - actor.current.rotation.y), Math.cos(interaction.actionWorld.rotation - actor.current.rotation.y)))
       if (actor.current.position.distanceTo(target) < .025 && angleLeft < .025) finishCharacterAction(stateForInteraction(interaction.type), currentTransform(actor.current))
-    } else {
+    } else if (characterWritable) {
       routeKey.current = null
       // walking/aligning with nothing to walk to (selection vanished, item removed) must settle, not spin forever
       if ((walking || characterState === 'aligning') && !interaction && !floorTarget) finishCharacterAction('idle', currentTransform(actor.current))
