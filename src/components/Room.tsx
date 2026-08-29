@@ -269,8 +269,8 @@ function FirstPersonCamera() {
       if (!active.moved && Math.hypot(dx, dy) < 3) return
       if (!active.moved) { active.moved = true; element.setPointerCapture?.(event.pointerId) }
       // Screen drag maps directly to view direction: drag left to turn right, and vice versa.
-      yaw.current -= dx * .005
-      pitch.current = MathUtils.clamp(pitch.current - dy * .004, -Math.PI * .44, Math.PI * .44)
+      yaw.current -= dx * .0065
+      pitch.current = MathUtils.clamp(pitch.current - dy * .0052, -Math.PI * .44, Math.PI * .44)
       if (visiting) visitorFacing.current = yaw.current
     }
     const onUp = (event: PointerEvent) => {
