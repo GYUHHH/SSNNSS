@@ -599,7 +599,7 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 .yt-playing button { border: 0; padding: 7px 14px; color: #403f3d; background: none; cursor: pointer; font-size: 13px; }
 .yt-playing .stop-playing { padding: 7px 8px; border: 0; color: #a08d7c; font-size: 13px; line-height: 1; }
 @media (max-width: 719px) { .yt-playing { left: 14px; bottom: 62px; } .yt-playing button { min-height: 40px; } }
-.wall-video-portal { z-index: 1 !important; pointer-events: none !important; }
+.wall-video-portal { display: block !important; z-index: 1 !important; pointer-events: none !important; }
 .wall-video { position: absolute; transform-origin: 0 0; background: #000; overflow: hidden; }
 .wall-video iframe { display: block; position: absolute; left: 0; top: 0; border: 0; pointer-events: auto; }
 /* Clicking the frame opens the panel, so the iframe is normally shielded. The bottom-right corner is left

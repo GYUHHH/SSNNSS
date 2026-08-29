@@ -142,6 +142,7 @@ function WallVideo({ frameId }: { frameId: string }) {
   const element = useRef<HTMLDivElement>(null)
   const fitSynced = useRef(false)
   const corners = useRef([new Vector3(), new Vector3(), new Vector3(), new Vector3()])
+  const cameraPoint = useRef(new Vector3())
   const previousTransform = useRef('')
   useFrame(({ camera, gl }) => {
     // RenderGovernor intentionally skips WebGL frames while idle. Moving this DOM iframe on a skipped frame
@@ -151,6 +152,8 @@ function WallVideo({ frameId }: { frameId: string }) {
     if (!screen.current || !element.current) { fitSynced.current = false; return }
     if (!fitSynced.current) { element.current.style.visibility = 'hidden'; return }
     screen.current.updateWorldMatrix(true, false)
+    cameraPoint.current.setFromMatrixPosition(screen.current.matrixWorld).applyMatrix4(camera.matrixWorldInverse)
+    if (cameraPoint.current.z >= -camera.near) { element.current.style.visibility = 'hidden'; return }
     const [topLeft, topRight, bottomRight, bottomLeft] = corners.current
     topLeft.set(-screenWidth / 2, screenHeight / 2, 0).applyMatrix4(screen.current.matrixWorld).project(camera)
     topRight.set(screenWidth / 2, screenHeight / 2, 0).applyMatrix4(screen.current.matrixWorld).project(camera)
