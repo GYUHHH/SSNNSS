@@ -260,8 +260,8 @@ function FirstPersonCamera() {
       active.x = event.clientX; active.y = event.clientY
       if (!active.moved && Math.hypot(dx, dy) < 3) return
       if (!active.moved) { active.moved = true; element.setPointerCapture?.(event.pointerId) }
-      // Keep yaw continuous while dragging. Wrapping at ±π made one long swipe jump sign mid-gesture.
-      yaw.current += dx * .005
+      // Screen drag maps directly to view direction: drag left to turn right, and vice versa.
+      yaw.current -= dx * .005
       pitch.current = MathUtils.clamp(pitch.current - dy * .004, -Math.PI * .44, Math.PI * .44)
       if (visiting) visitorFacing.current = yaw.current
     }
