@@ -118,6 +118,7 @@ const EN: Record<string, string> = {
   "공개 설정": "Visibility",
   "캐릭터 동작": "Character action",
   "없음": "None",
+  "자동": "Auto",
   "앉기": "Sit",
   "눕기": "Lie down",
   "공유": "Share",

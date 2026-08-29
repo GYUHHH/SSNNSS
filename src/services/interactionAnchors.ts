@@ -76,7 +76,7 @@ export function interactionAnchorsFor(item: FurnitureItem, typeOverride?: Intera
   // 생성 가구: 사용자가 고른 동작 + 실측 면에서 자리를 계산한다. 검출된 면 중 가장 낮은 것이 앉는 자리다
   // (등받이 위나 팔걸이는 더 높게 잡히고, 바닥에 붙은 밑판은 검출 단계에서 이미 빠졌다).
   const custom = item.customSpec
-  if (custom?.pose && custom.modelSize && custom.topSurfaces?.length) {
+  if (custom?.modelSize && custom.topSurfaces?.length) {
     const scale = clampModelScale(custom.modelScale)
     const fitX = item.footprint.width * GRID_SIZE / custom.modelSize[0]
     const fitZ = item.footprint.depth * GRID_SIZE / custom.modelSize[2]
@@ -84,7 +84,14 @@ export function interactionAnchorsFor(item: FurnitureItem, typeOverride?: Intera
     const lift = seat.height * Math.min(fitX, fitZ) * scale[1]
     const forward = seat.center[1] * fitZ * scale[2]
     const reach = item.footprint.depth * GRID_SIZE / 2 + .45
-    return custom.pose === 'lie'
+    // 고른 동작이 없으면 생김새로 판단한다 — 무릎~엉덩이 높이에 엉덩이가 얹힐 넓이의 면이 있으면 의자로 본다.
+    // 책상·선반은 이 높이 창을 벗어나고, 받침대는 넓이에서 걸린다
+    const width = seat.size[0] * fitX * scale[0]
+    const depth = seat.size[1] * fitZ * scale[2]
+    const looksLikeSeat = lift >= .25 && lift <= .65 && width >= .45 && depth >= .35
+    const pose = custom.pose ?? (looksLikeSeat ? 'sit' : undefined)
+    if (!pose) return { type: typeOverride ?? 'interact', approach: defaultApproach(item), action: defaultApproach(item) }
+    return pose === 'lie'
       ? { type: 'lie', approach: { position: [item.footprint.width * GRID_SIZE / 2 + .5, 0, 0], rotation: -Math.PI / 2 }, action: { position: [0, lift + .13, forward], rotation: 0 } }
       : { type: 'sit', approach: { position: [0, 0, reach], rotation: 0 }, action: { position: [0, lift, forward], rotation: 0 } }
   }

@@ -23,26 +23,15 @@ import { thumbnailFor } from './services/thumbnails'
 import { lang, t } from './services/i18n'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 786
+const BUILD = 788
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, customJob, customEditing, startCustomObjectEdit, applyCustomObjectEdit, cancelCustomObjectEdit } = useRoomStore()
   const [confirmingReset, setConfirmingReset] = useState(false)
   const [confirmingRoom, setConfirmingRoom] = useState<string | null>(null)
   const [inventoryOpen, setInventoryOpen] = useState(false)
-  // 보관함은 이제 꾸미기 모드와 따로 열리므로, 바깥을 누르면 닫힌다. 물건을 꺼내 배치하는 중에는 그대로 둔다
-  // — 그때는 방을 눌러 자리를 잡는 중이고 배치 버튼이 창 안에 있다
-  useEffect(() => {
-    if (!inventoryOpen) return
-    const onOutside = (event: PointerEvent) => {
-      if (preview) return
-      const target = event.target as HTMLElement | null
-      if (target?.closest('.inventory-panel, .art-panel, .overlay, .dock, .edit-toolbar, .custom-size-editor')) return
-      setInventoryOpen(false)
-    }
-    window.addEventListener('pointerdown', onOutside)
-    return () => window.removeEventListener('pointerdown', onOutside)
-  }, [inventoryOpen, preview])
+  // A dock-opened inventory replaces any object panel. It does not reset the character pose or enter edit mode.
+  const openInventory = () => { clearSelection(); setInventoryOpen(true) }
   const [dragPointer, setDragPointer] = useState<{ x: number; y: number; overStorage: boolean } | null>(null)
   const [dragThumbnail, setDragThumbnail] = useState<string | null>(null)
   const [mobile, setMobile] = useState(() => window.matchMedia('(max-width: 719px)').matches)
@@ -165,6 +154,9 @@ function Interface() {
     {mode === 'edit' && movingFurnitureId && <div className={`storage-drop-zone${dragPointer?.overStorage ? ' active' : ''}`} data-storage-dropzone>{t('보관함')}</div>}
     {movingFurnitureId && dragPointer?.overStorage && dragThumbnail && <img className="drag-thumbnail" src={dragThumbnail} alt="" style={{ left: dragPointer.x, top: dragPointer.y }} />}
     {mode === 'edit' && <><nav className="edit-toolbar" aria-label={t('꾸미기 도구')}>{selectedFurnitureId && <span className={selectedPlacementValid ? '' : 'invalid-placement'}>{(() => { const selected = furniture.find((item) => item.id === selectedFurnitureId); return selected ? `${t(selected.name)} · ${selected.footprint.width ? `${selected.footprint.width}×${selected.footprint.depth}` : t('벽')}${selectedPlacementValid ? '' : ` · ${t('놓을 수 없는 위치')}`}` : '' })()}</span>}<button type="button" disabled={!selectedFurnitureId && !preview} onClick={rotateFurniture}>{t('회전')}</button><button type="button" disabled={!selectedFurnitureId || !furniture.find((item) => item.id === selectedFurnitureId)?.customSpec} onClick={() => { const spec = furniture.find((item) => item.id === selectedFurnitureId)?.customSpec; if (spec) startCustomObjectEdit(spec.id) }}>{t('크기')}</button><button type="button" disabled={!selectedFurnitureId || !customizableTypes.has(furniture.find((item) => item.id === selectedFurnitureId)?.type ?? '')} onClick={() => selectedFurnitureId && openStyleTarget({ kind: 'furniture', id: selectedFurnitureId })}>{t('색상')}</button><button type="button" onClick={undoLayout}>{t('되돌리기')}</button><button type="button" onClick={() => setConfirmingReset(true)}>{t('초기화')}</button><button type="button" onClick={() => setInventoryOpen((open) => !open)}>{t('보관함')}</button><button type="button" onClick={() => { if (customEditing) { applyCustomObjectEdit(); setInventoryOpen(false); return } if (preview && previewValid) placePreview(); setInventoryOpen(false); toggleEditMode() }}>{t('완료')}</button></nav></>}
+    {/* Keep the dismiss gesture out of the room. Letting the same pointer event reach the canvas used to close
+        the inventory and also select/interact with whatever happened to be behind it. */}
+    {inventoryOpen && !preview && <div className="inventory-dismiss" onClick={() => setInventoryOpen(false)} />}
     {inventoryOpen && !mobile && <InventoryPanel />}
     <CustomSizeEditor />
     {confirmingRoom && <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setConfirmingRoom(null)}><section className="reset-confirm"><p>{t('이 방을 삭제할까요? 안에 놓인 가구는 보관함으로 돌아옵니다.')}</p><div><button type="button" onClick={() => setConfirmingRoom(null)}>{t('취소')}</button><button type="button" onClick={() => { removeRoom(confirmingRoom); setConfirmingRoom(null) }}>{t('삭제')}</button></div></section></div>}
@@ -172,10 +164,10 @@ function Interface() {
     <FollowInvite />
     {customJob && mode === 'normal' && (customJob.stage === 'done' || customJob.stage === 'error' ? customJob.unseen : true) && (
       customJob.stage === 'done' || customJob.stage === 'error'
-        ? <button type="button" className={`custom-job-widget${customJob.stage === 'error' ? ' failed' : ''}`} onClick={() => setInventoryOpen(true)}>{customJobLabel(customJob)}</button>
+        ? <button type="button" className={`custom-job-widget${customJob.stage === 'error' ? ' failed' : ''}`} onClick={openInventory}>{customJobLabel(customJob)}</button>
         : <div className="custom-job-widget"><span>{customJobLabel(customJob)}</span><span className="custom-job-bar"><i style={{ width: `${customJobProgress(customJob)}%` }} /></span></div>
     )}
-    <Dock onOpenInventory={() => setInventoryOpen(true)} onDeleteRoom={setConfirmingRoom} />
+    <Dock onOpenInventory={openInventory} onDeleteRoom={setConfirmingRoom} />
     <HandleSetup />
     <PanelHistory />
     <ReactionPopup />
