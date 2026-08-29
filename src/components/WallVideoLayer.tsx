@@ -16,6 +16,21 @@ import { didRenderRoomFrame } from '../services/renderSync'
 const VIDEO_MASK_VERTEX = 'void main(){gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}'
 const VIDEO_MASK_FRAGMENT = 'void main(){gl_FragColor=vec4(0.0);}'
 
+// CSS's 2D matrix can only draw a parallelogram. A first-person perspective camera projects the screen to a
+// general quadrilateral, so map all four corners there; the orthographic room view keeps its cheaper affine path.
+const perspectiveTransform = (width: number, height: number, [tl, tr, br, bl]: readonly (readonly [number, number])[]) => {
+  const dx1 = tr[0] - br[0], dx2 = bl[0] - br[0], dx3 = tl[0] - tr[0] + br[0] - bl[0]
+  const dy1 = tr[1] - br[1], dy2 = bl[1] - br[1], dy3 = tl[1] - tr[1] + br[1] - bl[1]
+  const denominator = dx1 * dy2 - dx2 * dy1
+  if (Math.abs(denominator) < 1e-6) return null
+  const g = (dx3 * dy2 - dx2 * dy3) / denominator
+  const h = (dx1 * dy3 - dx3 * dy1) / denominator
+  const a = tr[0] - tl[0] + g * tr[0], b = bl[0] - tl[0] + h * bl[0]
+  const d = tr[1] - tl[1] + g * tr[1], e = bl[1] - tl[1] + h * bl[1]
+  return `matrix3d(${a / width},${d / width},0,${g / width},${b / height},${e / height},0,${h / height},0,0,1,0,${tl[0]},${tl[1]},0,1)`
+}
+if (import.meta.env.DEV) console.assert(perspectiveTransform(2, 1, [[0, 0], [2, 0], [2, 1], [0, 1]]) === 'matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1)', 'perspective screen transform must preserve a flat rectangle')
+
 // The playing iframes live here, OUTSIDE the furniture tree: entering edit mode swaps every piece into a
 // different wrapper, which would unmount an iframe rendered inside it and reload the video. This layer stays
 // mounted through mode changes and simply copies each frame's live world matrix per frame, so playback survives
@@ -126,7 +141,7 @@ function WallVideo({ frameId }: { frameId: string }) {
   const screen = useRef<Group>(null)
   const element = useRef<HTMLDivElement>(null)
   const fitSynced = useRef(false)
-  const corners = useRef([new Vector3(), new Vector3(), new Vector3()])
+  const corners = useRef([new Vector3(), new Vector3(), new Vector3(), new Vector3()])
   const previousTransform = useRef('')
   useFrame(({ camera, gl }) => {
     // RenderGovernor intentionally skips WebGL frames while idle. Moving this DOM iframe on a skipped frame
@@ -136,18 +151,22 @@ function WallVideo({ frameId }: { frameId: string }) {
     if (!screen.current || !element.current) { fitSynced.current = false; return }
     if (!fitSynced.current) { element.current.style.visibility = 'hidden'; return }
     screen.current.updateWorldMatrix(true, false)
-    const [topLeft, topRight, bottomLeft] = corners.current
+    const [topLeft, topRight, bottomRight, bottomLeft] = corners.current
     topLeft.set(-screenWidth / 2, screenHeight / 2, 0).applyMatrix4(screen.current.matrixWorld).project(camera)
     topRight.set(screenWidth / 2, screenHeight / 2, 0).applyMatrix4(screen.current.matrixWorld).project(camera)
+    bottomRight.set(screenWidth / 2, -screenHeight / 2, 0).applyMatrix4(screen.current.matrixWorld).project(camera)
     bottomLeft.set(-screenWidth / 2, -screenHeight / 2, 0).applyMatrix4(screen.current.matrixWorld).project(camera)
     // Use the canvas's live size from the first frame. R3F's cached size can briefly describe the pre-layout
     // viewport on initial entry; a later room change caused a resize and only then made the video follow correctly.
     const rect = gl.domElement.getBoundingClientRect()
     const point = (value: Vector3) => [(value.x + 1) * rect.width / 2, (1 - value.y) * rect.height / 2] as const
-    const [tl, tr, bl] = [point(topLeft), point(topRight), point(bottomLeft)]
-    const transform = `matrix(${(tr[0] - tl[0]) / 640},${(tr[1] - tl[1]) / 640},${(bl[0] - tl[0]) / divHeight},${(bl[1] - tl[1]) / divHeight},${tl[0]},${tl[1]})`
+    const [tl, tr, br, bl] = [point(topLeft), point(topRight), point(bottomRight), point(bottomLeft)]
+    const transform = camera.type === 'PerspectiveCamera'
+      ? perspectiveTransform(640, divHeight, [tl, tr, br, bl])
+      : `matrix(${(tr[0] - tl[0]) / 640},${(tr[1] - tl[1]) / 640},${(bl[0] - tl[0]) / divHeight},${(bl[1] - tl[1]) / divHeight},${tl[0]},${tl[1]})`
+    if (!transform) { element.current.style.visibility = 'hidden'; return }
     if (transform !== previousTransform.current) { previousTransform.current = transform; element.current.style.transform = transform }
-    element.current.style.visibility = !displayReady || topLeft.z < -1 || topLeft.z > 1 ? 'hidden' : 'visible'
+    element.current.style.visibility = !displayReady || corners.current.some((corner) => corner.z < -1 || corner.z > 1) ? 'hidden' : 'visible'
   }, 2) // after RenderGovernor: the DOM video and its WebGL frame reach the browser in the same painted frame
   // A DOM iframe has no 3D depth: without routing its shield back through R3F, it steals clicks from chairs and
   // props visibly standing in front of the screen. Forward the ordinary pointer sequence to the room event host;
