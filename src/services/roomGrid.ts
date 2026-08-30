@@ -293,6 +293,7 @@ export const nearestWallId = (point: [number, number, number]): WallId => Math.a
 // ponytail: 8-directional A* over a 10x10 grid (100 cells) — a heap-based open set isn't worth it at this size
 const DIAGONAL = Math.SQRT2
 const STEPS = [{ dx: 1, dy: 0, cost: 1 }, { dx: -1, dy: 0, cost: 1 }, { dx: 0, dy: 1, cost: 1 }, { dx: 0, dy: -1, cost: 1 }, { dx: 1, dy: 1, cost: DIAGONAL }, { dx: 1, dy: -1, cost: DIAGONAL }, { dx: -1, dy: 1, cost: DIAGONAL }, { dx: -1, dy: -1, cost: DIAGONAL }]
+const gridKey = (cell: GridPosition) => `${cell.gridX}:${cell.gridY}`
 
 export const findPath = (occupied: Set<string>, start: GridPosition, goal: GridPosition): GridPosition[] => {
   const key = (p: GridPosition) => `${p.gridX}:${p.gridY}`
@@ -331,18 +332,36 @@ export const floorWalkRoute = (occupied: Set<string>, start: [number, number, nu
   const unit = { width: 1, depth: 1 }
   const startCell = worldToGrid(floorSurface, start, unit)
   const goal = worldToGrid(floorSurface, target, unit)
-  const path = startCell.gridX === goal.gridX && startCell.gridY === goal.gridY ? [] : findPath(occupied, startCell, goal)
-  if (!path.length && (startCell.gridX !== goal.gridX || startCell.gridY !== goal.gridY)) return null
+  // A seated/lying character starts inside the furniture's occupied cells. Pick the nearest reachable free cell
+  // as the get-off point, then use the exact same route for floor clicks and the next furniture interaction.
+  const starts = occupied.has(gridKey(startCell))
+    ? Array.from({ length: GRID_COUNT * GRID_COUNT }, (_, index) => ({ gridX: index % GRID_COUNT, gridY: Math.floor(index / GRID_COUNT) }))
+      .filter((cell) => !occupied.has(gridKey(cell)))
+      .sort((a, b) => Math.hypot(a.gridX - startCell.gridX, a.gridY - startCell.gridY) - Math.hypot(b.gridX - startCell.gridX, b.gridY - startCell.gridY)
+        || Math.hypot(a.gridX - goal.gridX, a.gridY - goal.gridY) - Math.hypot(b.gridX - goal.gridX, b.gridY - goal.gridY))
+    : [startCell]
+  let routeStart: GridPosition | null = null
+  let path: GridPosition[] = []
+  for (const candidate of starts) {
+    const same = gridKey(candidate) === gridKey(goal)
+    const found = same ? [] : findPath(occupied, candidate, goal)
+    if (same || found.length) { routeStart = candidate; path = found; break }
+  }
+  if (!routeStart) return null
   const cells = path.filter((cell, index) => {
     if (!index || index === path.length - 1) return true
     const before = path[index - 1]; const after = path[index + 1]
     return Math.sign(cell.gridX - before.gridX) !== Math.sign(after.gridX - cell.gridX) || Math.sign(cell.gridY - before.gridY) !== Math.sign(after.gridY - cell.gridY)
   })
-  const route = cells.map((cell, index) => index === cells.length - 1 ? target : gridToWorld(floorSurface, cell, unit))
+  const exit = gridKey(routeStart) === gridKey(startCell) ? [] : [gridToWorld(floorSurface, routeStart, unit)]
+  const route = [...exit, ...cells.map((cell, index) => index === cells.length - 1 ? target : gridToWorld(floorSurface, cell, unit))]
   return route.length ? route : [target]
 }
 
 if (import.meta.env.DEV) {
   const route = floorWalkRoute(new Set(['5:5']), gridToWorld(floorSurface, { gridX: 0, gridY: 0 }, { width: 1, depth: 1 }), gridToWorld(floorSurface, { gridX: 2, gridY: 2 }, { width: 1, depth: 1 }))
   console.assert(!!route?.length && route.at(-1)?.[0] === gridToWorld(floorSurface, { gridX: 2, gridY: 2 }, { width: 1, depth: 1 })[0], 'floor walk route must finish at the clicked cell')
+  const occupiedStart = new Set(['4:4', '4:5', '5:4', '5:5'])
+  const escape = floorWalkRoute(occupiedStart, gridToWorld(floorSurface, { gridX: 5, gridY: 5 }, { width: 1, depth: 1 }), gridToWorld(floorSurface, { gridX: 8, gridY: 8 }, { width: 1, depth: 1 }))
+  console.assert(!!escape?.length && !occupiedStart.has(gridKey(worldToGrid(floorSurface, escape[0], { width: 1, depth: 1 }))), 'posed character must leave occupied furniture before walking')
 }
