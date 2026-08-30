@@ -665,7 +665,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     setFloorTarget([x, 0, z]); setCharacterState('walking')
   }
   // called by Character when the floor walk finishes (or turns out to be unreachable)
-  const settleFloorMove = (reached: boolean, transform?: CharacterTransform) => { if (isVisiting()) { if (!reached) showMoveNotice(); return }; setFloorTarget(null); finishCharacterAction('idle', transform); if (!reached) showMoveNotice() }
+  const settleFloorMove = (reached: boolean, transform?: CharacterTransform) => { if (isVisiting()) { if (!reached) showMoveNotice(); return }; setFloorTarget(null); if (!reached) setSelectedObject(null); finishCharacterAction('idle', transform); if (!reached) showMoveNotice() }
   const selectFurniture = (id: FurnitureId) => setSelectedFurnitureId(id)
   const enterEditFurniture = (id: FurnitureId) => { if (isVisiting()) return; const target = furniture.find((item) => item.id === id); setSelectedObject(null); setCupHeld(false); setBookshelfOpen(false); setOpenBookId(null); setPreview(null); setPreviewDragging(false); setSelectedFurnitureId(id); setDragOrigin(target?.movable ? furniture : null); setMovingFurnitureId(target?.movable ? id : null); setMode('edit') }
   const beginMove = (id: FurnitureId) => { pendingMove.current = null; setSelectedFurnitureId(id); setDragOrigin(furniture); setMovingFurnitureId(id) }

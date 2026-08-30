@@ -128,9 +128,8 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
         routeKey.current = nextRouteKey
         const path = routeToInteraction([actor.current.position.x, 0, actor.current.position.z], interaction, furniture)
         const nextRoute = path?.map((point) => new Vector3(...point)) ?? null
-        // no reachable approach cell: don't dead-end with an empty route (routeKey would block any retry) —
-        // fall through to 'aligning', whose glide always completes and lands the interaction anyway
-        if (!nextRoute) { route.current = []; routeKey.current = null; finishCharacterAction('aligning', currentTransform(actor.current)); return }
+        // Never skip the walk and pose at an unreachable object. End the request exactly like a blocked floor click.
+        if (!nextRoute) { route.current = []; routeKey.current = null; settleFloorMove(false, currentTransform(actor.current)); return }
         route.current = nextRoute
         routeIndex.current = 0
       }
