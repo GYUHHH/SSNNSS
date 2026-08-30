@@ -67,7 +67,7 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressed = useRef(false)
   const hoverEnabled = useRef(pointerCanHover()).current
-  const { readOnly, selectObject, enterEditFurniture, furniture, openObject, setCommentTarget, selectFurniture, beginMove } = useRoomStore()
+  const { readOnly, selectObject, enterEditFurniture, furniture, openObject, selectFurniture, beginMove } = useRoomStore()
   const item = furniture.find((value) => value.id === id)
   const directPanel = DIRECT_PANEL_TYPES.has(item?.type ?? '')
   const hoverGroup = item && isOwnedSurfaceId(item.surfaceId) ? ownerIdOf(item.surfaceId) : id
@@ -130,7 +130,7 @@ export default function Interactive({ id, position, rotation = [0, 0, 0], scale:
     onPointerMove={editing ? undefined : (event) => { if (!press.current) return; if (Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 9 && timer.current) cancelPress() }}
     onPointerUp={editing ? undefined : (event) => { const target = event.target as unknown as { hasPointerCapture: (pointerId: number) => boolean; releasePointerCapture: (pointerId: number) => void }; cancelPress(); if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId) }}
     onPointerCancel={editing ? undefined : cancelPress}
-    onClick={(event) => { if (readOnly || padOverruled(event)) return; event.stopPropagation(); if (editing) return; if (longPressed.current) { longPressed.current = false; return }; const visiting = isVisiting(); if (!directPanel && visiting && openObject(id)) return; if (!directPanel && !isPosedItem(item)) { if (visiting) openReactionPicker({ id, x: event.clientX, y: event.clientY }); else setCommentTarget(id); return }; selectObject(id) }}>
+    onClick={(event) => { if (readOnly || padOverruled(event)) return; event.stopPropagation(); if (editing) return; if (longPressed.current) { longPressed.current = false; return }; const visiting = isVisiting(); if (!directPanel && visiting && openObject(id)) return; if (!directPanel && visiting && !isPosedItem(item)) { openReactionPicker({ id, x: event.clientX, y: event.clientY }); return }; selectObject(id) }}>
     <group ref={content}>{children}</group>
     {/* the forgiving hit area. Never drawn, but three's raycaster tests layers rather than `visible`, so it is
         still a target — which is the whole point. Sized from the contents by fitPad above. */}
