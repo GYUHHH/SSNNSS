@@ -7,7 +7,7 @@ import { t } from '../services/i18n'
 // root where the room context does not exist
 export type MusicPanelProps = { musicTrack: string | null; setMusicTrack: (id: string | null) => void; musicVolume: number; setMusicVolume: (value: number) => void }
 
-const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`
+const clock = (seconds: number) => Number.isFinite(seconds) && seconds > 0 ? `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}` : '0:00'
 
 // Compact mini player: now-playing header, prev/play/next, seekable progress, mute + volume, and a playlist
 // drawer whose rows switch tracks on click and reorder by dragging the handle (pointer events, so touch too).
@@ -33,7 +33,10 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
   const state = musicState()
   const shown = tracks.find((track) => track.id === (musicTrack ?? state.id)) ?? tracks[0]
   const shownIndex = shown ? tracks.findIndex((track) => track.id === shown.id) : 0
-  const playing = !!musicTrack && !state.paused
+  const active = state.id === shown?.id
+  const duration = shown?.duration ?? (active ? state.duration : 0)
+  const time = active ? Math.min(state.time, duration || state.time) : 0
+  const playing = !!musicTrack && active && !state.paused
   const toggle = () => {
     if (!shown) return
     if (!musicTrack) { setMusicTrack(shown.id); return }
@@ -70,9 +73,9 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
       <small>{shown?.artist ?? ''}</small>
     </div>
     <div className="mini-progress">
-      <small>{clock(state.time)}</small>
-      <input type="range" min={0} max={state.duration || 1} step={0.1} value={Math.min(state.time, state.duration || 1)} aria-label={t('재생 위치')} onInput={(event) => seekMusic(Number(event.currentTarget.value))} />
-      <small>{clock(state.duration)}</small>
+      <small>{clock(time)}</small>
+      <input type="range" min={0} max={duration || 1} step={0.1} value={Math.min(time, duration || 1)} aria-label={t('재생 위치')} onInput={(event) => seekMusic(Number(event.currentTarget.value))} />
+      <small>{clock(duration)}</small>
     </div>
     <div className="mini-controls">
       <button type="button" aria-label={t('이전 곡')} onClick={() => step(-1)}>

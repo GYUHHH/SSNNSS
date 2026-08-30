@@ -5,11 +5,11 @@ import { publicBase } from './publicBase'
 import { deleteVideo, getVideo, putVideo } from './mediaStore'
 import { deleteMedia, isVisiting, readStored, uploadMedia, writeStored } from './social'
 
-export type MusicTrack = { id: string; title: string; artist: string; url?: string }
+export type MusicTrack = { id: string; title: string; artist: string; url?: string; duration?: number }
 
 const REGISTRY_KEY = 'my-room-music-v1'
 const BUILTIN: Record<string, string> = { lany: `${publicBase}music/a-star-we-never-named.mp3` }
-const SEED: MusicTrack[] = [{ id: 'lany', title: 'A Star We Never Named', artist: '' }]
+const SEED: MusicTrack[] = [{ id: 'lany', title: 'A Star We Never Named', artist: '', duration: 159 }]
 
 export const loadTracks = (): MusicTrack[] => {
   try { const saved = JSON.parse(readStored(REGISTRY_KEY) ?? 'null'); if (Array.isArray(saved)) return saved } catch { /* storage may be unavailable */ }
@@ -21,13 +21,20 @@ export const saveTracks = (tracks: MusicTrack[]) => {
 }
 
 // "Artist - Title.mp3" file names split into both fields; anything else is all title
+const fileDuration = (file: Blob) => new Promise<number | undefined>((resolve) => {
+  const url = URL.createObjectURL(file); const probe = new Audio(); probe.preload = 'metadata'
+  const done = (value?: number) => { URL.revokeObjectURL(url); probe.removeAttribute('src'); resolve(value) }
+  probe.onloadedmetadata = () => done(Number.isFinite(probe.duration) && probe.duration > 0 ? probe.duration : undefined)
+  probe.onerror = () => done(); probe.src = url
+})
 export async function addTrackFile(file: File): Promise<string> {
   if (isVisiting()) return ''
   const id = `m${Date.now()}${Math.floor(Math.random() * 1000)}`
   await putVideo(`music-${id}`, file)
   const base = file.name.replace(/\.[^.]+$/, '')
   const split = base.split(' - ')
-  const track: MusicTrack = split.length > 1 ? { id, title: split.slice(1).join(' - ').trim(), artist: split[0].trim() } : { id, title: base, artist: '' }
+  const duration = await fileDuration(file)
+  const track: MusicTrack = split.length > 1 ? { id, title: split.slice(1).join(' - ').trim(), artist: split[0].trim(), duration } : { id, title: base, artist: '', duration }
   saveTracks([...loadTracks(), track])
   // the storage copy lets visitors stream the song; the local copy stays the owner's fast path
   void uploadMedia(`music/${id}`, file).then((url) => {
@@ -90,6 +97,12 @@ const ensureAudio = () => {
   const bubble = () => notify()
   audio.addEventListener('timeupdate', bubble)
   audio.addEventListener('durationchange', bubble)
+  audio.addEventListener('loadedmetadata', () => {
+    const duration = audio?.duration
+    if (!currentId || !duration || !Number.isFinite(duration) || isVisiting()) return
+    const tracks = loadTracks(); const track = tracks.find((entry) => entry.id === currentId)
+    if (track && !track.duration) saveTracks(tracks.map((entry) => entry.id === currentId ? { ...entry, duration } : entry))
+  })
   audio.addEventListener('play', bubble)
   audio.addEventListener('pause', bubble)
   audio.addEventListener('ended', () => {
