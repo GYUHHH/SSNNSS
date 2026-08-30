@@ -744,11 +744,12 @@ function RoomContainer({ slot, distance, centred, shown, fresh, open, swapping, 
     // Materials keep arriving after the layout effect ran — a suspended font resolves, and a photo or thumbnail
     // texture finishing its load SWAPS IN a whole new material. A newcomer the loop below doesn't know about is
     // drawn at its natural full opacity, which against a half-faded room reads as the photo popping in — and on
-    // the way out, popping off. During the fade the collection is refreshed at 30Hz: at most one display frame can
-    // see a late material, while high-refresh displays no longer traverse every room 120 times a second.
+    // the way out, popping off. Existing materials still receive their opacity every frame; only the expensive
+    // whole-room discovery sweep is limited. 12Hz catches late photos quickly without traversing every neighbour
+    // hundreds of times while the cluster is gathering.
     const now = performance.now()
     if (opacity.current > .01 && opacity.current < .995 && now >= nextFadeCollect.current) {
-      nextFadeCollect.current = now + 1000 / 30
+      nextFadeCollect.current = now + 1000 / 12
       collect()
     }
     // At full view the sweep drops to a slow cadence, purely so materials swapped in later (a photo texture
@@ -845,6 +846,7 @@ function RoomWorld() {
   // includes a one-room margin so data and shaders are ready before a room crosses the edge of the screen.
   const [shownRooms, setShownRooms] = useState<string[]>([])
   const [mountedRooms, setMountedRooms] = useState<string[]>([])
+  const [renderedRooms, setRenderedRooms] = useState<string[]>([])
   // bundles pushed by the realtime stream, keyed by handle — each RoomContainer picks up its own
   const [freshBundles, setFreshBundles] = useState<Record<string, Record<string, string>>>({})
   useEffect(() => subscribeRoomBundles(mountedRooms.filter(isEnterable), (handle, data) => setFreshBundles((prev) => ({ ...prev, [handle]: data }))), [mountedRooms])
@@ -966,7 +968,22 @@ function RoomWorld() {
     setMountedRooms((current) => sameHandles(current, nextMounted) ? current : nextMounted)
   })
   const shownRoomSet = useMemo(() => new Set(shownRooms), [shownRooms])
-  const mountedRoomSet = useMemo(() => new Set(mountedRooms), [mountedRooms])
+  // Visibility can discover an entire row in one sweep. Mounting those full React/R3F trees in one commit is the
+  // explorer's first-appearance hitch, so retain the same preload set and realtime subscription but admit only
+  // one heavy RoomContainer per short beat. Each room still starts at opacity 0 and uses the existing fade.
+  useEffect(() => {
+    const wanted = new Set(mountedRooms)
+    setRenderedRooms((current) => current.filter((handle) => wanted.has(handle)))
+    const timer = window.setInterval(() => {
+      setRenderedRooms((current) => {
+        const kept = current.filter((handle) => wanted.has(handle))
+        const next = mountedRooms.find((handle) => !kept.includes(handle))
+        return next ? [...kept, next] : sameHandles(current, kept) ? current : kept
+      })
+    }, 110)
+    return () => window.clearInterval(timer)
+  }, [mountedRooms])
+  const renderedRoomSet = useMemo(() => new Set(renderedRooms), [renderedRooms])
   const activeGroup = useRef<Group>(null)
   const activeGlow = useRef(0)
   const activeHoverLayer = useRef<number | null>(null)
@@ -1102,7 +1119,7 @@ function RoomWorld() {
   // the picked room, or the one already being viewed when nothing is picked — what the camera should be aiming at
   const aim = useMemo(() => (slots.find((slot) => slot.handle === centredHandle) ?? active)?.position ?? null, [slots, active, centredHandle])
   return <>
-    {!firstPerson && slots.filter((slot) => mountedRoomSet.has(slot.handle)).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} shown={shownRoomSet.has(slot.handle)} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} swapping={swapping} blocked={bookPanelOpen} closePanel={clearSelection} />)}
+    {!firstPerson && slots.filter((slot) => renderedRoomSet.has(slot.handle)).map((slot) => <RoomContainer key={slot.handle} slot={slot} distance={ringDistance(slot, active)} centred={slot.handle === centredHandle} shown={shownRoomSet.has(slot.handle)} fresh={freshBundles[slot.handle]} open={() => beginEntry(slot)} swapping={swapping} blocked={bookPanelOpen} closePanel={clearSelection} />)}
     <group ref={activeGroup} position={active.position}>
       <Inert off={exploring}><RoomRoot /></Inert>
       <ExplorerRoomHitbox off={exploring} open={() => beginEntry(active)} blocked={bookPanelOpen} closePanel={clearSelection} />
