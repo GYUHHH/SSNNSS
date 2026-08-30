@@ -686,16 +686,17 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 .inventory-button, .profile-signout, .book-row, .book-shelf-pick { border-radius: 8px; }
 
 /* Phones keep the room still and layer the sheet over it. */
+.sheet-handle { display: none; }
 @media (max-width: 719px) {
   input:not([type="range"]), textarea, select { font-size: 16px; }
   .art-panel { top: auto; right: 0; left: 0; width: auto; max-height: 78dvh; padding: 8px 16px calc(20px + env(safe-area-inset-bottom)); border: 0; border-radius: 8px 8px 0 0; transform: translateY(100%); transition: transform .42s cubic-bezier(.22, 1.2, .36, 1); overscroll-behavior: contain; }
   .art-panel:has(.diary) { max-height: 86dvh; }
   .art-panel.open { transform: translateY(0); }
   .art-panel.expanded, .art-panel.expanded:has(.diary) { height: 100dvh; max-height: 100dvh; border-radius: 0; }
-  .sheet-handle { display: block; width: 38px; height: 4px; margin: 2px auto 10px; border-radius: 999px; background: var(--ui-line); }
+  .sheet-handle { position: relative; display: block; width: 64px; height: 36px; margin: -4px auto -10px; background: transparent; touch-action: none; cursor: ns-resize; }
+  .sheet-handle::after { content: ""; position: absolute; top: 14px; left: 13px; width: 38px; height: 4px; border-radius: 999px; background: var(--ui-line); }
   .art-open .room-ui, .art-open .room-controls { right: 14px; }
 }
-.sheet-handle { display: none; }
 
 /* the sound button sits at the bottom centre, exactly where a sheet or popup comes up — it steps aside */
 .app.art-open .dock, .app:has(.overlay) .dock, .app:has(.profile-overlay) .dock { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(12px); transition: opacity .18s ease, transform .18s ease; }

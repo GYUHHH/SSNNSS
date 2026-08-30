@@ -23,7 +23,7 @@ import { thumbnailFor } from './services/thumbnails'
 import { lang, t } from './services/i18n'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 820
+const BUILD = 821
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, customJob, customEditing, startCustomObjectEdit, applyCustomObjectEdit, cancelCustomObjectEdit } = useRoomStore()
@@ -86,10 +86,11 @@ function Interface() {
   const isSheet = () => window.matchMedia('(max-width: 719px)').matches
   useEffect(() => { if (!panelOpen) setSheetExpanded(false) }, [panelOpen])
   const sheetDown = (event: React.PointerEvent) => {
-    if (!panelOpen || !isSheet() || (event.target as HTMLElement).closest('input, textarea, select')) return
+    // Sheet movement belongs to its handle. Content owns every gesture that starts below it, so lists and long
+    // forms scroll without accidentally expanding, collapsing, or closing the sheet at their scroll boundary.
+    if (!panelOpen || !isSheet() || !(event.target as HTMLElement).closest('.sheet-handle')) return
     const panel = sheet.current
-    // let an inner scroll keep the gesture unless it is already at the very top
-    if (!panel || panel.scrollTop > 0) return
+    if (!panel) return
     drag.current = { y: event.clientY, at: performance.now(), travel: 0, height: panel.getBoundingClientRect().height, expanded: sheetExpanded, captured: false, pointerId: event.pointerId }
   }
   const sheetMove = (event: React.PointerEvent) => {
