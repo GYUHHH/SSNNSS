@@ -86,17 +86,22 @@ export default function Dock({ onOpenInventory, onDeleteRoom }: { onOpenInventor
     if (here) rememberModeRoom(explore, here)
     setExplore(next)
     setExplorerMode(next)
+    const reveal = () => requestExplorerZoom(true)
+    const ready = document.body.classList.contains('exploring') ? Promise.resolve() : new Promise<void>((resolve) => {
+      let timer = 0
+      const finish = () => { window.clearTimeout(timer); window.removeEventListener('explorer-ring-ready', finish); resolve() }
+      window.addEventListener('explorer-ring-ready', finish, { once: true })
+      timer = window.setTimeout(finish, 4000)
+    })
     const target = next === 'home' ? myHandle() : modeRoom(next)
     if (!target || target === here) {
       if (here) rememberModeRoom(next, here)
-      requestExplorerZoom(true)
+      void ready.then(reveal)
       return
     }
     switching.current = true
-    requestExplorerZoom(true)
-    void snapshotActiveFrames()
-      .then(() => enterRoom(target))
-      .then(() => requestExplorerZoom(true))
+    void Promise.all([snapshotActiveFrames().then(() => enterRoom(target)), ready])
+      .then(() => reveal())
       .finally(() => { switching.current = false })
   }
   // follow state for the room being visited (null until known)

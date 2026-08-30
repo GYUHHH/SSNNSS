@@ -1,7 +1,7 @@
 import { OrthographicCamera, PerspectiveCamera } from '@react-three/drei'
 import { Canvas, events, useFrame, useThree } from '@react-three/fiber'
 import { type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { type AmbientLight, Color, type DirectionalLight, type Group, type Material, MathUtils, type Mesh, Vector3 } from 'three'
+import { type AmbientLight, Color, type DirectionalLight, type Group, type Material, MathUtils, type Mesh, type Texture, Vector3, WebGLRenderTarget } from 'three'
 import { baseFloorCells, isFloorCovering, NeighbourRoomProvider, useRoomStore } from '../store'
 import { currentRoomHandle, enterLobby, enterRoom, fetchRoomBundle, fetchRoomDirectory, isSignedIn, isVisiting, myHandle, subscribeRoomBundles, updateVisitorPresence } from '../services/social'
 import { snapshotActiveFrames } from '../services/ytResume'
@@ -51,11 +51,13 @@ let activeTimeLayerMask = 0
 // The idle governor must not deliberately throw away every other draw while the explorer camera or room opacity
 // is still moving. This is only a short hold renewed by real motion; once everything settles, idle saving resumes.
 
-// compileAsync is expensive when several newly-mounted rooms start it together. Keep the existing two warm-up
+// compileAsync is expensive when several newly-mounted rooms start it together. Keep the warm-up
 // passes, but let only one room compile at a time so explorer entry does not inherit a burst of concurrent work.
 let roomCompileQueue = Promise.resolve()
+let roomWarmTarget: WebGLRenderTarget | null = null
 const queueRoomCompile = (compile: () => Promise<unknown>) => {
   roomCompileQueue = roomCompileQueue.catch(() => {}).then(compile).then(() => {})
+  return roomCompileQueue
 }
 
 // Pointer coords are computed from the canvas's LIVE on-screen rect — the scene slides 240px left while a
@@ -145,8 +147,9 @@ function HoverLayerLight({ time }: { time: TimeOfDay }) {
   return <directionalLight ref={dir} position={[4, 6.5, 2]} intensity={preset.dir} color={preset.dirColor} />
 }
 
+const COARSE_POINTER = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
 // 전체보기에서 쓰는 픽셀 비율 상한 — 작은 화면에서 글자가 뭉개지지 않게 터치 기기만 조금 높인다.
-const EXPLORE_DPR = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches ? 1.25 : 1
+const EXPLORE_DPR = COARSE_POINTER ? 1.25 : 1
 
 // Idle power saver, second attempt — this one cannot touch animation speed. The loop still runs at the display's
 // full rate: every useFrame callback, every clock and delta is exactly as before (the previous attempt drove the
@@ -191,7 +194,11 @@ function RenderGovernor() {
     const entryLine = entryZoom(size.width, size.height)
     // 대기 중인 방 캡처가 있는 프레임은 원래 해상도로 — 썸네일이 절반 해상도로 찍히면 안 된다
     lowDpr.current = captureScale <= 1 && camera.zoom <= (lowDpr.current ? entryLine * 1.08 : entryLine)
-    const wantedDpr = lowDpr.current ? Math.min(baseDpr, EXPLORE_DPR) : baseDpr
+    // While rooms are physically gathering, favour temporal smoothness: the moving image hides the small DPR
+    // difference, while dropping mobile 1.25 -> 1 removes 36% of the multi-layer pixels. The settled explorer
+    // immediately returns to 1.25 so labels and room details retain the requested mobile clarity.
+    const movingExplorer = lowDpr.current && (cameraMoving || explorerAnimationsAreMoving())
+    const wantedDpr = lowDpr.current ? Math.min(baseDpr, movingExplorer ? 1 : EXPLORE_DPR) : baseDpr
     if (gl.getPixelRatio() !== wantedDpr) gl.setPixelRatio(wantedDpr)
     const originalDpr = gl.getPixelRatio()
     const captureDpr = Math.min(originalDpr * captureScale, 4096 / Math.max(size.width, size.height), gl.capabilities.maxTextureSize / Math.max(size.width, size.height))
@@ -614,6 +621,7 @@ function RoomContainer({ slot, distance, centred, shown, fresh, open, swapping, 
   const { gl, camera, scene } = useThree()
   const group = useRef<Group>(null)
   const opacity = useRef(0)
+  const revealDelay = useMemo(() => ([...slot.handle].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 6) * .045, [slot.handle])
   const materials = useRef<Faded[]>([])
   const materialsSettled = useRef(false)
   const glow = useRef(0)
@@ -622,7 +630,7 @@ function RoomContainer({ slot, distance, centred, shown, fresh, open, swapping, 
   // The lobby — the default room a signed-out visitor starts in — has no server bundle to wait for: an empty
   // bundle IS its look. Without this the cell went permanently blank the moment such a visitor entered a real
   // room, because the room they had just come from could never be drawn as a neighbour.
-  const [bundle, setBundle] = useState<Record<string, string> | null>(slot.handle === LOBBY ? {} : null)
+  const [bundle, setBundle] = useState<Record<string, string> | null>(fresh ?? (slot.handle === LOBBY ? {} : null))
   const savedTime = bundle?.['my-room-time-v1']
   const roomTime: TimeOfDay = savedTime === 'evening' || savedTime === 'night' ? savedTime : 'day'
   const layer = TIME_LAYER[roomTime]
@@ -670,11 +678,58 @@ function RoomContainer({ slot, distance, centred, shown, fresh, open, swapping, 
   // costs nothing.
   useEffect(() => {
     if (!bundle || !group.current) return
-    const warm = () => queueRoomCompile(() => group.current ? gl.compileAsync(group.current, camera, scene) : Promise.resolve())
-    const first = setTimeout(warm, 300)
-    const second = setTimeout(warm, 2000)
-    return () => { clearTimeout(first); clearTimeout(second) }
-  }, [bundle, camera, gl, scene])
+    const warm = () => queueRoomCompile(async () => {
+      if (!group.current) return
+      const room = group.current
+      const wasVisible = room.visible
+      const culled: Array<[Mesh, boolean]> = []
+      // compileAsync prepares programs but does not guarantee that photo/canvas textures have reached the GPU.
+      // Upload resolved textures while the neighbour is still off screen, otherwise the first visible frame pays
+      // that cost and freezes near the end of the mobile explorer zoom.
+      room.visible = true
+      room.traverse((object) => {
+        const mesh = object as Mesh
+        if (!mesh.isMesh) return
+        culled.push([mesh, mesh.frustumCulled])
+        mesh.frustumCulled = false
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+        materials.forEach((material) => Object.values(material).forEach((value) => {
+          const texture = value as Texture | undefined
+          if (texture?.isTexture && texture.image) gl.initTexture(texture)
+        }))
+      })
+      // Neighbour meshes live on their own day/evening/night layer. The live camera normally looks at layer 0
+      // while this prewarm runs, which silently skipped every neighbour and deferred compilation to first reveal.
+      // A clone avoids mutating the live render loop while compiling the exact layer this room will use.
+      const compileCamera = camera.clone()
+      compileCamera.layers.set(layer)
+      // compileAsync only prepares programs. The first real draw still uploaded buffers and initialized each
+      // time-layer pass while the explorer camera was moving. Draw this room once into a tiny off-screen target,
+      // from the same relative camera position it will have on screen, so that one-time GPU work finishes first.
+      compileCamera.position.x += slot.position[0]
+      compileCamera.position.z += slot.position[2]
+      compileCamera.updateMatrixWorld()
+      const previousTarget = gl.getRenderTarget()
+      const previousAutoClear = gl.autoClear
+      roomWarmTarget ??= new WebGLRenderTarget(16, 16, { depthBuffer: true })
+      try {
+        await gl.compileAsync(scene, compileCamera)
+        gl.setRenderTarget(roomWarmTarget)
+        gl.autoClear = true
+        gl.render(scene, compileCamera)
+      }
+      finally {
+        gl.setRenderTarget(previousTarget)
+        gl.autoClear = previousAutoClear
+        room.visible = wasVisible
+        culled.forEach(([mesh, value]) => { mesh.frustumCulled = value })
+      }
+    })
+    const first = setTimeout(warm, 200)
+    const second = setTimeout(warm, 900)
+    const third = setTimeout(warm, 1600)
+    return () => { clearTimeout(first); clearTimeout(second); clearTimeout(third) }
+  }, [bundle, camera, gl, layer, scene, slot.position])
   const collect = () => {
     materials.current = []
     materialsSettled.current = false
@@ -729,7 +784,9 @@ function RoomContainer({ slot, distance, centred, shown, fresh, open, swapping, 
     // in the ring still clears out on the way in.
     // swapping = the ring is being exchanged in plain sight (the explorer is open), so the whole neighbourhood
     // dims out first and the incoming one fades up in its place instead of the cells cutting to new rooms
-    const wanted = !shown || swapping || mode !== 'normal' ? 0 : centred ? 1 : MathUtils.clamp(1 - (camera.zoom - floor) / span, 0, 1)
+    const rawWanted = MathUtils.clamp(1 - (camera.zoom - floor) / span, 0, 1)
+    const staggeredWanted = MathUtils.clamp((rawWanted - revealDelay) / (1 - revealDelay), 0, 1)
+    const wanted = !shown || swapping || mode !== 'normal' ? 0 : centred ? 1 : staggeredWanted
     // The frame a room is first drawn tends to hitch — texture uploads land right then — and the long delta of
     // that one frame used to advance the damp nearly to 1, so the room POPPED instead of fading. Capping the step
     // means a hitch only moves the fade one small notch, and the glide plays out over the frames that follow.
@@ -903,13 +960,21 @@ function RoomWorld() {
     const source = ringMode === 'home'
       ? fetchFollowing(hubHandle).then(sortByActivity)
       : discoverPage.current ? Promise.resolve(discoverPage.current) : fetchRoomDirectory().then((all) => (discoverPage.current = shuffled(all)))
-    void source.then((found) => {
+    void source.then(async (found) => {
       if (!live) return
       const rest = found.filter((handle) => handle !== centre && handle !== hubHandle)
       // Discover keeps the room being browsed. Home never adds it: that ring is exactly mine + my follows.
       const viewed = ringMode === 'discover' ? currentRoomHandle() : null
       if (viewed && viewed !== centre && !rest.includes(viewed)) rest.unshift(viewed)
       const next = withVacancies([centre, ...rest])
+      // The first visible ring is only seven rooms. Fetch those small bundles before mounting their trees so a
+      // slow mobile connection cannot insert furniture halfway through the explorer camera animation.
+      const warmed = await Promise.all(next.filter(isEnterable).slice(0, 7).map(async (handle) => [handle, await fetchRoomBundle(handle)] as const))
+      if (!live) return
+      setFreshBundles((current) => {
+        const added = Object.fromEntries(warmed.filter((entry): entry is readonly [string, Record<string, string>] => !!entry[1]))
+        return { ...current, ...added }
+      })
       // Inside a room the ring is off screen, so the exchange is free — which is the usual case, since a new
       // ring is what entering a room asks for. Out in the explorer the swap would be seen, so it crossfades.
       if (wasZoomedIn.current) { setHandles(next); return }
@@ -957,10 +1022,15 @@ function RoomWorld() {
       }
       const roomSpan = Math.max(maxX - minX, maxY - minY)
       const visible = maxX >= -24 && minX <= size.width + 24 && maxY >= -24 && minY <= size.height + 24
-      const preload = maxX >= -roomSpan && minX <= size.width + roomSpan && maxY >= -roomSpan && minY <= size.height + roomSpan
-      if (visible) shownUntil.current.set(slot.handle, now + 400)
+      const firstRing = ringDistance(slot, active) <= 1
+      // The first ring is the one revealed by the explorer button. Keep it mounted while the detail view is still
+      // static so its React trees and textures never arrive during the camera glide.
+      const preload = firstRing || (maxX >= -roomSpan && minX <= size.width + roomSpan && maxY >= -roomSpan && minY <= size.height + roomSpan)
+      // Keep the first ring logically shown before it enters the viewport. Its opacity is still zero at detail
+      // zoom, but this avoids a six-room React state change on the very frame the camera begins revealing it.
+      if (visible || firstRing) shownUntil.current.set(slot.handle, now + 400)
       if (preload || visible) mountedUntil.current.set(slot.handle, now + 900)
-      if (visible || (shownUntil.current.get(slot.handle) ?? 0) > now) nextShown.push(slot.handle)
+      if (visible || firstRing || (shownUntil.current.get(slot.handle) ?? 0) > now) nextShown.push(slot.handle)
       if (preload || (mountedUntil.current.get(slot.handle) ?? 0) > now) nextMounted.push(slot.handle)
       if ((mountedUntil.current.get(slot.handle) ?? 0) <= now) { mountedUntil.current.delete(slot.handle); shownUntil.current.delete(slot.handle) }
     }
@@ -970,7 +1040,8 @@ function RoomWorld() {
   const shownRoomSet = useMemo(() => new Set(shownRooms), [shownRooms])
   // Visibility can discover an entire row in one sweep. Mounting those full React/R3F trees in one commit is the
   // explorer's first-appearance hitch, so retain the same preload set and realtime subscription but admit only
-  // one heavy RoomContainer per short beat. Each room still starts at opacity 0 and uses the existing fade.
+  // one heavy RoomContainer per short beat. This also runs while the detail view is still covering the ring; the
+  // explorer button waits for the first ring, so no React commit is left to interrupt the camera glide.
   useEffect(() => {
     const wanted = new Set(mountedRooms)
     setRenderedRooms((current) => current.filter((handle) => wanted.has(handle)))
@@ -984,6 +1055,21 @@ function RoomWorld() {
     return () => window.clearInterval(timer)
   }, [mountedRooms])
   const renderedRoomSet = useMemo(() => new Set(renderedRooms), [renderedRooms])
+  useEffect(() => {
+    if (document.body.classList.contains('exploring')) return
+    const near = slots.filter((slot) => slot !== active && isEnterable(slot.handle) && ringDistance(slot, active) <= 1)
+    if (!near.length || !near.every((slot) => renderedRoomSet.has(slot.handle) && !!freshBundles[slot.handle])) return
+    // Every RoomContainer schedules a late-material pass 900ms after mounting. Join that shared serial queue only
+    // after all first-ring jobs have had time to enter it, then reveal. This keeps shader and texture preparation
+    // out of the short mobile zoom animation instead of merely moving the hitch to its final frames.
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      void roomCompileQueue.then(() => {
+        if (!cancelled) window.dispatchEvent(new Event('explorer-ring-ready'))
+      })
+    }, 1900)
+    return () => { cancelled = true; window.clearTimeout(timer) }
+  }, [active, freshBundles, renderedRoomSet, slots])
   const activeGroup = useRef<Group>(null)
   const activeGlow = useRef(0)
   const activeHoverLayer = useRef<number | null>(null)
