@@ -1,7 +1,7 @@
 import { Vector3 } from 'three'
 import { baseFloorCells, isFloorCovering, isPosedItem, type CharacterState, type FurnitureItem } from '../store'
 import { clampModelScale } from '../customObjectSpec'
-import { cellsFor, floorSurface, GRID_COUNT, GRID_SIZE, gridToWorld, isOwnedSurfaceId, ownerIdOf, surfacesForOwner, worldToGrid, type GridPosition } from './roomGrid'
+import { cellsFor, floorSurface, floorWalkRoute, GRID_COUNT, GRID_SIZE, gridToWorld, isOwnedSurfaceId, ownerIdOf, surfacesForOwner, worldToGrid, type GridPosition } from './roomGrid'
 
 export type InteractionType = 'sit' | 'lie' | 'work' | 'read' | 'interact'
 export type LocalInteractionAnchor = { position: [number, number, number]; rotation: number }
@@ -160,6 +160,25 @@ export function resolveInteraction(selectedObject: string | null, furniture: Fur
   approachWorld.rotation = facePosition(approachWorld.position, requested.position)
   if (['interact', 'read', 'work'].includes(anchors.type)) actionWorld.rotation = facePosition(actionWorld.position, requested.position)
   return { ...anchors, target, approachWorld, actionWorld }
+}
+
+const cellKey = ({ gridX, gridY }: GridPosition) => `${gridX}:${gridY}`
+
+// Owner and visitor interactions must choose an approach cell the same way. The configured anchor is preferred,
+// then nearby free cells are tried in distance order so a moved chair/bed still works when its ideal spot is blocked.
+export function routeToInteraction(origin: [number, number, number], interaction: ResolvedInteraction, furniture: FurnitureItem[]) {
+  const occupied = new Set(furniture.filter((item) => item.category === 'floorFurniture' && !isFloorCovering(item) && !item.removed && item.surfaceId === 'floor').flatMap((item) => baseFloorCells(item).map((cell) => `${cell.x}:${cell.y}`)))
+  const desired = worldToGrid(floorSurface, interaction.approachWorld.position, CELL)
+  const targetCells = interaction.target.category === 'floorFurniture' ? cellsFor(interaction.target, interaction.target.footprint, interaction.target.rotation[1]) : []
+  const candidates = [desired, ...targetCells.flatMap((cell) => [-1, 0, 1].flatMap((dx) => [-1, 0, 1].map((dy) => ({ gridX: cell.x + dx, gridY: cell.y + dy }))))]
+    .filter((cell, index, all) => cell.gridX >= 0 && cell.gridX < GRID_COUNT && cell.gridY >= 0 && cell.gridY < GRID_COUNT && !occupied.has(cellKey(cell)) && all.findIndex((other) => cellKey(other) === cellKey(cell)) === index)
+    .sort((a, b) => Math.hypot(a.gridX - desired.gridX, a.gridY - desired.gridY) - Math.hypot(b.gridX - desired.gridX, b.gridY - desired.gridY))
+  for (const candidate of candidates) {
+    const destination = cellKey(candidate) === cellKey(desired) ? interaction.approachWorld.position : gridToWorld(floorSurface, candidate, CELL)
+    const route = floorWalkRoute(occupied, origin, destination)
+    if (route) return route
+  }
+  return null
 }
 
 export const stateForInteraction = (type: InteractionType): Exclude<CharacterState, 'walking' | 'aligning'> =>

@@ -10,7 +10,7 @@ import { captureRenderScale, flushCapture } from '../services/capture'
 import { explorerAnimationsAreMoving, keepExplorerAnimationsSmooth, setRoomFrameRendered } from '../services/renderSync'
 import Bookshelf from './Bookshelf'
 import Bed from './Bed'
-import CameraController, { armZoomGestureClickGuard, consumeZoomGestureClick, DEFAULT_CAMERA_POSITION, entryZoom, exploreMinZoom } from './CameraController'
+import CameraController, { armZoomGestureClickGuard, consumeZoomGestureClick, DEFAULT_CAMERA_POSITION, DEFAULT_ROOM_ZOOM, entryZoom, exploreMinZoom } from './CameraController'
 import Character from './Character'
 import Chair from './Chair'
 import Computer from './Computer'
@@ -25,11 +25,11 @@ import { SurfaceDropZones } from './SurfaceDropZone'
 import Walls from './Walls'
 import WallVideoLayer from './WallVideoLayer'
 import ReactionBadges from './ReactionBadges'
-import { characterFacing, characterPosition } from '../services/characterTracker'
+import { characterFacing, characterPosition, characterViewFacing } from '../services/characterTracker'
 import { cancelVisitorAction, presenceSessionId, useVisitors, visitorFacing, visitorInteractionTarget, visitorMoveTarget, visitorPosition, visitorState } from '../services/presence'
 import { isFirstPerson, onFirstPersonZoom, setFirstPerson, useFirstPerson } from '../services/viewMode'
 import { floorWalkRoute } from '../services/roomGrid'
-import { resolveInteraction, stateForInteraction } from '../services/interactionAnchors'
+import { resolveInteraction, routeToInteraction, stateForInteraction } from '../services/interactionAnchors'
 
 // per-time-of-day lighting: night keeps lights low so lit lamps visibly carry the room
 const LIGHTING = {
@@ -66,9 +66,11 @@ const shiftAwareEvents: NonNullable<Parameters<typeof Canvas>[0]['events']> = (s
     const rect = state.gl.domElement.getBoundingClientRect()
     state.pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1)
     // First-person drag only rotates the camera. Raycasting every furniture mesh for every finger/mouse move
-    // made dense directions hitch on mobile; pointer-up/click still restores the full interaction raycast.
+    // made dense directions hitch on mobile. The zero mask must be temporary: R3F can reuse the raycaster for the
+    // following click without calling compute again, which previously left every first-person object unclickable.
     if (isFirstPerson() && event.type === 'pointermove' && event.buttons) {
       state.raycaster.layers.mask = 0
+      queueMicrotask(() => { state.raycaster.layers.mask = EXPLORER_LAYER_MASK })
       return
     }
     state.raycaster.layers.mask = EXPLORER_LAYER_MASK
@@ -237,7 +239,7 @@ function Scene() {
     onPointerMoveCapture={(event) => { const gesture = pointerGesture.current; if (gesture?.id === event.pointerId && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 6) gesture.moved = true }}
     onPointerUpCapture={(event) => { const gesture = pointerGesture.current; if (gesture?.id !== event.pointerId) return; if (gesture.moved) armZoomGestureClickGuard(); pointerGesture.current = null }}
     onPointerCancelCapture={() => { pointerGesture.current = null }}><Canvas shadows="soft" dpr={[1, 2]} gl={{ antialias: true }} eventSource={eventHost} events={shiftAwareEvents} onPointerMissed={(event) => { if (!(event.target as HTMLElement)?.closest?.('.canvas-host')) return; (mode === 'edit' ? toggleEditMode : clearSelection)() }} camera={{ position: DEFAULT_CAMERA_POSITION }}>
-    <OrthographicCamera makeDefault={!firstPerson} position={DEFAULT_CAMERA_POSITION} zoom={59} near={0.1} far={100} />
+    <OrthographicCamera makeDefault={!firstPerson} position={DEFAULT_CAMERA_POSITION} zoom={DEFAULT_ROOM_ZOOM} near={0.1} far={100} />
     {firstPerson && <FirstPersonCamera />}
     <RenderGovernor />
     <CrossfadingLights preset={light} />
@@ -291,6 +293,7 @@ function FirstPersonCamera() {
       yawVelocity.current = MathUtils.clamp(yawDelta / elapsed, -3.5, 3.5)
       pitchVelocity.current = MathUtils.clamp(pitchDelta / elapsed, -2.5, 2.5)
       if (visiting) visitorFacing.current = yaw.current
+      else characterViewFacing.current = yaw.current
     }
     const onUp = (event: PointerEvent) => {
       if (drag.current?.id !== event.pointerId) return
@@ -359,7 +362,7 @@ function FirstPersonCamera() {
     element.addEventListener('click', onClick, true)
     element.addEventListener('wheel', onWheel, { passive: false })
     element.addEventListener('touchstart', onTouchStart, { passive: false }); element.addEventListener('touchmove', onTouchMove, { passive: false }); element.addEventListener('touchend', onTouchEnd, { passive: false }); element.addEventListener('touchcancel', onTouchCancel, { passive: false })
-    return () => { stopZoomButtons(); element.removeEventListener('pointerdown', onDown); element.removeEventListener('pointermove', onMove); element.removeEventListener('pointerup', onUp); element.removeEventListener('pointercancel', onUp); element.removeEventListener('click', onClick, true); element.removeEventListener('wheel', onWheel); element.removeEventListener('touchstart', onTouchStart); element.removeEventListener('touchmove', onTouchMove); element.removeEventListener('touchend', onTouchEnd); element.removeEventListener('touchcancel', onTouchCancel) }
+    return () => { if (!visiting) characterViewFacing.current = null; stopZoomButtons(); element.removeEventListener('pointerdown', onDown); element.removeEventListener('pointermove', onMove); element.removeEventListener('pointerup', onUp); element.removeEventListener('pointercancel', onUp); element.removeEventListener('click', onClick, true); element.removeEventListener('wheel', onWheel); element.removeEventListener('touchstart', onTouchStart); element.removeEventListener('touchmove', onTouchMove); element.removeEventListener('touchend', onTouchEnd); element.removeEventListener('touchcancel', onTouchCancel) }
   }, [gl, visiting])
   useFrame((_, delta) => {
     const active = camera.current
@@ -376,7 +379,15 @@ function FirstPersonCamera() {
       pitchVelocity.current = MathUtils.damp(pitchVelocity.current, 0, 9, delta)
       if (visiting) visitorFacing.current = yaw.current
     }
-    active.position.set(position[0], position[1] + 1.35, position[2])
+    if (!visiting) characterViewFacing.current = yaw.current
+    const seated = state === 'sitting' || state === 'working'
+    const floorSeated = state === 'sittingFloor'
+    const resting = state === 'laying' || state === 'sleeping'
+    // Match the camera to the same root-relative head position used by Character's poses. A fixed standing
+    // eye-height made sitting look like hovering and lying look like standing on top of the mattress.
+    const eyeHeight = resting ? .2 : seated ? .67 : floorSeated ? .74 : 1.35
+    const headOffset = resting ? -1.08 : 0
+    active.position.set(position[0] + Math.sin(facing) * headOffset, position[1] + eyeHeight, position[2] + Math.cos(facing) * headOffset)
     // FPS rotation order keeps pitch local to the camera, so looking up/down never flips horizontal drag.
     active.rotation.order = 'YXZ'
     const turn = Math.atan2(Math.sin(yaw.current - renderedYaw.current), Math.cos(yaw.current - renderedYaw.current))
@@ -413,7 +424,7 @@ function VisitorMover() {
     if (routeKey.current !== key) {
       routeKey.current = key
       const occupied = new Set(furniture.filter((item) => item.category === 'floorFurniture' && !isFloorCovering(item) && !item.removed && item.surfaceId === 'floor').flatMap((item) => baseFloorCells(item).map((cell) => `${cell.x}:${cell.y}`)))
-      const path = floorWalkRoute(occupied, visitorPosition, target)
+      const path = interaction ? routeToInteraction(visitorPosition, interaction, furniture) : floorWalkRoute(occupied, visitorPosition, target)
       if (!path) { cancelVisitorAction(); routeKey.current = ''; settleFloorMove(false); updateVisitorPresence(visitorPosition, visitorFacing.current, true); return }
       route.current = path.map((point) => new Vector3(...point)); routeIndex.current = 0
     }

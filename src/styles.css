@@ -608,6 +608,7 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 .wall-video-shield { position: absolute; cursor: pointer; }
 .wall-video-shield.top { left: 0; right: 0; top: 0; bottom: 82px; }
 .wall-video-shield.rest { left: 0; right: 210px; bottom: 0; height: 82px; }
+.wall-video-shield.full { inset: 0; }
 .wall-video { cursor: pointer; }
 /* sits under the room, clear of the sound button below it */
 .entry-buttons { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 6; display: flex; gap: 8px; }

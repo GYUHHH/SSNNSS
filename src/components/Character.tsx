@@ -3,12 +3,13 @@ import { useFrame } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Group, Vector3 } from 'three'
 import { baseFloorCells, isFloorCovering, useRoomStore, type CharacterTransform } from '../store'
-import { characterFacing, characterPosition } from '../services/characterTracker'
+import { characterFacing, characterPosition, characterViewFacing } from '../services/characterTracker'
 import type { VisitorLook, VisitorState } from '../services/presence'
-import { resolveInteraction, stateForInteraction } from '../services/interactionAnchors'
-import { cellsFor, floorSurface, floorWalkRoute, gridToWorld, type GridPosition, worldToGrid } from '../services/roomGrid'
+import { resolveInteraction, routeToInteraction, stateForInteraction } from '../services/interactionAnchors'
+import { floorSurface, floorWalkRoute } from '../services/roomGrid'
 import { ROOM_HTML_Z_INDEX_RANGE, ROOM_OBJECT_ORDER } from '../services/renderOrder'
 import { t } from '../services/i18n'
+import { isFirstPerson } from '../services/viewMode'
 import { usePreviewFrame } from './usePreviewFrame'
 import { pointerCanHover } from './Interactive'
 
@@ -33,7 +34,6 @@ export const DEFAULT_APPEARANCE: CharacterAppearance = {
 }
 
 const turnToward = (current: number, target: number, amount: number) => current + Math.atan2(Math.sin(target - current), Math.cos(target - current)) * amount
-const cellKey = ({ gridX, gridY }: GridPosition) => `${gridX}:${gridY}`
 const currentTransform = (actor: Group): CharacterTransform => ({
   position: [actor.position.x, 0, actor.position.z], facing: actor.rotation.y, y: actor.position.y,
 })
@@ -112,10 +112,6 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
       actor.current.position.lerp(snapshotTarget.current, Math.min(1, delta * 10))
       actor.current.rotation.y = turnToward(actor.current.rotation.y, snapshot.facing, Math.min(1, delta * 10))
     }
-    if (characterWritable) {
-      characterPosition[0] = actor.current.position.x; characterPosition[1] = actor.current.position.y; characterPosition[2] = actor.current.position.z
-      characterFacing.current = actor.current.rotation.y
-    }
     // Explorer characters stay read-only, but their saved pose keeps its small idle motion as a live preview.
     clock.current += delta
     const walking = characterState === 'walking'
@@ -130,18 +126,8 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
       const nextRouteKey = `${selectedObject}:${destination.join(',')}`
       if (routeKey.current !== nextRouteKey) {
         routeKey.current = nextRouteKey
-        const occupied = new Set(furniture.filter((item) => item.category === 'floorFurniture' && !isFloorCovering(item) && !item.removed && item.surfaceId === 'floor').flatMap((item) => baseFloorCells(item).map((cell) => `${cell.x}:${cell.y}`)))
-        const desiredCell = worldToGrid(floorSurface, destination, CELL)
-        const targetCells = interaction.target.category === 'floorFurniture' ? cellsFor(interaction.target, interaction.target.footprint, interaction.target.rotation[1]) : []
-        const candidates = [desiredCell, ...targetCells.flatMap((cell) => [-1, 0, 1].flatMap((x) => [-1, 0, 1].map((y) => ({ gridX: cell.x + x, gridY: cell.y + y }))))]
-          .filter((cell, index, items) => cell.gridX >= 0 && cell.gridX < 10 && cell.gridY >= 0 && cell.gridY < 10 && !occupied.has(cellKey(cell)) && items.findIndex((other) => cellKey(other) === cellKey(cell)) === index)
-          .sort((a, b) => Math.hypot(a.gridX - desiredCell.gridX, a.gridY - desiredCell.gridY) - Math.hypot(b.gridX - desiredCell.gridX, b.gridY - desiredCell.gridY))
-        let nextRoute: Vector3[] | null = null
-        for (const candidate of candidates) {
-          const candidateWorld = cellKey(candidate) === cellKey(desiredCell) ? destination : gridToWorld(floorSurface, candidate, CELL)
-          const found = floorWalkRoute(occupied, [actor.current.position.x, 0, actor.current.position.z], candidateWorld)
-          if (found) { nextRoute = found.map((point) => new Vector3(...point)); break }
-        }
+        const path = routeToInteraction([actor.current.position.x, 0, actor.current.position.z], interaction, furniture)
+        const nextRoute = path?.map((point) => new Vector3(...point)) ?? null
         // no reachable approach cell: don't dead-end with an empty route (routeKey would block any retry) —
         // fall through to 'aligning', whose glide always completes and lands the interaction anyway
         if (!nextRoute) { route.current = []; routeKey.current = null; finishCharacterAction('aligning', currentTransform(actor.current)); return }
@@ -190,6 +176,9 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
       routeKey.current = null
       // walking/aligning with nothing to walk to (selection vanished, item removed) must settle, not spin forever
       if ((walking || characterState === 'aligning') && !interaction && !floorTarget) finishCharacterAction('idle', currentTransform(actor.current))
+      else if (isFirstPerson() && characterViewFacing.current !== null && ['idle', 'sittingFloor', 'wave'].includes(characterState)) {
+        actor.current.rotation.y = turnToward(actor.current.rotation.y, characterViewFacing.current, Math.min(1, delta * 12))
+      }
     }
 
     const swing = walking ? Math.sin(clock.current * 8) * 0.5 : 0
@@ -200,6 +189,10 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
     if (armRight.current) { armRight.current.rotation.x = swing; armRight.current.rotation.z = waving ? 2.35 + Math.sin(clock.current * 9) * 0.25 : 0 }
     if (head.current) head.current.rotation.x = characterState === 'reading' ? 0.3 : characterState === 'working' ? 0.15 : 0
     if (torso.current) torso.current.scale.y = characterState === 'sleeping' ? 1 + Math.sin(clock.current * 2.2) * 0.02 : 1
+    if (characterWritable) {
+      characterPosition[0] = actor.current.position.x; characterPosition[1] = actor.current.position.y; characterPosition[2] = actor.current.position.z
+      characterFacing.current = actor.current.rotation.y
+    }
   })
 
   return <group ref={actor} name="CharacterRoot" visible={!hidden} renderOrder={ROOM_OBJECT_ORDER} scale={0.85} onPointerOver={(event) => { if (!hoverEnabled || readOnly) return; event.stopPropagation(); setHovered(true) }} onPointerOut={() => setHovered(false)} onClick={(event) => { if (readOnly) return; event.stopPropagation(); selectObject('character') }}>

@@ -8,6 +8,8 @@ import { PICKER_HOLD_EVENT } from './ReactionPicker'
 
 const DESKTOP_DETAIL_MIN_ZOOM = 42
 const MOBILE_DETAIL_MIN_ZOOM = 30
+export const DEFAULT_ROOM_ZOOM = 55
+const MOBILE_DEFAULT_ROOM_ZOOM = 28
 // Fit the complete seven-room ring to whichever side of the viewport is tighter.
 // 천장은 entryZoom(데스크톱 52) 아래로 유지 — 넘어가면 전체보기 바닥이 방 진입선 위로 올라가 버린다
 const EXPLORE_MAX_ZOOM = 48
@@ -55,9 +57,9 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
   // 비로그인 첫 진입(로비)은 탐색기(지구본)를 펼친 채로 시작해 방들부터 보인다 — 특정 방 링크로 온
   // 방문(isVisiting)은 그 방을 보여주러 온 것이니 평소처럼 방 안에서 시작한다. 1은 minZoom 아래 아무 값:
   // 첫 프레임 damp가 곧장 탐색기 바닥으로 정착한다.
-  const zoomTarget = useRef(59)
+  const zoomTarget = useRef(DEFAULT_ROOM_ZOOM)
   // last frame's goal, so the band snap below can tell which way the user was winding
-  const lastZoomTarget = useRef(59)
+  const lastZoomTarget = useRef(DEFAULT_ROOM_ZOOM)
   // while now is before this, the entry line holds against further zooming out — the detent's grip
   const entryHold = useRef(0)
   const entryZoomAt = useRef(0)
@@ -92,7 +94,7 @@ export default function CameraController({ focusRoom, aim }: { focusRoom?: Focus
   const compactScreen = isCompactScreen(size.width, size.height)
   const detailMinZoom = compactScreen ? MOBILE_DETAIL_MIN_ZOOM : DESKTOP_DETAIL_MIN_ZOOM
   const minZoom = mode === 'edit' ? detailMinZoom : exploreMinZoom(size.width, size.height)
-  const baseZoom = compactScreen ? MOBILE_DETAIL_MIN_ZOOM : 59
+  const baseZoom = compactScreen ? MOBILE_DEFAULT_ROOM_ZOOM : DEFAULT_ROOM_ZOOM
 
   useEffect(() => {
     const camera2d = camera as OrthographicCamera

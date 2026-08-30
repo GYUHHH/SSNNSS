@@ -12,6 +12,7 @@ import { clipIsPlaying, loadClipUrls, playClip } from '../services/mediaStore'
 import { t } from '../services/i18n'
 import { WALL_HTML_Z_INDEX_RANGE, WALL_VIDEO_ORDER } from '../services/renderOrder'
 import { didRenderRoomFrame } from '../services/renderSync'
+import { useFirstPerson } from '../services/viewMode'
 
 const VIDEO_MASK_VERTEX = 'void main(){gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}'
 const VIDEO_MASK_FRAGMENT = 'void main(){gl_FragColor=vec4(0.0);}'
@@ -113,6 +114,7 @@ export default function WallVideoLayer() {
 
 function WallVideo({ frameId }: { frameId: string }) {
   const { videoLinks, furniture, mode } = useRoomStore()
+  const firstPerson = useFirstPerson()
   const item = furniture.find((entry) => entry.id === frameId)
   const videoId = videoLinks[frameId]
   // The wall player is the only iframe for this frame and stays mounted while its side panel is open.
@@ -200,10 +202,10 @@ function WallVideo({ frameId }: { frameId: string }) {
         <div ref={element} className="wall-video" data-frame-id={frameId} data-video-id={aspectLookup} style={{ width: 640, height: divHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto' }}>
           {/* controls=0 keeps YouTube's control bar from popping over the wall screen (it auto-shows on tab
               return); the expanded panel player keeps its controls */}
-          <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra="autoplay=1&playsinline=1&mute=1&controls=0" frameStyle={{ width: 640 / cropWidth, height: divHeight / cropHeight, left: -640 * crop.left / cropWidth, top: -divHeight * crop.top / cropHeight, pointerEvents: mode === 'edit' ? 'none' : 'auto' }} />
+          <ResumingIframe key={frameId} videoId={videoId} frameId={frameId} extra="autoplay=1&playsinline=1&mute=1&controls=0" frameStyle={{ width: 640 / cropWidth, height: divHeight / cropHeight, left: -640 * crop.left / cropWidth, top: -divHeight * crop.top / cropHeight, pointerEvents: mode === 'edit' || firstPerson ? 'none' : 'auto' }} />
           {/* the two shields carry the open-the-panel click and together cover everything but YouTube's own
               skip-ad corner, which is left live so the visitor can press it themselves */}
-          {mode !== 'edit' && ['top', 'rest'].map((part) => <div key={part} className={`wall-video-shield ${part}`}
+          {mode !== 'edit' && (firstPerson ? ['full'] : ['top', 'rest']).map((part) => <div key={part} className={`wall-video-shield ${part}`}
             onPointerDown={forwardToRoom} onPointerMove={forwardToRoom} onPointerUp={forwardToRoom}
             onPointerCancel={forwardToRoom} onClick={forwardToRoom} />)}
         </div></Html>
