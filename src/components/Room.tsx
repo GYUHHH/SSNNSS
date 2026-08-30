@@ -229,9 +229,14 @@ function Scene() {
   // Scene events re-route to this host (with client coords) because the canvas itself is pointer-transparent
   // so clicks over a video can fall through into the iframe. The room background moves to the host's CSS.
   const eventHost = useRef<HTMLDivElement>(null!)
+  const pointerGesture = useRef<{ id: number; x: number; y: number; moved: boolean } | null>(null)
   const firstPerson = useFirstPerson()
   useEffect(() => { if (mode === 'edit') setFirstPerson(false) }, [mode])
-  return <div ref={eventHost} className="canvas-host" style={{ background: light.bg, touchAction: firstPerson ? 'none' : undefined }}><Canvas shadows="soft" dpr={[1, 2]} gl={{ antialias: true }} eventSource={eventHost} events={shiftAwareEvents} onPointerMissed={(event) => { if (!(event.target as HTMLElement)?.closest?.('.canvas-host')) return; (mode === 'edit' ? toggleEditMode : clearSelection)() }} camera={{ position: DEFAULT_CAMERA_POSITION }}>
+  return <div ref={eventHost} className="canvas-host" style={{ background: light.bg, touchAction: firstPerson ? 'none' : undefined }}
+    onPointerDownCapture={(event) => { if (event.button === 0 && !(event.target as HTMLElement).closest?.('button,input,textarea,select,a,iframe,[contenteditable="true"]')) pointerGesture.current = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false } }}
+    onPointerMoveCapture={(event) => { const gesture = pointerGesture.current; if (gesture?.id === event.pointerId && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 6) gesture.moved = true }}
+    onPointerUpCapture={(event) => { const gesture = pointerGesture.current; if (gesture?.id !== event.pointerId) return; if (gesture.moved) armZoomGestureClickGuard(); pointerGesture.current = null }}
+    onPointerCancelCapture={() => { pointerGesture.current = null }}><Canvas shadows="soft" dpr={[1, 2]} gl={{ antialias: true }} eventSource={eventHost} events={shiftAwareEvents} onPointerMissed={(event) => { if (!(event.target as HTMLElement)?.closest?.('.canvas-host')) return; (mode === 'edit' ? toggleEditMode : clearSelection)() }} camera={{ position: DEFAULT_CAMERA_POSITION }}>
     <OrthographicCamera makeDefault={!firstPerson} position={DEFAULT_CAMERA_POSITION} zoom={59} near={0.1} far={100} />
     {firstPerson && <FirstPersonCamera />}
     <RenderGovernor />
@@ -262,7 +267,6 @@ function FirstPersonCamera() {
   const touchStart = useRef<{ x: number; y: number; time: number } | null>(null)
   const lastTap = useRef({ x: 0, y: 0, time: 0 })
   const dragZoom = useRef<{ id: number; startY: number; startFov: number } | null>(null)
-  const suppressClick = useRef(false)
   useEffect(() => {
     const element = (gl.domElement.closest('.canvas-host') ?? gl.domElement) as HTMLElement
     const clampFov = (value: number) => MathUtils.clamp(value, 35, 110)
@@ -290,15 +294,11 @@ function FirstPersonCamera() {
     }
     const onUp = (event: PointerEvent) => {
       if (drag.current?.id !== event.pointerId) return
-      suppressClick.current = drag.current.moved
-      if (suppressClick.current) window.setTimeout(() => { suppressClick.current = false }, 0)
       drag.current = null; element.releasePointerCapture?.(event.pointerId)
       if (visiting) updateVisitorPresence(visitorPosition, visitorFacing.current, true)
     }
     const onClick = (event: MouseEvent) => {
-      if (consumeZoomGestureClick(event)) return
-      if (!suppressClick.current) return
-      suppressClick.current = false; event.preventDefault(); event.stopImmediatePropagation()
+      consumeZoomGestureClick(event)
     }
     const onWheel = (event: WheelEvent) => {
       event.preventDefault()
