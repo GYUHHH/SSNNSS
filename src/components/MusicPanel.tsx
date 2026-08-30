@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { isVisiting } from '../services/social'
-import { addTrackFile, loadTracks, musicState, onMusicUpdate, pauseMusic, resumeMusic, saveTracks, seekMusic, toggleMusicMute, type MusicTrack } from '../services/music'
+import { addTrackFile, loadTracks, musicState, onMusicUpdate, pauseMusic, removeTrack, resumeMusic, saveTracks, seekMusic, toggleMusicMute, type MusicTrack } from '../services/music'
 import { t } from '../services/i18n'
 
 // store values arrive as props: this panel lives inside a drei <Html> portal, which renders in its own React
@@ -40,6 +40,10 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
     if (state.paused) resumeMusic(); else pauseMusic()
   }
   const step = (offset: number) => { if (tracks.length) setMusicTrack(tracks[(shownIndex + offset + tracks.length) % tracks.length].id) }
+  const remove = (track: MusicTrack) => {
+    const next = removeTrack(track.id)
+    if (musicTrack === track.id || state.id === track.id) setMusicTrack(next)
+  }
   const addFiles = async (files: FileList) => { for (const file of Array.from(files)) await addTrackFile(file) }
   const target = drag ? Math.min(tracks.length - 1, Math.max(0, drag.index + Math.round(drag.delta / rowStep.current))) : null
   const startDrag = (index: number) => (event: React.PointerEvent) => {
@@ -67,8 +71,8 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
     </div>
     <div className="mini-progress">
       <small>{clock(state.time)}</small>
-      <input type="range" min={0} max={state.duration || 1} step={0.1} value={Math.min(state.time, state.duration || 1)} aria-label={t('재생 위치')} onChange={(event) => seekMusic(Number(event.target.value))} />
-      <small>-{clock(Math.max(0, state.duration - state.time))}</small>
+      <input type="range" min={0} max={state.duration || 1} step={0.1} value={Math.min(state.time, state.duration || 1)} aria-label={t('재생 위치')} onInput={(event) => seekMusic(Number(event.currentTarget.value))} />
+      <small>{clock(state.duration)}</small>
     </div>
     <div className="mini-controls">
       <button type="button" aria-label={t('이전 곡')} onClick={() => step(-1)}>
@@ -92,7 +96,7 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
             : <><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M19 5.5a10 10 0 0 1 0 13" /></>}
         </svg>
       </button>
-      <input type="range" min={0} max={1} step={0.05} value={musicVolume} aria-label={t('볼륨')} onChange={(event) => setMusicVolume(Number(event.target.value))} />
+      <input type="range" min={0} max={1} step={0.05} value={musicVolume} aria-label={t('볼륨')} onInput={(event) => setMusicVolume(Number(event.currentTarget.value))} />
     </div>
     <button type="button" className="mini-list-toggle" onClick={() => setListOpen((open) => !open)}>{t('재생목록')} {listOpen ? '▴' : '▾'}</button>
     {listOpen && <>
@@ -107,6 +111,7 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
           return <li key={track.id} className={dragging ? 'dragging' : musicTrack === track.id ? 'playing' : ''} style={{ transform: (dragging ? drag.delta : shift) ? `translateY(${dragging ? drag.delta : shift}px)` : undefined }}>
             <button type="button" className="mini-track" onClick={() => setMusicTrack(track.id)}><b>{track.title}</b>{track.artist && <small>{track.artist}</small>}</button>
             <button type="button" className="order-handle" aria-label={t('순서 이동')} onPointerDown={startDrag(index)}>≡</button>
+            {!isVisiting() && <button type="button" className="mini-delete" aria-label={t('삭제')} onClick={() => remove(track)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5" /></svg></button>}
           </li>
         })}
       </ul>

@@ -2,8 +2,8 @@
 // added. Uploaded files live in IndexedDB (same blob store as video clips, key-prefixed), and the playlist
 // (ids, titles, order) lives in the room's server bundle. Playback advances down the playlist and wraps.
 import { publicBase } from './publicBase'
-import { getVideo, putVideo } from './mediaStore'
-import { isVisiting, readStored, uploadMedia, writeStored } from './social'
+import { deleteVideo, getVideo, putVideo } from './mediaStore'
+import { deleteMedia, isVisiting, readStored, uploadMedia, writeStored } from './social'
 
 export type MusicTrack = { id: string; title: string; artist: string; url?: string }
 
@@ -12,7 +12,7 @@ const BUILTIN: Record<string, string> = { lany: `${publicBase}music/a-star-we-ne
 const SEED: MusicTrack[] = [{ id: 'lany', title: 'A Star We Never Named', artist: '' }]
 
 export const loadTracks = (): MusicTrack[] => {
-  try { const saved = JSON.parse(readStored(REGISTRY_KEY) ?? 'null'); if (Array.isArray(saved) && saved.length) return saved } catch { /* storage may be unavailable */ }
+  try { const saved = JSON.parse(readStored(REGISTRY_KEY) ?? 'null'); if (Array.isArray(saved)) return saved } catch { /* storage may be unavailable */ }
   return SEED
 }
 export const saveTracks = (tracks: MusicTrack[]) => {
@@ -34,6 +34,21 @@ export async function addTrackFile(file: File): Promise<string> {
     if (url) saveTracks(loadTracks().map((entry) => entry.id === id ? { ...entry, url } : entry))
   })
   return id
+}
+
+export function removeTrack(id: string): string | null {
+  if (isVisiting()) return null
+  const tracks = loadTracks()
+  const index = tracks.findIndex((track) => track.id === id)
+  if (index < 0) return currentId
+  const removed = tracks[index]
+  const remaining = tracks.filter((track) => track.id !== id)
+  saveTracks(remaining)
+  void deleteVideo(`music-${id}`)
+  deleteMedia(removed.url)
+  if (urlCache[id]?.startsWith('blob:')) URL.revokeObjectURL(urlCache[id])
+  delete urlCache[id]
+  return remaining[Math.min(index, remaining.length - 1)]?.id ?? null
 }
 
 // A track whose upload never landed plays for the owner — the local blob is right there — and for nobody else.
@@ -59,6 +74,8 @@ let audio: HTMLAudioElement | null = null
 let currentId: string | null = null
 let volume = 0.7
 let muted = false
+let pendingPlay: string | null = null
+let retryAttached = false
 const urlCache: Record<string, string> = {}
 const listeners = new Set<() => void>()
 const trackChangeListeners = new Set<(id: string | null) => void>()
@@ -99,11 +116,23 @@ export async function playTrack(id: string) {
   const element = ensureAudio()
   if (currentId !== id || element.src !== url) { currentId = id; element.src = url }
   element.volume = muted ? 0 : volume
-  void element.play()
+  try { await element.play(); pendingPlay = null }
+  catch {
+    pendingPlay = id
+    if (!retryAttached) {
+      retryAttached = true
+      window.addEventListener('pointerdown', () => {
+        retryAttached = false
+        const retry = pendingPlay
+        if (retry) void playTrack(retry)
+      }, { once: true, capture: true })
+    }
+  }
   notify()
 }
 
 export function stopMusic() {
+  pendingPlay = null
   if (audio) { audio.pause(); audio.removeAttribute('src'); audio.load() }
   currentId = null
   notify()

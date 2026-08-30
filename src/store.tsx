@@ -5,7 +5,7 @@ import { characterPosition } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
 import { loadOrders } from './services/playlistOrder'
 import { deleteVideo, listVideoIds, loadClipUrls, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, setClipMuted, syncPendingClips, encodeTarget, youTubeTarget } from './services/mediaStore'
-import { onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic, syncPendingTracks } from './services/music'
+import { loadTracks, onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic, syncPendingTracks } from './services/music'
 import { DEFAULT_PROFILE_PHOTO, deleteMedia, purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isReadingBundle, isVisiting, myHandle, myProfilePhoto, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, removeStored, subscribeRealtime, uploadMedia, writeStored, type RemoteGuestComment } from './services/social'
 import { cancelSoundRequest, clearFrameResume, muteFrame, requestSound, snapshotActiveFrames } from './services/ytResume'
 import { t, tp } from './services/i18n'
@@ -31,6 +31,7 @@ export type CharacterSnapshot = CharacterPose & CharacterTransform
 // the model's defaults, so future default tweaks reach every character that never touched that part
 export type CharacterLook = { skinColor?: string; hairColor?: string; topColor?: string; bottomColor?: string; shoeColor?: string }
 const LOOK_KEY = 'my-room-character-look-v1'
+const MUSIC_PLAYER_TYPES = new Set(['music-player', 'record-player', 'cd-player'])
 const loadCharacterLook = (): CharacterLook | null => {
   try {
     const saved = JSON.parse(readStored(LOOK_KEY) ?? '') as CharacterLook
@@ -593,6 +594,12 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   // the playlist auto-advances inside the music service; mirror the new track id (disc spin, notes)
   useEffect(() => onTrackChange((id) => setMusicTrackState(id)), [])
   useEffect(() => {
+    if (!furniture.some((item) => MUSIC_PLAYER_TYPES.has(item.type))) return
+    const first = loadTracks()[0]?.id ?? null
+    setMusicTrackState(first)
+    if (first) void playTrack(first); else stopMusic()
+  }, [])
+  useEffect(() => {
     if (!moveNotice) return
     const dismiss = () => { if (noticeTimer.current) window.clearTimeout(noticeTimer.current); noticeTimer.current = 0; setMoveNotice(false) }
     window.addEventListener('pointerdown', dismiss, true)
@@ -1021,7 +1028,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     clearSelection()
     setMode('normal')
     // autoplay-on-entry: runs once per room entered, with readStored already scoped to the new room
-    const playing = framesToPlay(hydrateFurniture(slotItems(loadSlots().active)), loadVideoLinks())
+    const enteredFurniture = hydrateFurniture(slotItems(loadSlots().active))
+    const playing = framesToPlay(enteredFurniture, loadVideoLinks())
     setPlayingFrames(playing)
     setMutedFrames(framesToMute(playing))
     // readStored is already scoped to the room being entered, so its whole character swaps in one update
@@ -1036,8 +1044,9 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     setCommentTarget(null)
     setHighlightFrame(null)
     setVideoFrames({})
-    setMusicTrackState(null)
-    stopMusic()
+    const firstTrack = enteredFurniture.some((item) => MUSIC_PLAYER_TYPES.has(item.type)) ? loadTracks()[0]?.id ?? null : null
+    setMusicTrackState(firstTrack)
+    if (firstTrack) void playTrack(firstTrack); else stopMusic()
   }), [])
   // likes from OTHER people, for the red reaction badges
   const [othersLikes, setOthersLikes] = useState<Record<string, number>>({})

@@ -654,23 +654,26 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 .mini-controls button { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; color: #3a3a38; background: transparent; cursor: pointer; }
 .mini-controls .mini-play { width: 46px; height: 46px; color: #3a3a38; background: transparent; }
 .mini-progress { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
-.mini-progress small { flex: 0 0 auto; width: 30px; font-size: 10px; color: #84847e; text-align: center; }
-.mini-progress input, .mini-volume input { flex: 1; min-width: 0; height: 14px; margin: 0; appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer; }
-.mini-progress input::-webkit-slider-runnable-track, .mini-volume input::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: #dcdcd8; }
-.mini-progress input::-webkit-slider-thumb, .mini-volume input::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 10px; height: 10px; margin-top: -3px; border-radius: 50%; background: #3a3a38; }
-.mini-progress input::-moz-range-track, .mini-volume input::-moz-range-track { height: 4px; border-radius: 2px; background: #dcdcd8; }
-.mini-progress input::-moz-range-thumb { width: 10px; height: 10px; border: 0; border-radius: 50%; background: #3a3a38; }
-.mini-volume input::-moz-range-thumb { width: 10px; height: 10px; border: 0; border-radius: 50%; background: #3a3a38; }
+.mini-progress small { flex: 0 0 auto; width: 34px; font-size: 10px; color: #84847e; text-align: center; }
+.mini-progress input, .mini-volume input { flex: 1; min-width: 0; height: 30px; margin: 0; appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer; touch-action: manipulation; }
+.mini-progress input::-webkit-slider-runnable-track, .mini-volume input::-webkit-slider-runnable-track { height: 5px; border-radius: 2px; background: #dcdcd8; }
+.mini-progress input::-webkit-slider-thumb, .mini-volume input::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; margin-top: -6.5px; border-radius: 50%; background: #3a3a38; }
+.mini-progress input::-moz-range-track, .mini-volume input::-moz-range-track { height: 5px; border-radius: 2px; background: #dcdcd8; }
+.mini-progress input::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 50%; background: #3a3a38; }
+.mini-volume input::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 50%; background: #3a3a38; }
 .mini-volume { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
-.mini-volume button { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; color: #3a3a38; background: transparent; cursor: pointer; }
+.mini-volume button { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; color: #3a3a38; background: transparent; cursor: pointer; }
 .mini-list-toggle { width: 100%; margin-top: 10px; padding: 8px 0; border: 0; border-radius: 8px; color: #3a3a38; background: #f2f2f0; cursor: pointer; font-size: 12px; }
 .mini-list { display: grid; gap: 4px; margin: 8px 0 0; padding: 0; list-style: none; max-height: 168px; overflow-y: auto; user-select: none; }
-.mini-list li { display: grid; grid-template-columns: 1fr 30px; align-items: center; border-radius: 7px; background: #f7f7f5; transition: transform .18s ease; }
+.mini-list li { display: grid; grid-template-columns: 1fr 34px; align-items: center; border-radius: 7px; background: #f7f7f5; transition: transform .18s ease; }
+.mini-list li:has(.mini-delete) { grid-template-columns: 1fr 34px 38px; }
 .mini-list li.playing { background: #ededea; }
 .mini-list li.dragging { transition: none; position: relative; z-index: 2; background: #ffffff; box-shadow: 0 6px 16px rgb(0 0 0 / 18%); }
 .mini-track { display: grid; min-width: 0; padding: 8px 10px; border: 0; background: transparent; text-align: left; cursor: pointer; }
 .mini-track b { font-size: 12px; color: #3a3a38; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mini-track small { font-size: 10px; color: #84847e; }
+.mini-list .order-handle, .mini-delete { display: grid; place-items: center; width: 34px; height: 38px; padding: 0; border: 0; color: #84847e; background: transparent; cursor: pointer; }
+.mini-delete { width: 38px; color: #8a6f63; }
 .mini-add { width: 100%; margin-top: 6px; padding: 8px 0; border: 0; border-radius: 8px; color: #75756f; background: #f2f2f0; cursor: pointer; font-size: 12px; }
 
 /* one corner radius across the popups and the controls inside them — round pieces (the photo, the badges,

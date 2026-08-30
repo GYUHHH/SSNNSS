@@ -246,7 +246,7 @@ async function glbPoll(request: Request, env: Env) {
 // 갈아끼우거나 지운 미디어를 버킷에서도 걷어낸다 — 새로 올리기만 하던 동안 버킷 절반이 고아 파일이었다.
 // 권한은 경로 하나로 끝난다: 업로드가 `prefix/<handle>/<name>`으로 새기므로 남의 파일은 경로가 안 맞는다.
 // 방 데이터를 뒤지지 않으니 저장 순서와도 무관하다 — schedulePublish는 즉시 저장이라 참조 검사로는 늦는다.
-const MEDIA_PREFIXES = new Set(['records', 'clips', 'art', 'profile', 'floorImage', 'leftWallImage', 'rightWallImage', 'glbobj'])
+const MEDIA_PREFIXES = new Set(['records', 'clips', 'music', 'art', 'profile', 'floorImage', 'leftWallImage', 'rightWallImage', 'glbobj'])
 async function mediaDelete(request: Request, env: Env) {
   if (!env.SUPABASE_SERVICE_KEY) return json({ error: 'SERVICE_KEY_NOT_SET' }, 503)
   const handle = await signedInHandle(request)
