@@ -251,6 +251,8 @@ function FirstPersonCamera() {
   const { gl } = useThree()
   const yaw = useRef(visiting ? visitorFacing.current : characterFacing.current)
   const pitch = useRef(0)
+  const renderedYaw = useRef(yaw.current)
+  const renderedPitch = useRef(0)
   const yawVelocity = useRef(0)
   const pitchVelocity = useRef(0)
   const fovTarget = useRef(65)
@@ -377,7 +379,10 @@ function FirstPersonCamera() {
     active.position.set(position[0], position[1] + 1.35, position[2])
     // FPS rotation order keeps pitch local to the camera, so looking up/down never flips horizontal drag.
     active.rotation.order = 'YXZ'
-    active.rotation.set(pitch.current, yaw.current + Math.PI, 0)
+    const turn = Math.atan2(Math.sin(yaw.current - renderedYaw.current), Math.cos(yaw.current - renderedYaw.current))
+    renderedYaw.current += turn * (1 - Math.exp(-18 * delta))
+    renderedPitch.current = MathUtils.damp(renderedPitch.current, pitch.current, 18, delta)
+    active.rotation.set(renderedPitch.current, renderedYaw.current + Math.PI, 0)
     const nextFov = MathUtils.damp(active.fov, fovTarget.current, 7, delta)
     if (Math.abs(nextFov - active.fov) >= .001) { active.fov = nextFov; active.updateProjectionMatrix() }
   })

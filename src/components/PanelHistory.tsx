@@ -53,7 +53,10 @@ export default function PanelHistory() {
     if (!before) { previous.current = { key, depth }; return }
     if (key === before.key) return
     previous.current = { key, depth }
-    if (depth >= before.depth) { history.pushState({ ssnnssPanel: state }, '', location.href); pushed.current += 1 }
+    // A different panel at the same level replaces the current entry; otherwise the old panel resurfaces
+    // underneath it and the user has to press Back twice just to close one visible sheet.
+    if (depth > before.depth) { history.pushState({ ssnnssPanel: state }, '', location.href); pushed.current += 1 }
+    else if (depth === before.depth) history.replaceState({ ssnnssPanel: state }, '', location.href)
     else {
       const steps = depth === 0 ? pushed.current : Math.min(1, pushed.current)
       pushed.current -= steps
