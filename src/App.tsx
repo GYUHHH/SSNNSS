@@ -23,7 +23,7 @@ import { thumbnailFor } from './services/thumbnails'
 import { lang, t } from './services/i18n'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 823
+const BUILD = 824
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, customJob, customEditing, startCustomObjectEdit, applyCustomObjectEdit, cancelCustomObjectEdit } = useRoomStore()
@@ -72,7 +72,7 @@ function Interface() {
   const panelOpen = artOpen || musicOpen || inventorySheet
   const [sheetExpanded, setSheetExpanded] = useState(false)
   const sheet = useRef<HTMLElement>(null)
-  const drag = useRef<{ y: number; at: number; travel: number; height: number; expanded: boolean; captured: boolean; pointerId: number } | null>(null)
+  const drag = useRef<{ y: number; at: number; travel: number; height: number; expanded: boolean; captured: boolean; fromHandle: boolean; pointerId: number } | null>(null)
   // one style write per painted frame — a finger emits pointermove faster than the screen refreshes, and
   // writing transform on every one of them is what made the sheet feel like it lagged behind the touch
   const frame = useRef(0)
@@ -86,12 +86,10 @@ function Interface() {
   const isSheet = () => window.matchMedia('(max-width: 719px)').matches
   useEffect(() => { if (!panelOpen) setSheetExpanded(false) }, [panelOpen])
   const sheetDown = (event: React.PointerEvent) => {
-    // Sheet movement belongs to its handle. Content owns every gesture that starts below it, so lists and long
-    // forms scroll without accidentally expanding, collapsing, or closing the sheet at their scroll boundary.
-    if (!panelOpen || !isSheet() || !(event.target as HTMLElement).closest('.sheet-handle')) return
+    if (!panelOpen || !isSheet() || (event.target as HTMLElement).closest('input, textarea, select')) return
     const panel = sheet.current
     if (!panel) return
-    drag.current = { y: event.clientY, at: performance.now(), travel: 0, height: panel.getBoundingClientRect().height, expanded: sheetExpanded, captured: false, pointerId: event.pointerId }
+    drag.current = { y: event.clientY, at: performance.now(), travel: 0, height: panel.getBoundingClientRect().height, expanded: sheetExpanded, captured: false, fromHandle: !!(event.target as HTMLElement).closest('.sheet-handle'), pointerId: event.pointerId }
   }
   const sheetMove = (event: React.PointerEvent) => {
     const held = drag.current
@@ -99,10 +97,11 @@ function Interface() {
     if (!held || !panel) return
     const travel = event.clientY - held.y
     held.travel = travel
-    // a tap is not a drag: nothing moves until the finger has clearly travelled, and from that moment the
-    // pointer is captured so the sheet keeps following even when the finger leaves it
+    // Content scrolls first. Only its overscroll at either end becomes a sheet drag; the handle always drags.
     if (!held.captured) {
-      if (Math.abs(travel) < 5) return
+      const canScroll = travel > 0 ? panel.scrollTop > 0 : panel.scrollTop + panel.clientHeight < panel.scrollHeight - 1
+      if (!held.fromHandle && canScroll) { held.y = event.clientY; held.at = performance.now(); held.travel = 0; return }
+      if (Math.abs(travel) < 12) return
       held.captured = true
       suppressSheetClick.current = true
       panel.style.transition = 'none'
