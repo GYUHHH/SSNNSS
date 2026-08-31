@@ -22,7 +22,7 @@ import { thumbnailFor } from './services/thumbnails'
 import { lang, t } from './services/i18n'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 829
+const BUILD = 830
 const InventoryPanel = lazy(() => import('./components/InventoryPanel'))
 
 function Interface() {

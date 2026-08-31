@@ -303,7 +303,12 @@ function FirstPersonCamera() {
       else characterViewFacing.current = yaw.current
     }
     const onUp = (event: PointerEvent) => {
-      if (drag.current?.id !== event.pointerId) return
+      const active = drag.current
+      if (active?.id !== event.pointerId) return
+      // A first-person look gesture must never fall through as a furniture/floor click. On mobile the browser
+      // still emits a click after pointerup; that click could redirect an existing walk to a chair and make the
+      // camera suddenly sit down mid-move.
+      if (active.moved) armZoomGestureClickGuard()
       drag.current = null; element.releasePointerCapture?.(event.pointerId)
       if (visiting) updateVisitorPresence(visitorPosition, visitorFacing.current, true)
     }
