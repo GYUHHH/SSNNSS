@@ -87,6 +87,7 @@ let volume = 0.7
 let muted = false
 let pendingPlay: string | null = null
 let retryAttached = false
+let playbackEpoch = 0
 const urlCache: Record<string, string> = {}
 const listeners = new Set<() => void>()
 const trackChangeListeners = new Set<(id: string | null) => void>()
@@ -150,8 +151,9 @@ const resolveUrl = async (id: string): Promise<string | null> => {
 }
 
 export async function playTrack(id: string) {
+  const requestEpoch = ++playbackEpoch
   const url = await resolveUrl(id)
-  if (!url) return
+  if (!url || requestEpoch !== playbackEpoch) return
   const element = ensureAudio()
   const nextScope = scope()
   const sameSource = element.src === new URL(url, location.href).href
@@ -183,6 +185,7 @@ export async function playTrack(id: string) {
 }
 
 export function stopMusic() {
+  playbackEpoch += 1
   rememberCurrent(true)
   pendingPlay = null
   if (audio) { audio.pause(); audio.removeAttribute('src'); audio.load() }

@@ -32,6 +32,7 @@ export type CharacterSnapshot = CharacterPose & CharacterTransform
 export type CharacterLook = { skinColor?: string; hairColor?: string; topColor?: string; bottomColor?: string; shoeColor?: string }
 const LOOK_KEY = 'my-room-character-look-v1'
 const MUSIC_PLAYER_TYPES = new Set(['music-player', 'record-player', 'cd-player'])
+const hasMusicPlayer = (items: FurnitureItem[]) => items.some((item) => !item.removed && MUSIC_PLAYER_TYPES.has(item.type))
 const loadCharacterLook = (): CharacterLook | null => {
   try {
     const saved = JSON.parse(readStored(LOOK_KEY) ?? '') as CharacterLook
@@ -593,12 +594,12 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const setMusicVolume = (value: number) => { setMusicVolumeState(value); applyMusicVolume(value) }
   // the playlist auto-advances inside the music service; mirror the new track id (disc spin, notes)
   useEffect(() => onTrackChange((id) => setMusicTrackState(id)), [])
+  const roomHasMusicPlayer = hasMusicPlayer(furniture)
   useEffect(() => {
-    if (!furniture.some((item) => MUSIC_PLAYER_TYPES.has(item.type))) return
-    const first = preferredMusicTrack()
+    const first = roomHasMusicPlayer ? preferredMusicTrack() : null
     setMusicTrackState(first)
     if (first) void playTrack(first); else stopMusic()
-  }, [])
+  }, [roomHasMusicPlayer])
   useEffect(() => {
     if (!moveNotice) return
     const dismiss = () => { if (noticeTimer.current) window.clearTimeout(noticeTimer.current); noticeTimer.current = 0; setMoveNotice(false) }
@@ -1044,7 +1045,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     setCommentTarget(null)
     setHighlightFrame(null)
     setVideoFrames({})
-    const firstTrack = enteredFurniture.some((item) => MUSIC_PLAYER_TYPES.has(item.type)) ? preferredMusicTrack() : null
+    const firstTrack = hasMusicPlayer(enteredFurniture) ? preferredMusicTrack() : null
     setMusicTrackState(firstTrack)
     if (firstTrack) void playTrack(firstTrack); else stopMusic()
   }), [])
@@ -1219,6 +1220,9 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     setActiveRoomId(id)
     const items = hydrateFurniture(slotItems(id))
     setFurniture(items)
+    const firstTrack = hasMusicPlayer(items) ? preferredMusicTrack() : null
+    setMusicTrackState(firstTrack)
+    if (firstTrack) void playTrack(firstTrack); else stopMusic()
     const playing = framesToPlay(items, videoLinks)
     setPlayingFrames(playing)
     setMutedFrames(framesToMute(playing))
