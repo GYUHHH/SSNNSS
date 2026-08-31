@@ -1,5 +1,5 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { createSlot, deleteSlot, loadArtworks, loadProfile, saveProfile, type Profile, loadBooks, loadSlots, placedInOtherSlots, saveArtworks, saveBooks, saveSlotItems, saveSlotStyle, setActiveSlot, slotItems, slotStyle, type FurniturePlacement, type RoomStyle } from './services/roomLayoutStorage'
+import { booksForVisitors, createSlot, deleteSlot, loadArtworks, loadProfile, saveProfile, type Profile, loadBooks, loadSlots, placedInOtherSlots, saveArtworks, saveBooks, saveSlotItems, saveSlotStyle, setActiveSlot, slotItems, slotStyle, type FurniturePlacement, type RoomStyle } from './services/roomLayoutStorage'
 import { canPlaceItem, cellsFor, clampGrid, floorSurface, GRID_COUNT, gridToWorld, isOwnedSurfaceId, nearestWallId, normalizedCells, ownerIdOf, resizeFromCorner, resolveSurface, withResolution, type Footprint, type GridPosition, type PlacementItem, type PlacementResolution, type PlacementSurface, type ResizeCorner, type SurfaceId, type SurfaceKind, type WallId, worldToGrid, worldToGridBoundary } from './services/roomGrid'
 import { characterPosition } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
@@ -351,12 +351,10 @@ const freeOnSurface = (context: FurnitureItem[], candidate: FurnitureItem): bool
 const withBookItems = (items: FurnitureItem[]): FurnitureItem[] => {
   const books = loadBooks<Book[]>() ?? initialBooks
   const template = inventoryItems.find((entry) => entry.type === 'diary-book')!
-  // 방문자에게 비공개 책은 아이템째 걷어낸다 — 남겨두면 보이지 않는 유령 슬롯이 된다.
-  // 책이 아예 없는 고아 아이템(책 삭제 후 잔재)도 누구에게든 걷어낸다.
-  const visitorView = isVisiting() || isReadingBundle()
-  const showable = (book: Book) => !visitorView || book.visibility === 'public'
-  const cleaned = items.filter((item) => !item.id.startsWith('inventory-book-') || books.some((book) => `inventory-book-${book.id}` === item.id && showable(book)))
-  const missing = books.filter((book) => showable(book) && !cleaned.some((item) => item.id === `inventory-book-${book.id}`))
+  // 비공개 책도 책장에는 보인다. 공개 번들에는 내용이 제거된 안전한 메타데이터만 들어온다.
+  // 책이 아예 없는 고아 아이템(책 삭제 후 잔재)만 걷어낸다.
+  const cleaned = items.filter((item) => !item.id.startsWith('inventory-book-') || books.some((book) => `inventory-book-${book.id}` === item.id))
+  const missing = books.filter((book) => !cleaned.some((item) => item.id === `inventory-book-${book.id}`))
   if (!missing.length) return cleaned
   const out = [...cleaned]
   for (const book of missing) {
@@ -645,7 +643,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   // showing — the bookshelf, the profile card, a comment box — stayed on screen beside whatever was opened next.
   // Anything that opens something calls this first, and gaining a new panel can never leave an old one behind.
   const closePanels = () => { setOpenBookId(null); setBookshelfOpen(false); setProfileOpen(false); setCommentTarget(null); setReactionTarget(null); setStyleTarget(null) }
-  const selectObject = (object: Exclude<SelectedObject, null>) => { const target = furniture.find((value) => value.id === object); const type = target?.type ?? object; if (mode === 'edit') { if (object !== 'character' && object !== 'book') setSelectedFurnitureId(object); return } if (type === 'diary-book') { const bookId = object.startsWith('inventory-book-') ? object.slice('inventory-book-'.length) : ''; const book = books.find((value) => value.id === bookId); if (!book || (isVisiting() && book.visibility !== 'public')) return; closePanels(); setFloorTarget(null); openBook(bookId); return } if (type.startsWith('video-frame') && videoLinks[object]) { if (!playingFrames.includes(object)) { setFrameMuted(object, false); setPlayingFrames((prev) => [...prev, object]) } return }
+  const selectObject = (object: Exclude<SelectedObject, null>) => { const target = furniture.find((value) => value.id === object); const type = target?.type ?? object; if (mode === 'edit') { if (object !== 'character' && object !== 'book') setSelectedFurnitureId(object); return } if (type === 'diary-book') { const bookId = object.startsWith('inventory-book-') ? object.slice('inventory-book-'.length) : ''; const book = books.find((value) => value.id === bookId); if (!book) return; closePanels(); setFloorTarget(null); openBook(bookId); return } if (type.startsWith('video-frame') && videoLinks[object]) { if (!playingFrames.includes(object)) { setFrameMuted(object, false); setPlayingFrames((prev) => [...prev, object]) } return }
     if (isVisiting() && type.startsWith('video-frame')) return
     if (type === 'profile-board') { closePanels(); setSelectedObject(object); setProfileOpen(true); return }
     if (type === 'notification-box') { if (!isVisiting()) { closePanels(); setSelectedObject(object) }; return }
@@ -1182,11 +1180,10 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     const stopRefresh = onRoomRefresh(rehydrate)
     return () => { stopRealtime(); stopRefresh() }
   }, [roomSession])
-  // Visibility is a book-level gate: a private book takes its whole contents with it, and inside a public
-  // book only the public records show. Filtered once here, where every reader gets its books, so no consumer
-  // can forget — the 3D shelf's spines are clickable too.
+  // 방문자에게 비공개 책의 존재와 잠금 상태는 보이되 내용은 주지 않는다.
+  // 공개 책 안에서도 공개 기록만 보인다. 모든 소비자가 같은 안전한 목록을 사용한다.
   const visibleBooks = isVisiting()
-    ? books.filter((book) => book.visibility === 'public').map((book) => ({ ...book, entries: book.entries.filter((entry) => entry.visibility === 'public') }))
+    ? booksForVisitors(books)
     : books
   // Reactions belong to whatever object holds them. A record lives inside the bookshelf, so likes and comments
   // left on records are counted onto the bookshelf — otherwise they would raise no dot at all, since badges

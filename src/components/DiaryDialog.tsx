@@ -42,10 +42,13 @@ export default function DiaryDialog() {
   const book = books.find((item) => item.id === openBookId)
   const [writing, setWriting] = useState(false)
   if (!book) return null
+  const locked = isVisiting() && book.visibility === 'private'
   return <>
     <section className="diary" aria-label={book.title}>
       <header className="diary-head"><div className="diary-title"><button className="diary-back" type="button" aria-label={writing ? t('기록 목록으로') : t('닫기')} onClick={() => writing ? setWriting(false) : closeBook()}>←</button></div>{!isVisiting() && !writing && <div className="diary-head-actions"><button type="button" onClick={() => setWriting(true)}>{t('새 기록 작성')}</button></div>}</header>
-      {writing ? <EntryForm book={book} onSave={(draft) => { addEntry(book.id, draft); setWriting(false) }} /> : <EntryList bookId={book.id} entries={book.entries} />}
+      {locked
+        ? <div className="diary-locked" role="img" aria-label={t('비공개 기록')}><EntryVisibilityIcon visibility="private" /></div>
+        : writing ? <EntryForm book={book} onSave={(draft) => { addEntry(book.id, draft); setWriting(false) }} /> : <EntryList bookId={book.id} entries={book.entries} />}
     </section>
   </>
 }

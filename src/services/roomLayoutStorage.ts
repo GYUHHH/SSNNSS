@@ -91,7 +91,12 @@ export function saveArtworks(artworks: Record<string, string>) {
 
 // diary books/entries live under their own key so the layout blob stays small and the two never clobber each other
 const booksKey = 'my-room-books-v1'
-type BookLike = { visibility: string; entries: Array<{ visibility: string }> }
+type BookLike = { visibility: string; description?: string; entries: Array<{ visibility: string }> }
+
+// 방문자에게는 책등과 잠금 상태만 공개한다. 비공개 책의 설명·기록 내용은 공개 번들에 싣지 않는다.
+export const booksForVisitors = <T extends BookLike>(books: T[]): T[] => books.map((book) => book.visibility === 'public'
+  ? { ...book, entries: book.entries.filter((entry) => entry.visibility === 'public') }
+  : { ...book, description: '', entries: [] }) as T[]
 export function loadBooks<T>(): T | null {
   try {
     // 주인은 비공개 보관소의 전체본을, 방문자·번들 읽기는 공개 번들의 공개본만 본다.
@@ -109,8 +114,7 @@ export function saveBooks(books: unknown) {
   const full = JSON.stringify(books)
   void writePrivate(booksKey, full).then((confirmed) => {
     if (!confirmed) { writeStored(booksKey, full); return }
-    const publicBooks = (books as BookLike[]).filter((book) => book.visibility === 'public')
-      .map((book) => ({ ...book, entries: book.entries.filter((entry) => entry.visibility === 'public') }))
+    const publicBooks = booksForVisitors(books as BookLike[])
     writeStored(booksKey, JSON.stringify(publicBooks))
   })
 }
