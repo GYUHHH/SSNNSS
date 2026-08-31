@@ -34,7 +34,8 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
   const shown = tracks.find((track) => track.id === (musicTrack ?? state.id)) ?? tracks[0]
   const shownIndex = shown ? tracks.findIndex((track) => track.id === shown.id) : 0
   const active = state.id === shown?.id
-  const duration = shown?.duration ?? (active ? state.duration : 0)
+  // Only the live media element is authoritative. Old uploaded metadata could contain wildly wrong lengths.
+  const duration = active ? state.duration : 0
   const time = active ? Math.min(state.time, duration || state.time) : 0
   const playing = !!musicTrack && active && !state.paused
   const toggle = () => {

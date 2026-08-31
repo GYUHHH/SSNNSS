@@ -89,7 +89,7 @@ const clearRoomCache = () => {
   ownerPersisted = false
   dirtyKeys.clear()
   deletedKeys.clear()
-  const playbackMemory = new Set(['my-room-video-audio-v1', 'my-room-video-resume-v1', 'my-room-clip-resume-v1'])
+  const playbackMemory = new Set(['my-room-video-audio-v1', 'my-room-video-resume-v1', 'my-room-clip-resume-v1', 'my-room-music-resume-v1'])
   try { for (let index = localStorage.length - 1; index >= 0; index--) { const key = localStorage.key(index); if (key?.startsWith('my-room-') && !playbackMemory.has(key)) localStorage.removeItem(key) } } catch { /* storage may be unavailable */ }
 }
 

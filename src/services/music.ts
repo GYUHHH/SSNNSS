@@ -3,11 +3,12 @@
 // (ids, titles, order) lives in the room's server bundle. Playback advances down the playlist and wraps.
 import { publicBase } from './publicBase'
 import { deleteVideo, getVideo, putVideo } from './mediaStore'
-import { deleteMedia, isVisiting, readStored, uploadMedia, writeStored } from './social'
+import { currentRoomHandle, deleteMedia, isVisiting, readStored, uploadMedia, writeStored } from './social'
 
 export type MusicTrack = { id: string; title: string; artist: string; url?: string; duration?: number }
 
 const REGISTRY_KEY = 'my-room-music-v1'
+const RESUME_KEY = 'my-room-music-resume-v1'
 const BUILTIN: Record<string, string> = { lany: `${publicBase}music/a-star-we-never-named.mp3` }
 const SEED: MusicTrack[] = [{ id: 'lany', title: 'A Star We Never Named', artist: '', duration: 159 }]
 
@@ -79,6 +80,9 @@ export async function syncPendingTracks(): Promise<number> {
 
 let audio: HTMLAudioElement | null = null
 let currentId: string | null = null
+let currentScope: string | null = null
+let pendingSeek = 0
+let lastRememberedAt = 0
 let volume = 0.7
 let muted = false
 let pendingPlay: string | null = null
@@ -90,18 +94,38 @@ const notify = () => listeners.forEach((listener) => listener())
 export const onMusicUpdate = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener) } }
 export const onTrackChange = (listener: (id: string | null) => void) => { trackChangeListeners.add(listener); return () => { trackChangeListeners.delete(listener) } }
 
+type MusicResume = Record<string, { id: string; time: number }>
+const scope = () => currentRoomHandle() ?? 'lobby'
+const loadResume = (): MusicResume => {
+  try { const saved = JSON.parse(localStorage.getItem(RESUME_KEY) ?? '{}'); return saved && typeof saved === 'object' ? saved : {} } catch { return {} }
+}
+const rememberCurrent = (force = false) => {
+  if (!audio || !currentId || !currentScope || !Number.isFinite(audio.currentTime)) return
+  const now = performance.now()
+  if (!force && now - lastRememberedAt < 1000) return
+  lastRememberedAt = now
+  try { localStorage.setItem(RESUME_KEY, JSON.stringify({ ...loadResume(), [currentScope]: { id: currentId, time: audio.currentTime } })) } catch { /* storage may be unavailable */ }
+}
+export const preferredMusicTrack = (tracks = loadTracks()): string | null => {
+  const saved = loadResume()[scope()]
+  return tracks.some((track) => track.id === saved?.id) ? saved.id : tracks[0]?.id ?? null
+}
+
 const ensureAudio = () => {
   if (audio) return audio
   audio = new Audio()
   audio.volume = volume
-  const bubble = () => notify()
+  const bubble = () => { rememberCurrent(); notify() }
   audio.addEventListener('timeupdate', bubble)
   audio.addEventListener('durationchange', bubble)
   audio.addEventListener('loadedmetadata', () => {
     const duration = audio?.duration
-    if (!currentId || !duration || !Number.isFinite(duration) || isVisiting()) return
+    if (!audio || !currentId || !duration || !Number.isFinite(duration)) return
+    if (pendingSeek > 0) audio.currentTime = Math.min(pendingSeek, Math.max(0, duration - .25))
+    pendingSeek = 0
+    if (isVisiting()) return
     const tracks = loadTracks(); const track = tracks.find((entry) => entry.id === currentId)
-    if (track && !track.duration) saveTracks(tracks.map((entry) => entry.id === currentId ? { ...entry, duration } : entry))
+    if (track && (!track.duration || Math.abs(track.duration - duration) > 1)) saveTracks(tracks.map((entry) => entry.id === currentId ? { ...entry, duration } : entry))
   })
   audio.addEventListener('play', bubble)
   audio.addEventListener('pause', bubble)
@@ -111,6 +135,8 @@ const ensureAudio = () => {
     const next = tracks[(at + 1) % tracks.length]
     if (next) { void playTrack(next.id); trackChangeListeners.forEach((listener) => listener(next.id)) }
   })
+  window.addEventListener('pagehide', () => rememberCurrent(true))
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') rememberCurrent(true) })
   return audio
 }
 
@@ -127,7 +153,19 @@ export async function playTrack(id: string) {
   const url = await resolveUrl(id)
   if (!url) return
   const element = ensureAudio()
-  if (currentId !== id || element.src !== url) { currentId = id; element.src = url }
+  const nextScope = scope()
+  const sameSource = element.src === new URL(url, location.href).href
+  if (currentId !== id || currentScope !== nextScope || !sameSource) {
+    rememberCurrent(true)
+    const saved = loadResume()[nextScope]
+    currentId = id
+    currentScope = nextScope
+    pendingSeek = saved?.id === id && Number.isFinite(saved.time) ? Math.max(0, saved.time) : 0
+    if (sameSource && element.readyState >= 1 && Number.isFinite(element.duration)) {
+      element.currentTime = Math.min(pendingSeek, Math.max(0, element.duration - .25))
+      pendingSeek = 0
+    } else element.src = url
+  }
   element.volume = muted ? 0 : volume
   try { await element.play(); pendingPlay = null }
   catch {
@@ -145,15 +183,16 @@ export async function playTrack(id: string) {
 }
 
 export function stopMusic() {
+  rememberCurrent(true)
   pendingPlay = null
   if (audio) { audio.pause(); audio.removeAttribute('src'); audio.load() }
   currentId = null
   notify()
 }
 
-export function pauseMusic() { audio?.pause() }
+export function pauseMusic() { rememberCurrent(true); audio?.pause() }
 export function resumeMusic() { void audio?.play() }
-export function seekMusic(seconds: number) { if (audio && Number.isFinite(seconds)) { audio.currentTime = seconds; notify() } }
+export function seekMusic(seconds: number) { if (audio && Number.isFinite(seconds)) { audio.currentTime = seconds; rememberCurrent(true); notify() } }
 export function setMusicVolume(next: number) {
   volume = Math.min(1, Math.max(0, next))
   if (audio && !muted) audio.volume = volume

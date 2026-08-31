@@ -5,7 +5,7 @@ import { characterPosition } from './services/characterTracker'
 import { publicBase } from './services/publicBase'
 import { loadOrders } from './services/playlistOrder'
 import { deleteVideo, listVideoIds, loadClipUrls, loadVideoLinks, putVideo, saveClipUrl, saveVideoLinks, setClipMuted, syncPendingClips, encodeTarget, youTubeTarget } from './services/mediaStore'
-import { loadTracks, onTrackChange, playTrack, setMusicVolume as applyMusicVolume, stopMusic, syncPendingTracks } from './services/music'
+import { loadTracks, onTrackChange, playTrack, preferredMusicTrack, setMusicVolume as applyMusicVolume, stopMusic, syncPendingTracks } from './services/music'
 import { DEFAULT_PROFILE_PHOTO, deleteMedia, purgeReactions, getSeenReactions, markReactionSeen, onRoomNavigation, onRoomRefresh, uploadDataUrl, addRemoteComment, broadcastCharacter, currentRoomHandle, fetchAllLikes, fetchGuestbook, fetchVisitCounts, isReadingBundle, isVisiting, myHandle, myProfilePhoto, myVisitorId, readingBundle, readStored, recordVisit, refreshVisit, removeRemoteComment, removeStored, subscribeRealtime, uploadMedia, writeStored, type RemoteGuestComment } from './services/social'
 import { cancelSoundRequest, clearFrameResume, muteFrame, requestSound, snapshotActiveFrames } from './services/ytResume'
 import { t, tp } from './services/i18n'
@@ -595,7 +595,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   useEffect(() => onTrackChange((id) => setMusicTrackState(id)), [])
   useEffect(() => {
     if (!furniture.some((item) => MUSIC_PLAYER_TYPES.has(item.type))) return
-    const first = loadTracks()[0]?.id ?? null
+    const first = preferredMusicTrack()
     setMusicTrackState(first)
     if (first) void playTrack(first); else stopMusic()
   }, [])
@@ -1044,7 +1044,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     setCommentTarget(null)
     setHighlightFrame(null)
     setVideoFrames({})
-    const firstTrack = enteredFurniture.some((item) => MUSIC_PLAYER_TYPES.has(item.type)) ? loadTracks()[0]?.id ?? null : null
+    const firstTrack = enteredFurniture.some((item) => MUSIC_PLAYER_TYPES.has(item.type)) ? preferredMusicTrack() : null
     setMusicTrackState(firstTrack)
     if (firstTrack) void playTrack(firstTrack); else stopMusic()
   }), [])
