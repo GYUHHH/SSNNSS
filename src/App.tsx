@@ -1,13 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import ArtworkOverlay, { artworkKindOf } from './components/ArtworkOverlay'
 import DiaryDialog from './components/DiaryDialog'
-import InventoryPanel from './components/InventoryPanel'
 import CustomSizeEditor from './components/CustomSizeEditor'
 import MusicPanel from './components/MusicPanel'
 import ProfileCard from './components/ProfileCard'
 import NotificationPopup from './components/NotificationPopup'
 import Dock from './components/Dock'
-import { customJobLabel, customJobProgress } from './components/InventoryPanel'
+import { customJobLabel, customJobProgress } from './services/customJobStatus'
 import FollowInvite from './components/FollowInvite'
 import HandleSetup from './components/HandleSetup'
 import ReactionPopup from './components/ReactionPopup'
@@ -23,7 +22,8 @@ import { thumbnailFor } from './services/thumbnails'
 import { lang, t } from './services/i18n'
 
 // bumped by one on every deploy so the live site's version is visible at a glance (top-right corner)
-const BUILD = 826
+const BUILD = 827
+const InventoryPanel = lazy(() => import('./components/InventoryPanel'))
 
 function Interface() {
   const { rooms, activeRoomId, openRoom, createRoom, removeRoom, selectedObject, clearSelection, mode, toggleEditMode, bookshelfOpen, openBookId, selectedFurnitureId, selectedPlacementValid, movingFurnitureId, preview, previewValid, placePreview, furniture, rotateFurniture, removeFurniture, endMove, undoLayout, resetLayout, timeOfDay, setTimeOfDay, openStyleTarget, musicTrack, setMusicTrack, musicVolume, setMusicVolume, customJob, customEditing, startCustomObjectEdit, applyCustomObjectEdit, cancelCustomObjectEdit } = useRoomStore()
@@ -157,7 +157,7 @@ function Interface() {
     {/* Keep the dismiss gesture out of the room. Letting the same pointer event reach the canvas used to close
         the inventory and also select/interact with whatever happened to be behind it. */}
     {inventoryOpen && !preview && <div className="inventory-dismiss" onClick={() => setInventoryOpen(false)} />}
-    {inventoryOpen && !mobile && <InventoryPanel />}
+    {inventoryOpen && !mobile && <Suspense fallback={null}><InventoryPanel /></Suspense>}
     <CustomSizeEditor />
     {confirmingRoom && <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setConfirmingRoom(null)}><section className="reset-confirm"><p>{t('이 방을 삭제할까요? 안에 놓인 가구는 보관함으로 돌아옵니다.')}</p><div><button type="button" onClick={() => setConfirmingRoom(null)}>{t('취소')}</button><button type="button" onClick={() => { removeRoom(confirmingRoom); setConfirmingRoom(null) }}>{t('삭제')}</button></div></section></div>}
     {confirmingReset && <div className="overlay" onMouseDown={(event) => event.currentTarget === event.target && setConfirmingReset(false)}><section className="reset-confirm"><p>{t('방을 처음 상태로 되돌릴까요? 가구 배치와 벽·바닥, 넣어둔 사진, 캐릭터 색이 모두 초기화됩니다.')}</p><div><button type="button" onClick={() => setConfirmingReset(false)}>{t('취소')}</button><button type="button" onClick={() => { resetLayout(); setConfirmingReset(false) }}>{t('초기화')}</button></div></section></div>}
@@ -180,7 +180,7 @@ function Interface() {
       onPointerDown={sheetDown} onPointerMove={sheetMove} onPointerUp={sheetUp} onPointerCancel={sheetUp}>
       <span className="sheet-handle" aria-hidden="true" />
       {musicOpen && <div className="mobile-music-sheet"><MusicPanel musicTrack={musicTrack} setMusicTrack={setMusicTrack} musicVolume={musicVolume} setMusicVolume={setMusicVolume} /></div>}
-      {inventorySheet && <InventoryPanel />}
+      {inventorySheet && <Suspense fallback={null}><InventoryPanel /></Suspense>}
       <DiaryDialog /><ArtworkOverlay />
     </aside>
   </main>

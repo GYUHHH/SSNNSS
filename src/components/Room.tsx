@@ -954,34 +954,43 @@ function RoomWorld() {
   useEffect(() => onFollowsChange(() => setFollowsTick((value) => value + 1)), [])
   useEffect(() => {
     let live = true
-    // Home is one stable neighbourhood: my room followed by only the rooms I follow. Visiting one of them must
-    // never rebuild the array around that room or inject an unrelated visited room into my ring.
-    const centre = hubHandle
-    const source = ringMode === 'home'
-      ? fetchFollowing(hubHandle).then(sortByActivity)
-      : discoverPage.current ? Promise.resolve(discoverPage.current) : fetchRoomDirectory().then((all) => (discoverPage.current = shuffled(all)))
-    void source.then(async (found) => {
-      if (!live) return
-      const rest = found.filter((handle) => handle !== centre && handle !== hubHandle)
-      // Discover keeps the room being browsed. Home never adds it: that ring is exactly mine + my follows.
-      const viewed = ringMode === 'discover' ? currentRoomHandle() : null
-      if (viewed && viewed !== centre && !rest.includes(viewed)) rest.unshift(viewed)
-      const next = withVacancies([centre, ...rest])
-      // The first visible ring is only seven rooms. Fetch those small bundles before mounting their trees so a
-      // slow mobile connection cannot insert furniture halfway through the explorer camera animation.
-      const warmed = await Promise.all(next.filter(isEnterable).slice(0, 7).map(async (handle) => [handle, await fetchRoomBundle(handle)] as const))
-      if (!live) return
-      setFreshBundles((current) => {
-        const added = Object.fromEntries(warmed.filter((entry): entry is readonly [string, Record<string, string>] => !!entry[1]))
-        return { ...current, ...added }
+    const prepareNeighbours = () => {
+      // Home is one stable neighbourhood: my room followed by only the rooms I follow. Visiting one of them must
+      // never rebuild the array around that room or inject an unrelated visited room into my ring.
+      const centre = hubHandle
+      const source = ringMode === 'home'
+        ? fetchFollowing(hubHandle).then(sortByActivity)
+        : discoverPage.current ? Promise.resolve(discoverPage.current) : fetchRoomDirectory().then((all) => (discoverPage.current = shuffled(all)))
+      void source.then(async (found) => {
+        if (!live) return
+        const rest = found.filter((handle) => handle !== centre && handle !== hubHandle)
+        // Discover keeps the room being browsed. Home never adds it: that ring is exactly mine + my follows.
+        const viewed = ringMode === 'discover' ? currentRoomHandle() : null
+        if (viewed && viewed !== centre && !rest.includes(viewed)) rest.unshift(viewed)
+        const next = withVacancies([centre, ...rest])
+        // The first visible ring is only seven rooms. Fetch those small bundles before mounting their trees so a
+        // slow mobile connection cannot insert furniture halfway through the explorer camera animation.
+        const warmed = await Promise.all(next.filter(isEnterable).slice(0, 7).map(async (handle) => [handle, await fetchRoomBundle(handle)] as const))
+        if (!live) return
+        setFreshBundles((current) => {
+          const added = Object.fromEntries(warmed.filter((entry): entry is readonly [string, Record<string, string>] => !!entry[1]))
+          return { ...current, ...added }
+        })
+        // Inside a room the ring is off screen, so the exchange is free — which is the usual case, since a new
+        // ring is what entering a room asks for. Out in the explorer the swap would be seen, so it crossfades.
+        if (wasZoomedIn.current) { setHandles(next); return }
+        setSwapping(true)
+        window.setTimeout(() => { if (live) { setHandles(next); setSwapping(false) } }, 240)
       })
-      // Inside a room the ring is off screen, so the exchange is free — which is the usual case, since a new
-      // ring is what entering a room asks for. Out in the explorer the swap would be seen, so it crossfades.
-      if (wasZoomedIn.current) { setHandles(next); return }
-      setSwapping(true)
-      window.setTimeout(() => { if (live) { setHandles(next); setSwapping(false) } }, 240)
-    })
-    return () => { live = false }
+    }
+    // Let the current room paint first. Neighbour data and models are explorer preparation, not first-screen work.
+    const canIdle = 'requestIdleCallback' in window
+    const idle = canIdle ? window.requestIdleCallback(prepareNeighbours, { timeout: 900 }) : window.setTimeout(prepareNeighbours, 400)
+    return () => {
+      live = false
+      if (canIdle) window.cancelIdleCallback(idle)
+      else window.clearTimeout(idle)
+    }
   }, [hubHandle, ringMode, followsTick, activeHandle])
   // Re-based so the room being viewed always sits at the world origin. Everything inside a room — the placement
   // grid, the character's pathfinding, every worldToGrid call — is written in room-local coordinates against

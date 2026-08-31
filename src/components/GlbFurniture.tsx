@@ -6,7 +6,6 @@ import { useThree } from '@react-three/fiber'
 import { publicBase } from '../services/publicBase'
 
 // GLB 가구 실험: 파일 하나를 카탈로그 아이템으로. 씬은 배치 인스턴스마다 클론하고 그림자를 켠다.
-// preload로 배치 시점엔 캐시에서 동기 마운트되게 해 FittedMesh 측정 타이밍을 지킨다.
 const GLB_URLS: Record<string, string> = {
   'pink-slide': `${publicBase}models/pink-slide.glb`,
   'color-drawers': `${publicBase}models/color-drawers.glb`,
@@ -23,7 +22,6 @@ const GLB_URLS: Record<string, string> = {
   'play-slide': `${publicBase}models/play-slide.glb`,
 }
 export const GLB_TYPES = new Set(Object.keys(GLB_URLS))
-for (const url of Object.values(GLB_URLS)) useGLTF.preload(url)
 // 각진 로우폴리 톤으로 통일할 타입 — 사진풍 스무스 셰이딩이 방 감성과 어긋나는 생성 모델용
 const FLAT_TYPES = new Set(['pink-slide', 'color-drawers'])
 // 가로 바운즈 패딩 배율: FittedMesh가 바운즈로 칸을 채우는 성질을 이용해, 실물이 칸 박스보다 작게 보이게 한다
