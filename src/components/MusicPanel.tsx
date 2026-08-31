@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { isVisiting } from '../services/social'
-import { addTrackFile, loadTracks, musicState, onMusicUpdate, pauseMusic, removeTrack, resumeMusic, saveTracks, seekMusic, toggleMusicMute, type MusicTrack } from '../services/music'
+import { addSpotifyItem, addTrackFile, loadMusicSource, loadSpotifyItems, loadTracks, musicState, onMusicUpdate, pauseMusic, preferredMusicTrack, removeSpotifyItem, removeTrack, resumeMusic, saveMusicSource, saveTracks, seekMusic, spotifyEmbedUrl, toggleMusicMute, type MusicSource, type MusicTrack } from '../services/music'
 import { t } from '../services/i18n'
 
 // store values arrive as props: this panel lives inside a drei <Html> portal, which renders in its own React
@@ -15,6 +15,11 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
   const [, setTick] = useState(0)
   const [listOpen, setListOpen] = useState(false)
   const [tracks, setTracks] = useState<MusicTrack[]>(() => loadTracks())
+  const [source, setSource] = useState<MusicSource>(() => loadMusicSource())
+  const [spotifyItems, setSpotifyItems] = useState(() => loadSpotifyItems())
+  const [spotifyActiveId, setSpotifyActiveId] = useState(() => loadSpotifyItems()[0]?.id ?? null)
+  const [spotifyLink, setSpotifyLink] = useState('')
+  const [spotifyError, setSpotifyError] = useState(false)
   const [drag, setDrag] = useState<{ index: number; delta: number } | null>(null)
   const rowStep = useRef(40)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -22,7 +27,11 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
   const titleBox = useRef<HTMLElement>(null)
   const [slide, setSlide] = useState(0)
 
-  useEffect(() => onMusicUpdate(() => { setTick((value) => value + 1); setTracks(loadTracks()) }), [])
+  useEffect(() => onMusicUpdate(() => {
+    const nextSpotify = loadSpotifyItems()
+    setTick((value) => value + 1); setTracks(loadTracks()); setSource(loadMusicSource()); setSpotifyItems(nextSpotify)
+    setSpotifyActiveId((current) => nextSpotify.some((item) => item.id === current) ? current : nextSpotify[0]?.id ?? null)
+  }), [])
   const state0 = musicState()
   const shownTitle = (tracks.find((track) => track.id === (musicTrack ?? state0.id)) ?? tracks[0])?.title ?? ''
   useEffect(() => {
@@ -49,6 +58,17 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
     if (musicTrack === track.id || state.id === track.id) setMusicTrack(next)
   }
   const addFiles = async (files: FileList) => { for (const file of Array.from(files)) await addTrackFile(file) }
+  const switchSource = (next: MusicSource) => {
+    setSource(next); saveMusicSource(next); setSpotifyError(false)
+    if (next === 'spotify') setMusicTrack(null)
+    else setMusicTrack(preferredMusicTrack(loadTracks(), 'mp3'))
+  }
+  const addSpotify = () => {
+    const item = addSpotifyItem(spotifyLink)
+    setSpotifyError(!item)
+    if (item) { setSpotifyLink(''); setSpotifyActiveId(item.id); setSpotifyItems(loadSpotifyItems()) }
+  }
+  const activeSpotify = spotifyItems.find((item) => item.id === spotifyActiveId) ?? spotifyItems[0]
   const target = drag ? Math.min(tracks.length - 1, Math.max(0, drag.index + Math.round(drag.delta / rowStep.current))) : null
   const startDrag = (index: number) => (event: React.PointerEvent) => {
     event.preventDefault(); event.stopPropagation()
@@ -69,6 +89,11 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
     handle.addEventListener('pointercancel', onUp)
   }
   return <div className="mini-player">
+    <div className="music-source-tabs" role="group" aria-label={t('음악 소스')}>
+      <button type="button" className={source === 'mp3' ? 'active' : ''} aria-pressed={source === 'mp3'} onClick={() => switchSource('mp3')}>{t('내 음악')}</button>
+      <button type="button" className={source === 'spotify' ? 'active' : ''} aria-pressed={source === 'spotify'} onClick={() => switchSource('spotify')}>Spotify</button>
+    </div>
+    {source === 'mp3' ? <>
     <div className="mini-meta">
       <b ref={titleBox} className={slide ? 'sliding' : ''} style={slide ? { '--slide': `-${slide}px` } as React.CSSProperties : undefined}><span>{shown?.title ?? ''}</span></b>
       <small>{shown?.artist ?? ''}</small>
@@ -122,5 +147,17 @@ export default function MusicPanel({ musicTrack, setMusicTrack, musicVolume, set
       {!isVisiting() && <button type="button" className="mini-add" onClick={() => fileInput.current?.click()}>{t('+ 파일')}</button>}
       <input ref={fileInput} type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.oga,.flac,.opus,.weba" multiple hidden onChange={(event) => { if (event.target.files?.length) void addFiles(event.target.files); event.target.value = '' }} />
     </>}
+    </> : <div className="spotify-source">
+      {activeSpotify && <iframe className="spotify-embed" src={spotifyEmbedUrl(activeSpotify)} title={`Spotify ${activeSpotify.type}`} width="100%" height="152" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" />}
+      {!!spotifyItems.length && <><b className="spotify-list-title">{t('저장한 항목')}</b><ul className="spotify-list">{spotifyItems.map((item) => <li key={`${item.type}:${item.id}`} className={item.id === activeSpotify?.id ? 'active' : ''}>
+        <button type="button" className="spotify-pick" onClick={() => setSpotifyActiveId(item.id)}><b>Spotify {item.type}</b><small>{item.id.slice(0, 8)}</small></button>
+        {!isVisiting() && <button type="button" className="spotify-delete" aria-label={t('삭제')} onClick={() => removeSpotifyItem(item.id)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5" /></svg></button>}
+      </li>)}</ul></>}
+      {!isVisiting() && <form className="spotify-add" onSubmit={(event) => { event.preventDefault(); addSpotify() }}>
+        <label htmlFor="spotify-link">{t('Spotify 링크')}</label>
+        <div><input id="spotify-link" type="url" value={spotifyLink} placeholder="https://open.spotify.com/…" onChange={(event) => { setSpotifyLink(event.target.value); setSpotifyError(false) }} /><button type="submit">{t('추가')}</button></div>
+        {spotifyError && <small role="alert">{t('Spotify 링크를 확인해주세요.')}</small>}
+      </form>}
+    </div>}
   </div>
 }

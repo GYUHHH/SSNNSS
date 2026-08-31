@@ -67,7 +67,7 @@ let ownerData: Record<string, string> = {}
 let ownerPersisted = false
 const dirtyKeys = new Set<string>()
 const deletedKeys = new Set<string>()
-const LEGACY_ROOM_KEYS = ['my-room-layout-v1', 'my-room-slots-v1', 'my-room-video-links-v1', 'my-room-artwork-v1', 'my-room-profile-v1', 'my-room-books-v1', 'my-room-guestbook-v1', 'my-room-playlist-order-v1', 'my-room-interactions-v1', 'my-room-time-v1', 'my-room-music-v1', 'my-room-clip-urls-v1', 'my-room-character-v1', 'my-room-character-look-v1', 'my-room-reactions-seen-v1', 'my-room-custom-objects-v1']
+const LEGACY_ROOM_KEYS = ['my-room-layout-v1', 'my-room-slots-v1', 'my-room-video-links-v1', 'my-room-artwork-v1', 'my-room-profile-v1', 'my-room-books-v1', 'my-room-guestbook-v1', 'my-room-playlist-order-v1', 'my-room-interactions-v1', 'my-room-time-v1', 'my-room-music-v1', 'my-room-spotify-v1', 'my-room-music-source-v1', 'my-room-clip-urls-v1', 'my-room-character-v1', 'my-room-character-look-v1', 'my-room-reactions-seen-v1', 'my-room-custom-objects-v1']
 const clearLegacyRoomContent = () => {
   try { for (const key of LEGACY_ROOM_KEYS) localStorage.removeItem(key) } catch { /* storage may be unavailable */ }
 }

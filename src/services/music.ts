@@ -6,8 +6,12 @@ import { deleteVideo, getVideo, putVideo } from './mediaStore'
 import { currentRoomHandle, deleteMedia, isVisiting, readStored, uploadMedia, writeStored } from './social'
 
 export type MusicTrack = { id: string; title: string; artist: string; url?: string; duration?: number }
+export type SpotifyItem = { id: string; type: 'track' | 'album' | 'playlist' | 'artist' | 'episode' | 'show' }
+export type MusicSource = 'mp3' | 'spotify'
 
 const REGISTRY_KEY = 'my-room-music-v1'
+const SPOTIFY_KEY = 'my-room-spotify-v1'
+const SOURCE_KEY = 'my-room-music-source-v1'
 const RESUME_KEY = 'my-room-music-resume-v1'
 const BUILTIN: Record<string, string> = { lany: `${publicBase}music/a-star-we-never-named.mp3` }
 const SEED: MusicTrack[] = [{ id: 'lany', title: 'A Star We Never Named', artist: '', duration: 159 }]
@@ -18,6 +22,38 @@ export const loadTracks = (): MusicTrack[] => {
 }
 export const saveTracks = (tracks: MusicTrack[]) => {
   if (!isVisiting()) writeStored(REGISTRY_KEY, JSON.stringify(tracks))
+  notify()
+}
+
+export const loadMusicSource = (): MusicSource => readStored(SOURCE_KEY) === 'spotify' ? 'spotify' : 'mp3'
+export const saveMusicSource = (source: MusicSource) => { if (isVisiting()) return; writeStored(SOURCE_KEY, source); notify() }
+export const loadSpotifyItems = (): SpotifyItem[] => {
+  try { const saved = JSON.parse(readStored(SPOTIFY_KEY) ?? '[]'); if (Array.isArray(saved)) return saved.filter((item): item is SpotifyItem => !!item?.id && ['track', 'album', 'playlist', 'artist', 'episode', 'show'].includes(item.type)) } catch { /* malformed room data */ }
+  return []
+}
+export const parseSpotifyUrl = (value: string): SpotifyItem | null => {
+  const uri = value.trim().match(/^spotify:(track|album|playlist|artist|episode|show):([A-Za-z0-9]+)$/)
+  if (uri) return { type: uri[1] as SpotifyItem['type'], id: uri[2] }
+  try {
+    const url = new URL(value.trim())
+    if (url.hostname !== 'open.spotify.com') return null
+    const parts = url.pathname.split('/').filter(Boolean)
+    if (parts[0]?.startsWith('intl-')) parts.shift()
+    const type = parts[0] as SpotifyItem['type']; const id = parts[1]
+    return id && ['track', 'album', 'playlist', 'artist', 'episode', 'show'].includes(type) ? { type, id } : null
+  } catch { return null }
+}
+export const spotifyEmbedUrl = ({ type, id }: SpotifyItem) => `https://open.spotify.com/embed/${type}/${id}?utm_source=generator&theme=0`
+export const addSpotifyItem = (value: string): SpotifyItem | null => {
+  if (isVisiting()) return null
+  const item = parseSpotifyUrl(value); if (!item) return null
+  const items = loadSpotifyItems()
+  if (!items.some((entry) => entry.type === item.type && entry.id === item.id)) writeStored(SPOTIFY_KEY, JSON.stringify([...items, item]))
+  notify(); return item
+}
+export const removeSpotifyItem = (id: string) => {
+  if (isVisiting()) return
+  writeStored(SPOTIFY_KEY, JSON.stringify(loadSpotifyItems().filter((item) => item.id !== id)))
   notify()
 }
 
@@ -107,7 +143,8 @@ const rememberCurrent = (force = false) => {
   lastRememberedAt = now
   try { localStorage.setItem(RESUME_KEY, JSON.stringify({ ...loadResume(), [currentScope]: { id: currentId, time: audio.currentTime } })) } catch { /* storage may be unavailable */ }
 }
-export const preferredMusicTrack = (tracks = loadTracks()): string | null => {
+export const preferredMusicTrack = (tracks = loadTracks(), source = loadMusicSource()): string | null => {
+  if (source === 'spotify') return null
   const saved = loadResume()[scope()]
   return tracks.some((track) => track.id === saved?.id) ? saved.id : tracks[0]?.id ?? null
 }

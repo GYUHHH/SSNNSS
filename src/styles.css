@@ -645,7 +645,10 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 .sound-hub-list button { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 170px; padding: 8px 10px; border: 0; border-radius: 5px; color: #3a3a38; background: transparent; cursor: pointer; font-size: 13px; }
 .sound-hub-list button:hover { background: #f2f2f2; }
 .sound-hub-list button.muted { color: #9a9a95; }
-.mini-player { width: 208px; padding: 14px; border-radius: 14px; background: #ffffff; box-shadow: 0 8px 22px rgb(0 0 0 / 14%); }
+.mini-player { width: 228px; padding: 14px; border-radius: 8px; background: #ffffff; }
+.music-source-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin-bottom: 18px; padding: 3px; border-radius: 6px; background: #f0f0ed; }
+.music-source-tabs button { min-height: 36px; padding: 0 8px; border: 0; border-radius: 4px; color: #777771; background: transparent; cursor: pointer; font-size: 12px; }
+.music-source-tabs button.active { color: #2f2f2d; background: #ffffff; font-weight: 600; }
 .mini-meta { display: grid; min-width: 0; text-align: center; }
 .mini-meta b { font-size: 14px; color: #3a3a38; overflow: hidden; white-space: nowrap; }
 .mini-meta b span { display: inline-block; }
@@ -677,6 +680,23 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 .mini-list .order-handle, .mini-delete { display: grid; place-items: center; width: 34px; height: 38px; padding: 0; border: 0; color: #84847e; background: transparent; cursor: pointer; }
 .mini-delete { width: 38px; color: #8a6f63; }
 .mini-add { width: 100%; margin-top: 6px; padding: 8px 0; border: 0; border-radius: 8px; color: #75756f; background: #f2f2f0; cursor: pointer; font-size: 12px; }
+.spotify-source { display: grid; gap: 8px; max-height: 360px; overflow-y: auto; }
+.spotify-embed { display: block; width: 100%; border: 0; border-radius: 6px; }
+.spotify-list-title { margin-top: 4px; color: #4a4a47; font-size: 12px; }
+.spotify-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.spotify-list li { display: grid; grid-template-columns: 1fr 38px; align-items: center; border-radius: 5px; background: #f7f7f5; }
+.spotify-list li.active { background: #ecece8; }
+.spotify-pick { display: grid; min-width: 0; padding: 8px 10px; border: 0; color: #3a3a38; background: transparent; text-align: left; cursor: pointer; }
+.spotify-pick b, .spotify-pick small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spotify-pick b { font-size: 12px; }
+.spotify-pick small { color: #84847e; font-size: 10px; }
+.spotify-delete { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 0; color: #8a6f63; background: transparent; cursor: pointer; }
+.spotify-add { display: grid; gap: 6px; margin-top: 4px; }
+.spotify-add label { color: #686863; font-size: 11px; }
+.spotify-add > div { display: grid; grid-template-columns: 1fr auto; gap: 5px; }
+.spotify-add input { min-width: 0; height: 38px; padding: 0 9px; border: 0; border-radius: 5px; color: #3a3a38; background: #f2f2f0; font: inherit; font-size: 12px; }
+.spotify-add button { padding: 0 11px; border: 0; border-radius: 5px; color: #ffffff; background: #363634; cursor: pointer; font-size: 12px; }
+.spotify-add small { color: #a1453d; font-size: 11px; }
 
 /* one corner radius across the popups and the controls inside them — round pieces (the photo, the badges,
    the play button, the sound hub) keep their own shape and are not touched here */
