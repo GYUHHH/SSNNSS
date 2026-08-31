@@ -690,6 +690,7 @@ input:not([type="range"]):focus, textarea:focus, select:focus { outline: 0; box-
 @media (max-width: 719px) {
   input:not([type="range"]), textarea, select { font-size: 16px; }
   .art-panel { top: auto; right: 0; left: 0; width: auto; max-height: 78dvh; padding: 8px 16px calc(20px + env(safe-area-inset-bottom)); border: 0; border-radius: 8px 8px 0 0; transform: translateY(100%); transition: transform .42s cubic-bezier(.22, 1.2, .36, 1); overscroll-behavior: contain; }
+  .art-panel:has(.inventory-panel) { max-height: 58dvh; }
   .art-panel:has(.diary) { max-height: 86dvh; }
   .art-panel.open { transform: translateY(0); }
   .art-panel.expanded, .art-panel.expanded:has(.diary) { height: 100dvh; max-height: 100dvh; border-radius: 0; }
