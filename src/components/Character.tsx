@@ -194,7 +194,14 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
     }
   })
 
-  return <group ref={actor} name="CharacterRoot" visible={!hidden} renderOrder={ROOM_OBJECT_ORDER} scale={0.85} onPointerOver={(event) => { if (!hoverEnabled || readOnly) return; event.stopPropagation(); setHovered(true) }} onPointerOut={() => setHovered(false)} onClick={(event) => { if (readOnly) return; event.stopPropagation(); selectObject('character') }}>
+  // `visible={false}` only skips drawing; Three's raycaster can still hit the hidden subtree. In first-person the
+  // camera sits inside this character, so leaving these handlers mounted makes every room tap bubble through the
+  // invisible body as a character click (floor-sit) before it can reach a book or the floor. Removing all pointer
+  // handlers also removes this group from R3F's interaction list while keeping its movement tracker alive.
+  return <group ref={actor} name="CharacterRoot" visible={!hidden} renderOrder={ROOM_OBJECT_ORDER} scale={0.85}
+    onPointerOver={hidden ? undefined : (event) => { if (!hoverEnabled || readOnly) return; event.stopPropagation(); setHovered(true) }}
+    onPointerOut={hidden ? undefined : () => setHovered(false)}
+    onClick={hidden ? undefined : (event) => { if (readOnly) return; event.stopPropagation(); selectObject('character') }}>
     <group position={[0, pose.y, 0]} rotation={pose.rotation} scale={hoverEnabled && hovered ? 1.03 : 1}>
       <group ref={torso} name="Body">
         <group name="BaseBody">
