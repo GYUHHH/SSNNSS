@@ -698,18 +698,20 @@ export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void,
   if (!room) return () => { /* nothing to unsubscribe */ }
   publishVisitors([])
   let active = true
-  const departedVisitors = new Set<string>()
-  const client = supabaseClient()
+  // `supabaseClient().channel(topic)` returns the already joined channel for the same topic.
+  // React's development remount and fast room changes can therefore try to register handlers on
+  // a joined channel and crash the whole RoomProvider. One short-lived realtime client per room
+  // subscription keeps the channel lifecycle isolated; REST/auth still use the shared client.
+  const client = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
   const channel = client.channel(`room-${room}`, { config: { presence: { key: presenceSessionId } } })
     .on('broadcast', { event: 'character' }, ({ payload }) => { if (active) onCharacter?.(payload as CharacterSettle) })
     .on('broadcast', { event: 'visitor-move' }, ({ payload }) => {
       const visitor = payload as VisitorPresence
-      if (active && !departedVisitors.has(visitor.sessionId)) publishVisitor(visitor)
+      if (active) publishVisitor(visitor)
     })
     .on('broadcast', { event: 'visitor-leave' }, ({ payload }) => {
       const sessionId = (payload as { sessionId?: unknown })?.sessionId
       if (!active || typeof sessionId !== 'string') return
-      departedVisitors.add(sessionId)
       removeVisitor(sessionId)
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'guestbook', filter: `room=eq.${room}` }, () => { if (active) onGuestbook() })
@@ -718,7 +720,9 @@ export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void,
     .on('presence', { event: 'sync' }, () => {
       if (!active) return
       const states = Object.values(channel.presenceState<VisitorPresence>()).flat().filter((value) => typeof value?.sessionId === 'string' && typeof value?.handle === 'string')
-      publishVisitors(states.map(({ presence_ref: _presenceRef, ...visitor }) => visitor).filter((visitor) => !departedVisitors.has(visitor.sessionId)))
+      // Presence state is authoritative. A person may leave and later enter the same room again;
+      // never carry a permanent "departed" blacklist across that valid rejoin.
+      publishVisitors(states.map(({ presence_ref: _presenceRef, ...visitor }) => visitor))
     })
   const visitor = isVisiting() ? myHandle() : null
   if (visitor) resetVisitorTransform()
@@ -735,7 +739,8 @@ export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void,
     publishVisitors([])
     // Explicitly leave Presence before closing the socket so other clients remove this avatar immediately.
     void channel.send({ type: 'broadcast', event: 'visitor-leave', payload: { sessionId: presenceSessionId } })
-    void channel.untrack().then(() => channel.unsubscribe(), () => channel.unsubscribe())
+    void channel.untrack()
+    void client.removeAllChannels()
   }
 }
 

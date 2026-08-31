@@ -11,14 +11,10 @@ export type VisitorPresence = {
   state: VisitorState
 }
 
-const SESSION_KEY = 'dens-presence-session'
-export const presenceSessionId = (() => {
-  try {
-    let id = sessionStorage.getItem(SESSION_KEY)
-    if (!id) { id = crypto.randomUUID(); sessionStorage.setItem(SESSION_KEY, id) }
-    return id
-  } catch { return crypto.randomUUID() }
-})()
+// One id per mounted page, not per browser tab forever. A refreshed/re-entered client is a new
+// Presence connection; reusing its old id made peers keep treating the new connection as the one
+// that had already left. It also made duplicated tabs overwrite each other in the same room.
+export const presenceSessionId = crypto.randomUUID()
 
 let visitors: VisitorPresence[] = []
 const listeners = new Set<() => void>()
