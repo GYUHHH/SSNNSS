@@ -5,6 +5,7 @@ import { Group, Vector3 } from 'three'
 import { baseFloorCells, isFloorCovering, useRoomStore, type CharacterTransform } from '../store'
 import { characterFacing, characterPosition, characterViewFacing } from '../services/characterTracker'
 import type { VisitorLook, VisitorState } from '../services/presence'
+import { broadcastCharacter } from '../services/social'
 import { resolveInteraction, routeToInteraction, stateForInteraction } from '../services/interactionAnchors'
 import { floorSurface, floorWalkRoute } from '../services/roomGrid'
 import { ROOM_HTML_Z_INDEX_RANGE, ROOM_OBJECT_ORDER } from '../services/renderOrder'
@@ -73,6 +74,7 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
   const route = useRef<Vector3[]>([]); const routeIndex = useRef(0); const routeKey = useRef<string | null>(null)
   const interactionStart = useRef<{ key: string | null; position: [number, number, number] }>({ key: null, position: [start.x, 0, start.z] })
   const clock = useRef(0)
+  const broadcastAt = useRef(0)
   const previewFrame = usePreviewFrame()
   useCursor(hoverEnabled && hovered)
   // A room change applies one complete snapshot before paint. The same actor can stay mounted without carrying
@@ -88,11 +90,7 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
   // Visitor and explorer characters are read-only snapshots. Owner realtime updates replace them as a whole.
   useLayoutEffect(() => {
     if (characterWritable || !actor.current) return
-    if (snapshot) { snapshotTarget.current.set(characterHome[0], characterPose?.y ?? 0, characterHome[2]); return }
-    start.set(characterHome[0], characterPose?.y ?? 0, characterHome[2])
-    actor.current.position.copy(start)
-    actor.current.rotation.y = characterPose?.facing ?? Math.PI / 4
-    interactionStart.current.position = [start.x, 0, start.z]
+    snapshotTarget.current.set(characterHome[0], characterPose?.y ?? 0, characterHome[2])
   }, [characterWritable, characterHome[0], characterHome[2], characterPose])
 
   const seated = characterState === 'sitting' || characterState === 'working'
@@ -108,9 +106,9 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
     delta = previewFrame(sceneClock.elapsedTime, delta)
     if (!delta) return
     if (!actor.current) return
-    if (snapshot) {
+    if (!characterWritable) {
       actor.current.position.lerp(snapshotTarget.current, Math.min(1, delta * 10))
-      actor.current.rotation.y = turnToward(actor.current.rotation.y, snapshot.facing, Math.min(1, delta * 10))
+      actor.current.rotation.y = turnToward(actor.current.rotation.y, characterPose?.facing ?? Math.PI / 4, Math.min(1, delta * 10))
     }
     // Explorer characters stay read-only, but their saved pose keeps its small idle motion as a live preview.
     clock.current += delta
@@ -191,6 +189,11 @@ export default function Character({ appearance: customAppearance, snapshot, hidd
     if (characterWritable) {
       characterPosition[0] = actor.current.position.x; characterPosition[1] = actor.current.position.y; characterPosition[2] = actor.current.position.z
       characterFacing.current = actor.current.rotation.y
+      const now = performance.now()
+      if ((walking || characterState === 'aligning' || isFirstPerson()) && now - broadcastAt.current > 80) {
+        broadcastAt.current = now
+        broadcastCharacter({ position: [actor.current.position.x, actor.current.position.y, actor.current.position.z], pose: { state: characterState, facing: actor.current.rotation.y, y: actor.current.position.y } })
+      }
     }
   })
 

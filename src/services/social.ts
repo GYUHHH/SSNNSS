@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { compressImage } from './imageCompress'
-import { presenceSessionId, publishVisitor, publishVisitors, resetVisitorTransform, visitorFacing, visitorPosition, visitorState, type VisitorLook, type VisitorPresence } from './presence'
+import { presenceSessionId, publishVisitor, publishVisitors, removeVisitor, resetVisitorTransform, visitorFacing, visitorPosition, visitorState, type VisitorLook, type VisitorPresence } from './presence'
 
 // Supabase-backed social layer: plain fetch against PostgREST, plus the SDK's realtime channel for live updates.
 // - The owner's room state lives in the server bundle. An in-memory copy keeps synchronous loaders simple;
@@ -697,27 +697,46 @@ export function subscribeRealtime(onGuestbook: () => void, onVisits: () => void,
   const room = currentRoomHandle()
   if (!room) return () => { /* nothing to unsubscribe */ }
   publishVisitors([])
+  let active = true
+  const departedVisitors = new Set<string>()
   const client = supabaseClient()
   const channel = client.channel(`room-${room}`, { config: { presence: { key: presenceSessionId } } })
-    .on('broadcast', { event: 'character' }, ({ payload }) => onCharacter?.(payload as CharacterSettle))
-    .on('broadcast', { event: 'visitor-move' }, ({ payload }) => publishVisitor(payload as VisitorPresence))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'guestbook', filter: `room=eq.${room}` }, onGuestbook)
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'visits', filter: `room=eq.${room}` }, onVisits)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'likes', filter: `room=eq.${room}` }, () => onLikes?.())
+    .on('broadcast', { event: 'character' }, ({ payload }) => { if (active) onCharacter?.(payload as CharacterSettle) })
+    .on('broadcast', { event: 'visitor-move' }, ({ payload }) => {
+      const visitor = payload as VisitorPresence
+      if (active && !departedVisitors.has(visitor.sessionId)) publishVisitor(visitor)
+    })
+    .on('broadcast', { event: 'visitor-leave' }, ({ payload }) => {
+      const sessionId = (payload as { sessionId?: unknown })?.sessionId
+      if (!active || typeof sessionId !== 'string') return
+      departedVisitors.add(sessionId)
+      removeVisitor(sessionId)
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'guestbook', filter: `room=eq.${room}` }, () => { if (active) onGuestbook() })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'visits', filter: `room=eq.${room}` }, () => { if (active) onVisits() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'likes', filter: `room=eq.${room}` }, () => { if (active) onLikes?.() })
     .on('presence', { event: 'sync' }, () => {
+      if (!active) return
       const states = Object.values(channel.presenceState<VisitorPresence>()).flat().filter((value) => typeof value?.sessionId === 'string' && typeof value?.handle === 'string')
-      publishVisitors(states.map(({ presence_ref: _presenceRef, ...visitor }) => visitor))
+      publishVisitors(states.map(({ presence_ref: _presenceRef, ...visitor }) => visitor).filter((visitor) => !departedVisitors.has(visitor.sessionId)))
     })
   const visitor = isVisiting() ? myHandle() : null
   if (visitor) resetVisitorTransform()
-  if (isVisiting()) channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `handle=eq.${room}` }, onRoomData)
+  if (isVisiting()) channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `handle=eq.${room}` }, () => { if (active) onRoomData() })
   channel.subscribe((status) => {
-    if (status !== 'SUBSCRIBED' || !visitor) return
+    if (!active || status !== 'SUBSCRIBED' || !visitor) return
     liveVisitor = { sessionId: presenceSessionId, handle: visitor, appearance: myCharacterLook(), position: [...visitorPosition], facing: visitorFacing.current, state: visitorState.current }
     void channel.track(liveVisitor)
   })
   liveChannel = channel
-  return () => { if (liveChannel === channel) { liveChannel = null; liveVisitor = null }; publishVisitors([]); void channel.unsubscribe() }
+  return () => {
+    active = false
+    if (liveChannel === channel) { liveChannel = null; liveVisitor = null }
+    publishVisitors([])
+    // Explicitly leave Presence before closing the socket so other clients remove this avatar immediately.
+    void channel.send({ type: 'broadcast', event: 'visitor-leave', payload: { sessionId: presenceSessionId } })
+    void channel.untrack().then(() => channel.unsubscribe(), () => channel.unsubscribe())
+  }
 }
 
 // ⚠️ 확장 스위치. false(현재): DB 변경 감지(postgres_changes)가 방 데이터 전체(~40KB)를 구독자마다 통째로

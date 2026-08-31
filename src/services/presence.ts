@@ -27,6 +27,7 @@ export const publishVisitors = (next: VisitorPresence[]) => {
   listeners.forEach((listener) => listener())
 }
 export const publishVisitor = (next: VisitorPresence) => publishVisitors([...visitors.filter((visitor) => visitor.sessionId !== next.sessionId), next])
+export const removeVisitor = (sessionId: string) => publishVisitors(visitors.filter((visitor) => visitor.sessionId !== sessionId))
 export const useVisitors = () => useSyncExternalStore((listener) => { listeners.add(listener); return () => listeners.delete(listener) }, () => visitors, () => visitors)
 export const selfVisitor = () => visitors.find((visitor) => visitor.sessionId === presenceSessionId) ?? null
 
